@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 using Microsoft.EntityFrameworkCore;
 using FreshGroupSystem.Data;
 using FreshGroupSystem.Interfaces;
@@ -51,4 +52,34 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors();
 app.MapControllers();
+=======
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllersWithViews();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseRouting();
+
+app.UseAuthorization();
+
+app.MapStaticAssets();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}")
+    .WithStaticAssets();
+
+
+>>>>>>> 426d4f8de3687c9f651feb2f1c38d1fcd5444391
 app.Run();
