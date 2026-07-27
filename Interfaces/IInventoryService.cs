@@ -16,4 +16,12 @@ public interface IInventoryService
         IReadOnlyList<InventoryReservationItem> items,
         IDbTransaction transaction,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 取消未发货订单时释放该订单预留的库存。
+    /// </summary>
+    Task ReleaseAsync(
+        FulfillmentOrderRequest request,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default);
 }

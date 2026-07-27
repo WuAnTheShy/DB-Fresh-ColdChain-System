@@ -26,11 +26,6 @@ public interface ICustomerRepository
         CustomerProfileUpdateRequest request,
         IDbTransaction? transaction = null);
 
-    Task<bool> AddressBelongsToCustomerAsync(
-        int addressId,
-        int customerId,
-        IDbTransaction transaction);
-
     Task UpdatePointsAsync(
         int customerId,
         int newPoints,
@@ -40,6 +35,11 @@ public interface ICustomerRepository
         int customerId,
         decimal addAmount,
         IDbTransaction? transaction = null);
+
+    Task<bool> TrySubtractTotalSpentAsync(
+        int customerId,
+        decimal amount,
+        IDbTransaction transaction);
 
     Task UpdateMemberLevelAsync(
         int customerId,

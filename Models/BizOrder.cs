@@ -9,6 +9,9 @@ public class BizOrder
     public string OrderNo { get; set; } = string.Empty;    // 订单号(展示用)
     public int CustomerId { get; set; }
     public int AddressId { get; set; }
+    public string ReceiverName { get; set; } = string.Empty;
+    public string ReceiverPhone { get; set; } = string.Empty;
+    public string ShippingAddress { get; set; } = string.Empty;
     public decimal TotalAmount { get; set; }                // 商品总金额
     public decimal DiscountAmount { get; set; }             // 优惠券抵扣
     public decimal FreightAmount { get; set; }              // 运费

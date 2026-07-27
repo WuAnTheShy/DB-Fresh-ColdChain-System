@@ -17,6 +17,8 @@ public sealed class OrderService : IOrderService
     private readonly ICouponRepository _couponRepo;
     private readonly IPointRepository _pointRepo;
     private readonly IInventoryService _inventoryService;
+    private readonly ILogisticsService _logisticsService;
+    private readonly ICommissionService _commissionService;
     private readonly IOrderTransactionManager _transactionManager;
 
     public OrderService(
@@ -25,6 +27,8 @@ public sealed class OrderService : IOrderService
         ICouponRepository couponRepo,
         IPointRepository pointRepo,
         IInventoryService inventoryService,
+        ILogisticsService logisticsService,
+        ICommissionService commissionService,
         IOrderTransactionManager transactionManager)
     {
         _orderRepo = orderRepo;
@@ -32,6 +36,8 @@ public sealed class OrderService : IOrderService
         _couponRepo = couponRepo;
         _pointRepo = pointRepo;
         _inventoryService = inventoryService;
+        _logisticsService = logisticsService;
+        _commissionService = commissionService;
         _transactionManager = transactionManager;
     }
 
@@ -56,12 +62,12 @@ public sealed class OrderService : IOrderService
                     transaction)
                 ?? throw new OrderBusinessException("消费者不存在，无法创建订单");
 
-            var addressIsValid = await _customerRepo.AddressBelongsToCustomerAsync(
-                request.AddressId,
-                request.CustomerId,
-                transaction);
-            if (!addressIsValid)
-                throw new OrderBusinessException("收货地址不存在或不属于当前消费者");
+            var address = await _customerRepo.GetAddressAsync(
+                    request.CustomerId,
+                    request.AddressId,
+                    transaction)
+                ?? throw new OrderBusinessException(
+                    "收货地址不存在或不属于当前消费者");
 
             var productSnapshots = await _inventoryService.ReserveAsync(
                 reservationItems,
@@ -79,7 +85,19 @@ public sealed class OrderService : IOrderService
             var discountAmount = coupon == null
                 ? 0m
                 : Math.Min(coupon.DiscountAmount, goodsAmount);
-            var freightAmount = 0m;
+            var freightAmount = await _logisticsService.CalculateFreightAsync(
+                new FreightCalculationRequest
+                {
+                    CustomerId = customer.CustomerId,
+                    Province = address.Province,
+                    City = address.City,
+                    District = address.District,
+                    GoodsAmount = goodsAmount,
+                    Items = CreateFulfillmentItems(details)
+                },
+                transaction,
+                cancellationToken);
+            EnsureAmountFitsDatabase(freightAmount);
             var finalAmount = goodsAmount - discountAmount + freightAmount;
             EnsureAmountFitsDatabase(finalAmount);
 
@@ -93,6 +111,9 @@ public sealed class OrderService : IOrderService
                 OrderNo = GenerateOrderNo(),
                 CustomerId = request.CustomerId,
                 AddressId = request.AddressId,
+                ReceiverName = address.ReceiverName,
+                ReceiverPhone = address.Phone,
+                ShippingAddress = CreateShippingAddress(address),
                 TotalAmount = goodsAmount,
                 DiscountAmount = discountAmount,
                 FreightAmount = freightAmount,
@@ -163,6 +184,208 @@ public sealed class OrderService : IOrderService
                 PointsEarned = pointsEarned,
                 SupplierGroups = CreateSupplierGroups(details)
             };
+        });
+    }
+
+    public async Task<OrderListViewModel> GetOrdersAsync(OrderQueryRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        NormalizeOrderQuery(request);
+
+        var totalCount = await _orderRepo.CountOrdersAsync(request);
+        var totalPages = totalCount == 0
+            ? 0
+            : (int)Math.Ceiling(totalCount / (decimal)request.PageSize);
+        if (totalPages > 0 && request.Page > totalPages)
+            request.Page = totalPages;
+
+        var offset = checked((request.Page - 1) * request.PageSize);
+        return new OrderListViewModel
+        {
+            Query = request,
+            Orders = await _orderRepo.GetOrdersAsync(request, offset),
+            TotalCount = totalCount,
+            TotalPages = totalPages
+        };
+    }
+
+    public async Task<OrderDetailViewModel?> GetOrderDetailAsync(int orderId)
+    {
+        if (orderId <= 0)
+            return null;
+
+        var header = await _orderRepo.GetDetailHeaderAsync(orderId);
+        if (header == null)
+            return null;
+
+        var details = await _orderRepo.GetDetailsAsync(orderId);
+        var supplierIds = details
+            .Where(detail => detail.SupplierId.HasValue)
+            .Select(detail => detail.SupplierId!.Value)
+            .Distinct()
+            .OrderBy(supplierId => supplierId)
+            .ToList();
+        var fulfillmentStatuses =
+            await _logisticsService.GetSupplierStatusesAsync(
+                orderId,
+                supplierIds);
+        var status = (OrderStatus)header.OrderStatus;
+        return new OrderDetailViewModel
+        {
+            OrderId = orderId,
+            Order = header.ToOrder(),
+            CustomerName = header.CustomerName,
+            Details = details,
+            SupplierGroups = CreateSupplierGroupViewModels(
+                details,
+                fulfillmentStatuses),
+            CanShip = OrderStateMachine.CanTransition(
+                status,
+                OrderStatus.Shipped),
+            CanComplete = OrderStateMachine.CanTransition(
+                status,
+                OrderStatus.Completed),
+            CanCancel = OrderStateMachine.CanTransition(
+                status,
+                OrderStatus.Cancelled)
+        };
+    }
+
+    public async Task TransitionOrderAsync(
+        int orderId,
+        OrderStatus targetStatus,
+        CancellationToken cancellationToken = default)
+    {
+        if (orderId <= 0)
+            throw new OrderBusinessException("订单ID必须大于0");
+        if (targetStatus is not (OrderStatus.Shipped or OrderStatus.Completed))
+            throw new OrderBusinessException("目标订单状态不受此操作支持");
+
+        await _transactionManager.ExecuteAsync(async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var context = await GetLockedOrderContextAsync(orderId, transaction);
+            var currentStatus = (OrderStatus)context.Order.OrderStatus;
+            OrderStateMachine.EnsureTransition(currentStatus, targetStatus);
+
+            if (targetStatus == OrderStatus.Shipped)
+            {
+                await _logisticsService.CreateShipmentAsync(
+                    CreateFulfillmentOrderRequest(
+                        context.Order,
+                        context.Details),
+                    transaction,
+                    cancellationToken);
+            }
+            else
+            {
+                await _commissionService.RegisterCompletedOrderAsync(
+                    new CommissionOrderRequest
+                    {
+                        OrderId = context.Order.OrderId,
+                        OrderNo = context.Order.OrderNo,
+                        CustomerId = context.Customer.CustomerId,
+                        PromoterId = context.Customer.PromoterId,
+                        CommissionBaseAmount = context.Order.FinalAmount,
+                        CompletedAt = DateTime.Now
+                    },
+                    transaction,
+                    cancellationToken);
+            }
+
+            if (!await _orderRepo.TryUpdateStatusAsync(
+                orderId,
+                currentStatus,
+                targetStatus,
+                transaction))
+            {
+                throw new OrderBusinessException("订单状态已变化，请刷新后重试");
+            }
+        });
+    }
+
+    public async Task CancelOrderAsync(
+        int orderId,
+        CancellationToken cancellationToken = default)
+    {
+        if (orderId <= 0)
+            throw new OrderBusinessException("订单ID必须大于0");
+
+        await _transactionManager.ExecuteAsync(async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var context = await GetLockedOrderContextAsync(orderId, transaction);
+            var currentStatus = (OrderStatus)context.Order.OrderStatus;
+            OrderStateMachine.EnsureTransition(
+                currentStatus,
+                OrderStatus.Cancelled);
+
+            await _inventoryService.ReleaseAsync(
+                CreateFulfillmentOrderRequest(
+                    context.Order,
+                    context.Details),
+                transaction,
+                cancellationToken);
+
+            if (context.Order.PointsEarned > 0)
+            {
+                if (context.Customer.Points < context.Order.PointsEarned)
+                {
+                    throw new OrderBusinessException(
+                        "当前积分不足以撤销该订单奖励，请联系管理员处理");
+                }
+
+                var newPoints = context.Customer.Points - context.Order.PointsEarned;
+                await _customerRepo.UpdatePointsAsync(
+                    context.Customer.CustomerId,
+                    newPoints,
+                    transaction);
+                await _pointRepo.InsertLogAsync(new CrmPointLog
+                {
+                    CustomerId = context.Customer.CustomerId,
+                    ChangeAmount = -context.Order.PointsEarned,
+                    BalanceAfter = newPoints,
+                    ChangeType = "ORDER_CANCEL",
+                    OrderId = context.Order.OrderId
+                }, transaction);
+            }
+
+            if (!await _customerRepo.TrySubtractTotalSpentAsync(
+                context.Customer.CustomerId,
+                context.Order.FinalAmount,
+                transaction))
+            {
+                throw new OrderBusinessException(
+                    "累计消费金额不足以撤销该订单，请联系管理员处理");
+            }
+
+            _ = await _couponRepo.RestoreCouponForCancelledOrderAsync(
+                context.Order.OrderId,
+                context.Customer.CustomerId,
+                transaction);
+
+            var newTotalSpent =
+                context.Customer.TotalSpent - context.Order.FinalAmount;
+            var qualifiedLevel = await _pointRepo.GetLevelForSpentAsync(
+                newTotalSpent,
+                transaction);
+            if (qualifiedLevel != null &&
+                qualifiedLevel.MemberLevelId != context.Customer.MemberLevelId)
+            {
+                await _customerRepo.UpdateMemberLevelAsync(
+                    context.Customer.CustomerId,
+                    qualifiedLevel.MemberLevelId,
+                    transaction);
+            }
+
+            if (!await _orderRepo.TryUpdateStatusAsync(
+                orderId,
+                currentStatus,
+                OrderStatus.Cancelled,
+                transaction))
+            {
+                throw new OrderBusinessException("订单状态已变化，请刷新后重试");
+            }
         });
     }
 
@@ -326,6 +549,120 @@ public sealed class OrderService : IOrderService
         return Math.Max(1, level?.PointsMultiplier ?? 1);
     }
 
+    private async Task<LockedOrderContext> GetLockedOrderContextAsync(
+        int orderId,
+        IDbTransaction transaction)
+    {
+        var initialOrder = await _orderRepo.GetByIdAsync(orderId, transaction)
+            ?? throw new OrderBusinessException("订单不存在");
+        var customer = await _customerRepo.GetByIdForUpdateAsync(
+                initialOrder.CustomerId,
+                transaction)
+            ?? throw new OrderBusinessException("订单消费者不存在");
+        var lockedOrder = await _orderRepo.GetByIdForUpdateAsync(
+                orderId,
+                transaction)
+            ?? throw new OrderBusinessException("订单不存在");
+        if (lockedOrder.CustomerId != customer.CustomerId)
+            throw new OrderBusinessException("订单消费者已变化，请刷新后重试");
+
+        return new LockedOrderContext
+        {
+            Order = lockedOrder,
+            Customer = customer,
+            Details = await _orderRepo.GetDetailsAsync(orderId, transaction)
+        };
+    }
+
+    private static void NormalizeOrderQuery(OrderQueryRequest request)
+    {
+        if (request.CustomerId <= 0)
+            throw new OrderBusinessException("消费者ID必须大于0");
+        if (request.Status.HasValue &&
+            !Enum.IsDefined(request.Status.Value))
+        {
+            throw new OrderBusinessException("订单状态筛选值无效");
+        }
+
+        request.Keyword = string.IsNullOrWhiteSpace(request.Keyword)
+            ? null
+            : request.Keyword.Trim();
+        if (request.Keyword?.Length > 50)
+            throw new OrderBusinessException("关键词不能超过50个字符");
+        request.Page = Math.Max(1, request.Page);
+        request.PageSize = Math.Clamp(request.PageSize, 1, 50);
+    }
+
+    private static string CreateShippingAddress(CrmUserAddress address)
+    {
+        return string.Join(
+            " ",
+            new[]
+            {
+                address.Province,
+                address.City,
+                address.District,
+                address.DetailAddress
+            }.Where(part => !string.IsNullOrWhiteSpace(part)));
+    }
+
+    private static IReadOnlyList<FulfillmentOrderItem> CreateFulfillmentItems(
+        IEnumerable<BizOrderDetail> details)
+    {
+        return details.Select(detail => new FulfillmentOrderItem
+        {
+            ProductId = detail.ProductId,
+            ProductName = detail.ProductName,
+            SupplierId = detail.SupplierId
+                ?? throw new OrderBusinessException(
+                    $"商品 {detail.ProductId} 缺少供应商"),
+            Quantity = detail.Quantity,
+            UnitPrice = detail.UnitPrice,
+            SubTotal = detail.SubTotal
+        }).ToList();
+    }
+
+    private static FulfillmentOrderRequest CreateFulfillmentOrderRequest(
+        BizOrder order,
+        IReadOnlyList<BizOrderDetail> details)
+    {
+        return new FulfillmentOrderRequest
+        {
+            OrderId = order.OrderId,
+            OrderNo = order.OrderNo,
+            ReceiverName = order.ReceiverName,
+            ReceiverPhone = order.ReceiverPhone,
+            ShippingAddress = order.ShippingAddress,
+            Items = CreateFulfillmentItems(details)
+        };
+    }
+
+    private static IReadOnlyList<OrderSupplierGroupViewModel>
+        CreateSupplierGroupViewModels(
+            IEnumerable<BizOrderDetail> details,
+            IReadOnlyList<SupplierFulfillmentStatus> fulfillmentStatuses)
+    {
+        var statusBySupplier = fulfillmentStatuses
+            .GroupBy(status => status.SupplierId)
+            .ToDictionary(group => group.Key, group => group.First());
+        return details
+            .GroupBy(detail => detail.SupplierId ?? 0)
+            .OrderBy(group => group.Key)
+            .Select(group => new OrderSupplierGroupViewModel
+            {
+                SupplierId = group.Key,
+                SubTotal = group.Sum(detail => detail.SubTotal),
+                FulfillmentStatus = statusBySupplier.TryGetValue(
+                    group.Key,
+                    out var fulfillment)
+                    ? fulfillment.StatusName
+                    : "未同步",
+                TrackingNo = fulfillment?.TrackingNo,
+                Items = group.ToList()
+            })
+            .ToList();
+    }
+
     private static int CalculatePoints(decimal finalAmount, int pointsMultiplier)
     {
         try
@@ -370,5 +707,12 @@ public sealed class OrderService : IOrderService
     private static string GenerateOrderNo()
     {
         return $"ORD{DateTime.UtcNow:yyyyMMddHHmmssfff}{Guid.NewGuid():N}"[..31];
+    }
+
+    private sealed class LockedOrderContext
+    {
+        public required BizOrder Order { get; init; }
+        public required CrmCustomer Customer { get; init; }
+        public required List<BizOrderDetail> Details { get; init; }
     }
 }

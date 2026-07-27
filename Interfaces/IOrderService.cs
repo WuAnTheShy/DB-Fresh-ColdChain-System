@@ -13,6 +13,23 @@ public interface IOrderService
         CreateOrderRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>分页查询订单</summary>
+    Task<OrderListViewModel> GetOrdersAsync(OrderQueryRequest request);
+
+    /// <summary>查询订单详情及供应商拆单</summary>
+    Task<OrderDetailViewModel?> GetOrderDetailAsync(int orderId);
+
+    /// <summary>执行已支付→已发货或已发货→已完成的合法状态流转</summary>
+    Task TransitionOrderAsync(
+        int orderId,
+        OrderStatus targetStatus,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>取消已支付但尚未发货的订单，并补偿 B/A 组资产</summary>
+    Task CancelOrderAsync(
+        int orderId,
+        CancellationToken cancellationToken = default);
+
     /// <summary>扣减买家积分（C组退款时调用）</summary>
     Task DeductPointsForRefundAsync(int customerId, int orderId, int pointsToDeduct);
 

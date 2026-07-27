@@ -28,6 +28,8 @@ public class Program
         builder.Services.AddScoped<IOrderTransactionManager, OracleOrderTransactionManager>();
         builder.Services.AddScoped<IPasswordHasher<CrmCustomer>, PasswordHasher<CrmCustomer>>();
         builder.Services.AddScoped<IInventoryService, DummyInventoryService>();
+        builder.Services.AddScoped<ILogisticsService, DummyLogisticsService>();
+        builder.Services.AddScoped<ICommissionService, DummyCommissionService>();
         builder.Services.AddScoped<IOrderService, OrderService>();
         builder.Services.AddScoped<ICustomerService, CustomerService>();
         builder.Services.AddScoped<ICouponService, CouponService>();

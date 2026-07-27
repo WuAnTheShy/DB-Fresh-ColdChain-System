@@ -17,10 +17,14 @@ public class OrderRepository : BaseRepository, IOrderRepository
     public async Task<int> CreateOrderAsync(BizOrder order, IDbTransaction? transaction = null)
     {
         var sql = @"
-            INSERT INTO Biz_Orders (OrderNo, CustomerId, AddressId, TotalAmount, 
-                DiscountAmount, FreightAmount, FinalAmount, PointsEarned, OrderStatus, CreatedAt)
-            VALUES (:OrderNo, :CustomerId, :AddressId, :TotalAmount, 
-                :DiscountAmount, :FreightAmount, :FinalAmount, :PointsEarned, :OrderStatus, SYSDATE)
+            INSERT INTO Biz_Orders (
+                OrderNo, CustomerId, AddressId, ReceiverName, ReceiverPhone,
+                ShippingAddress, TotalAmount, DiscountAmount, FreightAmount,
+                FinalAmount, PointsEarned, OrderStatus, CreatedAt)
+            VALUES (
+                :OrderNo, :CustomerId, :AddressId, :ReceiverName, :ReceiverPhone,
+                :ShippingAddress, :TotalAmount, :DiscountAmount, :FreightAmount,
+                :FinalAmount, :PointsEarned, :OrderStatus, SYSDATE)
             RETURNING OrderId INTO :OrderId";
 
         var parameters = new DynamicParameters(order);
@@ -43,15 +47,129 @@ public class OrderRepository : BaseRepository, IOrderRepository
                 transaction));
     }
 
-    /// <summary>更新订单状态</summary>
-    public async Task UpdateStatusAsync(int orderId, int status, IDbTransaction? transaction = null)
+    public async Task<BizOrder?> GetByIdForUpdateAsync(
+        int orderId,
+        IDbTransaction transaction)
     {
-        await WithConnectionAsync(transaction, async connection =>
+        return await WithConnectionAsync(transaction, connection =>
+            connection.QueryFirstOrDefaultAsync<BizOrder>(
+                @"SELECT * FROM Biz_Orders
+                  WHERE OrderId = :OrderId
+                  FOR UPDATE",
+                new { OrderId = orderId },
+                transaction));
+    }
+
+    public async Task<int> CountOrdersAsync(
+        OrderQueryRequest request,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, connection =>
+            connection.ExecuteScalarAsync<int>(
+                $@"SELECT COUNT(1)
+                   FROM Biz_Orders o
+                   JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
+                   {CreateOrderFilterSql()}",
+                CreateOrderQueryParameters(request),
+                transaction));
+    }
+
+    public async Task<List<OrderListItem>> GetOrdersAsync(
+        OrderQueryRequest request,
+        int offset,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<OrderListItem>(
+                $@"SELECT o.OrderId,
+                          o.OrderNo,
+                          o.CustomerId,
+                          c.CustomerName,
+                          o.FinalAmount,
+                          o.OrderStatus,
+                          COUNT(d.OrderDetailId) AS ItemCount,
+                          COUNT(DISTINCT d.SupplierId) AS SupplierCount,
+                          o.CreatedAt
+                   FROM Biz_Orders o
+                   JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
+                   LEFT JOIN Biz_OrderDetails d ON d.OrderId = o.OrderId
+                   {CreateOrderFilterSql()}
+                   GROUP BY o.OrderId,
+                            o.OrderNo,
+                            o.CustomerId,
+                            c.CustomerName,
+                            o.FinalAmount,
+                            o.OrderStatus,
+                            o.CreatedAt
+                   ORDER BY o.CreatedAt DESC, o.OrderId DESC
+                   OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY",
+                CreateOrderQueryParameters(request, offset),
+                transaction)).ToList());
+    }
+
+    public async Task<OrderDetailHeader?> GetDetailHeaderAsync(
+        int orderId,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, connection =>
+            connection.QueryFirstOrDefaultAsync<OrderDetailHeader>(
+                @"SELECT o.OrderId,
+                         o.OrderNo,
+                         o.CustomerId,
+                         o.AddressId,
+                         c.CustomerName,
+                         o.ReceiverName,
+                         o.ReceiverPhone,
+                         o.ShippingAddress,
+                         o.TotalAmount,
+                         o.DiscountAmount,
+                         o.FreightAmount,
+                         o.FinalAmount,
+                         o.PointsEarned,
+                         o.OrderStatus,
+                         o.CreatedAt,
+                         o.UpdatedAt
+                  FROM Biz_Orders o
+                  JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
+                  WHERE o.OrderId = :OrderId",
+                new { OrderId = orderId },
+                transaction));
+    }
+
+    public async Task<List<BizOrderDetail>> GetDetailsAsync(
+        int orderId,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<BizOrderDetail>(
+                @"SELECT * FROM Biz_OrderDetails
+                  WHERE OrderId = :OrderId
+                  ORDER BY SupplierId ASC, OrderDetailId ASC",
+                new { OrderId = orderId },
+                transaction)).ToList());
+    }
+
+    /// <summary>带旧状态条件的原子状态更新</summary>
+    public async Task<bool> TryUpdateStatusAsync(
+        int orderId,
+        OrderStatus expectedStatus,
+        OrderStatus targetStatus,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
         {
-            await connection.ExecuteAsync(
-                "UPDATE Biz_Orders SET OrderStatus = :Status, UpdatedAt = SYSDATE WHERE OrderId = :OrderId",
-                new { OrderId = orderId, Status = status },
+            var affected = await connection.ExecuteAsync(
+                @"UPDATE Biz_Orders
+                  SET OrderStatus = :TargetStatus, UpdatedAt = SYSDATE
+                  WHERE OrderId = :OrderId AND OrderStatus = :ExpectedStatus",
+                new
+                {
+                    OrderId = orderId,
+                    ExpectedStatus = (int)expectedStatus,
+                    TargetStatus = (int)targetStatus
+                },
                 transaction);
+            return affected == 1;
         });
     }
 
@@ -67,5 +185,30 @@ public class OrderRepository : BaseRepository, IOrderRepository
         {
             await connection.ExecuteAsync(sql, details, transaction);
         });
+    }
+
+    private static string CreateOrderFilterSql()
+    {
+        return @"WHERE (:CustomerId IS NULL OR o.CustomerId = :CustomerId)
+                   AND (:OrderStatus IS NULL OR o.OrderStatus = :OrderStatus)
+                   AND (:Keyword IS NULL
+                        OR o.OrderNo LIKE '%' || :Keyword || '%'
+                        OR c.CustomerName LIKE '%' || :Keyword || '%')";
+    }
+
+    private static object CreateOrderQueryParameters(
+        OrderQueryRequest request,
+        int offset = 0)
+    {
+        return new
+        {
+            request.CustomerId,
+            OrderStatus = request.Status.HasValue
+                ? (int?)request.Status.Value
+                : null,
+            request.Keyword,
+            Offset = offset,
+            request.PageSize
+        };
     }
 }

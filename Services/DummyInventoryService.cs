@@ -51,6 +51,17 @@ public sealed class DummyInventoryService : IInventoryService
         return Task.FromResult<IReadOnlyList<InventoryProductSnapshot>>(snapshots);
     }
 
+    public Task ReleaseAsync(
+        FulfillmentOrderRequest request,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(transaction);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.CompletedTask;
+    }
+
     private sealed record DummyProduct(
         string ProductName,
         int SupplierId,

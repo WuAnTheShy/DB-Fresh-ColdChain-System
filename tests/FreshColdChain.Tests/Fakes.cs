@@ -17,6 +17,8 @@ internal sealed class TestContext
         CouponRepository = new FakeCouponRepository();
         PointRepository = new FakePointRepository();
         InventoryService = new FakeInventoryService();
+        LogisticsService = new FakeLogisticsService();
+        CommissionService = new FakeCommissionService();
         TransactionManager = new FakeTransactionManager();
         Service = new OrderService(
             OrderRepository,
@@ -24,6 +26,8 @@ internal sealed class TestContext
             CouponRepository,
             PointRepository,
             InventoryService,
+            LogisticsService,
+            CommissionService,
             TransactionManager);
         CustomerService = new CustomerService(
             CustomerRepository,
@@ -41,6 +45,8 @@ internal sealed class TestContext
     public FakeCouponRepository CouponRepository { get; }
     public FakePointRepository PointRepository { get; }
     public FakeInventoryService InventoryService { get; }
+    public FakeLogisticsService LogisticsService { get; }
+    public FakeCommissionService CommissionService { get; }
     public FakeTransactionManager TransactionManager { get; }
     public OrderService Service { get; }
     public CustomerService CustomerService { get; }
@@ -142,17 +148,112 @@ internal sealed class FakeOrderRepository : IOrderRepository
         return Task.FromResult(Orders.SingleOrDefault(order => order.OrderId == orderId));
     }
 
-    public Task UpdateStatusAsync(
+    public Task<BizOrder?> GetByIdForUpdateAsync(
         int orderId,
-        int status,
+        IDbTransaction transaction)
+    {
+        return GetByIdAsync(orderId, transaction);
+    }
+
+    public Task<int> CountOrdersAsync(
+        OrderQueryRequest request,
         IDbTransaction? transaction = null)
     {
+        return Task.FromResult(FilterOrders(request).Count());
+    }
+
+    public Task<List<OrderListItem>> GetOrdersAsync(
+        OrderQueryRequest request,
+        int offset,
+        IDbTransaction? transaction = null)
+    {
+        var orders = FilterOrders(request)
+            .OrderByDescending(order => order.CreatedAt)
+            .ThenByDescending(order => order.OrderId)
+            .Skip(offset)
+            .Take(request.PageSize)
+            .Select(order =>
+            {
+                var details = Details
+                    .Where(detail => detail.OrderId == order.OrderId)
+                    .ToList();
+                return new OrderListItem
+                {
+                    OrderId = order.OrderId,
+                    OrderNo = order.OrderNo,
+                    CustomerId = order.CustomerId,
+                    CustomerName = "测试消费者",
+                    FinalAmount = order.FinalAmount,
+                    OrderStatus = order.OrderStatus,
+                    ItemCount = details.Count,
+                    SupplierCount = details
+                        .Where(detail => detail.SupplierId.HasValue)
+                        .Select(detail => detail.SupplierId)
+                        .Distinct()
+                        .Count(),
+                    CreatedAt = order.CreatedAt
+                };
+            })
+            .ToList();
+        return Task.FromResult(orders);
+    }
+
+    public Task<OrderDetailHeader?> GetDetailHeaderAsync(
+        int orderId,
+        IDbTransaction? transaction = null)
+    {
+        var order = Orders.SingleOrDefault(item => item.OrderId == orderId);
+        return Task.FromResult(order == null
+            ? null
+            : new OrderDetailHeader
+            {
+                OrderId = order.OrderId,
+                OrderNo = order.OrderNo,
+                CustomerId = order.CustomerId,
+                AddressId = order.AddressId,
+                CustomerName = "测试消费者",
+                ReceiverName = order.ReceiverName,
+                ReceiverPhone = order.ReceiverPhone,
+                ShippingAddress = order.ShippingAddress,
+                TotalAmount = order.TotalAmount,
+                DiscountAmount = order.DiscountAmount,
+                FreightAmount = order.FreightAmount,
+                FinalAmount = order.FinalAmount,
+                PointsEarned = order.PointsEarned,
+                OrderStatus = order.OrderStatus,
+                CreatedAt = order.CreatedAt,
+                UpdatedAt = order.UpdatedAt
+            });
+    }
+
+    public Task<List<BizOrderDetail>> GetDetailsAsync(
+        int orderId,
+        IDbTransaction? transaction = null)
+    {
+        return Task.FromResult(Details
+            .Where(detail => detail.OrderId == orderId)
+            .OrderBy(detail => detail.SupplierId)
+            .ThenBy(detail => detail.OrderDetailId)
+            .Select(CloneDetail)
+            .ToList());
+    }
+
+    public Task<bool> TryUpdateStatusAsync(
+        int orderId,
+        OrderStatus expectedStatus,
+        OrderStatus targetStatus,
+        IDbTransaction transaction)
+    {
+        var order = Orders.SingleOrDefault(item => item.OrderId == orderId);
+        if (order == null || order.OrderStatus != (int)expectedStatus)
+            return Task.FromResult(false);
+
         Stage(transaction, () =>
         {
-            var order = Orders.Single(item => item.OrderId == orderId);
-            order.OrderStatus = status;
+            order.OrderStatus = (int)targetStatus;
+            order.UpdatedAt = DateTime.Now;
         });
-        return Task.CompletedTask;
+        return Task.FromResult(true);
     }
 
     public Task InsertDetailsAsync(
@@ -177,6 +278,22 @@ internal sealed class FakeOrderRepository : IOrderRepository
             SubTotal = detail.SubTotal,
             SupplierId = detail.SupplierId
         };
+    }
+
+    private IEnumerable<BizOrder> FilterOrders(OrderQueryRequest request)
+    {
+        return Orders.Where(order =>
+            (!request.CustomerId.HasValue ||
+             order.CustomerId == request.CustomerId.Value) &&
+            (!request.Status.HasValue ||
+             order.OrderStatus == (int)request.Status.Value) &&
+            (request.Keyword == null ||
+             order.OrderNo.Contains(
+                 request.Keyword,
+                 StringComparison.OrdinalIgnoreCase) ||
+             "测试消费者".Contains(
+                 request.Keyword,
+                 StringComparison.OrdinalIgnoreCase)));
     }
 
     private static void Stage(IDbTransaction? transaction, Action action)
@@ -272,16 +389,6 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         return Task.FromResult(true);
     }
 
-    public Task<bool> AddressBelongsToCustomerAsync(
-        int addressId,
-        int customerId,
-        IDbTransaction transaction)
-    {
-        return Task.FromResult(Addresses.Any(address =>
-            address.AddressId == addressId &&
-            address.CustomerId == customerId));
-    }
-
     public Task UpdatePointsAsync(
         int customerId,
         int newPoints,
@@ -298,6 +405,21 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     {
         Stage(transaction, () => Customer.TotalSpent += addAmount);
         return Task.CompletedTask;
+    }
+
+    public Task<bool> TrySubtractTotalSpentAsync(
+        int customerId,
+        decimal amount,
+        IDbTransaction transaction)
+    {
+        if (customerId != Customer.CustomerId ||
+            Customer.TotalSpent < amount)
+        {
+            return Task.FromResult(false);
+        }
+
+        Stage(transaction, () => Customer.TotalSpent -= amount);
+        return Task.FromResult(true);
     }
 
     public Task UpdateMemberLevelAsync(
@@ -615,6 +737,29 @@ internal sealed class FakeCouponRepository : ICouponRepository
         return Task.FromResult(true);
     }
 
+    public Task<int> RestoreCouponForCancelledOrderAsync(
+        int orderId,
+        int customerId,
+        IDbTransaction transaction)
+    {
+        var matchingRecords = Records
+            .Where(record =>
+                record.OrderId == orderId &&
+                record.CustomerId == customerId &&
+                record.Status == 1)
+            .ToList();
+        Stage(transaction, () =>
+        {
+            foreach (var record in matchingRecords)
+            {
+                record.Status = 0;
+                record.OrderId = null;
+                record.UsedAt = null;
+            }
+        });
+        return Task.FromResult(matchingRecords.Count);
+    }
+
     public Task<bool> DecrementCouponStockAsync(
         int couponId,
         IDbTransaction? transaction = null)
@@ -762,7 +907,9 @@ internal sealed class FakePointRepository : IPointRepository
 internal sealed class FakeInventoryService : IInventoryService
 {
     public Exception? ExceptionToThrow { get; set; }
+    public Exception? ReleaseExceptionToThrow { get; set; }
     public IReadOnlyList<InventoryReservationItem> LastItems { get; private set; } = [];
+    public List<int> ReleasedOrderIds { get; } = [];
 
     public Task<IReadOnlyList<InventoryProductSnapshot>> ReserveAsync(
         IReadOnlyList<InventoryReservationItem> items,
@@ -793,6 +940,84 @@ internal sealed class FakeInventoryService : IInventoryService
         }).ToList();
 
         return Task.FromResult<IReadOnlyList<InventoryProductSnapshot>>(snapshots);
+    }
+
+    public Task ReleaseAsync(
+        FulfillmentOrderRequest request,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        if (ReleaseExceptionToThrow != null)
+            throw ReleaseExceptionToThrow;
+
+        ((FakeOrderTransaction)transaction).Stage(
+            () => ReleasedOrderIds.Add(request.OrderId));
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeLogisticsService : ILogisticsService
+{
+    public decimal FreightAmount { get; set; }
+    public Exception? ShipmentExceptionToThrow { get; set; }
+    public List<int> ShippedOrderIds { get; } = [];
+    public FreightCalculationRequest? LastFreightRequest { get; private set; }
+
+    public Task<decimal> CalculateFreightAsync(
+        FreightCalculationRequest request,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        LastFreightRequest = request;
+        return Task.FromResult(FreightAmount);
+    }
+
+    public Task CreateShipmentAsync(
+        FulfillmentOrderRequest request,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        if (ShipmentExceptionToThrow != null)
+            throw ShipmentExceptionToThrow;
+
+        ((FakeOrderTransaction)transaction).Stage(
+            () => ShippedOrderIds.Add(request.OrderId));
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
+        int orderId,
+        IReadOnlyList<int> supplierIds,
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<SupplierFulfillmentStatus> statuses = supplierIds
+            .Select(supplierId => new SupplierFulfillmentStatus
+            {
+                SupplierId = supplierId,
+                StatusName = "待发货",
+                TrackingNo = $"TRACK-{orderId}-{supplierId}"
+            })
+            .ToList();
+        return Task.FromResult(statuses);
+    }
+}
+
+internal sealed class FakeCommissionService : ICommissionService
+{
+    public Exception? ExceptionToThrow { get; set; }
+    public List<CommissionOrderRequest> CompletedOrders { get; } = [];
+
+    public Task RegisterCompletedOrderAsync(
+        CommissionOrderRequest request,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        if (ExceptionToThrow != null)
+            throw ExceptionToThrow;
+
+        ((FakeOrderTransaction)transaction).Stage(
+            () => CompletedOrders.Add(request));
+        return Task.CompletedTask;
     }
 }
 

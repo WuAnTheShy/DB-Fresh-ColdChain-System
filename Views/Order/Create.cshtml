@@ -30,6 +30,10 @@
                         实付：<strong>¥@result.FinalAmount.ToString("F2")</strong>，
                         获得积分：@result.PointsEarned
                     </div>
+                    <div class="mt-2">
+                        <a asp-action="Detail" asp-route-id="@result.OrderId"
+                           class="alert-link">查看订单详情</a>
+                    </div>
                 </div>
 
                 <div class="card shadow-sm mb-4">

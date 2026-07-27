@@ -47,6 +47,11 @@ public interface ICouponRepository
         int orderId,
         IDbTransaction transaction);
 
+    Task<int> RestoreCouponForCancelledOrderAsync(
+        int orderId,
+        int customerId,
+        IDbTransaction transaction);
+
     Task<bool> DecrementCouponStockAsync(
         int couponId,
         IDbTransaction? transaction = null);

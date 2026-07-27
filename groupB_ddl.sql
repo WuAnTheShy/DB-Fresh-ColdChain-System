@@ -119,17 +119,33 @@ CREATE TABLE Biz_Orders (
     OrderNo         VARCHAR2(50)   NOT NULL UNIQUE,
     CustomerId      NUMBER         NOT NULL,
     AddressId       NUMBER         NOT NULL,
+    ReceiverName    VARCHAR2(50)   NOT NULL,      -- 下单时收件人快照
+    ReceiverPhone   VARCHAR2(20)   NOT NULL,      -- 下单时电话快照
+    ShippingAddress VARCHAR2(500)  NOT NULL,      -- 下单时完整地址快照
     TotalAmount     NUMBER(10,2)   NOT NULL,
     DiscountAmount  NUMBER(10,2)   DEFAULT 0,
     FreightAmount   NUMBER(10,2)   DEFAULT 0,
     FinalAmount     NUMBER(10,2)   NOT NULL,
     PointsEarned    NUMBER         DEFAULT 0,
-    OrderStatus     NUMBER(2)      DEFAULT 0,     -- 0=待付 1=已付 2=已发货 3=完成 4=取消
+    OrderStatus     NUMBER(2)      DEFAULT 0,     -- 0=待付 1=已付 2=已发货 3=完成 4=取消 5=退款中 6=已退款
     CreatedAt       DATE           DEFAULT SYSDATE,
     UpdatedAt       DATE,
     CONSTRAINT FK_Order_Customer FOREIGN KEY (CustomerId) REFERENCES Crm_Customers(CustomerId),
-    CONSTRAINT FK_Order_Address  FOREIGN KEY (AddressId)  REFERENCES Crm_UserAddresses(AddressId)
+    CONSTRAINT FK_Order_Address  FOREIGN KEY (AddressId)  REFERENCES Crm_UserAddresses(AddressId),
+    CONSTRAINT CK_Order_Status CHECK (OrderStatus IN (0, 1, 2, 3, 4, 5, 6)),
+    CONSTRAINT CK_Order_Amounts CHECK (
+        TotalAmount >= 0
+        AND DiscountAmount >= 0
+        AND FreightAmount >= 0
+        AND FinalAmount >= 0
+    )
 );
+
+CREATE INDEX IX_Order_CustomerCreated
+    ON Biz_Orders (CustomerId, CreatedAt);
+
+CREATE INDEX IX_Order_StatusCreated
+    ON Biz_Orders (OrderStatus, CreatedAt);
 
 -- 8. Biz_OrderDetails - 订单明细
 CREATE TABLE Biz_OrderDetails (

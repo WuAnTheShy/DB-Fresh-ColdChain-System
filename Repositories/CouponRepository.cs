@@ -203,6 +203,23 @@ public class CouponRepository : BaseRepository, ICouponRepository
         });
     }
 
+    /// <summary>取消订单时归还该订单核销的用户券</summary>
+    public async Task<int> RestoreCouponForCancelledOrderAsync(
+        int orderId,
+        int customerId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, connection =>
+            connection.ExecuteAsync(
+                @"UPDATE Mkt_CouponRecords
+                  SET Status = 0, OrderId = NULL, UsedAt = NULL
+                  WHERE OrderId = :OrderId
+                    AND CustomerId = :CustomerId
+                    AND Status = 1",
+                new { OrderId = orderId, CustomerId = customerId },
+                transaction));
+    }
+
     /// <summary>减少券模板剩余数量(防超发)</summary>
     public async Task<bool> DecrementCouponStockAsync(int couponId, IDbTransaction? transaction = null)
     {
