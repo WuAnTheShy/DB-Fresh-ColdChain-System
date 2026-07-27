@@ -7,7 +7,7 @@ namespace FreshColdChain.Repositories;
 /// <summary>
 /// 消费者数据访问层 - Crm_Customers, Crm_UserAddresses
 /// </summary>
-public class CustomerRepository : BaseRepository
+public class CustomerRepository : BaseRepository, ICustomerRepository
 {
     public CustomerRepository(IConfiguration configuration) : base(configuration) { }
 
@@ -18,6 +18,35 @@ public class CustomerRepository : BaseRepository
                 "SELECT * FROM Crm_Customers WHERE CustomerId = :CustomerId",
                 new { CustomerId = customerId },
                 transaction));
+    }
+
+    /// <summary>锁定消费者行，防止并发订单覆盖积分余额</summary>
+    public async Task<CrmCustomer?> GetByIdForUpdateAsync(
+        int customerId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, connection =>
+            connection.QueryFirstOrDefaultAsync<CrmCustomer>(
+                "SELECT * FROM Crm_Customers WHERE CustomerId = :CustomerId FOR UPDATE",
+                new { CustomerId = customerId },
+                transaction));
+    }
+
+    /// <summary>校验收货地址属于当前消费者</summary>
+    public async Task<bool> AddressBelongsToCustomerAsync(
+        int addressId,
+        int customerId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+        {
+            var count = await connection.ExecuteScalarAsync<int>(
+                @"SELECT COUNT(1) FROM Crm_UserAddresses
+                  WHERE AddressId = :AddressId AND CustomerId = :CustomerId",
+                new { AddressId = addressId, CustomerId = customerId },
+                transaction);
+            return count > 0;
+        });
     }
 
     public async Task UpdatePointsAsync(int customerId, int newPoints, IDbTransaction? transaction = null)

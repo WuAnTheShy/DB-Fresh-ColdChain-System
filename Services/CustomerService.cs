@@ -9,13 +9,11 @@ namespace FreshColdChain.Services;
 /// </summary>
 public class CustomerService : ICustomerService
 {
-    private readonly CustomerRepository _customerRepo;
-    private readonly PointRepository _pointRepo;
+    private readonly ICustomerRepository _customerRepo;
 
-    public CustomerService(CustomerRepository customerRepo, PointRepository pointRepo)
+    public CustomerService(ICustomerRepository customerRepo)
     {
         _customerRepo = customerRepo;
-        _pointRepo = pointRepo;
     }
 
     public async Task<CrmCustomer?> GetCustomerAsync(int customerId)

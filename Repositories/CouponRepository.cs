@@ -7,7 +7,7 @@ namespace FreshColdChain.Repositories;
 /// <summary>
 /// 优惠券数据访问层 - Mkt_Coupons, Mkt_CouponRecords
 /// </summary>
-public class CouponRepository : BaseRepository
+public class CouponRepository : BaseRepository, ICouponRepository
 {
     public CouponRepository(IConfiguration configuration) : base(configuration) { }
 
@@ -38,17 +38,58 @@ public class CouponRepository : BaseRepository
                 transaction));
     }
 
-    /// <summary>标记优惠券为已使用</summary>
-    public async Task UseCouponAsync(int recordId, int orderId, IDbTransaction? transaction = null)
+    /// <summary>锁定并读取本次订单可用的用户券</summary>
+    public async Task<MktCouponUsage?> GetUsableCouponForUpdateAsync(
+        int recordId,
+        int customerId,
+        decimal orderAmount,
+        IDbTransaction transaction)
     {
-        await WithConnectionAsync(transaction, async connection =>
+        return await WithConnectionAsync(transaction, connection =>
+            connection.QueryFirstOrDefaultAsync<MktCouponUsage>(
+                @"SELECT r.RecordId, r.CouponId, c.CouponName, c.DiscountAmount
+                  FROM Mkt_CouponRecords r
+                  JOIN Mkt_Coupons c ON r.CouponId = c.CouponId
+                  WHERE r.RecordId = :RecordId
+                    AND r.CustomerId = :CustomerId
+                    AND r.Status = 0
+                    AND c.Status = 1
+                    AND c.StartTime <= SYSDATE
+                    AND c.EndTime >= SYSDATE
+                    AND c.MinOrderAmount <= :OrderAmount
+                  FOR UPDATE OF r.Status, c.Status",
+                new
+                {
+                    RecordId = recordId,
+                    CustomerId = customerId,
+                    OrderAmount = orderAmount
+                },
+                transaction));
+    }
+
+    /// <summary>以条件更新方式原子核销优惠券</summary>
+    public async Task<bool> TryUseCouponAsync(
+        int recordId,
+        int customerId,
+        int orderId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
         {
-            await connection.ExecuteAsync(
+            var affected = await connection.ExecuteAsync(
                 @"UPDATE Mkt_CouponRecords
                   SET Status = 1, OrderId = :OrderId, UsedAt = SYSDATE
-                  WHERE RecordId = :RecordId",
-                new { RecordId = recordId, OrderId = orderId },
+                  WHERE RecordId = :RecordId
+                    AND CustomerId = :CustomerId
+                    AND Status = 0",
+                new
+                {
+                    RecordId = recordId,
+                    CustomerId = customerId,
+                    OrderId = orderId
+                },
                 transaction);
+            return affected == 1;
         });
     }
 

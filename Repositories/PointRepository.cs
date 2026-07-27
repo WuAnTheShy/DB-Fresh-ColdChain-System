@@ -7,7 +7,7 @@ namespace FreshColdChain.Repositories;
 /// <summary>
 /// 积分与会员数据访问层 - Crm_PointLogs, Crm_MemberLevels
 /// </summary>
-public class PointRepository : BaseRepository
+public class PointRepository : BaseRepository, IPointRepository
 {
     public PointRepository(IConfiguration configuration) : base(configuration) { }
 
@@ -31,5 +31,18 @@ public class PointRepository : BaseRepository
             (await connection.QueryAsync<CrmMemberLevel>(
                 "SELECT * FROM Crm_MemberLevels ORDER BY MinSpent ASC",
                 transaction: transaction)).ToList());
+    }
+
+    /// <summary>按ID读取会员等级，用于计算本次订单积分倍率</summary>
+    public async Task<CrmMemberLevel?> GetLevelByIdAsync(
+        int memberLevelId,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, connection =>
+            connection.QueryFirstOrDefaultAsync<CrmMemberLevel>(
+                @"SELECT * FROM Crm_MemberLevels
+                  WHERE MemberLevelId = :MemberLevelId",
+                new { MemberLevelId = memberLevelId },
+                transaction));
     }
 }

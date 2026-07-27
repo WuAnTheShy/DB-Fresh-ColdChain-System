@@ -17,12 +17,14 @@ public class Program
         // 通俗理解："告诉框架，当有人需要 IOrderService 时，给他 OrderService 的实例"
 
         // Repositories（数据访问层）
-        builder.Services.AddScoped<OrderRepository>();
-        builder.Services.AddScoped<CustomerRepository>();
-        builder.Services.AddScoped<CouponRepository>();
-        builder.Services.AddScoped<PointRepository>();
+        builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+        builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+        builder.Services.AddScoped<ICouponRepository, CouponRepository>();
+        builder.Services.AddScoped<IPointRepository, PointRepository>();
 
         // Services（业务逻辑层）——对外暴露 Interface
+        builder.Services.AddScoped<IOrderTransactionManager, OracleOrderTransactionManager>();
+        builder.Services.AddScoped<IInventoryService, DummyInventoryService>();
         builder.Services.AddScoped<IOrderService, OrderService>();
         builder.Services.AddScoped<ICustomerService, CustomerService>();
         builder.Services.AddScoped<ICouponService, CouponService>();
@@ -38,16 +40,14 @@ public class Program
         }
 
         app.UseHttpsRedirection();
+        app.UseStaticFiles();
         app.UseRouting();
 
         app.UseAuthorization();
 
-        app.MapStaticAssets();
-
         app.MapControllerRoute(
             name: "default",
-            pattern: "{controller=Home}/{action=Index}/{id?}")
-            .WithStaticAssets();
+            pattern: "{controller=Home}/{action=Index}/{id?}");
 
 
         app.Run();

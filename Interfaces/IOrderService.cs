@@ -8,8 +8,10 @@ namespace FreshColdChain.Interfaces;
 /// </summary>
 public interface IOrderService
 {
-    /// <summary>创建订单（A组下单时可能调用）</summary>
-    Task<int> CreateOrderAsync(BizOrder order, List<BizOrderDetail> details);
+    /// <summary>创建订单并完成库存、优惠券和积分事务闭环</summary>
+    Task<CreateOrderResult> CreateOrderAsync(
+        CreateOrderRequest request,
+        CancellationToken cancellationToken = default);
 
     /// <summary>扣减买家积分（C组退款时调用）</summary>
     Task DeductPointsForRefundAsync(int customerId, int orderId, int pointsToDeduct);

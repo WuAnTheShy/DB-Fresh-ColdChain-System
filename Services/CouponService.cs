@@ -8,9 +8,9 @@ namespace FreshColdChain.Services;
 /// </summary>
 public class CouponService : ICouponService
 {
-    private readonly CouponRepository _couponRepo;
+    private readonly ICouponRepository _couponRepo;
 
-    public CouponService(CouponRepository couponRepo)
+    public CouponService(ICouponRepository couponRepo)
     {
         _couponRepo = couponRepo;
     }
