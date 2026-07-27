@@ -66,25 +66,27 @@ public class OrderService : IOrderService
 
             // 第5步：计算并发放积分（如 消费100元=10积分）
             var pointsEarned = (int)(order.FinalAmount / 10);
-            var customer = await _customerRepo.GetByIdAsync(order.CustomerId);
-            if (customer != null)
+            var customer = await _customerRepo.GetByIdAsync(order.CustomerId, transaction)
+                ?? throw new InvalidOperationException("消费者不存在，无法创建订单");
+
+            var newPoints = customer.Points + pointsEarned;
+            await _customerRepo.UpdatePointsAsync(customer.CustomerId, newPoints, transaction);
+
+            // 积分流水记录（每笔必记，防篡改）
+            await _pointRepo.InsertLogAsync(new CrmPointLog
             {
-                var newPoints = customer.Points + pointsEarned;
-                await _customerRepo.UpdatePointsAsync(customer.CustomerId, newPoints, transaction);
+                CustomerId = customer.CustomerId,
+                ChangeAmount = pointsEarned,
+                BalanceAfter = newPoints,
+                ChangeType = "ORDER_EARN",
+                OrderId = orderId
+            }, transaction);
 
-                // 积分流水记录（每笔必记，防篡改）
-                await _pointRepo.InsertLogAsync(new CrmPointLog
-                {
-                    CustomerId = customer.CustomerId,
-                    ChangeAmount = pointsEarned,
-                    BalanceAfter = newPoints,
-                    ChangeType = "ORDER_EARN",
-                    OrderId = orderId
-                }, transaction);
-
-                // 累计消费更新（用于会员等级判定）
-                await _customerRepo.UpdateTotalSpentAsync(customer.CustomerId, order.FinalAmount, transaction);
-            }
+            // 累计消费更新（用于会员等级判定）
+            await _customerRepo.UpdateTotalSpentAsync(
+                customer.CustomerId,
+                order.FinalAmount,
+                transaction);
 
             // 第6步：核销优惠券（如果有）
             // TODO: 从请求中获取使用的优惠券记录ID
@@ -112,7 +114,7 @@ public class OrderService : IOrderService
         using var transaction = conn.BeginTransaction();
         try
         {
-            var customer = await _customerRepo.GetByIdAsync(customerId);
+            var customer = await _customerRepo.GetByIdAsync(customerId, transaction);
             if (customer == null) throw new Exception("用户不存在");
 
             var newPoints = customer.Points - pointsToDeduct;

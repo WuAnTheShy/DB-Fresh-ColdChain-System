@@ -14,18 +14,22 @@ public class PointRepository : BaseRepository
     /// <summary>写入积分流水（防篡改审计）</summary>
     public async Task InsertLogAsync(CrmPointLog log, IDbTransaction? transaction = null)
     {
-        using var conn = CreateConnection();
-        await conn.ExecuteAsync(
-            @"INSERT INTO Crm_PointLogs (CustomerId, ChangeAmount, BalanceAfter, ChangeType, OrderId, CreatedAt)
-              VALUES (:CustomerId, :ChangeAmount, :BalanceAfter, :ChangeType, :OrderId, SYSDATE)",
-            log, transaction);
+        await WithConnectionAsync(transaction, async connection =>
+        {
+            await connection.ExecuteAsync(
+                @"INSERT INTO Crm_PointLogs (CustomerId, ChangeAmount, BalanceAfter, ChangeType, OrderId, CreatedAt)
+                  VALUES (:CustomerId, :ChangeAmount, :BalanceAfter, :ChangeType, :OrderId, SYSDATE)",
+                log,
+                transaction);
+        });
     }
 
     /// <summary>获取所有会员等级（按消费门槛升序）</summary>
-    public async Task<List<CrmMemberLevel>> GetAllLevelsAsync()
+    public async Task<List<CrmMemberLevel>> GetAllLevelsAsync(IDbTransaction? transaction = null)
     {
-        using var conn = CreateConnection();
-        return (await conn.QueryAsync<CrmMemberLevel>(
-            "SELECT * FROM Crm_MemberLevels ORDER BY MinSpent ASC")).ToList();
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<CrmMemberLevel>(
+                "SELECT * FROM Crm_MemberLevels ORDER BY MinSpent ASC",
+                transaction: transaction)).ToList());
     }
 }

@@ -25,4 +25,46 @@ public abstract class BaseRepository
     {
         return new OracleConnection(_connectionString);
     }
+
+    /// <summary>
+    /// 在指定事务所属连接上执行数据库操作。
+    /// 未传入事务时，由仓储自行创建、打开并释放连接。
+    /// </summary>
+    protected async Task<TResult> WithConnectionAsync<TResult>(
+        IDbTransaction? transaction,
+        Func<IDbConnection, Task<TResult>> operation)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+
+        if (transaction != null)
+        {
+            var transactionConnection = transaction.Connection
+                ?? throw new InvalidOperationException("事务已结束或未关联数据库连接");
+
+            if (transactionConnection.State != ConnectionState.Open)
+                throw new InvalidOperationException("事务关联的数据库连接未打开");
+
+            return await operation(transactionConnection);
+        }
+
+        using var connection = CreateConnection();
+        if (connection.State != ConnectionState.Open)
+            connection.Open();
+
+        return await operation(connection);
+    }
+
+    /// <summary>
+    /// 在指定事务所属连接上执行无返回值的数据库操作。
+    /// </summary>
+    protected async Task WithConnectionAsync(
+        IDbTransaction? transaction,
+        Func<IDbConnection, Task> operation)
+    {
+        await WithConnectionAsync(transaction, async connection =>
+        {
+            await operation(connection);
+            return true;
+        });
+    }
 }
