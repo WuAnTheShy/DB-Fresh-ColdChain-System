@@ -1,0 +1,28 @@
+@{
+    ViewData["Title"] = "下单";
+}
+
+<div class="container mt-4">
+    <h2>🛒 创建订单</h2>
+    <p class="text-muted">
+        这是一个演示页面。填写信息后提交，后端会执行完整的事务流程：
+        INSERT 订单 → INSERT 明细 → UPDATE 积分 → INSERT 积分流水 → COMMIT
+    </p>
+
+    @if (ViewBag.Message != null)
+    {
+        <div class="alert alert-info">@ViewBag.Message</div>
+    }
+
+    <form method="post" asp-action="Create">
+        <div class="mb-3">
+            <label class="form-label">消费者ID</label>
+            <input type="number" name="CustomerId" class="form-control" required />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">收货地址ID</label>
+            <input type="number" name="AddressId" class="form-control" required />
+        </div>
+        <button type="submit" class="btn btn-primary">提交订单</button>
+    </form>
+</div>
