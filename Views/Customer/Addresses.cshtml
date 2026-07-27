@@ -1,0 +1,86 @@
+@model AddressListViewModel
+@{
+    ViewData["Title"] = "收货地址管理";
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-2">收货地址管理</h1>
+            <p class="text-muted mb-0">消费者 #@Model.CustomerId · 同一消费者始终只有一个默认地址。</p>
+        </div>
+        <a asp-action="CreateAddress" asp-route-customerId="@Model.CustomerId"
+           class="btn btn-primary align-self-md-start">新增地址</a>
+    </div>
+
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="alert alert-success" role="alert">@successMessage</div>
+    }
+    @if (TempData["ErrorMessage"] is string errorMessage)
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    @if (Model.Addresses.Count == 0)
+    {
+        <div class="card shadow-sm">
+            <div class="card-body p-5 text-center">
+                <h2 class="h5">还没有收货地址</h2>
+                <p class="text-muted">新增的第一条地址会自动成为默认地址。</p>
+                <a asp-action="CreateAddress" asp-route-customerId="@Model.CustomerId"
+                   class="btn btn-primary">立即新增</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var address in Model.Addresses)
+            {
+                <div class="col-lg-6">
+                    <div class="card shadow-sm h-100 @(address.IsDefault == 1 ? "border-primary" : "")">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between gap-3 mb-2">
+                                <h2 class="h5 mb-0">@address.ReceiverName</h2>
+                                @if (address.IsDefault == 1)
+                                {
+                                    <span class="badge text-bg-primary">默认地址</span>
+                                }
+                            </div>
+                            <div class="text-muted mb-2">@address.Phone</div>
+                            <p class="mb-4">
+                                @address.Province @address.City @address.District
+                                @address.DetailAddress
+                            </p>
+                            <div class="d-flex flex-wrap gap-2">
+                                <a asp-action="EditAddress" asp-route-id="@address.AddressId"
+                                   asp-route-customerId="@Model.CustomerId"
+                                   class="btn btn-outline-primary btn-sm">编辑</a>
+                                @if (address.IsDefault != 1)
+                                {
+                                    <form asp-action="SetDefaultAddress" asp-route-id="@address.AddressId"
+                                          asp-route-customerId="@Model.CustomerId" method="post">
+                                        <button type="submit" class="btn btn-outline-secondary btn-sm">
+                                            设为默认
+                                        </button>
+                                    </form>
+                                }
+                                <form asp-action="DeleteAddress" asp-route-id="@address.AddressId"
+                                      asp-route-customerId="@Model.CustomerId" method="post"
+                                      onsubmit="return confirm('确定删除这条收货地址吗？');">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">删除</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="mt-4">
+        <a asp-action="Index" asp-route-id="@Model.CustomerId"
+           class="btn btn-link px-0">返回消费者中心</a>
+    </div>
+</div>
