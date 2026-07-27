@@ -1,8 +1,46 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "首页";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container py-5">
+    <div class="text-center mb-5">
+        <h1 class="display-5 fw-semibold">生鲜冷链交易与营销中心</h1>
+        <p class="lead text-muted">GroupB 消费者、会员、优惠券、积分和订单事务演示入口。</p>
+    </div>
+    <div class="row g-4 justify-content-center">
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body p-4">
+                    <h2 class="h5">消费者与地址</h2>
+                    <p class="text-muted">维护消费者资料、收货地址与默认地址。</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a asp-controller="Customer" asp-action="Index" asp-route-id="1"
+                           class="btn btn-outline-primary">进入消费者中心</a>
+                        <a asp-controller="Customer" asp-action="Create"
+                           class="btn btn-link">新增消费者</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body p-4">
+                    <h2 class="h5">优惠券中心</h2>
+                    <p class="text-muted">领取活动券并查看下单可使用的券记录ID。</p>
+                    <a asp-controller="Coupon" asp-action="Index" asp-route-customerId="1"
+                       class="btn btn-outline-primary">查看优惠券</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body p-4">
+                    <h2 class="h5">订单事务</h2>
+                    <p class="text-muted">使用可信商品快照完成下单、用券和积分闭环。</p>
+                    <a asp-controller="Order" asp-action="Create"
+                       class="btn btn-primary">创建订单</a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

@@ -139,6 +139,18 @@ public sealed class OrderService : IOrderService
                 customer.CustomerId,
                 finalAmount,
                 transaction);
+            var newTotalSpent = customer.TotalSpent + finalAmount;
+            var qualifiedLevel = await _pointRepo.GetLevelForSpentAsync(
+                newTotalSpent,
+                transaction);
+            if (qualifiedLevel != null &&
+                qualifiedLevel.MemberLevelId != customer.MemberLevelId)
+            {
+                await _customerRepo.UpdateMemberLevelAsync(
+                    customer.CustomerId,
+                    qualifiedLevel.MemberLevelId,
+                    transaction);
+            }
 
             return new CreateOrderResult
             {
@@ -202,11 +214,7 @@ public sealed class OrderService : IOrderService
         if (customer == null)
             return null;
 
-        var allLevels = await _pointRepo.GetAllLevelsAsync();
-        return allLevels
-            .Where(level => customer.TotalSpent >= level.MinSpent)
-            .OrderByDescending(level => level.MinSpent)
-            .FirstOrDefault();
+        return await _pointRepo.GetLevelForSpentAsync(customer.TotalSpent);
     }
 
     private static IReadOnlyList<InventoryReservationItem> ValidateAndNormalizeRequest(

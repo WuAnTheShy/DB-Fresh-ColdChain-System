@@ -1,0 +1,104 @@
+@model CustomerProfileViewModel
+@{
+    ViewData["Title"] = "消费者中心";
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-2">消费者中心</h1>
+            <p class="text-muted mb-0">查看基础资料、会员资产和常用收货地址。</p>
+        </div>
+        <div class="d-flex gap-2 align-self-md-start">
+            <a asp-action="Edit" asp-route-id="@Model.Customer.CustomerId"
+               class="btn btn-outline-primary">编辑资料</a>
+            <a asp-action="Addresses" asp-route-customerId="@Model.Customer.CustomerId"
+               class="btn btn-primary">管理地址</a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="alert alert-success" role="alert">@successMessage</div>
+    }
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-body p-4">
+                    <h2 class="h5 mb-3">基础资料</h2>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4 text-muted">消费者ID</dt>
+                        <dd class="col-sm-8">#@Model.Customer.CustomerId</dd>
+                        <dt class="col-sm-4 text-muted">姓名</dt>
+                        <dd class="col-sm-8">@Model.Customer.CustomerName</dd>
+                        <dt class="col-sm-4 text-muted">手机号码</dt>
+                        <dd class="col-sm-8">@Model.Customer.Phone</dd>
+                        <dt class="col-sm-4 text-muted">邮箱</dt>
+                        <dd class="col-sm-8">@(Model.Customer.Email ?? "未填写")</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card shadow-sm h-100 border-primary-subtle">
+                <div class="card-body p-4">
+                    <h2 class="h5 mb-3">会员资产</h2>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="text-muted">当前等级</span>
+                        <strong>@(Model.MemberLevel?.LevelName ?? "普通会员")</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="text-muted">累计消费</span>
+                        <strong>¥@Model.Customer.TotalSpent.ToString("F2")</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">可用积分</span>
+                        <strong>@Model.Customer.Points</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-body-tertiary d-flex justify-content-between align-items-center">
+            <span>收货地址</span>
+            <span class="badge text-bg-secondary">@Model.Addresses.Count</span>
+        </div>
+        <div class="card-body">
+            @if (Model.Addresses.Count == 0)
+            {
+                <p class="text-muted mb-3">尚未添加收货地址。</p>
+                <a asp-action="CreateAddress"
+                   asp-route-customerId="@Model.Customer.CustomerId"
+                   class="btn btn-primary">添加第一条地址</a>
+            }
+            else
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var address in Model.Addresses.Take(3))
+                    {
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between gap-3">
+                                <div>
+                                    <div class="fw-semibold">
+                                        @address.ReceiverName @address.Phone
+                                        @if (address.IsDefault == 1)
+                                        {
+                                            <span class="badge text-bg-primary ms-2">默认</span>
+                                        }
+                                    </div>
+                                    <div class="text-muted small mt-1">
+                                        @address.Province @address.City @address.District
+                                        @address.DetailAddress
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>

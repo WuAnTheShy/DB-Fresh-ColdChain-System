@@ -45,4 +45,19 @@ public class PointRepository : BaseRepository, IPointRepository
                 new { MemberLevelId = memberLevelId },
                 transaction));
     }
+
+    /// <summary>按累计消费查询当前应处的最高会员等级</summary>
+    public async Task<CrmMemberLevel?> GetLevelForSpentAsync(
+        decimal totalSpent,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, connection =>
+            connection.QueryFirstOrDefaultAsync<CrmMemberLevel>(
+                @"SELECT * FROM Crm_MemberLevels
+                  WHERE MinSpent <= :TotalSpent
+                  ORDER BY MinSpent DESC, MemberLevelId DESC
+                  FETCH FIRST 1 ROWS ONLY",
+                new { TotalSpent = totalSpent },
+                transaction));
+    }
 }

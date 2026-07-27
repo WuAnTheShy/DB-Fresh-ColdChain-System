@@ -4,6 +4,7 @@ using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Repositories;
 using FreshColdChain.Services;
+using Microsoft.AspNetCore.Identity;
 
 namespace FreshColdChain.Tests;
 
@@ -24,6 +25,15 @@ internal sealed class TestContext
             PointRepository,
             InventoryService,
             TransactionManager);
+        CustomerService = new CustomerService(
+            CustomerRepository,
+            PointRepository,
+            TransactionManager,
+            new PasswordHasher<CrmCustomer>());
+        CouponService = new CouponService(
+            CouponRepository,
+            CustomerRepository,
+            TransactionManager);
     }
 
     public FakeOrderRepository OrderRepository { get; }
@@ -33,6 +43,8 @@ internal sealed class TestContext
     public FakeInventoryService InventoryService { get; }
     public FakeTransactionManager TransactionManager { get; }
     public OrderService Service { get; }
+    public CustomerService CustomerService { get; }
+    public CouponService CouponService { get; }
 
     public static TestContext Create()
     {
@@ -186,6 +198,47 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         Points = 100,
         TotalSpent = 0m
     };
+    public List<CrmUserAddress> Addresses { get; } =
+    [
+        new()
+        {
+            AddressId = 11,
+            CustomerId = 1,
+            ReceiverName = "默认收件人",
+            Phone = "13800138000",
+            Province = "浙江省",
+            City = "杭州市",
+            District = "西湖区",
+            DetailAddress = "测试路1号",
+            IsDefault = 1,
+            CreatedAt = DateTime.Now
+        }
+    ];
+    public List<CrmCustomer> CreatedCustomers { get; } = [];
+
+    public Task<bool> PhoneExistsAsync(
+        string phone,
+        int? excludeCustomerId = null,
+        IDbTransaction? transaction = null)
+    {
+        return Task.FromResult(
+            (Customer.CustomerId != excludeCustomerId &&
+             string.Equals(Customer.Phone, phone, StringComparison.Ordinal)) ||
+            CreatedCustomers.Any(item =>
+                item.CustomerId != excludeCustomerId &&
+                string.Equals(item.Phone, phone, StringComparison.Ordinal)));
+    }
+
+    public Task<int> CreateCustomerAsync(
+        CrmCustomer customer,
+        IDbTransaction? transaction = null)
+    {
+        var customerId = 2 + CreatedCustomers.Count;
+        var copy = CloneCustomer(customer);
+        copy.CustomerId = customerId;
+        Stage(transaction, () => CreatedCustomers.Add(copy));
+        return Task.FromResult(customerId);
+    }
 
     public Task<CrmCustomer?> GetByIdAsync(
         int customerId,
@@ -203,12 +256,30 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         return GetByIdAsync(customerId, transaction);
     }
 
+    public Task<bool> UpdateProfileAsync(
+        CustomerProfileUpdateRequest request,
+        IDbTransaction? transaction = null)
+    {
+        if (request.CustomerId != Customer.CustomerId)
+            return Task.FromResult(false);
+
+        Stage(transaction, () =>
+        {
+            Customer.CustomerName = request.CustomerName;
+            Customer.Phone = request.Phone;
+            Customer.Email = request.Email;
+        });
+        return Task.FromResult(true);
+    }
+
     public Task<bool> AddressBelongsToCustomerAsync(
         int addressId,
         int customerId,
         IDbTransaction transaction)
     {
-        return Task.FromResult(addressId == 11 && customerId == Customer.CustomerId);
+        return Task.FromResult(Addresses.Any(address =>
+            address.AddressId == addressId &&
+            address.CustomerId == customerId));
     }
 
     public Task UpdatePointsAsync(
@@ -229,11 +300,125 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         return Task.CompletedTask;
     }
 
+    public Task UpdateMemberLevelAsync(
+        int customerId,
+        int memberLevelId,
+        IDbTransaction? transaction = null)
+    {
+        Stage(transaction, () => Customer.MemberLevelId = memberLevelId);
+        return Task.CompletedTask;
+    }
+
     public Task<List<CrmUserAddress>> GetAddressesAsync(
         int customerId,
         IDbTransaction? transaction = null)
     {
-        return Task.FromResult(new List<CrmUserAddress>());
+        return Task.FromResult(Addresses
+            .Where(address => address.CustomerId == customerId)
+            .OrderByDescending(address => address.IsDefault)
+            .ThenByDescending(address => address.AddressId)
+            .Select(CloneAddress)
+            .ToList());
+    }
+
+    public Task<CrmUserAddress?> GetAddressAsync(
+        int customerId,
+        int addressId,
+        IDbTransaction? transaction = null)
+    {
+        var address = Addresses.SingleOrDefault(item =>
+            item.CustomerId == customerId &&
+            item.AddressId == addressId);
+        return Task.FromResult(address == null ? null : CloneAddress(address));
+    }
+
+    public Task<int> CreateAddressAsync(
+        CrmUserAddress address,
+        IDbTransaction? transaction = null)
+    {
+        var addressId = Addresses.Count == 0
+            ? 1
+            : Addresses.Max(item => item.AddressId) + 1;
+        var copy = CloneAddress(address);
+        copy.AddressId = addressId;
+        Stage(transaction, () => Addresses.Add(copy));
+        return Task.FromResult(addressId);
+    }
+
+    public Task<bool> UpdateAddressAsync(
+        CrmUserAddress address,
+        IDbTransaction? transaction = null)
+    {
+        if (!Addresses.Any(item =>
+            item.CustomerId == address.CustomerId &&
+            item.AddressId == address.AddressId))
+        {
+            return Task.FromResult(false);
+        }
+
+        var copy = CloneAddress(address);
+        Stage(transaction, () =>
+        {
+            var index = Addresses.FindIndex(item =>
+                item.CustomerId == copy.CustomerId &&
+                item.AddressId == copy.AddressId);
+            Addresses[index] = copy;
+        });
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> DeleteAddressAsync(
+        int customerId,
+        int addressId,
+        IDbTransaction? transaction = null)
+    {
+        if (!Addresses.Any(item =>
+            item.CustomerId == customerId &&
+            item.AddressId == addressId))
+        {
+            return Task.FromResult(false);
+        }
+
+        Stage(transaction, () => Addresses.RemoveAll(item =>
+            item.CustomerId == customerId &&
+            item.AddressId == addressId));
+        return Task.FromResult(true);
+    }
+
+    public Task ClearDefaultAddressesAsync(
+        int customerId,
+        IDbTransaction? transaction = null)
+    {
+        Stage(transaction, () =>
+        {
+            foreach (var address in Addresses.Where(
+                item => item.CustomerId == customerId))
+            {
+                address.IsDefault = 0;
+            }
+        });
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> SetDefaultAddressAsync(
+        int customerId,
+        int addressId,
+        IDbTransaction? transaction = null)
+    {
+        if (!Addresses.Any(item =>
+            item.CustomerId == customerId &&
+            item.AddressId == addressId))
+        {
+            return Task.FromResult(false);
+        }
+
+        Stage(transaction, () =>
+        {
+            Addresses.Single(item =>
+                item.CustomerId == customerId &&
+                item.AddressId == addressId).IsDefault = 1;
+        });
+        return Task.FromResult(true);
     }
 
     private static CrmCustomer CloneCustomer(CrmCustomer customer)
@@ -254,6 +439,23 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         };
     }
 
+    private static CrmUserAddress CloneAddress(CrmUserAddress address)
+    {
+        return new CrmUserAddress
+        {
+            AddressId = address.AddressId,
+            CustomerId = address.CustomerId,
+            ReceiverName = address.ReceiverName,
+            Phone = address.Phone,
+            Province = address.Province,
+            City = address.City,
+            District = address.District,
+            DetailAddress = address.DetailAddress,
+            IsDefault = address.IsDefault,
+            CreatedAt = address.CreatedAt
+        };
+    }
+
     private static void Stage(IDbTransaction? transaction, Action action)
     {
         if (transaction is FakeOrderTransaction fakeTransaction)
@@ -267,19 +469,125 @@ internal sealed class FakeCouponRepository : ICouponRepository
 {
     public MktCouponUsage? UsableCoupon { get; set; }
     public bool CouponUsed { get; private set; }
+    public List<MktCoupon> Coupons { get; } =
+    [
+        new()
+        {
+            CouponId = 3,
+            CouponName = "满100减20",
+            MinOrderAmount = 100m,
+            DiscountAmount = 20m,
+            TotalQuantity = 10,
+            RemainingQuantity = 2,
+            StartTime = DateTime.Now.AddDays(-1),
+            EndTime = DateTime.Now.AddDays(7),
+            Status = 1
+        }
+    ];
+    public List<MktCouponRecord> Records { get; } = [];
 
     public Task<List<MktCouponRecord>> GetUserCouponsAsync(
         int customerId,
         IDbTransaction? transaction = null)
     {
-        return Task.FromResult(new List<MktCouponRecord>());
+        return Task.FromResult(Records
+            .Where(record => record.CustomerId == customerId && record.Status == 0)
+            .Select(CloneRecord)
+            .ToList());
     }
 
     public Task<MktCoupon?> GetCouponTemplateAsync(
         int couponId,
         IDbTransaction? transaction = null)
     {
-        return Task.FromResult<MktCoupon?>(null);
+        var coupon = Coupons.SingleOrDefault(item => item.CouponId == couponId);
+        return Task.FromResult(coupon == null ? null : CloneCoupon(coupon));
+    }
+
+    public Task<MktCoupon?> GetCouponTemplateForUpdateAsync(
+        int couponId,
+        IDbTransaction transaction)
+    {
+        return GetCouponTemplateAsync(couponId, transaction);
+    }
+
+    public Task<List<ClaimableCouponItem>> GetClaimableCouponsAsync(
+        int customerId,
+        IDbTransaction? transaction = null)
+    {
+        var now = DateTime.Now;
+        return Task.FromResult(Coupons
+            .Where(coupon =>
+                coupon.Status == 1 &&
+                coupon.StartTime <= now &&
+                coupon.EndTime >= now)
+            .Select(coupon => new ClaimableCouponItem
+            {
+                CouponId = coupon.CouponId,
+                CouponName = coupon.CouponName,
+                MinOrderAmount = coupon.MinOrderAmount,
+                DiscountAmount = coupon.DiscountAmount,
+                RemainingQuantity = coupon.RemainingQuantity,
+                EndTime = coupon.EndTime,
+                HasClaimed = Records.Any(record =>
+                    record.CustomerId == customerId &&
+                    record.CouponId == coupon.CouponId) ? 1 : 0
+            })
+            .ToList());
+    }
+
+    public Task<List<AvailableCouponItem>> GetAvailableCouponsAsync(
+        int customerId,
+        IDbTransaction? transaction = null)
+    {
+        var now = DateTime.Now;
+        var result =
+            from record in Records
+            join coupon in Coupons on record.CouponId equals coupon.CouponId
+            where record.CustomerId == customerId
+                && record.Status == 0
+                && coupon.Status == 1
+                && coupon.StartTime <= now
+                && coupon.EndTime >= now
+            select new AvailableCouponItem
+            {
+                RecordId = record.RecordId,
+                CouponId = coupon.CouponId,
+                CouponName = coupon.CouponName,
+                MinOrderAmount = coupon.MinOrderAmount,
+                DiscountAmount = coupon.DiscountAmount,
+                EndTime = coupon.EndTime
+            };
+        return Task.FromResult(result.ToList());
+    }
+
+    public Task<bool> HasCustomerClaimedCouponAsync(
+        int customerId,
+        int couponId,
+        IDbTransaction? transaction = null)
+    {
+        return Task.FromResult(Records.Any(record =>
+            record.CustomerId == customerId &&
+            record.CouponId == couponId));
+    }
+
+    public Task<int> CreateCouponRecordAsync(
+        int customerId,
+        int couponId,
+        IDbTransaction transaction)
+    {
+        var recordId = Records.Count == 0
+            ? 1
+            : Records.Max(record => record.RecordId) + 1;
+        ((FakeOrderTransaction)transaction).Stage(() => Records.Add(new MktCouponRecord
+        {
+            RecordId = recordId,
+            CouponId = couponId,
+            CustomerId = customerId,
+            Status = 0,
+            CreatedAt = DateTime.Now
+        }));
+        return Task.FromResult(recordId);
     }
 
     public Task<MktCouponUsage?> GetUsableCouponForUpdateAsync(
@@ -311,7 +619,55 @@ internal sealed class FakeCouponRepository : ICouponRepository
         int couponId,
         IDbTransaction? transaction = null)
     {
+        var coupon = Coupons.SingleOrDefault(item =>
+            item.CouponId == couponId &&
+            item.Status == 1 &&
+            item.StartTime <= DateTime.Now &&
+            item.EndTime >= DateTime.Now &&
+            item.RemainingQuantity > 0);
+        if (coupon == null)
+            return Task.FromResult(false);
+
+        Stage(transaction, () => coupon.RemainingQuantity--);
         return Task.FromResult(true);
+    }
+
+    private static MktCoupon CloneCoupon(MktCoupon coupon)
+    {
+        return new MktCoupon
+        {
+            CouponId = coupon.CouponId,
+            CouponName = coupon.CouponName,
+            MinOrderAmount = coupon.MinOrderAmount,
+            DiscountAmount = coupon.DiscountAmount,
+            TotalQuantity = coupon.TotalQuantity,
+            RemainingQuantity = coupon.RemainingQuantity,
+            StartTime = coupon.StartTime,
+            EndTime = coupon.EndTime,
+            Status = coupon.Status
+        };
+    }
+
+    private static MktCouponRecord CloneRecord(MktCouponRecord record)
+    {
+        return new MktCouponRecord
+        {
+            RecordId = record.RecordId,
+            CouponId = record.CouponId,
+            CustomerId = record.CustomerId,
+            OrderId = record.OrderId,
+            Status = record.Status,
+            UsedAt = record.UsedAt,
+            CreatedAt = record.CreatedAt
+        };
+    }
+
+    private static void Stage(IDbTransaction? transaction, Action action)
+    {
+        if (transaction is FakeOrderTransaction fakeTransaction)
+            fakeTransaction.Stage(action);
+        else
+            action();
     }
 }
 
@@ -319,6 +675,33 @@ internal sealed class FakePointRepository : IPointRepository
 {
     public List<CrmPointLog> Logs { get; } = [];
     public bool ThrowOnInsert { get; set; }
+    public List<CrmMemberLevel> Levels { get; } =
+    [
+        new()
+        {
+            MemberLevelId = 1,
+            LevelName = "普通会员",
+            MinSpent = 0m,
+            DiscountRate = 1m,
+            PointsMultiplier = 1
+        },
+        new()
+        {
+            MemberLevelId = 2,
+            LevelName = "双倍积分会员",
+            MinSpent = 100m,
+            DiscountRate = 1m,
+            PointsMultiplier = 2
+        },
+        new()
+        {
+            MemberLevelId = 3,
+            LevelName = "三倍积分会员",
+            MinSpent = 500m,
+            DiscountRate = 1m,
+            PointsMultiplier = 3
+        }
+    ];
 
     public Task InsertLogAsync(
         CrmPointLog log,
@@ -337,21 +720,42 @@ internal sealed class FakePointRepository : IPointRepository
     public Task<List<CrmMemberLevel>> GetAllLevelsAsync(
         IDbTransaction? transaction = null)
     {
-        return Task.FromResult(new List<CrmMemberLevel>());
+        return Task.FromResult(Levels
+            .OrderBy(level => level.MinSpent)
+            .Select(CloneLevel)
+            .ToList());
     }
 
     public Task<CrmMemberLevel?> GetLevelByIdAsync(
         int memberLevelId,
         IDbTransaction? transaction = null)
     {
-        return Task.FromResult<CrmMemberLevel?>(new CrmMemberLevel
+        var level = Levels.SingleOrDefault(
+            item => item.MemberLevelId == memberLevelId);
+        return Task.FromResult(level == null ? null : CloneLevel(level));
+    }
+
+    public Task<CrmMemberLevel?> GetLevelForSpentAsync(
+        decimal totalSpent,
+        IDbTransaction? transaction = null)
+    {
+        var level = Levels
+            .Where(item => item.MinSpent <= totalSpent)
+            .OrderByDescending(item => item.MinSpent)
+            .FirstOrDefault();
+        return Task.FromResult(level == null ? null : CloneLevel(level));
+    }
+
+    private static CrmMemberLevel CloneLevel(CrmMemberLevel level)
+    {
+        return new CrmMemberLevel
         {
-            MemberLevelId = memberLevelId,
-            LevelName = "双倍积分会员",
-            MinSpent = 0m,
-            DiscountRate = 1m,
-            PointsMultiplier = 2
-        });
+            MemberLevelId = level.MemberLevelId,
+            LevelName = level.LevelName,
+            MinSpent = level.MinSpent,
+            DiscountRate = level.DiscountRate,
+            PointsMultiplier = level.PointsMultiplier
+        };
     }
 }
 

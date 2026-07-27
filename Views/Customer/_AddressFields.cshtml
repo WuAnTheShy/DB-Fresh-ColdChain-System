@@ -1,0 +1,46 @@
+@model AddressUpsertRequest
+
+<input asp-for="AddressId" type="hidden" />
+<input asp-for="CustomerId" type="hidden" />
+<div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <label asp-for="ReceiverName" class="form-label">收件人</label>
+        <input asp-for="ReceiverName" class="form-control" autocomplete="name" />
+        <span asp-validation-for="ReceiverName" class="text-danger"></span>
+    </div>
+    <div class="col-md-6">
+        <label asp-for="Phone" class="form-label">联系电话</label>
+        <input asp-for="Phone" class="form-control" inputmode="tel" autocomplete="tel" />
+        <span asp-validation-for="Phone" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="Province" class="form-label">省份</label>
+        <input asp-for="Province" class="form-control" />
+        <span asp-validation-for="Province" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="City" class="form-label">城市</label>
+        <input asp-for="City" class="form-control" />
+        <span asp-validation-for="City" class="text-danger"></span>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="District" class="form-label">区县</label>
+        <input asp-for="District" class="form-control" />
+        <span asp-validation-for="District" class="text-danger"></span>
+    </div>
+    <div class="col-12">
+        <label asp-for="DetailAddress" class="form-label">详细地址</label>
+        <textarea asp-for="DetailAddress" class="form-control" rows="3"
+                  autocomplete="street-address"></textarea>
+        <span asp-validation-for="DetailAddress" class="text-danger"></span>
+    </div>
+    <div class="col-12">
+        <div class="form-check">
+            <input asp-for="IsDefault" class="form-check-input" />
+            <label asp-for="IsDefault" class="form-check-label">设为默认收货地址</label>
+        </div>
+        <div class="form-text">如果这是第一条地址，系统会自动设为默认。</div>
+    </div>
+</div>

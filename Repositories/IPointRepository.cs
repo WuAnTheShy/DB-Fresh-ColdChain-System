@@ -10,4 +10,8 @@ public interface IPointRepository
     Task<CrmMemberLevel?> GetLevelByIdAsync(
         int memberLevelId,
         IDbTransaction? transaction = null);
+
+    Task<CrmMemberLevel?> GetLevelForSpentAsync(
+        decimal totalSpent,
+        IDbTransaction? transaction = null);
 }

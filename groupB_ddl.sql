@@ -10,7 +10,11 @@ CREATE TABLE Crm_MemberLevels (
     LevelName       VARCHAR2(50)   NOT NULL,    -- 普通/银卡/金卡/钻石
     MinSpent        NUMBER(10,2)   NOT NULL,    -- 该等级最低消费门槛
     DiscountRate    NUMBER(4,3)    DEFAULT 1,   -- 折扣率 0.95=95折
-    PointsMultiplier NUMBER         DEFAULT 1    -- 积分倍率
+    PointsMultiplier NUMBER         DEFAULT 1,   -- 积分倍率
+    CONSTRAINT UQ_MemberLevel_MinSpent UNIQUE (MinSpent),
+    CONSTRAINT CK_MemberLevel_MinSpent CHECK (MinSpent >= 0),
+    CONSTRAINT CK_MemberLevel_Discount CHECK (DiscountRate > 0 AND DiscountRate <= 1),
+    CONSTRAINT CK_MemberLevel_Points CHECK (PointsMultiplier >= 1)
 );
 
 -- 2. Crm_Customers - 消费者
@@ -26,6 +30,7 @@ CREATE TABLE Crm_Customers (
     Points          NUMBER         DEFAULT 0,     -- 当前积分
     CreatedAt       DATE           DEFAULT SYSDATE,
     UpdatedAt       DATE,
+    CONSTRAINT UQ_Customer_Phone UNIQUE (Phone),
     CONSTRAINT FK_Customer_Promoter FOREIGN KEY (PromoterId) REFERENCES Crm_Promoters(PromoterId),
     CONSTRAINT FK_Customer_Level    FOREIGN KEY (MemberLevelId) REFERENCES Crm_MemberLevels(MemberLevelId)
 );
@@ -42,8 +47,18 @@ CREATE TABLE Crm_UserAddresses (
     DetailAddress   VARCHAR2(200),
     IsDefault       NUMBER(1)      DEFAULT 0,
     CreatedAt       DATE           DEFAULT SYSDATE,
-    CONSTRAINT FK_Address_Customer FOREIGN KEY (CustomerId) REFERENCES Crm_Customers(CustomerId)
+    CONSTRAINT FK_Address_Customer FOREIGN KEY (CustomerId) REFERENCES Crm_Customers(CustomerId),
+    CONSTRAINT CK_Address_IsDefault CHECK (IsDefault IN (0, 1))
 );
+
+-- 同一消费者最多只能有一条 IsDefault=1 的地址；非默认地址不参与唯一约束。
+CREATE UNIQUE INDEX UQ_Address_OneDefault
+    ON Crm_UserAddresses (
+        CASE WHEN IsDefault = 1 THEN CustomerId END
+    );
+
+CREATE INDEX IX_Address_Customer
+    ON Crm_UserAddresses (CustomerId, IsDefault);
 
 -- 4. Mkt_Coupons - 优惠券模板
 CREATE TABLE Mkt_Coupons (
@@ -55,7 +70,17 @@ CREATE TABLE Mkt_Coupons (
     RemainingQuantity NUMBER        NOT NULL,
     StartTime        DATE           NOT NULL,
     EndTime          DATE           NOT NULL,
-    Status           NUMBER(1)      DEFAULT 1    -- 0=停用 1=启用
+    Status           NUMBER(1)      DEFAULT 1,   -- 0=停用 1=启用
+    CONSTRAINT CK_Coupon_Amount CHECK (
+        MinOrderAmount >= 0 AND DiscountAmount > 0
+    ),
+    CONSTRAINT CK_Coupon_Quantity CHECK (
+        TotalQuantity >= 0
+        AND RemainingQuantity >= 0
+        AND RemainingQuantity <= TotalQuantity
+    ),
+    CONSTRAINT CK_Coupon_Time CHECK (EndTime > StartTime),
+    CONSTRAINT CK_Coupon_Status CHECK (Status IN (0, 1))
 );
 
 -- 5. Mkt_CouponRecords - 用户领券/用券记录
@@ -68,8 +93,13 @@ CREATE TABLE Mkt_CouponRecords (
     UsedAt          DATE,
     CreatedAt       DATE           DEFAULT SYSDATE,
     CONSTRAINT FK_CouponRec_Coupon   FOREIGN KEY (CouponId) REFERENCES Mkt_Coupons(CouponId),
-    CONSTRAINT FK_CouponRec_Customer FOREIGN KEY (CustomerId) REFERENCES Crm_Customers(CustomerId)
+    CONSTRAINT FK_CouponRec_Customer FOREIGN KEY (CustomerId) REFERENCES Crm_Customers(CustomerId),
+    CONSTRAINT UQ_CouponRec_Customer UNIQUE (CouponId, CustomerId),
+    CONSTRAINT CK_CouponRec_Status CHECK (Status IN (0, 1, 2))
 );
+
+CREATE INDEX IX_CouponRec_CustomerStatus
+    ON Mkt_CouponRecords (CustomerId, Status);
 
 -- 6. Crm_PointLogs - 积分流水 (每笔必记)
 CREATE TABLE Crm_PointLogs (

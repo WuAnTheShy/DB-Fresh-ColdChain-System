@@ -1,6 +1,8 @@
 using FreshColdChain.Interfaces;
 using FreshColdChain.Repositories;
 using FreshColdChain.Services;
+using FreshColdChain.Models;
+using Microsoft.AspNetCore.Identity;
 
 namespace FreshColdChain;
 
@@ -24,6 +26,7 @@ public class Program
 
         // Services（业务逻辑层）——对外暴露 Interface
         builder.Services.AddScoped<IOrderTransactionManager, OracleOrderTransactionManager>();
+        builder.Services.AddScoped<IPasswordHasher<CrmCustomer>, PasswordHasher<CrmCustomer>>();
         builder.Services.AddScoped<IInventoryService, DummyInventoryService>();
         builder.Services.AddScoped<IOrderService, OrderService>();
         builder.Services.AddScoped<ICustomerService, CustomerService>();
