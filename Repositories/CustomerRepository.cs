@@ -34,11 +34,11 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
     {
         const string sql = @"
             INSERT INTO Crm_Customers (
-                CustomerName, Phone, Email, PasswordHash, PromoterId,
-                MemberLevelId, TotalSpent, Points, CreatedAt)
+                CustomerName, Phone, Email, PasswordHash, OpenId, PromoterId,
+                MemberLevelId, TotalSpent, Points, GrowthValue, BindExpireTime, CreatedAt)
             VALUES (
-                :CustomerName, :Phone, :Email, :PasswordHash, :PromoterId,
-                :MemberLevelId, 0, 0, SYSDATE)
+                :CustomerName, :Phone, :Email, :PasswordHash, :OpenId, :PromoterId,
+                :MemberLevelId, 0, 0, :GrowthValue, :BindExpireTime, SYSDATE)
             RETURNING CustomerId INTO :CustomerId";
 
         var parameters = new DynamicParameters(customer);
@@ -73,6 +73,78 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
                 "SELECT * FROM Crm_Customers WHERE CustomerId = :CustomerId FOR UPDATE",
                 new { CustomerId = customerId },
                 transaction));
+    }
+
+    public async Task<List<CustomerAccount>> FindCustomerAccountsAsync(
+        string? customerId = null,
+        string? openId = null,
+        string? phone = null,
+        string? boundPromoterId = null,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<CustomerAccount>(
+                @"SELECT TO_CHAR(CustomerId) AS CustomerID,
+                         OpenId,
+                         Phone,
+                         Points AS PointsBalance,
+                         GrowthValue,
+                         TO_CHAR(PromoterId) AS BoundPromoterID,
+                         BindExpireTime
+                  FROM Crm_Customers
+                  WHERE (:CustomerId IS NULL OR TO_CHAR(CustomerId) = :CustomerId)
+                    AND (:OpenId IS NULL OR OpenId = :OpenId)
+                    AND (:Phone IS NULL OR Phone = :Phone)
+                    AND (:BoundPromoterId IS NULL OR TO_CHAR(PromoterId) = :BoundPromoterId)",
+                new
+                {
+                    CustomerId = customerId,
+                    OpenId = openId,
+                    Phone = phone,
+                    BoundPromoterId = boundPromoterId
+                },
+                transaction)).ToList());
+    }
+
+    public async Task<bool> UpdateBindingAsync(
+        int customerId,
+        int? boundPromoterId,
+        DateTime? bindExpireTime,
+        int? growthValue = null,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+        {
+            var affected = await connection.ExecuteAsync(
+                @"UPDATE Crm_Customers
+                  SET PromoterId = :PromoterId,
+                      BindExpireTime = :BindExpireTime,
+                      GrowthValue = NVL(:GrowthValue, GrowthValue),
+                      UpdatedAt = SYSDATE
+                  WHERE CustomerId = :CustomerId",
+                new
+                {
+                    CustomerId = customerId,
+                    PromoterId = boundPromoterId,
+                    BindExpireTime = bindExpireTime,
+                    GrowthValue = growthValue
+                },
+                transaction);
+            return affected == 1;
+        });
+    }
+
+    public async Task<List<CrmCustomer>> GetCustomersWithExpiredBindingsAsync(
+        DateTime now,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<CrmCustomer>(
+                @"SELECT * FROM Crm_Customers
+                  WHERE BindExpireTime IS NOT NULL
+                    AND BindExpireTime <= :Now",
+                new { Now = now },
+                transaction)).ToList());
     }
 
     /// <summary>只更新消费者允许自行维护的资料</summary>

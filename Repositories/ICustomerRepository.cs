@@ -22,6 +22,24 @@ public interface ICustomerRepository
         int customerId,
         IDbTransaction transaction);
 
+    Task<List<CustomerAccount>> FindCustomerAccountsAsync(
+        string? customerId = null,
+        string? openId = null,
+        string? phone = null,
+        string? boundPromoterId = null,
+        IDbTransaction? transaction = null);
+
+    Task<bool> UpdateBindingAsync(
+        int customerId,
+        int? boundPromoterId,
+        DateTime? bindExpireTime,
+        int? growthValue = null,
+        IDbTransaction? transaction = null);
+
+    Task<List<CrmCustomer>> GetCustomersWithExpiredBindingsAsync(
+        DateTime now,
+        IDbTransaction? transaction = null);
+
     Task<bool> UpdateProfileAsync(
         CustomerProfileUpdateRequest request,
         IDbTransaction? transaction = null);

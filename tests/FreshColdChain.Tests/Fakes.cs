@@ -155,6 +155,19 @@ internal sealed class FakeOrderRepository : IOrderRepository
         return GetByIdAsync(orderId, transaction);
     }
 
+    public Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
+        DateTime threshold,
+        IDbTransaction? transaction = null)
+    {
+        return Task.FromResult(Orders
+            .Where(order =>
+                (order.OrderStatus == (int)OrderStatus.Paid ||
+                 order.OrderStatus == (int)OrderStatus.Shipped) &&
+                (order.CommSettlementDate ?? order.CreatedAt) <= threshold)
+            .Select(CloneOrder)
+            .ToList());
+    }
+
     public Task<int> CountOrdersAsync(
         OrderQueryRequest request,
         IDbTransaction? transaction = null)
@@ -256,6 +269,26 @@ internal sealed class FakeOrderRepository : IOrderRepository
         return Task.FromResult(true);
     }
 
+    public Task<bool> TryUpdateCommissionSettlementAsync(
+        int orderId,
+        decimal? commBaseAmount,
+        decimal? commBonusAmount,
+        DateTime? commSettlementDate,
+        IDbTransaction transaction)
+    {
+        var order = Orders.SingleOrDefault(item => item.OrderId == orderId);
+        if (order == null)
+            return Task.FromResult(false);
+
+        Stage(transaction, () =>
+        {
+            order.CommBaseAmount = commBaseAmount;
+            order.CommBonusAmount = commBonusAmount;
+            order.CommSettlementDate = commSettlementDate;
+        });
+        return Task.FromResult(true);
+    }
+
     public Task InsertDetailsAsync(
         IEnumerable<BizOrderDetail> details,
         IDbTransaction? transaction = null)
@@ -277,6 +310,32 @@ internal sealed class FakeOrderRepository : IOrderRepository
             UnitPrice = detail.UnitPrice,
             SubTotal = detail.SubTotal,
             SupplierId = detail.SupplierId
+        };
+    }
+
+    private static BizOrder CloneOrder(BizOrder order)
+    {
+        return new BizOrder
+        {
+            OrderId = order.OrderId,
+            OrderNo = order.OrderNo,
+            CustomerId = order.CustomerId,
+            PromoterId = order.PromoterId,
+            AddressId = order.AddressId,
+            ReceiverName = order.ReceiverName,
+            ReceiverPhone = order.ReceiverPhone,
+            ShippingAddress = order.ShippingAddress,
+            TotalAmount = order.TotalAmount,
+            DiscountAmount = order.DiscountAmount,
+            FreightAmount = order.FreightAmount,
+            FinalAmount = order.FinalAmount,
+            CommBaseAmount = order.CommBaseAmount,
+            CommBonusAmount = order.CommBonusAmount,
+            CommSettlementDate = order.CommSettlementDate,
+            PointsEarned = order.PointsEarned,
+            OrderStatus = order.OrderStatus,
+            CreatedAt = order.CreatedAt,
+            UpdatedAt = order.UpdatedAt
         };
     }
 
@@ -311,9 +370,11 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     {
         CustomerId = 1,
         CustomerName = "测试消费者",
+        OpenId = "openid-1",
         MemberLevelId = 2,
         Points = 100,
-        TotalSpent = 0m
+        TotalSpent = 0m,
+        GrowthValue = 0
     };
     public List<CrmUserAddress> Addresses { get; } =
     [
@@ -371,6 +432,67 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         IDbTransaction transaction)
     {
         return GetByIdAsync(customerId, transaction);
+    }
+
+    public Task<List<CustomerAccount>> FindCustomerAccountsAsync(
+        string? customerId = null,
+        string? openId = null,
+        string? phone = null,
+        string? boundPromoterId = null,
+        IDbTransaction? transaction = null)
+    {
+        var customers = new List<CrmCustomer> { Customer };
+        customers.AddRange(CreatedCustomers);
+
+        var result = customers.Where(item =>
+            (customerId == null || item.CustomerId.ToString() == customerId) &&
+            (openId == null || string.Equals(item.OpenId, openId, StringComparison.Ordinal)) &&
+            (phone == null || string.Equals(item.Phone, phone, StringComparison.Ordinal)) &&
+            (boundPromoterId == null || item.PromoterId?.ToString() == boundPromoterId))
+            .Select(item => new CustomerAccount
+            {
+                CustomerID = item.CustomerId.ToString(),
+                OpenID = item.OpenId,
+                Phone = item.Phone,
+                PointsBalance = item.Points,
+                GrowthValue = item.GrowthValue,
+                BoundPromoterID = item.PromoterId?.ToString(),
+                BindExpireTime = item.BindExpireTime
+            })
+            .ToList();
+        return Task.FromResult(result);
+    }
+
+    public Task<bool> UpdateBindingAsync(
+        int customerId,
+        int? boundPromoterId,
+        DateTime? bindExpireTime,
+        int? growthValue = null,
+        IDbTransaction? transaction = null)
+    {
+        if (customerId != Customer.CustomerId)
+            return Task.FromResult(false);
+
+        Stage(transaction, () =>
+        {
+            Customer.PromoterId = boundPromoterId;
+            Customer.BindExpireTime = bindExpireTime;
+            if (growthValue.HasValue)
+                Customer.GrowthValue = growthValue.Value;
+        });
+        return Task.FromResult(true);
+    }
+
+    public Task<List<CrmCustomer>> GetCustomersWithExpiredBindingsAsync(
+        DateTime now,
+        IDbTransaction? transaction = null)
+    {
+        var list = new List<CrmCustomer> { Customer }
+            .Concat(CreatedCustomers)
+            .Where(item => item.BindExpireTime.HasValue && item.BindExpireTime <= now)
+            .Select(CloneCustomer)
+            .ToList();
+        return Task.FromResult(list);
     }
 
     public Task<bool> UpdateProfileAsync(
@@ -548,6 +670,7 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         return new CrmCustomer
         {
             CustomerId = customer.CustomerId,
+            OpenId = customer.OpenId,
             CustomerName = customer.CustomerName,
             Phone = customer.Phone,
             Email = customer.Email,
@@ -556,6 +679,8 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
             MemberLevelId = customer.MemberLevelId,
             TotalSpent = customer.TotalSpent,
             Points = customer.Points,
+            GrowthValue = customer.GrowthValue,
+            BindExpireTime = customer.BindExpireTime,
             CreatedAt = customer.CreatedAt,
             UpdatedAt = customer.UpdatedAt
         };

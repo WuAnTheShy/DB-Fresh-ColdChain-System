@@ -6,6 +6,7 @@ namespace FreshColdChain.Models;
 public class CrmCustomer
 {
     public int CustomerId { get; set; }
+    public string? OpenId { get; set; }
     public string CustomerName { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string? Email { get; set; }
@@ -14,6 +15,8 @@ public class CrmCustomer
     public int? MemberLevelId { get; set; }        // 当前会员等级
     public decimal TotalSpent { get; set; }        // 累计消费金额(用于定级)
     public int Points { get; set; }                // 当前积分余额
+    public int GrowthValue { get; set; }
+    public DateTime? BindExpireTime { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }
