@@ -1,4 +1,4 @@
-namespace DBFreshColdChainSystem.Models
+namespace DBFreshColdChain.Models
 {
     public class ErrorViewModel
     {

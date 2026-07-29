@@ -1,0 +1,21 @@
+﻿@{
+    ViewData["Title"] = "角色选择";
+}
+<h1>@ViewData["Title"]</h1>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h3 class="card-title text-center mb-4">选择您的身份</h3>
+                    <div class="d-grid gap-3">
+                        <a class="btn btn-primary btn-lg" asp-controller="Account" asp-action="Login" asp-route-role="Promoter">团长登入</a>
+                        <a class="btn btn-primary btn-lg" asp-controller="Account" asp-action="Login" asp-route-role="Consumer">消费者登入</a>
+                        <a class="btn btn-primary btn-lg" asp-controller="Account" asp-action="Login" asp-route-role="Admin">管理员登入</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
