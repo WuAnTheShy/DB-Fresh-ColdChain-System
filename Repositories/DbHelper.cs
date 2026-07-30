@@ -7,7 +7,7 @@ namespace DBFreshColdChain.Repositories
 {
     public class DbHelper
     {
-        private readonly string _connectionString;
+        private readonly string? _connectionString;
         public DbHelper(IConfiguration config)
         {
             _connectionString = config.GetConnectionString("OracleDb");
@@ -21,13 +21,26 @@ namespace DBFreshColdChain.Repositories
         public void GroupC_AddLogRecord(Log_Auditrails logData)
         {
             string sql = @"
-                INSERT INTO 
-                    LOG_AUDITTRAILS (
-                        LOGID, TABLENAME, RECORDID, ACTIONTYPE, 
-                        OLDVALUE, NEWVALUE, OPERATORTYPE, OPERATORID, OPTIME) 
-                VALUES (
-                    :LogId, :TableName, :RecordId, :ActionType,
-                    :OldValue, :NewValue, :OperatorType, :OperatorId, :OpTime
+                INSERT INTO LOG_AUDITTRAILS (
+                    LOGID, 
+                    TABLENAME, 
+                    RECORDID, 
+                    ACTIONTYPE, 
+                    OLDVALUE, 
+                    NEWVALUE, 
+                    OPERATORTYPE, 
+                    OPERATORID, 
+                    OPTIME
+                ) VALUES (
+                    :LogId, 
+                    :TableName, 
+                    :RecordId, 
+                    :ActionType,
+                    :OldValue, 
+                    :NewValue, 
+                    :OperatorType, 
+                    :OperatorId, 
+                    :OpTime
                 )";
 
             using (var connection = new OracleConnection(_connectionString))
@@ -35,7 +48,7 @@ namespace DBFreshColdChain.Repositories
                 connection.Execute(sql, logData);
             }
         }
-        public CrmPromoter? GroupC_FindPromoterRecord(string promoterId)  //查找团长记录
+        public CrmPromoter? GroupC_FindPromoterRecord(string? promoterId)  //查找团长记录
         {
             string sql = @"
                 SELECT 
@@ -63,7 +76,7 @@ namespace DBFreshColdChain.Repositories
                 return connection.QueryFirstOrDefault<CrmPromoter>(sql,new{PromoterId = promoterId });
             }
         }
-        public void GroupC_AddPromoterTotalSales(string promoterId,decimal deltaAmount) //增加累计销售额
+        public void GroupC_UpdatePromoterTotalSales(string? promoterId,decimal deltaAmount) //增加累计销售额
         {
             
             string sql = @"
@@ -80,7 +93,7 @@ namespace DBFreshColdChain.Repositories
             }
 
         }
-        public void GroupC_UpdatePromoterPendingBalance(string promoterId, decimal deltaAmount)    //更改团长表的待结算余额
+        public void GroupC_UpdatePromoterPendingBalance(string? promoterId, decimal deltaAmount)    //更改团长表的待结算余额
         {
            
             string sql = @"
@@ -96,7 +109,7 @@ namespace DBFreshColdChain.Repositories
                 });
             }
         }
-        public decimal? GroupC_FindPromoterPendingBalance(string promoterId) //查看团长表的待结算余额,如果查不到数据返回 null；
+        public decimal? GroupC_FindPromoterPendingBalance(string? promoterId) //查看团长表的待结算余额,如果查不到数据返回 null
         {
             string sql = @"
                 SELECT PENDINGBALANCE
@@ -109,7 +122,7 @@ namespace DBFreshColdChain.Repositories
             }
 
         }
-        public void GroupC_UpdatePromoterCurrentBalance(string promoterId, decimal deltaAmount)    //更改团长表的可提现余额
+        public void GroupC_UpdatePromoterCurrentBalance(string? promoterId, decimal deltaAmount)    //更改团长表的可提现余额
         {
        
             string sql = @"
@@ -123,6 +136,35 @@ namespace DBFreshColdChain.Repositories
                     PromoterId = promoterId,
                     DeltaAmount = deltaAmount
                 });
+            }
+        }
+
+        public void GroupC_AddPaymentRecord(FinPaymentRecord finPaymentRecord)  //添加支付流水记录
+        {
+            string sql = @"
+                INSERT INTO FIN_PAYMENTRECORDS (
+                    PAYID, 
+                    ORDERID, 
+                    PAYMETHOD, 
+                    TRANSACTIONNO, 
+                    PAYAMOUNT, 
+                    STATUS, 
+                    PAYTIME, 
+                    REMARK
+                ) VALUES (
+                    :PayId, 
+                    :OrderId, 
+                    :PayMethod, 
+                    :TransactionNo, 
+                    :PayAmount, 
+                    :Status, 
+                    :PayTime, 
+                    :Remark
+                )";
+
+            using (var connection = new OracleConnection(_connectionString))
+            { 
+                connection.Execute(sql, finPaymentRecord);
             }
         }
     }

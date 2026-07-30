@@ -1,6 +1,6 @@
 ﻿using DBFreshColdChain.Models;
 
-namespace DBFreshColdChain.Services
+namespace DBFreshColdChain.Interfaces
 {
     public interface GroupC_ITableLogManager
     {

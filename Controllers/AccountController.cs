@@ -1,5 +1,4 @@
 ﻿using DBFreshColdChain.Models;
-using DBFreshColdChain.Models;
 using DBFreshColdChain.Repositories;
 using DBFreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +7,10 @@ namespace DBFreshColdChainSystem.Controllers
 {
     public class AccountController : Controller
     {
+        public IActionResult RoleSelect()
+        {
+            return View();
+        }
         public IActionResult Login(string? role = null)
         {
             if (role == "Promoter")

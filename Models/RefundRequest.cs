@@ -2,8 +2,11 @@
 {
     public class RefundRequest
     {
-        public string PayID { get; set; }                        //支付流水号
-        public decimal Amount { get; set; }                      //退款金额
-        public string RefundReason { get; set; } = string.Empty; //退款理由，可加可不加
+        public string? OrderId { get; set; } = string.Empty;          // 订单编号 
+        public string? DetailId { get; set; } = string.Empty;         // 订单明细编号 
+        public string? ProductID {  get; set; } = string.Empty;       // 退款商品编号
+        public int RefundQty { get; set; }                            // 退款数量
+        public string? LiabilityType { get; set; } = "Customer";      // 责任归属: Supplier / Platform / Customer / Logistics
+        public string? Remark { get; set; } = string.Empty;           // 备注
     }
 }

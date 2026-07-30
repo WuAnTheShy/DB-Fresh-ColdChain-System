@@ -1,5 +1,6 @@
 ﻿using DBFreshColdChain.Models;
 using DBFreshColdChain.Repositories;
+using DBFreshColdChain.Interfaces;
 using Newtonsoft.Json;
 namespace DBFreshColdChain.Services
 {
@@ -8,14 +9,14 @@ namespace DBFreshColdChain.Services
         //Repository层句柄
         private readonly DbHelper _dbHelper;
         //Interface层句柄
-        private readonly GroupC_ITableLogManager _iTableLogManager;
+        private readonly GroupC_ITableLogManager _logManager;
         //构造函数
-        public PromoterManager(DbHelper dbHelper, GroupC_ITableLogManager iTableLogManager)
+        public PromoterManager(DbHelper dbHelper, GroupC_ITableLogManager logManager)
         {
             _dbHelper = dbHelper;
-            _iTableLogManager = iTableLogManager;
+            _logManager = logManager;
         }
-        protected bool FindPromoterInfo(string promoterID, ref CrmPromoter promoterInfo)    //查找团长信息函数
+        public bool FindPromoterInfo(string? promoterID, ref CrmPromoter promoterInfo)    //查找团长信息函数
         {
             if(promoterID == string.Empty || promoterID == null) //空值查找无效
                 return false;
@@ -25,7 +26,7 @@ namespace DBFreshColdChain.Services
             return true;
         }
 
-        public bool CommisionSettlement(string promoterID, decimal finalAmount, decimal goodsAmount,ref CommissionInfo commissionInfo)  //结算佣金总业务函数
+        public bool CommisionSettlement(string? promoterID, decimal finalAmount, decimal goodsAmount,ref CommissionInfo commissionInfo)  //结算佣金总业务函数
         {
             //获取团长信息
             CrmPromoter _promoterInfo = new CrmPromoter();
@@ -37,8 +38,8 @@ namespace DBFreshColdChain.Services
 
             //销售额结算
             var _oldTotalSales = _promoterInfo.TotalSales;
-            _dbHelper.GroupC_AddPromoterTotalSales(promoterID, goodsAmount);
-            var _newTotalSales = _promoterInfo.TotalSales;
+            _dbHelper.GroupC_UpdatePromoterTotalSales(promoterID, goodsAmount);
+            var _newTotalSales = _oldTotalSales + goodsAmount;
 
             //产生日志信息
             var _tableLog = new Log_Auditrails();
@@ -48,7 +49,7 @@ namespace DBFreshColdChain.Services
             _tableLog.OperatorId = "\\";
             _tableLog.OldValue = JsonConvert.SerializeObject(new { TotalSales = _oldTotalSales });
             _tableLog.NewValue = JsonConvert.SerializeObject(new { TotalSales = _newTotalSales });
-            _iTableLogManager.WriteTableChangeLog(_tableLog);
+            _logManager.WriteTableChangeLog(_tableLog);
             //基础佣金计算
             commissionInfo.CommBaseAmount = _promoterInfo.BaseCommissionRate * finalAmount;
             //奖励佣金计算
@@ -83,7 +84,7 @@ namespace DBFreshColdChain.Services
             //写入团长表的待结算余额中
             var _oldPromoterPendingBalance = _dbHelper.GroupC_FindPromoterPendingBalance(promoterID);
             _dbHelper.GroupC_UpdatePromoterPendingBalance(promoterID, totalCommission);
-            var _newPromoterPendingBalance = _dbHelper.GroupC_FindPromoterPendingBalance(promoterID);
+            var _newPromoterPendingBalance = _oldPromoterPendingBalance + totalCommission;
             //产生日志信息
             _tableLog = new Log_Auditrails();
             _tableLog.ActionType = "Update";
@@ -92,13 +93,48 @@ namespace DBFreshColdChain.Services
             _tableLog.OperatorId = "\\";
             _tableLog.OldValue = JsonConvert.SerializeObject(new { PendingBalance = _oldPromoterPendingBalance });
             _tableLog.NewValue = JsonConvert.SerializeObject(new { PendingBalance = _newPromoterPendingBalance });
-            _iTableLogManager.WriteTableChangeLog(_tableLog);
+            _logManager.WriteTableChangeLog(_tableLog);
             //时间获取
             commissionInfo.CommSettlementDate = DateTime.Now;
             return true;
         }
-       
 
+        public bool ActivatePromoterMoney(string? promoterID, decimal commBaseAmount, decimal commBonusAmount) //过可退期后团长佣金可提现化函数
+        {
+            CrmPromoter _promoterInfo = new CrmPromoter();
+            if (!FindPromoterInfo(promoterID, ref _promoterInfo))
+                return false;
+            var totalCommission = commBaseAmount + commBonusAmount; //先计算该单的总佣金
+            //记录旧的待结算余额数据
+            var _oldPromoterPendingBalance = _promoterInfo.PendingBalance;
+            var _oldPromoterCurrentBalance = _promoterInfo.CurrentBalance;
+            //更改团长余额信息(扣减旧的，加上新的）
+            _dbHelper.GroupC_UpdatePromoterPendingBalance(promoterID, -totalCommission);
+            _dbHelper.GroupC_UpdatePromoterCurrentBalance(promoterID, totalCommission);
+            //记录新的待结算余额数据
+            var _newPromoterPendingBalance = _oldPromoterPendingBalance - totalCommission;
+            var _newPromoterCurrentBalance = _oldPromoterCurrentBalance + totalCommission;
+            //产生日志信息（两条）
+            //Pendingbalance的扣减
+            var _tableLog = new Log_Auditrails();
+            _tableLog.ActionType = "Update";
+            _tableLog.TableName = "CRM_PROMOTERS";
+            _tableLog.OperatorType = "Platform";
+            _tableLog.OperatorId = "\\";
+            _tableLog.OldValue = JsonConvert.SerializeObject(new { PendingBalance = _oldPromoterPendingBalance });
+            _tableLog.NewValue = JsonConvert.SerializeObject(new { PendingBalance = _newPromoterPendingBalance });
+            _logManager.WriteTableChangeLog(_tableLog);
+            //Currentbalance的增添
+            _tableLog = new Log_Auditrails();
+            _tableLog.ActionType = "Update";
+            _tableLog.TableName = "CRM_PROMOTERS";
+            _tableLog.OperatorType = "Platform";
+            _tableLog.OperatorId = "\\";
+            _tableLog.OldValue = JsonConvert.SerializeObject(new { CurrentBalance = _oldPromoterCurrentBalance });
+            _tableLog.NewValue = JsonConvert.SerializeObject(new { CurrentBalance = _newPromoterCurrentBalance });
+            _logManager.WriteTableChangeLog(_tableLog);
+            return true;
+        }
 
     }
 }

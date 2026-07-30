@@ -1,5 +1,6 @@
 ﻿using DBFreshColdChain.Models;
 using DBFreshColdChain.Repositories;
+using DBFreshColdChain.Interfaces;
 using System;
 using System.Text.Json.Nodes;
 namespace DBFreshColdChain.Services
@@ -20,7 +21,7 @@ namespace DBFreshColdChain.Services
             }
             if (string.IsNullOrEmpty(logData.LogId))
             {
-                logData.LogId = Guid.NewGuid().ToString(); //自动生成日志编号
+                logData.LogId = "LOG_" + Guid.NewGuid().ToString("N"); //自动生成日志编号
             }
             if (logData.OpTime == null)
             {
