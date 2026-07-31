@@ -1,0 +1,51 @@
+@model CreateOrderDto
+@{
+    ViewData["Title"] = "创建订单";
+}
+<h3>创建订单</h3>
+<div class="col-md-6">
+    <form asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div class="mb-3">
+            <label class="form-label">团长ID</label>
+            <input asp-for="GroupLeaderId" class="form-control" type="number" required />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">备注</label>
+            <textarea asp-for="Remark" class="form-control"></textarea>
+        </div>
+        <h5>订单明细</h5>
+        <div id="itemContainer">
+            <div class="row g-2 mb-2 item-row">
+                <div class="col-4"><input name="Items[0].ProductId" class="form-control" type="number" placeholder="产品ID" required /></div>
+                <div class="col-4"><input name="Items[0].Quantity" class="form-control" type="number" placeholder="数量" required /></div>
+                <div class="col-2"><button type="button" class="btn btn-danger btn-sm remove-row">删除</button></div>
+            </div>
+        </div>
+        <button type="button" class="btn btn-outline-primary btn-sm mb-3" id="addRow">+ 添加明细行</button>
+        <div>
+            <button type="submit" class="btn btn-success">提交订单</button>
+            <a class="btn btn-outline-secondary" asp-action="Index">取消</a>
+        </div>
+    </form>
+</div>
+@section Scripts {
+<script>
+    let rowIndex = 1;
+    document.getElementById('addRow').addEventListener('click', function() {
+        const html = `<div class="row g-2 mb-2 item-row">
+            <div class="col-4"><input name="Items[${rowIndex}].ProductId" class="form-control" type="number" placeholder="产品ID" required /></div>
+            <div class="col-4"><input name="Items[${rowIndex}].Quantity" class="form-control" type="number" placeholder="数量" required /></div>
+            <div class="col-2"><button type="button" class="btn btn-danger btn-sm remove-row">删除</button></div>
+        </div>`;
+        document.getElementById('itemContainer').insertAdjacentHTML('beforeend', html);
+        rowIndex++;
+    });
+    document.getElementById('itemContainer').addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-row')) {
+            e.target.closest('.item-row').remove();
+        }
+    });
+</script>
+}

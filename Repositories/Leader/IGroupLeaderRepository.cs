@@ -2,10 +2,11 @@ using FreshGroupSystem.Models;
 
 namespace FreshGroupSystem.Repositories.Leader;
 
-public interface IGroupLeaderRepository : IBaseRepository<Models.GroupLeader>
+/// <summary>
+/// 团长仓储接口
+/// </summary>
+public interface IGroupLeaderRepository : IBaseRepository<GroupLeader>
 {
-    /// <summary>
-    /// 获取团长及其所有订单
-    /// </summary>
-    Task<Models.GroupLeader?> GetLeaderWithOrdersAsync(int leaderId);
+    Task<GroupLeader?> GetLeaderWithOrdersAsync(int leaderId);
+    Task<(List<GroupLeader> Items, int Total)> GetPagedWithOrderCountAsync(int pageIndex, int pageSize);
 }

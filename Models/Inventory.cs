@@ -25,8 +25,7 @@ public class Inventory
     [Column("UPDATE_TIME")]
     public DateTime UpdateTime { get; set; } = DateTime.Now;
 
-    // 导航属性
-    [ForeignKey(nameof(ProductId))]
+    // 导航属性（Dapper multi-mapping 填充）
     public Product? Product { get; set; }
 
     /// <summary>

@@ -41,8 +41,7 @@ public class Product
     [Column("CREATE_TIME")]
     public DateTime CreateTime { get; set; } = DateTime.Now;
 
-    // 导航属性
-    [ForeignKey(nameof(SupplierId))]
+    // 导航属性（Dapper multi-mapping 填充）
     public Supplier? Supplier { get; set; }
 
     public Inventory? Inventory { get; set; }

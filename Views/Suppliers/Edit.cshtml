@@ -1,0 +1,17 @@
+@model CreateSupplierDto
+@{
+    ViewData["Title"] = "编辑供应商";
+}
+<h3>编辑供应商</h3>
+<div class="col-md-6">
+    <form asp-action="Edit" method="post">
+        @Html.AntiForgeryToken()
+        <div class="mb-3"><label class="form-label">名称</label><input asp-for="Name" class="form-control" required /></div>
+        <div class="mb-3"><label class="form-label">联系人</label><input asp-for="ContactPerson" class="form-control" /></div>
+        <div class="mb-3"><label class="form-label">电话</label><input asp-for="Phone" class="form-control" /></div>
+        <div class="mb-3"><label class="form-label">地址</label><input asp-for="Address" class="form-control" /></div>
+        <div class="mb-3"><label class="form-label">备注</label><textarea asp-for="Remark" class="form-control"></textarea></div>
+        <button type="submit" class="btn btn-primary">保存</button>
+        <a class="btn btn-outline-secondary" asp-action="Index">取消</a>
+    </form>
+</div>

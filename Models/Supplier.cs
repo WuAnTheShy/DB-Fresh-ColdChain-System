@@ -38,4 +38,8 @@ public class Supplier
 
     // 导航属性：一个供应商有多个产品
     public ICollection<Product> Products { get; set; } = new List<Product>();
+
+    /// <summary>产品数量（SQL 聚合查询填充，非数据库字段）</summary>
+    [NotMapped]
+    public int ProductCount { get; set; }
 }

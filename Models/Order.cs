@@ -37,8 +37,7 @@ public class Order
     [Column("UPDATE_TIME")]
     public DateTime UpdateTime { get; set; } = DateTime.Now;
 
-    // 导航属性
-    [ForeignKey(nameof(GroupLeaderId))]
+    // 导航属性（Dapper multi-mapping 填充）
     public GroupLeader? GroupLeader { get; set; }
 
     public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();

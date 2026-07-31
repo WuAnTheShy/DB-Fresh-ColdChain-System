@@ -1,0 +1,43 @@
+@model UpdateProductDto
+@{
+    ViewData["Title"] = $"编辑产品 — {ViewBag.ProductName}";
+}
+
+<h3>编辑产品：@ViewBag.ProductName</h3>
+
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="Edit" asp-route-id="@ViewBag.ProductId" method="post">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label">名称</label>
+                <input asp-for="Name" class="form-control" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">分类</label>
+                <input asp-for="Category" class="form-control" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">单位</label>
+                <input asp-for="Unit" class="form-control" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">单价</label>
+                <input asp-for="Price" class="form-control" type="number" step="0.01" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">图片URL</label>
+                <input asp-for="ImageUrl" class="form-control" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">状态</label>
+                <select asp-for="Status" class="form-select">
+                    <option value="1">上架</option>
+                    <option value="0">下架</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">保存</button>
+            <a class="btn btn-outline-secondary" asp-action="Index">取消</a>
+        </form>
+    </div>
+</div>

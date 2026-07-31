@@ -28,10 +28,7 @@ public class OrderItem
     [Column("SUBTOTAL")]
     public decimal Subtotal { get; set; }
 
-    // 导航属性
-    [ForeignKey(nameof(OrderId))]
+    // 导航属性（Dapper multi-mapping 填充）
     public Order? Order { get; set; }
-
-    [ForeignKey(nameof(ProductId))]
     public Product? Product { get; set; }
 }

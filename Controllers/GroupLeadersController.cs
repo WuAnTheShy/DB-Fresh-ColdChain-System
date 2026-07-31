@@ -1,13 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
-using FreshGroupSystem.Common;
 using FreshGroupSystem.Interfaces;
 using FreshGroupSystem.Models.DTOs;
 
 namespace FreshGroupSystem.Controllers;
 
-[ApiController]
-[Route("api/[controller]")]
-public class GroupLeadersController : ControllerBase
+public class GroupLeadersController : Controller
 {
     private readonly IGroupLeaderService _service;
 
@@ -16,54 +13,104 @@ public class GroupLeadersController : ControllerBase
         _service = service;
     }
 
-    /// <summary>
-    /// 分页获取团长列表
-    /// </summary>
     [HttpGet]
-    public async Task<ApiResponse<PagedResult<GroupLeaderDto>>> GetList(
-        [FromQuery] int pageIndex = 1,
-        [FromQuery] int pageSize = 10)
-        => await _service.GetLeadersAsync(pageIndex, pageSize);
+    public async Task<IActionResult> Index(int pageIndex = 1, int pageSize = 10)
+    {
+        var result = await _service.GetLeadersAsync(pageIndex, pageSize);
+        return View(result.Data);
+    }
 
-    /// <summary>
-    /// 获取团长详情（含订单）
-    /// </summary>
-    [HttpGet("{id}")]
-    public async Task<ApiResponse<GroupLeaderDto>> GetDetail(int id)
-        => await _service.GetLeaderByIdAsync(id);
+    [HttpGet]
+    public async Task<IActionResult> Details(int id)
+    {
+        var result = await _service.GetLeaderByIdAsync(id);
+        if (!result.IsSuccess)
+            return NotFound(result.Message);
+        return View(result.Data);
+    }
 
-    /// <summary>
-    /// 创建团长
-    /// </summary>
+    [HttpGet]
+    public IActionResult Create()
+    {
+        return View(new CreateGroupLeaderDto());
+    }
+
     [HttpPost]
-    public async Task<ApiResponse<GroupLeaderDto>> Create([FromBody] CreateGroupLeaderDto dto)
-        => await _service.CreateLeaderAsync(dto);
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create(CreateGroupLeaderDto dto)
+    {
+        if (!ModelState.IsValid)
+            return View(dto);
 
-    /// <summary>
-    /// 更新团长信息
-    /// </summary>
-    [HttpPut("{id}")]
-    public async Task<ApiResponse<GroupLeaderDto>> Update(int id, [FromBody] CreateGroupLeaderDto dto)
-        => await _service.UpdateLeaderAsync(id, dto);
+        var result = await _service.CreateLeaderAsync(dto);
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError("", result.Message);
+            return View(dto);
+        }
 
-    /// <summary>
-    /// 删除团长
-    /// </summary>
-    [HttpDelete("{id}")]
-    public async Task<ApiResponse> Delete(int id)
-        => await _service.DeleteLeaderAsync(id);
+        TempData["Success"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
 
-    /// <summary>
-    /// 启用团长
-    /// </summary>
-    [HttpPost("{id}/enable")]
-    public async Task<ApiResponse> Enable(int id)
-        => await _service.EnableLeaderAsync(id);
+    [HttpGet]
+    public async Task<IActionResult> Edit(int id)
+    {
+        var result = await _service.GetLeaderByIdAsync(id);
+        if (!result.IsSuccess)
+            return NotFound(result.Message);
 
-    /// <summary>
-    /// 停用团长
-    /// </summary>
-    [HttpPost("{id}/disable")]
-    public async Task<ApiResponse> Disable(int id)
-        => await _service.DisableLeaderAsync(id);
+        return View(new CreateGroupLeaderDto
+        {
+            Name = result.Data!.Name,
+            Phone = result.Data.Phone,
+            CommunityName = result.Data.CommunityName,
+            Address = result.Data.Address
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, CreateGroupLeaderDto dto)
+    {
+        if (!ModelState.IsValid)
+            return View(dto);
+
+        var result = await _service.UpdateLeaderAsync(id, dto);
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError("", result.Message);
+            return View(dto);
+        }
+
+        TempData["Success"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var result = await _service.DeleteLeaderAsync(id);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Enable(int id)
+    {
+        var result = await _service.EnableLeaderAsync(id);
+        TempData["Success"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Disable(int id)
+    {
+        var result = await _service.DisableLeaderAsync(id);
+        TempData["Success"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
 }

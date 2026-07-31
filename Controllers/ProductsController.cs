@@ -1,13 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
-using FreshGroupSystem.Common;
 using FreshGroupSystem.Interfaces;
 using FreshGroupSystem.Models.DTOs;
 
 namespace FreshGroupSystem.Controllers;
 
-[ApiController]
-[Route("api/[controller]")]
-public class ProductsController : ControllerBase
+public class ProductsController : Controller
 {
     private readonly IProductInventoryService _service;
 
@@ -16,71 +13,129 @@ public class ProductsController : ControllerBase
         _service = service;
     }
 
-    /// <summary>
-    /// 分页获取产品列表
-    /// </summary>
+    // ========== 产品管理 ==========
+
     [HttpGet]
-    public async Task<ApiResponse<PagedResult<ProductDto>>> GetList(
-        [FromQuery] int pageIndex = 1,
-        [FromQuery] int pageSize = 10,
-        [FromQuery] string? keyword = null)
-        => await _service.GetProductsAsync(pageIndex, pageSize, keyword);
+    public async Task<IActionResult> Index(int pageIndex = 1, int pageSize = 10, string? keyword = null)
+    {
+        var result = await _service.GetProductsAsync(pageIndex, pageSize, keyword);
+        ViewBag.Keyword = keyword;
+        return View(result.Data);
+    }
 
-    /// <summary>
-    /// 获取产品详情
-    /// </summary>
-    [HttpGet("{id}")]
-    public async Task<ApiResponse<ProductDto>> GetDetail(int id)
-        => await _service.GetProductByIdAsync(id);
+    [HttpGet]
+    public async Task<IActionResult> Details(int id)
+    {
+        var result = await _service.GetProductByIdAsync(id);
+        if (!result.IsSuccess)
+            return NotFound(result.Message);
+        return View(result.Data);
+    }
 
-    /// <summary>
-    /// 创建产品
-    /// </summary>
+    [HttpGet]
+    public IActionResult Create()
+    {
+        return View(new CreateProductDto());
+    }
+
     [HttpPost]
-    public async Task<ApiResponse<ProductDto>> Create([FromBody] CreateProductDto dto)
-        => await _service.CreateProductAsync(dto);
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create(CreateProductDto dto)
+    {
+        if (!ModelState.IsValid)
+            return View(dto);
 
-    /// <summary>
-    /// 更新产品
-    /// </summary>
-    [HttpPut("{id}")]
-    public async Task<ApiResponse<ProductDto>> Update(int id, [FromBody] UpdateProductDto dto)
-        => await _service.UpdateProductAsync(id, dto);
+        var result = await _service.CreateProductAsync(dto);
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError("", result.Message);
+            return View(dto);
+        }
 
-    /// <summary>
-    /// 下架产品
-    /// </summary>
-    [HttpDelete("{id}")]
-    public async Task<ApiResponse> Delete(int id)
-        => await _service.DeleteProductAsync(id);
+        TempData["Success"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
 
-    // ========== 库存接口 ==========
+    [HttpGet]
+    public async Task<IActionResult> Edit(int id)
+    {
+        var result = await _service.GetProductByIdAsync(id);
+        if (!result.IsSuccess)
+            return NotFound(result.Message);
 
-    /// <summary>
-    /// 获取产品库存
-    /// </summary>
-    [HttpGet("{productId}/inventory")]
-    public async Task<ApiResponse<InventoryDto>> GetInventory(int productId)
-        => await _service.GetInventoryAsync(productId);
+        var dto = new UpdateProductDto
+        {
+            Name = result.Data!.Name,
+            Category = result.Data.Category,
+            Unit = result.Data.Unit,
+            Price = result.Data.Price,
+            ImageUrl = result.Data.ImageUrl,
+            Status = result.Data.Status
+        };
+        ViewBag.ProductId = id;
+        ViewBag.ProductName = result.Data.Name;
+        return View(dto);
+    }
 
-    /// <summary>
-    /// 获取低库存产品
-    /// </summary>
-    [HttpGet("low-stock")]
-    public async Task<ApiResponse<List<InventoryDto>>> GetLowStock([FromQuery] int threshold = 10)
-        => await _service.GetLowStockProductsAsync(threshold);
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, UpdateProductDto dto)
+    {
+        var result = await _service.UpdateProductAsync(id, dto);
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError("", result.Message);
+            ViewBag.ProductId = id;
+            return View(dto);
+        }
 
-    /// <summary>
-    /// 入库
-    /// </summary>
-    [HttpPost("stock-in")]
-    public async Task<ApiResponse> StockIn([FromBody] UpdateInventoryDto dto)
-        => await _service.StockInAsync(dto);
+        TempData["Success"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
 
-    /// <summary>
-    /// 出库
-    /// </summary>
-    [HttpPost("stock-out")]
-    public async Task<ApiResponse> StockOut([FromBody] UpdateInventoryDto dto)
-        => await _service.StockOutAsync(dto);
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var result = await _service.DeleteProductAsync(id);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
+
+    // ========== 库存管理 ==========
+
+    [HttpGet]
+    public async Task<IActionResult> Inventory(int productId)
+    {
+        var result = await _service.GetInventoryAsync(productId);
+        if (!result.IsSuccess)
+            return NotFound(result.Message);
+        return View(result.Data);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> LowStock(int threshold = 10)
+    {
+        var result = await _service.GetLowStockProductsAsync(threshold);
+        ViewBag.Threshold = threshold;
+        return View(result.Data);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> StockIn(UpdateInventoryDto dto)
+    {
+        var result = await _service.StockInAsync(dto);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.Message;
+        return RedirectToAction(nameof(Inventory), new { productId = dto.ProductId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> StockOut(UpdateInventoryDto dto)
+    {
+        var result = await _service.StockOutAsync(dto);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.Message;
+        return RedirectToAction(nameof(Inventory), new { productId = dto.ProductId });
+    }
 }

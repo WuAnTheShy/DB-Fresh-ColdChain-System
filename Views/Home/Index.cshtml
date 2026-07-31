@@ -1,8 +1,61 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@{
+    ViewData["Title"] = "首页";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="text-center my-5">
+    <h1 class="display-4">生鲜冷链团购分销供应链系统</h1>
+    <p class="lead text-muted">数据库课程设计项目</p>
+</div>
+
+<div class="row g-4 mt-3">
+    <div class="col-md-4">
+        <div class="card text-center h-100 shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title">📦</h3>
+                <h5>产品与库存</h5>
+                <p class="text-muted">管理产品信息、库存出入库、低库存预警</p>
+                <a class="btn btn-primary" asp-controller="Products" asp-action="Index">进入管理</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center h-100 shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title">🏭</h3>
+                <h5>供应商管理</h5>
+                <p class="text-muted">维护供应商信息及供货产品</p>
+                <a class="btn btn-primary" asp-controller="Suppliers" asp-action="Index">进入管理</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center h-100 shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title">📋</h3>
+                <h5>订单管理</h5>
+                <p class="text-muted">创建订单、订单状态流转、取消订单</p>
+                <a class="btn btn-primary" asp-controller="Orders" asp-action="Index">进入管理</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mt-3">
+        <div class="card text-center h-100 shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title">👤</h3>
+                <h5>团长管理</h5>
+                <p class="text-muted">社区团长信息维护与状态管理</p>
+                <a class="btn btn-primary" asp-controller="GroupLeaders" asp-action="Index">进入管理</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mt-3">
+        <div class="card text-center h-100 shadow-sm">
+            <div class="card-body">
+                <h3 class="card-title">🚚</h3>
+                <h5>物流配送</h5>
+                <p class="text-muted">待配送订单处理与配送完成</p>
+                <a class="btn btn-primary" asp-controller="Logistics" asp-action="Index">进入管理</a>
+            </div>
+        </div>
+    </div>
 </div>

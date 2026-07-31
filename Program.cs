@@ -1,9 +1,9 @@
-using Microsoft.EntityFrameworkCore;
 using FreshGroupSystem.Data;
 using FreshGroupSystem.Interfaces;
 using FreshGroupSystem.Services;
 using FreshGroupSystem.Services.Order;
 using FreshGroupSystem.Services.Leader;
+using FreshGroupSystem.Services.Supplier;
 using FreshGroupSystem.Repositories;
 using FreshGroupSystem.Repositories.Supplier;
 using FreshGroupSystem.Repositories.Order;
@@ -11,45 +11,40 @@ using FreshGroupSystem.Repositories.Leader;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ========== 数据库 ==========
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseOracle(builder.Configuration.GetConnectionString("DefaultConnection")));
+// ========== Dapper 基础设施 ==========
+builder.Services.AddScoped<IDbConnectionFactory, OracleDbConnectionFactory>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // ========== Repository 注册 ==========
 builder.Services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
 builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IGroupLeaderRepository, GroupLeaderRepository>();
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 
 // ========== Service 注册 ==========
 builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IGroupLeaderService, GroupLeaderService>();
 builder.Services.AddScoped<ILogisticsService, LogisticsService>();
+builder.Services.AddScoped<ISupplierService, SupplierService>();
 
-// ========== 控制器 + Swagger ==========
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// ========== 跨域 ==========
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
-    });
-});
+// ========== MVC ==========
+builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+if (!app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseExceptionHandler("/Home/Error");
 }
 
-app.UseCors();
-app.MapControllers();
+app.UseStaticFiles();
+app.UseRouting();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();

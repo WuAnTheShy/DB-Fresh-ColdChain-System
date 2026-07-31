@@ -1,0 +1,22 @@
+@model ProductDto
+@{
+    ViewData["Title"] = $"产品详情 — {Model.Name}";
+}
+
+<h3>📦 @Model.Name</h3>
+
+<table class="table table-bordered w-50">
+    <tr><th style="width:150px">ID</th><td>@Model.Id</td></tr>
+    <tr><th>名称</th><td>@Model.Name</td></tr>
+    <tr><th>分类</th><td>@Model.Category</td></tr>
+    <tr><th>单位</th><td>@Model.Unit</td></tr>
+    <tr><th>单价</th><td>¥@Model.Price.ToString("F2")</td></tr>
+    <tr><th>图片</th><td>@Model.ImageUrl</td></tr>
+    <tr><th>状态</th><td>@(Model.Status == 1 ? "上架" : "下架")</td></tr>
+    <tr><th>供应商</th><td>@Model.SupplierName</td></tr>
+    <tr><th>可用库存</th><td>@Model.AvailableStock</td></tr>
+</table>
+
+<a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model.Id">编辑</a>
+<a class="btn btn-secondary" asp-action="Inventory" asp-route-productId="@Model.Id">库存管理</a>
+<a class="btn btn-outline-secondary" asp-action="Index">返回列表</a>

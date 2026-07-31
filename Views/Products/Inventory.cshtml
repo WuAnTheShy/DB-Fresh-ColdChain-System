@@ -1,0 +1,46 @@
+@model InventoryDto
+@{
+    ViewData["Title"] = $"库存管理 — {Model.ProductName}";
+}
+
+<h3>📊 库存管理：@Model.ProductName</h3>
+
+<div class="row">
+    <div class="col-md-4">
+        <table class="table table-bordered">
+            <tr><th>总库存</th><td>@Model.StockQuantity</td></tr>
+            <tr><th>锁定库存</th><td>@Model.LockedQuantity</td></tr>
+            <tr><th>可用库存</th><td>@Model.AvailableQuantity</td></tr>
+            <tr><th>更新时间</th><td>@Model.UpdateTime.ToString("yyyy-MM-dd HH:mm")</td></tr>
+        </table>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header">入库</div>
+            <div class="card-body">
+                <form asp-action="StockIn" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="ProductId" value="@Model.ProductId" />
+                    <div class="mb-2">
+                        <input type="number" name="Quantity" class="form-control" placeholder="数量" required />
+                    </div>
+                    <button type="submit" class="btn btn-success">确认入库</button>
+                </form>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">出库</div>
+            <div class="card-body">
+                <form asp-action="StockOut" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="ProductId" value="@Model.ProductId" />
+                    <div class="mb-2">
+                        <input type="number" name="Quantity" class="form-control" placeholder="数量" required />
+                    </div>
+                    <button type="submit" class="btn btn-warning">确认出库</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<a class="btn btn-outline-secondary mt-3" asp-action="Index">返回列表</a>

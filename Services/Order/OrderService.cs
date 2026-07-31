@@ -1,86 +1,121 @@
 using FreshGroupSystem.Common;
+using FreshGroupSystem.Data;
 using FreshGroupSystem.Interfaces;
 using FreshGroupSystem.Models;
 using FreshGroupSystem.Models.DTOs;
+using FreshGroupSystem.Repositories;
 using FreshGroupSystem.Repositories.Order;
+using FreshGroupSystem.Repositories.Leader;
 
 namespace FreshGroupSystem.Services.Order;
 
 public class OrderService : IOrderService
 {
     private readonly IOrderRepository _orderRepo;
-    private readonly Repositories.IBaseRepository<Models.Product> _productRepo;
-    private readonly Repositories.IBaseRepository<Models.Inventory> _inventoryRepo;
-    private readonly Repositories.IBaseRepository<Models.OrderItem> _orderItemRepo;
+    private readonly IProductRepository _productRepo;
+    private readonly IInventoryRepository _inventoryRepo;
+    private readonly IGroupLeaderRepository _leaderRepo;
+    private readonly IBaseRepository<OrderItem> _orderItemRepo;
+    private readonly IUnitOfWork _uow;
 
     public OrderService(
         IOrderRepository orderRepo,
-        Repositories.IBaseRepository<Models.Product> productRepo,
-        Repositories.IBaseRepository<Models.Inventory> inventoryRepo,
-        Repositories.IBaseRepository<Models.OrderItem> orderItemRepo)
+        IProductRepository productRepo,
+        IInventoryRepository inventoryRepo,
+        IGroupLeaderRepository leaderRepo,
+        IUnitOfWork uow)
     {
         _orderRepo = orderRepo;
         _productRepo = productRepo;
         _inventoryRepo = inventoryRepo;
-        _orderItemRepo = orderItemRepo;
+        _leaderRepo = leaderRepo;
+        _uow = uow;
+        // 使用泛型 BaseRepository 处理 OrderItem
+        _orderItemRepo = new BaseRepository<OrderItem>(uow);
     }
 
     /// <summary>
-    /// 创建订单：校验库存 → 创建订单 → 锁定库存
+    /// 创建订单：校验库��� → 锁定库存 → 创建订单 + 明细（事务保护）
     /// </summary>
     public async Task<ApiResponse<OrderResultDto>> CreateOrderAsync(CreateOrderDto dto)
     {
         if (dto.Items == null || dto.Items.Count == 0)
             return ApiResponse<OrderResultDto>.Fail("订单明细不能为空");
 
+        // 校验团长
+        var leader = await _leaderRepo.GetByIdAsync(dto.GroupLeaderId);
+        if (leader == null)
+            return ApiResponse<OrderResultDto>.Fail("团长不存在", 404);
+        if (leader.Status != 1)
+            return ApiResponse<OrderResultDto>.Fail("该团长已停用");
+
         decimal totalAmount = 0;
         var orderItems = new List<OrderItem>();
 
-        foreach (var item in dto.Items)
+        try
         {
-            var product = await _productRepo.GetByIdAsync(item.ProductId);
-            if (product == null)
-                return ApiResponse<OrderResultDto>.Fail($"产品 ID={item.ProductId} 不存在");
-            if (product.Status != 1)
-                return ApiResponse<OrderResultDto>.Fail($"产品「{product.Name}」已下架");
+            await _uow.BeginAsync();
 
-            // 检查库存
-            var inventory = await _inventoryRepo
-                .FirstOrDefaultAsync(i => i.ProductId == item.ProductId);
-            if (inventory == null || inventory.AvailableQuantity < item.Quantity)
-                return ApiResponse<OrderResultDto>.Fail($"产品「{product.Name}」库存不足");
-
-            var subtotal = product.Price * item.Quantity;
-            totalAmount += subtotal;
-
-            orderItems.Add(new OrderItem
+            foreach (var item in dto.Items)
             {
-                ProductId = item.ProductId,
-                Quantity = item.Quantity,
-                UnitPrice = product.Price,
-                Subtotal = subtotal
-            });
+                var product = await _productRepo.GetByIdAsync(item.ProductId);
+                if (product == null)
+                    return ApiResponse<OrderResultDto>.Fail($"产品 ID={item.ProductId} 不存在");
+                if (product.Status != 1)
+                    return ApiResponse<OrderResultDto>.Fail($"产品「{product.Name}」已下架");
 
-            // 锁定库存
-            inventory.LockedQuantity += item.Quantity;
-            _inventoryRepo.Update(inventory);
+                // 检查库存
+                var inventory = await _inventoryRepo.GetByProductIdAsync(item.ProductId);
+                if (inventory == null || inventory.AvailableQuantity < item.Quantity)
+                    return ApiResponse<OrderResultDto>.Fail($"产品「{product.Name}」库存不足");
+
+                var subtotal = product.Price * item.Quantity;
+                totalAmount += subtotal;
+
+                orderItems.Add(new OrderItem
+                {
+                    ProductId = item.ProductId,
+                    Quantity = item.Quantity,
+                    UnitPrice = product.Price,
+                    Subtotal = subtotal
+                });
+
+                // 锁定库存
+                inventory.LockedQuantity += item.Quantity;
+                _inventoryRepo.Update(inventory);
+            }
+
+            // 创建订单
+            var order = new Models.Order
+            {
+                OrderNo = GenerateOrderNo(),
+                GroupLeaderId = dto.GroupLeaderId,
+                TotalAmount = totalAmount,
+                Status = 1, // 待确认
+                Remark = dto.Remark
+            };
+
+            await _orderRepo.AddAsync(order);
+
+            // 创建订单明细（设置 OrderId）
+            foreach (var oi in orderItems)
+            {
+                oi.OrderId = order.Id;
+                await _orderItemRepo.AddAsync(oi);
+            }
+
+            order.OrderItems = orderItems;
+            order.GroupLeader = leader;
+
+            await _uow.CommitAsync();
+
+            return ApiResponse<OrderResultDto>.Success(MapToResultDto(order));
         }
-
-        // 创建订单
-        var order = new Models.Order
+        catch
         {
-            OrderNo = GenerateOrderNo(),
-            GroupLeaderId = dto.GroupLeaderId,
-            TotalAmount = totalAmount,
-            Status = 1, // 待确认
-            Remark = dto.Remark,
-            OrderItems = orderItems
-        };
-
-        await _orderRepo.AddAsync(order);
-        await _orderRepo.SaveChangesAsync();
-
-        return ApiResponse<OrderResultDto>.Success(MapToResultDto(order));
+            await _uow.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<ApiResponse<OrderResultDto>> GetOrderDetailAsync(int orderId)
@@ -94,23 +129,14 @@ public class OrderService : IOrderService
 
     public async Task<ApiResponse<PagedResult<OrderResultDto>>> GetOrdersAsync(int pageIndex, int pageSize, int? status = null)
     {
-        var query = status.HasValue
-            ? await _orderRepo.GetOrdersByStatusAsync(status.Value)
-            : await _orderRepo.GetAllAsync();
-
-        var total = query.Count;
-        var items = query
-            .Skip((pageIndex - 1) * pageSize)
-            .Take(pageSize)
-            .Select(MapToResultDto)
-            .ToList();
+        var (items, total) = await _orderRepo.GetPagedWithDetailsAsync(pageIndex, pageSize, status);
 
         var result = new PagedResult<OrderResultDto>
         {
             PageIndex = pageIndex,
             PageSize = pageSize,
             TotalCount = total,
-            Items = items
+            Items = items.Select(MapToResultDto).ToList()
         };
 
         return ApiResponse<PagedResult<OrderResultDto>>.Success(result);
@@ -145,27 +171,38 @@ public class OrderService : IOrderService
         if (order.Status != 1)
             return ApiResponse.Fail("只能取消待确认的订单");
 
-        // 释放锁定库存
-        foreach (var item in order.OrderItems)
+        try
         {
-            var inventory = await _inventoryRepo
-                .FirstOrDefaultAsync(i => i.ProductId == item.ProductId);
-            if (inventory != null)
+            await _uow.BeginAsync();
+
+            // 释放锁定库存
+            foreach (var item in order.OrderItems)
             {
-                inventory.LockedQuantity -= item.Quantity;
-                _inventoryRepo.Update(inventory);
+                var inventory = await _inventoryRepo.GetByProductIdAsync(item.ProductId);
+                if (inventory != null)
+                {
+                    inventory.LockedQuantity -= item.Quantity;
+                    _inventoryRepo.Update(inventory);
+                }
             }
+
+            order.Status = 5; // 已取消
+            order.UpdateTime = DateTime.Now;
+            _orderRepo.Update(order);
+
+            await _uow.CommitAsync();
+
+            return ApiResponse.Success("订单已取消");
         }
-
-        order.Status = 5; // 已取消
-        order.UpdateTime = DateTime.Now;
-        _orderRepo.Update(order);
-        await _orderRepo.SaveChangesAsync();
-
-        return ApiResponse.Success("订单已取消");
+        catch
+        {
+            await _uow.RollbackAsync();
+            throw;
+        }
     }
 
     // ========== 私有方法 ==========
+
     private static string GenerateOrderNo()
         => $"ORD{DateTime.Now:yyyyMMddHHmmss}{Random.Shared.Next(1000, 9999)}";
 
@@ -179,7 +216,7 @@ public class OrderService : IOrderService
         _ => "未知"
     };
 
-    private OrderResultDto MapToResultDto(Models.Order order)
+    private static OrderResultDto MapToResultDto(Models.Order order)
         => new()
         {
             Id = order.Id,

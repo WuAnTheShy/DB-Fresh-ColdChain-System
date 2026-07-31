@@ -1,0 +1,22 @@
+@model PagedResult<object>
+
+@if (Model.TotalPages > 1)
+{
+    <nav>
+        <ul class="pagination justify-content-center">
+            <li class="page-item @(Model.PageIndex <= 1 ? "disabled" : "")">
+                <a class="page-link" href="?pageIndex=@(Model.PageIndex - 1)&pageSize=@Model.PageSize">上一页</a>
+            </li>
+            @for (int i = 1; i <= Model.TotalPages; i++)
+            {
+                <li class="page-item @(i == Model.PageIndex ? "active" : "")">
+                    <a class="page-link" href="?pageIndex=@i&pageSize=@Model.PageSize">@i</a>
+                </li>
+            }
+            <li class="page-item @(Model.PageIndex >= Model.TotalPages ? "disabled" : "")">
+                <a class="page-link" href="?pageIndex=@(Model.PageIndex + 1)&pageSize=@Model.PageSize">下一页</a>
+            </li>
+        </ul>
+    </nav>
+    <p class="text-center text-muted">共 @Model.TotalCount 条记录，第 @Model.PageIndex / @Model.TotalPages 页</p>
+}

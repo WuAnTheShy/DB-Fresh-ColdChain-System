@@ -37,4 +37,8 @@ public class GroupLeader
 
     // 导航属性：一个团长有多个订单
     public ICollection<Order> Orders { get; set; } = new List<Order>();
+
+    /// <summary>订单数量（SQL 聚合查询填充，非数据库字段）</summary>
+    [NotMapped]
+    public int OrderCount { get; set; }
 }

@@ -1,152 +1,99 @@
 using Microsoft.AspNetCore.Mvc;
-using FreshGroupSystem.Common;
-using FreshGroupSystem.Models;
+using FreshGroupSystem.Interfaces;
 using FreshGroupSystem.Models.DTOs;
-using FreshGroupSystem.Repositories.Supplier;
 
 namespace FreshGroupSystem.Controllers;
 
-[ApiController]
-[Route("api/[controller]")]
-public class SuppliersController : ControllerBase
+public class SuppliersController : Controller
 {
-    private readonly ISupplierRepository _supplierRepo;
+    private readonly ISupplierService _service;
 
-    public SuppliersController(ISupplierRepository supplierRepo)
+    public SuppliersController(ISupplierService service)
     {
-        _supplierRepo = supplierRepo;
+        _service = service;
     }
 
-    /// <summary>
-    /// 分页获取供应商列表
-    /// </summary>
     [HttpGet]
-    public async Task<ApiResponse<PagedResult<SupplierDto>>> GetList(
-        [FromQuery] int pageIndex = 1,
-        [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> Index(int pageIndex = 1, int pageSize = 10)
     {
-        var all = await _supplierRepo.GetAllAsync();
-        var total = all.Count;
-        var items = all
-            .Skip((pageIndex - 1) * pageSize)
-            .Take(pageSize)
-            .Select(s => new SupplierDto
-            {
-                Id = s.Id,
-                Name = s.Name,
-                ContactPerson = s.ContactPerson,
-                Phone = s.Phone,
-                Address = s.Address,
-                Remark = s.Remark,
-                ProductCount = s.Products?.Count ?? 0
-            })
-            .ToList();
-
-        return ApiResponse<PagedResult<SupplierDto>>.Success(new PagedResult<SupplierDto>
-        {
-            PageIndex = pageIndex,
-            PageSize = pageSize,
-            TotalCount = total,
-            Items = items
-        });
+        var result = await _service.GetSuppliersAsync(pageIndex, pageSize);
+        return View(result.Data);
     }
 
-    /// <summary>
-    /// 获取供应商详情（含产品列表）
-    /// </summary>
-    [HttpGet("{id}")]
-    public async Task<ApiResponse<SupplierDto>> GetDetail(int id)
+    [HttpGet]
+    public async Task<IActionResult> Details(int id)
     {
-        var supplier = await _supplierRepo.GetByIdAsync(id);
-        if (supplier == null)
-            return ApiResponse<SupplierDto>.Fail("供应商不存在", 404);
-
-        var products = await _supplierRepo.GetProductsBySupplierIdAsync(id);
-
-        return ApiResponse<SupplierDto>.Success(new SupplierDto
-        {
-            Id = supplier.Id,
-            Name = supplier.Name,
-            ContactPerson = supplier.ContactPerson,
-            Phone = supplier.Phone,
-            Address = supplier.Address,
-            Remark = supplier.Remark,
-            ProductCount = products.Count
-        });
+        var result = await _service.GetSupplierByIdAsync(id);
+        if (!result.IsSuccess)
+            return NotFound(result.Message);
+        return View(result.Data);
     }
 
-    /// <summary>
-    /// 创建供应商
-    /// </summary>
+    [HttpGet]
+    public IActionResult Create()
+    {
+        return View(new CreateSupplierDto());
+    }
+
     [HttpPost]
-    public async Task<ApiResponse<SupplierDto>> Create([FromBody] CreateSupplierDto dto)
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create(CreateSupplierDto dto)
     {
-        var supplier = new Supplier
-        {
-            Name = dto.Name,
-            ContactPerson = dto.ContactPerson,
-            Phone = dto.Phone,
-            Address = dto.Address,
-            Remark = dto.Remark
-        };
+        if (!ModelState.IsValid)
+            return View(dto);
 
-        await _supplierRepo.AddAsync(supplier);
-        await _supplierRepo.SaveChangesAsync();
-
-        return ApiResponse<SupplierDto>.Success(new SupplierDto
+        var result = await _service.CreateSupplierAsync(dto);
+        if (!result.IsSuccess)
         {
-            Id = supplier.Id,
-            Name = supplier.Name,
-            ContactPerson = supplier.ContactPerson,
-            Phone = supplier.Phone,
-            Address = supplier.Address,
-            Remark = supplier.Remark
-        }, "供应商创建成功");
+            ModelState.AddModelError("", result.Message);
+            return View(dto);
+        }
+
+        TempData["Success"] = result.Message;
+        return RedirectToAction(nameof(Index));
     }
 
-    /// <summary>
-    /// 更新供应商
-    /// </summary>
-    [HttpPut("{id}")]
-    public async Task<ApiResponse<SupplierDto>> Update(int id, [FromBody] CreateSupplierDto dto)
+    [HttpGet]
+    public async Task<IActionResult> Edit(int id)
     {
-        var supplier = await _supplierRepo.GetByIdAsync(id);
-        if (supplier == null)
-            return ApiResponse<SupplierDto>.Fail("供应商不存在", 404);
+        var result = await _service.GetSupplierByIdAsync(id);
+        if (!result.IsSuccess)
+            return NotFound(result.Message);
 
-        supplier.Name = dto.Name;
-        supplier.ContactPerson = dto.ContactPerson;
-        supplier.Phone = dto.Phone;
-        supplier.Address = dto.Address;
-        supplier.Remark = dto.Remark;
-
-        _supplierRepo.Update(supplier);
-        await _supplierRepo.SaveChangesAsync();
-
-        return ApiResponse<SupplierDto>.Success(new SupplierDto
+        return View(new CreateSupplierDto
         {
-            Id = supplier.Id,
-            Name = supplier.Name,
-            ContactPerson = supplier.ContactPerson,
-            Phone = supplier.Phone,
-            Address = supplier.Address,
-            Remark = supplier.Remark
-        }, "供应商更新成功");
+            Name = result.Data!.Name,
+            ContactPerson = result.Data.ContactPerson,
+            Phone = result.Data.Phone,
+            Address = result.Data.Address,
+            Remark = result.Data.Remark
+        });
     }
 
-    /// <summary>
-    /// 删除供应商
-    /// </summary>
-    [HttpDelete("{id}")]
-    public async Task<ApiResponse> Delete(int id)
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, CreateSupplierDto dto)
     {
-        var supplier = await _supplierRepo.GetByIdAsync(id);
-        if (supplier == null)
-            return ApiResponse.Fail("供应商不存在", 404);
+        if (!ModelState.IsValid)
+            return View(dto);
 
-        _supplierRepo.Delete(supplier);
-        await _supplierRepo.SaveChangesAsync();
+        var result = await _service.UpdateSupplierAsync(id, dto);
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError("", result.Message);
+            return View(dto);
+        }
 
-        return ApiResponse.Success("供应商已删除");
+        TempData["Success"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var result = await _service.DeleteSupplierAsync(id);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.Message;
+        return RedirectToAction(nameof(Index));
     }
 }

@@ -1,18 +1,27 @@
-using Microsoft.EntityFrameworkCore;
 using FreshGroupSystem.Common;
 using FreshGroupSystem.Data;
 using FreshGroupSystem.Interfaces;
+using FreshGroupSystem.Models;
 using FreshGroupSystem.Models.DTOs;
+using FreshGroupSystem.Repositories;
+using FreshGroupSystem.Repositories.Order;
 
 namespace FreshGroupSystem.Services;
 
 public class LogisticsService : ILogisticsService
 {
-    private readonly AppDbContext _context;
+    private readonly IOrderRepository _orderRepo;
+    private readonly IInventoryRepository _inventoryRepo;
+    private readonly IUnitOfWork _uow;
 
-    public LogisticsService(AppDbContext context)
+    public LogisticsService(
+        IOrderRepository orderRepo,
+        IInventoryRepository inventoryRepo,
+        IUnitOfWork uow)
     {
-        _context = context;
+        _orderRepo = orderRepo;
+        _inventoryRepo = inventoryRepo;
+        _uow = uow;
     }
 
     /// <summary>
@@ -20,14 +29,7 @@ public class LogisticsService : ILogisticsService
     /// </summary>
     public async Task<ApiResponse<List<OrderResultDto>>> GetPendingDeliveryOrdersAsync()
     {
-        var orders = await _context.Orders
-            .Include(o => o.GroupLeader)
-            .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-            .Where(o => o.Status == 2) // 已确认，待配送
-            .OrderBy(o => o.CreateTime)
-            .ToListAsync();
-
+        var orders = await _orderRepo.GetOrdersByStatusAsync(2); // 已确认，待配送
         var list = orders.Select(MapToDto).ToList();
         return ApiResponse<List<OrderResultDto>>.Success(list);
     }
@@ -37,7 +39,7 @@ public class LogisticsService : ILogisticsService
     /// </summary>
     public async Task<ApiResponse> StartDeliveryAsync(int orderId)
     {
-        var order = await _context.Orders.FindAsync(orderId);
+        var order = await _orderRepo.GetByIdAsync(orderId);
         if (order == null)
             return ApiResponse.Fail("订单不存在", 404);
         if (order.Status != 2)
@@ -45,42 +47,55 @@ public class LogisticsService : ILogisticsService
 
         order.Status = 3; // 配送中
         order.UpdateTime = DateTime.Now;
-        await _context.SaveChangesAsync();
+        _orderRepo.Update(order);
 
         return ApiResponse.Success("配送已开始");
     }
 
     /// <summary>
-    /// 配送完成（状态 3→4）
+    /// 配送完成（状态 3→4）：扣除实际库存（事务保护）
     /// </summary>
     public async Task<ApiResponse> CompleteDeliveryAsync(int orderId)
     {
-        var order = await _context.Orders
-            .Include(o => o.OrderItems)
-            .FirstOrDefaultAsync(o => o.Id == orderId);
-
+        var order = await _orderRepo.GetOrderDetailAsync(orderId);
         if (order == null)
             return ApiResponse.Fail("订单不存在", 404);
         if (order.Status != 3)
             return ApiResponse.Fail("当前订单状态不允许完成配送");
 
-        // 扣除实际库存
-        foreach (var item in order.OrderItems)
+        try
         {
-            var inventory = await _context.Inventories
-                .FirstOrDefaultAsync(i => i.ProductId == item.ProductId);
-            if (inventory != null)
+            await _uow.BeginAsync();
+
+            foreach (var item in order.OrderItems)
             {
-                inventory.StockQuantity -= item.Quantity;
-                inventory.LockedQuantity -= item.Quantity;
+                var inventory = await _inventoryRepo.GetByProductIdAsync(item.ProductId);
+                if (inventory != null)
+                {
+                    if (inventory.StockQuantity < item.Quantity)
+                    {
+                        await _uow.RollbackAsync();
+                        return ApiResponse.Fail($"产品「{item.Product?.Name ?? item.ProductId.ToString()}」库存不足，无法完成配送");
+                    }
+                    inventory.StockQuantity -= item.Quantity;
+                    inventory.LockedQuantity -= item.Quantity;
+                    _inventoryRepo.Update(inventory);
+                }
             }
+
+            order.Status = 4; // 已完成
+            order.UpdateTime = DateTime.Now;
+            _orderRepo.Update(order);
+
+            await _uow.CommitAsync();
+
+            return ApiResponse.Success("配送已完成");
         }
-
-        order.Status = 4; // 已完成
-        order.UpdateTime = DateTime.Now;
-        await _context.SaveChangesAsync();
-
-        return ApiResponse.Success("配送已完成");
+        catch
+        {
+            await _uow.RollbackAsync();
+            throw;
+        }
     }
 
     /// <summary>
@@ -88,19 +103,16 @@ public class LogisticsService : ILogisticsService
     /// </summary>
     public async Task<ApiResponse<List<OrderResultDto>>> GetDeliverySummaryByLeaderAsync(int leaderId)
     {
-        var orders = await _context.Orders
-            .Include(o => o.GroupLeader)
-            .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.Product)
-            .Where(o => o.GroupLeaderId == leaderId && (o.Status == 3 || o.Status == 4))
-            .OrderByDescending(o => o.CreateTime)
-            .ToListAsync();
-
-        var list = orders.Select(MapToDto).ToList();
+        var orders = await _orderRepo.GetOrdersByLeaderIdAsync(leaderId);
+        var list = orders
+            .Where(o => o.Status == 3 || o.Status == 4)
+            .Select(MapToDto)
+            .ToList();
         return ApiResponse<List<OrderResultDto>>.Success(list);
     }
 
     // ========== 私有方法 ==========
+
     private static string GetStatusName(int status) => status switch
     {
         1 => "待确认",

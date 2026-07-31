@@ -1,13 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using FreshGroupSystem.Common;
 using FreshGroupSystem.Interfaces;
-using FreshGroupSystem.Models.DTOs;
 
 namespace FreshGroupSystem.Controllers;
 
-[ApiController]
-[Route("api/[controller]")]
-public class LogisticsController : ControllerBase
+public class LogisticsController : Controller
 {
     private readonly ILogisticsService _service;
 
@@ -16,31 +12,36 @@ public class LogisticsController : ControllerBase
         _service = service;
     }
 
-    /// <summary>
-    /// 获取待配送订单列表
-    /// </summary>
-    [HttpGet("pending")]
-    public async Task<ApiResponse<List<OrderResultDto>>> GetPending()
-        => await _service.GetPendingDeliveryOrdersAsync();
+    [HttpGet]
+    public async Task<IActionResult> Index()
+    {
+        var result = await _service.GetPendingDeliveryOrdersAsync();
+        return View(result.Data);
+    }
 
-    /// <summary>
-    /// 开始配送
-    /// </summary>
-    [HttpPost("{orderId}/start")]
-    public async Task<ApiResponse> StartDelivery(int orderId)
-        => await _service.StartDeliveryAsync(orderId);
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> StartDelivery(int orderId)
+    {
+        var result = await _service.StartDeliveryAsync(orderId);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
 
-    /// <summary>
-    /// 完成配送
-    /// </summary>
-    [HttpPost("{orderId}/complete")]
-    public async Task<ApiResponse> CompleteDelivery(int orderId)
-        => await _service.CompleteDeliveryAsync(orderId);
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CompleteDelivery(int orderId)
+    {
+        var result = await _service.CompleteDeliveryAsync(orderId);
+        TempData[result.IsSuccess ? "Success" : "Error"] = result.Message;
+        return RedirectToAction(nameof(Index));
+    }
 
-    /// <summary>
-    /// 某团长的配送汇总
-    /// </summary>
-    [HttpGet("summary/{leaderId}")]
-    public async Task<ApiResponse<List<OrderResultDto>>> GetSummary(int leaderId)
-        => await _service.GetDeliverySummaryByLeaderAsync(leaderId);
+    [HttpGet]
+    public async Task<IActionResult> Summary(int leaderId)
+    {
+        var result = await _service.GetDeliverySummaryByLeaderAsync(leaderId);
+        ViewBag.LeaderId = leaderId;
+        return View(result.Data);
+    }
 }

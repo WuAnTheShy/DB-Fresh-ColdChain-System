@@ -16,20 +16,14 @@ public class GroupLeaderService : IGroupLeaderService
 
     public async Task<ApiResponse<PagedResult<GroupLeaderDto>>> GetLeadersAsync(int pageIndex, int pageSize)
     {
-        var all = await _leaderRepo.GetAllAsync();
-        var total = all.Count;
-        var items = all
-            .Skip((pageIndex - 1) * pageSize)
-            .Take(pageSize)
-            .Select(MapToDto)
-            .ToList();
+        var (items, total) = await _leaderRepo.GetPagedWithOrderCountAsync(pageIndex, pageSize);
 
         return ApiResponse<PagedResult<GroupLeaderDto>>.Success(new PagedResult<GroupLeaderDto>
         {
             PageIndex = pageIndex,
             PageSize = pageSize,
             TotalCount = total,
-            Items = items
+            Items = items.Select(MapToDto).ToList()
         });
     }
 
@@ -95,6 +89,7 @@ public class GroupLeaderService : IGroupLeaderService
         => await SetLeaderStatus(id, 0, "团长已停用");
 
     // ========== 私有方法 ==========
+
     private async Task<ApiResponse> SetLeaderStatus(int id, int status, string message)
     {
         var leader = await _leaderRepo.GetByIdAsync(id);
@@ -117,6 +112,6 @@ public class GroupLeaderService : IGroupLeaderService
             CommunityName = leader.CommunityName,
             Address = leader.Address,
             Status = leader.Status,
-            OrderCount = leader.Orders?.Count ?? 0
+            OrderCount = leader.Orders?.Count ?? leader.OrderCount
         };
 }
