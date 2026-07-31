@@ -61,6 +61,54 @@ public class SupplierService : ISupplierService
         return ApiResponse.Success("供应商已删除");
     }
 
+    // ========== 跨组接口（供 C 组调用）==========
+
+    public async Task<ApiResponse<List<SupplierAccountDto>>> FindSupplierAccountAsync(
+        string? supplierId = null,
+        string? supplierName = null,
+        string? loginAccount = null,
+        string? contactPhone = null)
+    {
+        var allSuppliers = await _repo.GetAllAsync();
+
+        var result = allSuppliers.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(supplierId))
+            result = result.Where(s => s.SupplierID == supplierId);
+        if (!string.IsNullOrWhiteSpace(supplierName))
+            result = result.Where(s => s.SupplierName.Contains(supplierName));
+        if (!string.IsNullOrWhiteSpace(loginAccount))
+            result = result.Where(s => s.LoginAccount == loginAccount);
+        if (!string.IsNullOrWhiteSpace(contactPhone))
+            result = result.Where(s => s.ContactPhone == contactPhone);
+
+        var list = result.Select(s => new SupplierAccountDto
+        {
+            SupplierID = s.SupplierID,
+            SupplierName = s.SupplierName,
+            LicenseNo = s.LicenseNo,
+            ExpiryDate = s.ExpiryDate,
+            CreditLevel = s.CreditLevel,
+            ContactPhone = s.ContactPhone,
+            LoginAccount = s.LoginAccount
+        }).ToList();
+
+        return ApiResponse<List<SupplierAccountDto>>.Success(list);
+    }
+
+    public async Task<ApiResponse<bool>> VerifySupplierPasswordAsync(string loginAccount, string password)
+    {
+        var allSuppliers = await _repo.GetAllAsync();
+        var supplier = allSuppliers.FirstOrDefault(s => s.LoginAccount == loginAccount);
+
+        if (supplier == null)
+            return ApiResponse<bool>.Fail("账号不存在", 404);
+
+        // TODO: 实际项目应使用 BCrypt/SHA256 哈希比对
+        var valid = supplier.LoginPassword == password;
+        return ApiResponse<bool>.Success(valid, valid ? "验证通过" : "密码错误");
+    }
+
     private static SupplierDto MapToDto(InvSupplier s) => new()
     {
         SupplierID = s.SupplierID, SupplierName = s.SupplierName,

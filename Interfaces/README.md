@@ -15,8 +15,17 @@
 
 | 接口 | 用途 |
 |------|------|
-| `IProductInventoryService` | 产品、分类、库存、批次管理（供 B 组下单时调用） |
-| `ISupplierService` | 供应商管理 |
+| `IProductInventoryService` | 产品、分类、库存、批次管理（供 B/C 组调用） |
+| `ISupplierService` | 供应商管理（供 C 组调用） |
+
+### C 组可调用的跨组方法
+
+| 方法 | 所属接口 | 说明 |
+|------|---------|------|
+| `GetProductStockAsync(productId)` | `IProductInventoryService` | 查商品库存总量，返回 `int` |
+| `FindSupplierAccountAsync(id,name,account,phone)` | `ISupplierService` | 按条件查供应商账户（不含密码） |
+| `VerifySupplierPasswordAsync(account, pwd)` | `ISupplierService` | 验证供应商登录密码 |
+| `DeleteSupplierAsync(id)` | `ISupplierService` | 删除供应商 |
 
 ## 关键设计
 

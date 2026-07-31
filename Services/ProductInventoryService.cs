@@ -106,6 +106,16 @@ public class ProductInventoryService : IProductInventoryService
         return ApiResponse.Success("产品已下架");
     }
 
+    // ========== 跨组接口（供 C 组调用）==========
+
+    public async Task<ApiResponse<int>> GetProductStockAsync(string productId)
+    {
+        var st = await _stockRepo.GetByProductIdAsync(productId);
+        return st == null
+            ? ApiResponse<int>.Fail("产品库存记录不存在", 404)
+            : ApiResponse<int>.Success(st.AvailableQty);
+    }
+
     // ========== 分类 ==========
 
     public async Task<ApiResponse<List<CategoryDto>>> GetAllCategoriesAsync()

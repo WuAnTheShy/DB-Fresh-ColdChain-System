@@ -16,6 +16,13 @@ public interface IProductInventoryService
     Task<ApiResponse<List<CategoryDto>>> GetAllCategoriesAsync();
     Task<ApiResponse<CategoryDto>> CreateCategoryAsync(CreateCategoryDto dto);
 
+    // ========== 跨组接口（供 C 组调用）==========
+
+    /// <summary>
+    /// 查询商品库存总量
+    /// </summary>
+    Task<ApiResponse<int>> GetProductStockAsync(string productId);
+
     // 库存
     Task<ApiResponse<InventoryDto>> GetInventoryAsync(string productId);
     Task<ApiResponse<List<InventoryDto>>> GetLowStockProductsAsync(int threshold = 10);
