@@ -1,6 +1,6 @@
 using System.Data;
 
-namespace FreshGroupSystem.Data;
+namespace FreshGroupSystem.Repositories;
 
 /// <summary>
 /// 工作单元接口：管理数据库连接和事务，Scoped 生命周期

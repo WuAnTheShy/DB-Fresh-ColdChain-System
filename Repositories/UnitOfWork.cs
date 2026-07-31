@@ -1,6 +1,6 @@
 using System.Data;
 
-namespace FreshGroupSystem.Data;
+namespace FreshGroupSystem.Repositories;
 
 /// <summary>
 /// 工作单元实现：一次 HTTP 请求内共享同一个连接和事务

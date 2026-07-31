@@ -1,4 +1,4 @@
-using FreshGroupSystem.Common;
+using FreshGroupSystem.Models;
 using FreshGroupSystem.Models.DTOs;
 
 namespace FreshGroupSystem.Interfaces;

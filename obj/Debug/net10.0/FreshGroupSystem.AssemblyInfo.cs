@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FreshGroupSystem")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+697fc51fefa035fa72d69c597b4eded9d2804cdd")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+50f4f835fcde825205290a7c1849c377e3a21b04")]
 [assembly: System.Reflection.AssemblyProductAttribute("FreshGroupSystem")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FreshGroupSystem")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

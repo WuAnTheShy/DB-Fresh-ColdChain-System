@@ -1,4 +1,4 @@
-namespace FreshGroupSystem.Common;
+namespace FreshGroupSystem.Models;
 
 /// <summary>
 /// 分页结果

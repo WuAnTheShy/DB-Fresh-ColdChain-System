@@ -1,9 +1,7 @@
-using FreshGroupSystem.Common;
 using FreshGroupSystem.Interfaces;
 using FreshGroupSystem.Models;
 using FreshGroupSystem.Models.DTOs;
 using FreshGroupSystem.Repositories;
-using FreshGroupSystem.Data;
 
 namespace FreshGroupSystem.Services;
 

@@ -3,7 +3,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using System.Reflection;
 using Dapper;
-using FreshGroupSystem.Data;
 
 namespace FreshGroupSystem.Repositories;
 
