@@ -1,38 +1,44 @@
 namespace FreshGroupSystem.Models.DTOs;
 
-/// <summary>
-/// 产品返回结果
-/// </summary>
 public class ProductDto
 {
-    public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string? Category { get; set; }
+    public string ProductID { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public string? CategoryName { get; set; }
+    public string? SupplierName { get; set; }
     public string? Unit { get; set; }
-    public decimal Price { get; set; }
-    public string? ImageUrl { get; set; }
-    public int Status { get; set; }
-    public string SupplierName { get; set; } = string.Empty;
+    public decimal? WeightKG { get; set; }
+    public decimal? VolumeLitre { get; set; }
+    public int? ExpiryHours { get; set; }
+    public string? StorageReq { get; set; }
+    public decimal DefaultPrice { get; set; }
+    public string Status { get; set; } = "ACTIVE";
     public int AvailableStock { get; set; }
 }
 
 public class CreateProductDto
 {
-    public string Name { get; set; } = string.Empty;
-    public string? Category { get; set; }
+    public string ProductName { get; set; } = string.Empty;
+    public string? CategoryID { get; set; }
+    public string? SupplierID { get; set; }
     public string? Unit { get; set; }
-    public decimal Price { get; set; }
-    public string? ImageUrl { get; set; }
-    public int SupplierId { get; set; }
+    public decimal? WeightKG { get; set; }
+    public decimal? VolumeLitre { get; set; }
+    public int? ExpiryHours { get; set; }
+    public string? StorageReq { get; set; }
+    public decimal DefaultPrice { get; set; }
     public int InitialStock { get; set; }
 }
 
 public class UpdateProductDto
 {
-    public string? Name { get; set; }
-    public string? Category { get; set; }
+    public string? ProductName { get; set; }
+    public string? CategoryID { get; set; }
     public string? Unit { get; set; }
-    public decimal? Price { get; set; }
-    public string? ImageUrl { get; set; }
-    public int? Status { get; set; }
+    public decimal? WeightKG { get; set; }
+    public decimal? VolumeLitre { get; set; }
+    public int? ExpiryHours { get; set; }
+    public string? StorageReq { get; set; }
+    public decimal? DefaultPrice { get; set; }
+    public string? Status { get; set; }
 }

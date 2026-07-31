@@ -2,20 +2,23 @@ namespace FreshGroupSystem.Models.DTOs;
 
 public class SupplierDto
 {
-    public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string? ContactPerson { get; set; }
-    public string? Phone { get; set; }
-    public string? Address { get; set; }
-    public string? Remark { get; set; }
+    public string SupplierID { get; set; } = string.Empty;
+    public string SupplierName { get; set; } = string.Empty;
+    public string? LicenseNo { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public int CreditLevel { get; set; }
+    public string? ContactPhone { get; set; }
+    public string? LoginAccount { get; set; }
     public int ProductCount { get; set; }
 }
 
 public class CreateSupplierDto
 {
-    public string Name { get; set; } = string.Empty;
-    public string? ContactPerson { get; set; }
-    public string? Phone { get; set; }
-    public string? Address { get; set; }
-    public string? Remark { get; set; }
+    public string SupplierName { get; set; } = string.Empty;
+    public string? LicenseNo { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public int CreditLevel { get; set; }
+    public string? ContactPhone { get; set; }
+    public string? LoginAccount { get; set; }
+    public string? LoginPassword { get; set; }
 }

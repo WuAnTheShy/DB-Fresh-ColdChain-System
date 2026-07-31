@@ -8,134 +8,115 @@ public class ProductsController : Controller
 {
     private readonly IProductInventoryService _service;
 
-    public ProductsController(IProductInventoryService service)
-    {
-        _service = service;
-    }
+    public ProductsController(IProductInventoryService service) => _service = service;
 
-    // ========== 产品管理 ==========
+    // ========== 产品 ==========
 
     [HttpGet]
     public async Task<IActionResult> Index(int pageIndex = 1, int pageSize = 10, string? keyword = null)
     {
-        var result = await _service.GetProductsAsync(pageIndex, pageSize, keyword);
+        var r = await _service.GetProductsAsync(pageIndex, pageSize, keyword);
         ViewBag.Keyword = keyword;
-        return View(result.Data);
+        return View(r.Data);
     }
 
     [HttpGet]
-    public async Task<IActionResult> Details(int id)
+    public async Task<IActionResult> Details(string id)
     {
-        var result = await _service.GetProductByIdAsync(id);
-        if (!result.IsSuccess)
-            return NotFound(result.Message);
-        return View(result.Data);
+        var r = await _service.GetProductByIdAsync(id);
+        if (!r.IsSuccess) return NotFound(r.Message);
+        return View(r.Data);
     }
 
     [HttpGet]
-    public IActionResult Create()
-    {
-        return View(new CreateProductDto());
-    }
+    public IActionResult Create() => View(new CreateProductDto());
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(CreateProductDto dto)
     {
-        if (!ModelState.IsValid)
-            return View(dto);
-
-        var result = await _service.CreateProductAsync(dto);
-        if (!result.IsSuccess)
-        {
-            ModelState.AddModelError("", result.Message);
-            return View(dto);
-        }
-
-        TempData["Success"] = result.Message;
+        var r = await _service.CreateProductAsync(dto);
+        TempData["Success"] = r.Message;
         return RedirectToAction(nameof(Index));
     }
 
     [HttpGet]
-    public async Task<IActionResult> Edit(int id)
+    public async Task<IActionResult> Edit(string id)
     {
-        var result = await _service.GetProductByIdAsync(id);
-        if (!result.IsSuccess)
-            return NotFound(result.Message);
-
-        var dto = new UpdateProductDto
+        var r = await _service.GetProductByIdAsync(id);
+        if (!r.IsSuccess) return NotFound(r.Message);
+        var p = r.Data!;
+        return View(new UpdateProductDto
         {
-            Name = result.Data!.Name,
-            Category = result.Data.Category,
-            Unit = result.Data.Unit,
-            Price = result.Data.Price,
-            ImageUrl = result.Data.ImageUrl,
-            Status = result.Data.Status
-        };
-        ViewBag.ProductId = id;
-        ViewBag.ProductName = result.Data.Name;
-        return View(dto);
+            ProductName = p.ProductName, Unit = p.Unit,
+            WeightKG = p.WeightKG, VolumeLitre = p.VolumeLitre,
+            ExpiryHours = p.ExpiryHours, StorageReq = p.StorageReq,
+            DefaultPrice = p.DefaultPrice, Status = p.Status
+        });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int id, UpdateProductDto dto)
+    public async Task<IActionResult> Edit(string id, UpdateProductDto dto)
     {
-        var result = await _service.UpdateProductAsync(id, dto);
-        if (!result.IsSuccess)
-        {
-            ModelState.AddModelError("", result.Message);
-            ViewBag.ProductId = id;
-            return View(dto);
-        }
-
-        TempData["Success"] = result.Message;
+        var r = await _service.UpdateProductAsync(id, dto);
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Delete(int id)
+    public async Task<IActionResult> Delete(string id)
     {
-        var result = await _service.DeleteProductAsync(id);
-        TempData[result.IsSuccess ? "Success" : "Error"] = result.Message;
+        var r = await _service.DeleteProductAsync(id);
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(Index));
     }
 
-    // ========== 库存管理 ==========
+    // ========== 库存 ==========
 
     [HttpGet]
-    public async Task<IActionResult> Inventory(int productId)
+    public async Task<IActionResult> Inventory(string productId)
     {
-        var result = await _service.GetInventoryAsync(productId);
-        if (!result.IsSuccess)
-            return NotFound(result.Message);
-        return View(result.Data);
+        var r = await _service.GetInventoryAsync(productId);
+        if (!r.IsSuccess) return NotFound(r.Message);
+        var batches = await _service.GetBatchesAsync(productId);
+        ViewBag.Batches = batches.Data;
+        return View(r.Data);
     }
 
     [HttpGet]
     public async Task<IActionResult> LowStock(int threshold = 10)
     {
-        var result = await _service.GetLowStockProductsAsync(threshold);
+        var r = await _service.GetLowStockProductsAsync(threshold);
         ViewBag.Threshold = threshold;
-        return View(result.Data);
+        return View(r.Data);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> StockIn(UpdateInventoryDto dto)
+    public async Task<IActionResult> StockIn(string productId, int quantity, string? batchNo)
     {
-        var result = await _service.StockInAsync(dto);
-        TempData[result.IsSuccess ? "Success" : "Error"] = result.Message;
-        return RedirectToAction(nameof(Inventory), new { productId = dto.ProductId });
+        var r = await _service.StockInAsync(new UpdateInventoryDto { ProductID = productId, Quantity = quantity }, batchNo);
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
+        return RedirectToAction(nameof(Inventory), new { productId });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> StockOut(UpdateInventoryDto dto)
+    public async Task<IActionResult> StockOut(string productId, int quantity)
     {
-        var result = await _service.StockOutAsync(dto);
-        TempData[result.IsSuccess ? "Success" : "Error"] = result.Message;
-        return RedirectToAction(nameof(Inventory), new { productId = dto.ProductId });
+        var r = await _service.StockOutAsync(new UpdateInventoryDto { ProductID = productId, Quantity = quantity });
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
+        return RedirectToAction(nameof(Inventory), new { productId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddBatch(CreateStockBatchDto dto)
+    {
+        var r = await _service.AddBatchAsync(dto);
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
+        return RedirectToAction(nameof(Inventory), new { productId = dto.ProductID });
     }
 }

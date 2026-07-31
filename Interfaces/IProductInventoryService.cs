@@ -3,21 +3,26 @@ using FreshGroupSystem.Models.DTOs;
 
 namespace FreshGroupSystem.Interfaces;
 
-/// <summary>
-/// 产品库存管理服务接口
-/// </summary>
 public interface IProductInventoryService
 {
-    // 产品管理
+    // 产品
     Task<ApiResponse<PagedResult<ProductDto>>> GetProductsAsync(int pageIndex, int pageSize, string? keyword = null);
-    Task<ApiResponse<ProductDto>> GetProductByIdAsync(int id);
+    Task<ApiResponse<ProductDto>> GetProductByIdAsync(string id);
     Task<ApiResponse<ProductDto>> CreateProductAsync(CreateProductDto dto);
-    Task<ApiResponse<ProductDto>> UpdateProductAsync(int id, UpdateProductDto dto);
-    Task<ApiResponse> DeleteProductAsync(int id);
+    Task<ApiResponse<ProductDto>> UpdateProductAsync(string id, UpdateProductDto dto);
+    Task<ApiResponse> DeleteProductAsync(string id);
 
-    // 库存管理
-    Task<ApiResponse<InventoryDto>> GetInventoryAsync(int productId);
+    // 分类
+    Task<ApiResponse<List<CategoryDto>>> GetAllCategoriesAsync();
+    Task<ApiResponse<CategoryDto>> CreateCategoryAsync(CreateCategoryDto dto);
+
+    // 库存
+    Task<ApiResponse<InventoryDto>> GetInventoryAsync(string productId);
     Task<ApiResponse<List<InventoryDto>>> GetLowStockProductsAsync(int threshold = 10);
-    Task<ApiResponse> StockInAsync(UpdateInventoryDto dto);   // 入库
-    Task<ApiResponse> StockOutAsync(UpdateInventoryDto dto);  // 出库
+    Task<ApiResponse> StockInAsync(UpdateInventoryDto dto, string? batchNo = null);
+    Task<ApiResponse> StockOutAsync(UpdateInventoryDto dto);
+
+    // 批次
+    Task<ApiResponse<List<StockBatchDto>>> GetBatchesAsync(string productId);
+    Task<ApiResponse<StockBatchDto>> AddBatchAsync(CreateStockBatchDto dto);
 }

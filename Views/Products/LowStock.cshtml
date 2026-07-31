@@ -1,25 +1,16 @@
 @model List<InventoryDto>
-@{
-    ViewData["Title"] = "低库存预警";
-}
-
-<h3>⚠️ 低库存产品 (阈值：@ViewBag.Threshold)</h3>
-
+@{ ViewData["Title"] = "低库存预警"; }
+<h3>低库存产品 (阈值：@ViewBag.Threshold)</h3>
 <table class="table table-striped table-hover">
-    <thead class="table-warning">
-        <tr><th>产品ID</th><th>名称</th><th>总库存</th><th>锁定</th><th>可用</th><th>更新时间</th><th>操作</th></tr>
-    </thead>
+    <thead class="table-warning"><tr><th>产品</th><th>总库存</th><th>锁定</th><th>可用</th><th>更新时间</th><th>操作</th></tr></thead>
     <tbody>
     @foreach (var i in Model)
     {
         <tr>
-            <td>@i.ProductId</td>
-            <td>@i.ProductName</td>
-            <td>@i.StockQuantity</td>
-            <td>@i.LockedQuantity</td>
-            <td class="text-danger fw-bold">@i.AvailableQuantity</td>
+            <td>@i.ProductName</td><td>@i.TotalQty</td><td>@i.LockedQty</td>
+            <td class="text-danger fw-bold">@i.AvailableQty</td>
             <td>@i.UpdateTime.ToString("yyyy-MM-dd HH:mm")</td>
-            <td><a class="btn btn-sm btn-secondary" asp-action="Inventory" asp-route-productId="@i.ProductId">管理</a></td>
+            <td><a class="btn btn-sm btn-secondary" asp-action="Inventory" asp-route-productId="@i.ProductID">管理</a></td>
         </tr>
     }
     </tbody>

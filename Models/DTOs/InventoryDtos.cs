@@ -1,20 +1,43 @@
 namespace FreshGroupSystem.Models.DTOs;
 
-/// <summary>
-/// 库存更新
-/// </summary>
-public class UpdateInventoryDto
-{
-    public int ProductId { get; set; }
-    public int Quantity { get; set; }  // 正数=入库, 负数=出库
-}
-
 public class InventoryDto
 {
-    public int ProductId { get; set; }
+    public string StockID { get; set; } = string.Empty;
+    public string ProductID { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
-    public int StockQuantity { get; set; }
-    public int LockedQuantity { get; set; }
-    public int AvailableQuantity { get; set; }
+    public int TotalQty { get; set; }
+    public int LockedQty { get; set; }
+    public int AvailableQty { get; set; }
     public DateTime UpdateTime { get; set; }
+}
+
+public class UpdateInventoryDto
+{
+    public string ProductID { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+}
+
+public class StockBatchDto
+{
+    public string BatchID { get; set; } = string.Empty;
+    public string ProductID { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public string BatchNo { get; set; } = string.Empty;
+    public DateTime? ProductionDate { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public decimal InPrice { get; set; }
+    public int InitialQty { get; set; }
+    public int CurrentQty { get; set; }
+    public string Status { get; set; } = "ACTIVE";
+}
+
+public class CreateStockBatchDto
+{
+    public string ProductID { get; set; } = string.Empty;
+    public string? SupplierID { get; set; }
+    public string BatchNo { get; set; } = string.Empty;
+    public DateTime? ProductionDate { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public decimal InPrice { get; set; }
+    public int InitialQty { get; set; }
 }

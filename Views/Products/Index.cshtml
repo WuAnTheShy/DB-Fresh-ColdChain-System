@@ -2,49 +2,39 @@
 @{
     ViewData["Title"] = "产品管理";
 }
-
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3>📦 产品列表</h3>
+    <h3>产品列表</h3>
     <div>
         <a class="btn btn-success" asp-action="Create">新增产品</a>
         <a class="btn btn-outline-warning" asp-action="LowStock">低库存预警</a>
     </div>
 </div>
-
 <form method="get" class="row g-2 mb-3">
     <div class="col-md-6">
         <input type="text" name="keyword" class="form-control" placeholder="搜索产品名称..." value="@ViewBag.Keyword" />
     </div>
     <div class="col-auto">
-        <button type="submit" class="btn btn-primary">搜索</button>
+        <button class="btn btn-primary">搜索</button>
         <a class="btn btn-outline-secondary" asp-action="Index">清除</a>
     </div>
 </form>
-
 <table class="table table-striped table-hover">
-    <thead class="table-dark">
-        <tr>
-            <th>ID</th><th>名称</th><th>分类</th><th>单价</th><th>库存</th><th>供应商</th><th>状态</th><th>操作</th>
-        </tr>
-    </thead>
+    <thead class="table-dark"><tr><th>名称</th><th>分类</th><th>单价</th><th>库存</th><th>供应商</th><th>温区</th><th>状态</th><th>操作</th></tr></thead>
     <tbody>
     @if (Model.Items.Any())
     {
         @foreach (var p in Model.Items)
         {
             <tr>
-                <td>@p.Id</td>
-                <td>@p.Name</td>
-                <td>@p.Category</td>
-                <td>¥@p.Price.ToString("F2")</td>
+                <td>@p.ProductName</td><td>@p.CategoryName</td><td>¥@p.DefaultPrice.ToString("F2")</td>
                 <td>@(p.AvailableStock > 10 ? "✅" : "⚠️") @p.AvailableStock</td>
-                <td>@p.SupplierName</td>
-                <td>@(p.Status == 1 ? "上架" : "下架")</td>
+                <td>@p.SupplierName</td><td>@p.StorageReq</td>
+                <td>@(p.Status == "ACTIVE" ? "上架" : "下架")</td>
                 <td>
-                    <a class="btn btn-sm btn-info" asp-action="Details" asp-route-id="@p.Id">详情</a>
-                    <a class="btn btn-sm btn-warning" asp-action="Edit" asp-route-id="@p.Id">编辑</a>
-                    <a class="btn btn-sm btn-secondary" asp-action="Inventory" asp-route-productId="@p.Id">库存</a>
-                    <form asp-action="Delete" asp-route-id="@p.Id" method="post" style="display:inline">
+                    <a class="btn btn-sm btn-info" asp-action="Details" asp-route-id="@p.ProductID">详情</a>
+                    <a class="btn btn-sm btn-warning" asp-action="Edit" asp-route-id="@p.ProductID">编辑</a>
+                    <a class="btn btn-sm btn-secondary" asp-action="Inventory" asp-route-productId="@p.ProductID">库存</a>
+                    <form asp-action="Delete" asp-route-id="@p.ProductID" method="post" style="display:inline">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定下架？')">下架</button>
                     </form>
@@ -58,5 +48,4 @@
     }
     </tbody>
 </table>
-
 @await Html.PartialAsync("_Pagination", Model)

@@ -1,16 +1,14 @@
 @model SupplierDto
-@{
-    ViewData["Title"] = $"供应商详情 — {Model.Name}";
-}
-<h3>🏭 @Model.Name</h3>
+@{ ViewData["Title"] = $"供应商 — {Model.SupplierName}"; }
+<h3>@Model.SupplierName</h3>
 <table class="table table-bordered w-50">
-    <tr><th style="width:120px">ID</th><td>@Model.Id</td></tr>
-    <tr><th>名称</th><td>@Model.Name</td></tr>
-    <tr><th>联系人</th><td>@Model.ContactPerson</td></tr>
-    <tr><th>电话</th><td>@Model.Phone</td></tr>
-    <tr><th>地址</th><td>@Model.Address</td></tr>
-    <tr><th>备注</th><td>@Model.Remark</td></tr>
+    <tr><th style="width:120px">编号</th><td>@Model.SupplierID</td></tr>
+    <tr><th>名称</th><td>@Model.SupplierName</td></tr>
+    <tr><th>资质号</th><td>@Model.LicenseNo</td></tr>
+    <tr><th>到期时间</th><td>@Model.ExpiryDate?.ToString("yyyy-MM-dd")</td></tr>
+    <tr><th>信用等级</th><td>@Model.CreditLevel</td></tr>
+    <tr><th>电话</th><td>@Model.ContactPhone</td></tr>
     <tr><th>产品数</th><td>@Model.ProductCount</td></tr>
 </table>
-<a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model.Id">编辑</a>
+<a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model.SupplierID">编辑</a>
 <a class="btn btn-outline-secondary" asp-action="Index">返回</a>

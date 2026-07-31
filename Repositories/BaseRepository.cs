@@ -1,52 +1,50 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Data;
 using System.Reflection;
 using Dapper;
+using FreshGroupSystem.Models;
 
 namespace FreshGroupSystem.Repositories;
 
 /// <summary>
 /// 通用仓储实现（Dapper 版本）
-/// 通过读取 [Table]/[Column]/[Key] 特性自动生成 SQL
+/// 支持 int 和 VARCHAR2(36) 两种主键类型
 /// </summary>
 public class BaseRepository<T> : IBaseRepository<T> where T : class
 {
     protected readonly IUnitOfWork _uow;
 
-    // 缓存反射结果
     private readonly string _tableName;
     private readonly string _keyColumn;
     private readonly PropertyInfo _keyProp;
-    private readonly List<MappedColumn> _columns; // 不含主键的读写列
-    private readonly List<MappedColumn> _allColumns; // 全部列（含主键）
+    private readonly bool _isGuidPk; // VARCHAR2(36) 主键
+    private readonly List<MappedColumn> _columns;
+    private readonly List<MappedColumn> _allColumns;
 
     private record MappedColumn(string PropName, string ColName, PropertyInfo Property);
 
     public BaseRepository(IUnitOfWork uow)
     {
         _uow = uow;
-
         var type = typeof(T);
 
-        // 表名：[Table].Name 或类名大写
         var tableAttr = type.GetCustomAttribute<TableAttribute>();
         _tableName = tableAttr != null ? $"\"{tableAttr.Name}\"" : $"\"{type.Name.ToUpperInvariant()}\"";
 
-        // 主键：[Key] 或名为 Id 的属性
         var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.CanWrite) // 跳过只读属性（如 AvailableQuantity）
-            .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null) // 跳过 [NotMapped] 属性
+            .Where(p => p.CanWrite)
+            .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)
             .ToList();
 
         var keyProp = props.FirstOrDefault(p => p.GetCustomAttribute<KeyAttribute>() != null)
-                      ?? props.FirstOrDefault(p => p.Name.Equals("Id", StringComparison.OrdinalIgnoreCase));
+                      ?? props.FirstOrDefault(p => p.Name is "Id" or "SupplierID" or "ProductID" or "CategoryID" or "StockID" or "BatchID" or "RuleID");
 
         if (keyProp == null)
             throw new InvalidOperationException($"实体 {type.Name} 未找到主键属性");
 
         _keyProp = keyProp;
         _keyColumn = GetColumnName(keyProp);
+        _isGuidPk = keyProp.PropertyType == typeof(string);
 
         _allColumns = props.Select(p => new MappedColumn(p.Name, GetColumnName(p), p)).ToList();
         _columns = _allColumns.Where(c => c.PropName != _keyProp.Name).ToList();
@@ -55,6 +53,13 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
     // ==================== 读 ====================
 
     public virtual async Task<T?> GetByIdAsync(int id)
+    {
+        var sql = $"SELECT * FROM {_tableName} WHERE {_keyColumn} = :Id";
+        return await _uow.Connection.QuerySingleOrDefaultAsync<T>(sql, new { Id = id }, _uow.Transaction);
+    }
+
+    /// <summary>VARCHAR2 主键版本</summary>
+    public virtual async Task<T?> GetByIdAsync(string id)
     {
         var sql = $"SELECT * FROM {_tableName} WHERE {_keyColumn} = :Id";
         return await _uow.Connection.QuerySingleOrDefaultAsync<T>(sql, new { Id = id }, _uow.Transaction);
@@ -97,27 +102,39 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
 
     public virtual async Task<T> AddAsync(T entity)
     {
-        var colNames = _columns.Select(c => c.ColName).ToList();
-        var paramNames = _columns.Select(c => $":{c.PropName}").ToList();
-
-        var sql = $"""
-            INSERT INTO {_tableName} ({string.Join(", ", colNames)})
-            VALUES ({string.Join(", ", paramNames)})
-            RETURNING {_keyColumn} INTO :OutId
-            """;
-
-        var dp = new DynamicParameters();
-        foreach (var col in _columns)
+        if (_isGuidPk)
         {
-            dp.Add($":{col.PropName}", col.Property.GetValue(entity));
+            // VARCHAR2(36) 主键：应用层生成 GUID
+            var pkValue = _keyProp.GetValue(entity)?.ToString();
+            if (string.IsNullOrWhiteSpace(pkValue))
+                _keyProp.SetValue(entity, Guid.NewGuid().ToString());
+
+            // INSERT 包含主键列
+            var allColNames = _allColumns.Select(c => c.ColName);
+            var allParamNames = _allColumns.Select(c => $":{c.PropName}");
+            var sql = $"INSERT INTO {_tableName} ({string.Join(", ", allColNames)}) VALUES ({string.Join(", ", allParamNames)})";
+
+            var dp = new DynamicParameters();
+            foreach (var col in _allColumns)
+                dp.Add($":{col.PropName}", col.Property.GetValue(entity));
+
+            await _uow.Connection.ExecuteAsync(sql, dp, _uow.Transaction);
         }
-        dp.Add(":OutId", dbType: DbType.Int32, direction: ParameterDirection.Output);
+        else
+        {
+            // int 自增主键：INSERT 不含主键，RETURNING
+            var colNames = _columns.Select(c => c.ColName).ToList();
+            var paramNames = _columns.Select(c => $":{c.PropName}").ToList();
+            var sql = $"INSERT INTO {_tableName} ({string.Join(", ", colNames)}) VALUES ({string.Join(", ", paramNames)}) RETURNING {_keyColumn} INTO :OutId";
 
-        await _uow.Connection.ExecuteAsync(sql, dp, _uow.Transaction);
+            var dp = new DynamicParameters();
+            foreach (var col in _columns)
+                dp.Add($":{col.PropName}", col.Property.GetValue(entity));
+            dp.Add(":OutId", dbType: System.Data.DbType.Int32, direction: System.Data.ParameterDirection.Output);
 
-        // 将生成的主键写入实体
-        var outId = dp.Get<object>(":OutId");
-        _keyProp.SetValue(entity, Convert.ToInt32(outId));
+            await _uow.Connection.ExecuteAsync(sql, dp, _uow.Transaction);
+            _keyProp.SetValue(entity, dp.Get<int>(":OutId"));
+        }
 
         return entity;
     }
@@ -125,14 +142,12 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
     public virtual void Update(T entity)
     {
         var setClauses = _columns.Select(c => $"{c.ColName} = :{c.PropName}");
-        var sql = $"UPDATE {_tableName} SET {string.Join(", ", setClauses)} WHERE {_keyColumn} = :{_keyProp.Name}";
+        var sql = $"UPDATE {_tableName} SET {string.Join(", ", setClauses)} WHERE {_keyColumn} = :__PkVal";
 
         var dp = new DynamicParameters();
         foreach (var col in _columns)
-        {
             dp.Add($":{col.PropName}", col.Property.GetValue(entity));
-        }
-        dp.Add($":{_keyProp.Name}", _keyProp.GetValue(entity));
+        dp.Add(":__PkVal", _keyProp.GetValue(entity));
 
         _uow.Connection.Execute(sql, dp, _uow.Transaction);
     }
@@ -143,17 +158,10 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
         _uow.Connection.Execute(sql, new { Id = _keyProp.GetValue(entity) }, _uow.Transaction);
     }
 
-    public virtual Task SaveChangesAsync()
-    {
-        // Dapper 立即写入，事务由 UnitOfWork 管理；保持接口兼容
-        return Task.CompletedTask;
-    }
+    public virtual Task SaveChangesAsync() => Task.CompletedTask;
 
-    // ==================== 工具方法 ====================
+    // ==================== 工具 ====================
 
-    /// <summary>
-    /// 读取 [Column] 特性，没有则用属性名大写
-    /// </summary>
     private static string GetColumnName(PropertyInfo prop)
     {
         var colAttr = prop.GetCustomAttribute<ColumnAttribute>();

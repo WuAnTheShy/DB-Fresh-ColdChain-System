@@ -1,108 +1,72 @@
 using FreshGroupSystem.Interfaces;
 using FreshGroupSystem.Models;
 using FreshGroupSystem.Models.DTOs;
-using FreshGroupSystem.Repositories.Supplier;
+using FreshGroupSystem.Repositories;
 
 namespace FreshGroupSystem.Services.Supplier;
 
 public class SupplierService : ISupplierService
 {
-    private readonly ISupplierRepository _supplierRepo;
+    private readonly ISupplierRepository _repo;
 
-    public SupplierService(ISupplierRepository supplierRepo)
-    {
-        _supplierRepo = supplierRepo;
-    }
+    public SupplierService(ISupplierRepository repo) => _repo = repo;
 
     public async Task<ApiResponse<PagedResult<SupplierDto>>> GetSuppliersAsync(int pageIndex, int pageSize)
     {
-        var (items, total) = await _supplierRepo.GetPagedWithProductCountAsync(pageIndex, pageSize);
-
-        var dtoItems = items.Select(s => new SupplierDto
-        {
-            Id = s.Id,
-            Name = s.Name,
-            ContactPerson = s.ContactPerson,
-            Phone = s.Phone,
-            Address = s.Address,
-            Remark = s.Remark,
-            ProductCount = s.ProductCount
-        }).ToList();
-
+        var (items, total) = await _repo.GetPagedWithProductCountAsync(pageIndex, pageSize);
         return ApiResponse<PagedResult<SupplierDto>>.Success(new PagedResult<SupplierDto>
         {
-            PageIndex = pageIndex,
-            PageSize = pageSize,
-            TotalCount = total,
-            Items = dtoItems
+            PageIndex = pageIndex, PageSize = pageSize, TotalCount = total,
+            Items = items.Select(MapToDto).ToList()
         });
     }
 
-    public async Task<ApiResponse<SupplierDto>> GetSupplierByIdAsync(int id)
+    public async Task<ApiResponse<SupplierDto>> GetSupplierByIdAsync(string id)
     {
-        var supplier = await _supplierRepo.GetByIdWithProductsAsync(id);
-        if (supplier == null)
-            return ApiResponse<SupplierDto>.Fail("供应商不存在", 404);
-
-        return ApiResponse<SupplierDto>.Success(MapToDto(supplier));
+        var s = await _repo.GetByIdWithProductsAsync(id);
+        if (s == null) return ApiResponse<SupplierDto>.Fail("供应商不存在", 404);
+        return ApiResponse<SupplierDto>.Success(MapToDto(s));
     }
 
     public async Task<ApiResponse<SupplierDto>> CreateSupplierAsync(CreateSupplierDto dto)
     {
-        var supplier = new Models.Supplier
+        var s = new InvSupplier
         {
-            Name = dto.Name,
-            ContactPerson = dto.ContactPerson,
-            Phone = dto.Phone,
-            Address = dto.Address,
-            Remark = dto.Remark
+            SupplierName = dto.SupplierName, LicenseNo = dto.LicenseNo,
+            ExpiryDate = dto.ExpiryDate, CreditLevel = dto.CreditLevel,
+            ContactPhone = dto.ContactPhone, LoginAccount = dto.LoginAccount,
+            LoginPassword = dto.LoginPassword
         };
-
-        await _supplierRepo.AddAsync(supplier);
-        await _supplierRepo.SaveChangesAsync();
-
-        return ApiResponse<SupplierDto>.Success(MapToDto(supplier), "供应商创建成功");
+        await _repo.AddAsync(s);
+        return ApiResponse<SupplierDto>.Success(MapToDto(s), "供应商创建成功");
     }
 
-    public async Task<ApiResponse<SupplierDto>> UpdateSupplierAsync(int id, CreateSupplierDto dto)
+    public async Task<ApiResponse<SupplierDto>> UpdateSupplierAsync(string id, CreateSupplierDto dto)
     {
-        var supplier = await _supplierRepo.GetByIdAsync(id);
-        if (supplier == null)
-            return ApiResponse<SupplierDto>.Fail("供应商不存在", 404);
-
-        supplier.Name = dto.Name;
-        supplier.ContactPerson = dto.ContactPerson;
-        supplier.Phone = dto.Phone;
-        supplier.Address = dto.Address;
-        supplier.Remark = dto.Remark;
-
-        _supplierRepo.Update(supplier);
-        await _supplierRepo.SaveChangesAsync();
-
-        return ApiResponse<SupplierDto>.Success(MapToDto(supplier), "供应商更新成功");
+        var s = await _repo.GetByIdAsync(id);
+        if (s == null) return ApiResponse<SupplierDto>.Fail("供应商不存在", 404);
+        s.SupplierName = dto.SupplierName; s.LicenseNo = dto.LicenseNo;
+        s.ExpiryDate = dto.ExpiryDate; s.CreditLevel = dto.CreditLevel;
+        s.ContactPhone = dto.ContactPhone; s.LoginAccount = dto.LoginAccount;
+        if (dto.LoginPassword != null) s.LoginPassword = dto.LoginPassword;
+        _repo.Update(s);
+        return ApiResponse<SupplierDto>.Success(MapToDto(s), "供应商更新成功");
     }
 
-    public async Task<ApiResponse> DeleteSupplierAsync(int id)
+    public async Task<ApiResponse> DeleteSupplierAsync(string id)
     {
-        var supplier = await _supplierRepo.GetByIdAsync(id);
-        if (supplier == null)
-            return ApiResponse.Fail("供应商不存在", 404);
-
-        _supplierRepo.Delete(supplier);
-        await _supplierRepo.SaveChangesAsync();
-
+        var s = await _repo.GetByIdAsync(id);
+        if (s == null) return ApiResponse.Fail("供应商不存在", 404);
+        _repo.Delete(s);
         return ApiResponse.Success("供应商已删除");
     }
 
-    private static SupplierDto MapToDto(Models.Supplier s)
-        => new()
-        {
-            Id = s.Id,
-            Name = s.Name,
-            ContactPerson = s.ContactPerson,
-            Phone = s.Phone,
-            Address = s.Address,
-            Remark = s.Remark,
-            ProductCount = s.Products?.Count ?? s.ProductCount
-        };
+    private static SupplierDto MapToDto(InvSupplier s) => new()
+    {
+        SupplierID = s.SupplierID, SupplierName = s.SupplierName,
+        LicenseNo = s.LicenseNo, ExpiryDate = s.ExpiryDate,
+        CreditLevel = s.CreditLevel, ContactPhone = s.ContactPhone,
+        LoginAccount = s.LoginAccount,
+        ProductCount = s.Products?.Count ?? s.ProductCount
+    };
 }

@@ -8,203 +8,260 @@ namespace FreshGroupSystem.Services;
 public class ProductInventoryService : IProductInventoryService
 {
     private readonly IProductRepository _productRepo;
-    private readonly IInventoryRepository _inventoryRepo;
+    private readonly IStockSummaryRepository _stockRepo;
+    private readonly IStockBatchRepository _batchRepo;
+    private readonly ICategoryRepository _categoryRepo;
     private readonly IUnitOfWork _uow;
 
     public ProductInventoryService(
         IProductRepository productRepo,
-        IInventoryRepository inventoryRepo,
+        IStockSummaryRepository stockRepo,
+        IStockBatchRepository batchRepo,
+        ICategoryRepository categoryRepo,
         IUnitOfWork uow)
     {
         _productRepo = productRepo;
-        _inventoryRepo = inventoryRepo;
+        _stockRepo = stockRepo;
+        _batchRepo = batchRepo;
+        _categoryRepo = categoryRepo;
         _uow = uow;
     }
 
-    // ========== 产品管理 ==========
+    // ========== 产品 ==========
 
     public async Task<ApiResponse<PagedResult<ProductDto>>> GetProductsAsync(int pageIndex, int pageSize, string? keyword = null)
     {
         var (items, total) = await _productRepo.GetPagedWithDetailsAsync(pageIndex, pageSize, keyword);
-
         return ApiResponse<PagedResult<ProductDto>>.Success(new PagedResult<ProductDto>
         {
-            PageIndex = pageIndex,
-            PageSize = pageSize,
-            TotalCount = total,
+            PageIndex = pageIndex, PageSize = pageSize, TotalCount = total,
             Items = items.Select(MapToDto).ToList()
         });
     }
 
-    public async Task<ApiResponse<ProductDto>> GetProductByIdAsync(int id)
+    public async Task<ApiResponse<ProductDto>> GetProductByIdAsync(string id)
     {
-        var product = await _productRepo.GetByIdWithDetailsAsync(id);
-        if (product == null)
-            return ApiResponse<ProductDto>.Fail("产品不存在", 404);
-
-        return ApiResponse<ProductDto>.Success(MapToDto(product));
+        var p = await _productRepo.GetByIdWithDetailsAsync(id);
+        if (p == null) return ApiResponse<ProductDto>.Fail("产品不存在", 404);
+        return ApiResponse<ProductDto>.Success(MapToDto(p));
     }
 
     public async Task<ApiResponse<ProductDto>> CreateProductAsync(CreateProductDto dto)
     {
-        var product = new Product
+        var product = new InvProduct
         {
-            Name = dto.Name,
-            Category = dto.Category,
-            Unit = dto.Unit,
-            Price = dto.Price,
-            ImageUrl = dto.ImageUrl,
-            SupplierId = dto.SupplierId,
-            Status = 1
+            ProductName = dto.ProductName, CategoryID = dto.CategoryID,
+            SupplierID = dto.SupplierID, Unit = dto.Unit,
+            WeightKG = dto.WeightKG, VolumeLitre = dto.VolumeLitre,
+            ExpiryHours = dto.ExpiryHours, StorageReq = dto.StorageReq,
+            DefaultPrice = dto.DefaultPrice, Status = "ACTIVE"
         };
 
         try
         {
             await _uow.BeginAsync();
-
             await _productRepo.AddAsync(product);
 
-            var inventory = new Inventory
+            var summary = new InvStockSummary
             {
-                ProductId = product.Id,
-                StockQuantity = dto.InitialStock,
-                LockedQuantity = 0
+                ProductID = product.ProductID,
+                TotalQty = dto.InitialStock,
+                LockedQty = 0,
+                AvailableQty = dto.InitialStock
             };
-            await _inventoryRepo.AddAsync(inventory);
-
-            // 从数据库重新加载关联数据
-            product.Inventory = inventory;
+            await _stockRepo.AddAsync(summary);
+            product.StockSummary = summary;
 
             await _uow.CommitAsync();
-
             return ApiResponse<ProductDto>.Success(MapToDto(product), "产品创建成功");
         }
-        catch
-        {
-            await _uow.RollbackAsync();
-            throw;
-        }
+        catch { await _uow.RollbackAsync(); throw; }
     }
 
-    public async Task<ApiResponse<ProductDto>> UpdateProductAsync(int id, UpdateProductDto dto)
+    public async Task<ApiResponse<ProductDto>> UpdateProductAsync(string id, UpdateProductDto dto)
     {
-        var product = await _productRepo.GetByIdWithDetailsAsync(id);
-        if (product == null)
-            return ApiResponse<ProductDto>.Fail("产品不存在", 404);
+        var p = await _productRepo.GetByIdWithDetailsAsync(id);
+        if (p == null) return ApiResponse<ProductDto>.Fail("产品不存在", 404);
 
-        if (dto.Name != null) product.Name = dto.Name;
-        if (dto.Category != null) product.Category = dto.Category;
-        if (dto.Unit != null) product.Unit = dto.Unit;
-        if (dto.Price.HasValue) product.Price = dto.Price.Value;
-        if (dto.ImageUrl != null) product.ImageUrl = dto.ImageUrl;
-        if (dto.Status.HasValue) product.Status = dto.Status.Value;
+        if (dto.ProductName != null) p.ProductName = dto.ProductName;
+        if (dto.CategoryID != null) p.CategoryID = dto.CategoryID;
+        if (dto.Unit != null) p.Unit = dto.Unit;
+        if (dto.WeightKG.HasValue) p.WeightKG = dto.WeightKG;
+        if (dto.VolumeLitre.HasValue) p.VolumeLitre = dto.VolumeLitre;
+        if (dto.ExpiryHours.HasValue) p.ExpiryHours = dto.ExpiryHours;
+        if (dto.StorageReq != null) p.StorageReq = dto.StorageReq;
+        if (dto.DefaultPrice.HasValue) p.DefaultPrice = dto.DefaultPrice.Value;
+        if (dto.Status != null) p.Status = dto.Status;
 
-        _productRepo.Update(product);
-        await _productRepo.SaveChangesAsync();
-
-        return ApiResponse<ProductDto>.Success(MapToDto(product), "产品更新成功");
+        _productRepo.Update(p);
+        return ApiResponse<ProductDto>.Success(MapToDto(p), "产品更新成功");
     }
 
-    public async Task<ApiResponse> DeleteProductAsync(int id)
+    public async Task<ApiResponse> DeleteProductAsync(string id)
     {
-        var product = await _productRepo.GetByIdAsync(id);
-        if (product == null)
-            return ApiResponse.Fail("产品不存在", 404);
-
-        product.Status = 0; // 软删除（下架）
-        _productRepo.Update(product);
-
+        var p = await _productRepo.GetByIdAsync(id);
+        if (p == null) return ApiResponse.Fail("产品不存在", 404);
+        p.Status = "INACTIVE";
+        _productRepo.Update(p);
         return ApiResponse.Success("产品已下架");
     }
 
-    // ========== 库存管理 ==========
+    // ========== 分类 ==========
 
-    public async Task<ApiResponse<InventoryDto>> GetInventoryAsync(int productId)
+    public async Task<ApiResponse<List<CategoryDto>>> GetAllCategoriesAsync()
     {
-        var inv = await _inventoryRepo.GetByProductIdAsync(productId);
-        if (inv == null)
-            return ApiResponse<InventoryDto>.Fail("库存记录不存在", 404);
+        var list = await _categoryRepo.GetAllAsync();
+        return ApiResponse<List<CategoryDto>>.Success(list.Select(c => new CategoryDto
+        {
+            CategoryID = c.CategoryID, CategoryName = c.CategoryName, ParentID = c.ParentID
+        }).ToList());
+    }
 
+    public async Task<ApiResponse<CategoryDto>> CreateCategoryAsync(CreateCategoryDto dto)
+    {
+        var c = new InvCategory { CategoryName = dto.CategoryName, ParentID = dto.ParentID };
+        await _categoryRepo.AddAsync(c);
+        return ApiResponse<CategoryDto>.Success(new CategoryDto
+        {
+            CategoryID = c.CategoryID, CategoryName = c.CategoryName, ParentID = c.ParentID
+        }, "分类创建成功");
+    }
+
+    // ========== 库存 ==========
+
+    public async Task<ApiResponse<InventoryDto>> GetInventoryAsync(string productId)
+    {
+        var st = await _stockRepo.GetByProductIdAsync(productId);
+        if (st == null) return ApiResponse<InventoryDto>.Fail("库存记录不存在", 404);
         return ApiResponse<InventoryDto>.Success(new InventoryDto
         {
-            ProductId = inv.ProductId,
-            ProductName = inv.Product?.Name ?? "",
-            StockQuantity = inv.StockQuantity,
-            LockedQuantity = inv.LockedQuantity,
-            AvailableQuantity = inv.AvailableQuantity,
-            UpdateTime = inv.UpdateTime
+            StockID = st.StockID, ProductID = st.ProductID,
+            ProductName = st.Product?.ProductName ?? "",
+            TotalQty = st.TotalQty, LockedQty = st.LockedQty,
+            AvailableQty = st.AvailableQty, UpdateTime = st.UpdateTime
         });
     }
 
     public async Task<ApiResponse<List<InventoryDto>>> GetLowStockProductsAsync(int threshold = 10)
     {
-        var list = await _inventoryRepo.GetLowStockAsync(threshold);
-
-        var dtos = list.Select(i => new InventoryDto
+        var list = await _stockRepo.GetLowStockAsync(threshold);
+        return ApiResponse<List<InventoryDto>>.Success(list.Select(st => new InventoryDto
         {
-            ProductId = i.ProductId,
-            ProductName = i.Product?.Name ?? "",
-            StockQuantity = i.StockQuantity,
-            LockedQuantity = i.LockedQuantity,
-            AvailableQuantity = i.AvailableQuantity,
-            UpdateTime = i.UpdateTime
-        }).ToList();
-
-        return ApiResponse<List<InventoryDto>>.Success(dtos);
+            StockID = st.StockID, ProductID = st.ProductID,
+            ProductName = st.Product?.ProductName ?? "",
+            TotalQty = st.TotalQty, LockedQty = st.LockedQty,
+            AvailableQty = st.AvailableQty, UpdateTime = st.UpdateTime
+        }).ToList());
     }
 
-    public async Task<ApiResponse> StockInAsync(UpdateInventoryDto dto)
+    public async Task<ApiResponse> StockInAsync(UpdateInventoryDto dto, string? batchNo = null)
     {
-        var inv = await _inventoryRepo.GetByProductIdAsync(dto.ProductId);
-        if (inv == null)
+        var st = await _stockRepo.GetByProductIdAsync(dto.ProductID);
+        if (st == null)
         {
-            // 库存记录不存在则创建
-            inv = new Inventory
+            st = new InvStockSummary
             {
-                ProductId = dto.ProductId,
-                StockQuantity = dto.Quantity,
-                LockedQuantity = 0
+                ProductID = dto.ProductID,
+                TotalQty = dto.Quantity, LockedQty = 0, AvailableQty = dto.Quantity
             };
-            await _inventoryRepo.AddAsync(inv);
+            await _stockRepo.AddAsync(st);
         }
         else
         {
-            inv.StockQuantity += dto.Quantity;
-            inv.UpdateTime = DateTime.Now;
-            _inventoryRepo.Update(inv);
+            st.TotalQty += dto.Quantity;
+            st.AvailableQty = st.TotalQty - st.LockedQty;
+            st.UpdateTime = DateTime.Now;
+            _stockRepo.Update(st);
         }
 
-        return ApiResponse.Success($"入库成功，当前库存: {inv.StockQuantity}");
+        // 有批次号则创建批次记录
+        if (!string.IsNullOrWhiteSpace(batchNo))
+        {
+            var batch = new InvStockBatch
+            {
+                ProductID = dto.ProductID,
+                BatchNo = batchNo,
+                InitialQty = dto.Quantity,
+                CurrentQty = dto.Quantity,
+                Status = "ACTIVE"
+            };
+            await _batchRepo.AddAsync(batch);
+        }
+
+        return ApiResponse.Success($"入库成功，当前库存: {st.TotalQty}");
     }
 
     public async Task<ApiResponse> StockOutAsync(UpdateInventoryDto dto)
     {
-        var inv = await _inventoryRepo.GetByProductIdAsync(dto.ProductId);
-        if (inv == null)
-            return ApiResponse.Fail("库存记录不存在", 404);
-        if (inv.AvailableQuantity < dto.Quantity)
-            return ApiResponse.Fail("库存不足");
+        var st = await _stockRepo.GetByProductIdAsync(dto.ProductID);
+        if (st == null) return ApiResponse.Fail("库存记录不存在", 404);
+        if (st.AvailableQty < dto.Quantity) return ApiResponse.Fail("库存不足");
 
-        inv.StockQuantity -= dto.Quantity;
-        inv.UpdateTime = DateTime.Now;
-        _inventoryRepo.Update(inv);
+        st.TotalQty -= dto.Quantity;
+        st.AvailableQty = st.TotalQty - st.LockedQty;
+        st.UpdateTime = DateTime.Now;
+        _stockRepo.Update(st);
 
-        return ApiResponse.Success($"出库成功，当前库存: {inv.StockQuantity}");
+        // FEFO 扣减：从最早过期批次扣
+        var remaining = dto.Quantity;
+        var batches = await _batchRepo.GetByProductIdAsync(dto.ProductID);
+        foreach (var batch in batches)
+        {
+            if (remaining <= 0) break;
+            var deduct = Math.Min(remaining, batch.CurrentQty);
+            batch.CurrentQty -= deduct;
+            if (batch.CurrentQty == 0) batch.Status = "DEPLETED";
+            _batchRepo.Update(batch);
+            remaining -= deduct;
+        }
+
+        return ApiResponse.Success($"出库成功，当前库存: {st.TotalQty}");
     }
 
-    // ========== 私有方法 ==========
+    // ========== 批次 ==========
 
-    private static ProductDto MapToDto(Product p)
-        => new()
+    public async Task<ApiResponse<List<StockBatchDto>>> GetBatchesAsync(string productId)
+    {
+        var list = await _batchRepo.GetByProductIdAsync(productId);
+        return ApiResponse<List<StockBatchDto>>.Success(list.Select(b => new StockBatchDto
         {
-            Id = p.Id,
-            Name = p.Name,
-            Category = p.Category,
-            Unit = p.Unit,
-            Price = p.Price,
-            ImageUrl = p.ImageUrl,
-            Status = p.Status,
-            SupplierName = p.Supplier?.Name ?? "",
-            AvailableStock = p.Inventory?.AvailableQuantity ?? 0
+            BatchID = b.BatchID, ProductID = b.ProductID,
+            BatchNo = b.BatchNo, ProductionDate = b.ProductionDate,
+            ExpiryDate = b.ExpiryDate, InPrice = b.InPrice,
+            InitialQty = b.InitialQty, CurrentQty = b.CurrentQty, Status = b.Status
+        }).ToList());
+    }
+
+    public async Task<ApiResponse<StockBatchDto>> AddBatchAsync(CreateStockBatchDto dto)
+    {
+        var batch = new InvStockBatch
+        {
+            ProductID = dto.ProductID, SupplierID = dto.SupplierID,
+            BatchNo = dto.BatchNo, ProductionDate = dto.ProductionDate,
+            ExpiryDate = dto.ExpiryDate, InPrice = dto.InPrice,
+            InitialQty = dto.InitialQty, CurrentQty = dto.InitialQty,
+            Status = "ACTIVE"
         };
+        await _batchRepo.AddAsync(batch);
+        return ApiResponse<StockBatchDto>.Success(new StockBatchDto
+        {
+            BatchID = batch.BatchID, ProductID = batch.ProductID,
+            BatchNo = batch.BatchNo, ProductionDate = batch.ProductionDate,
+            ExpiryDate = batch.ExpiryDate, InPrice = batch.InPrice,
+            InitialQty = batch.InitialQty, CurrentQty = batch.CurrentQty, Status = batch.Status
+        }, "批次创建成功");
+    }
+
+    // ========== 映射 ==========
+
+    private static ProductDto MapToDto(InvProduct p) => new()
+    {
+        ProductID = p.ProductID, ProductName = p.ProductName,
+        CategoryName = p.Category?.CategoryName,
+        SupplierName = p.Supplier?.SupplierName,
+        Unit = p.Unit, WeightKG = p.WeightKG, VolumeLitre = p.VolumeLitre,
+        ExpiryHours = p.ExpiryHours, StorageReq = p.StorageReq,
+        DefaultPrice = p.DefaultPrice, Status = p.Status,
+        AvailableStock = p.StockSummary?.AvailableQty ?? 0
+    };
 }

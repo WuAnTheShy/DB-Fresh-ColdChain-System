@@ -2,7 +2,6 @@ using FreshGroupSystem.Interfaces;
 using FreshGroupSystem.Services;
 using FreshGroupSystem.Services.Supplier;
 using FreshGroupSystem.Repositories;
-using FreshGroupSystem.Repositories.Supplier;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +13,10 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
 builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
-builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
+builder.Services.AddScoped<IStockSummaryRepository, StockSummaryRepository>();
+builder.Services.AddScoped<IStockBatchRepository, StockBatchRepository>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<IPriceRuleRepository, PriceRuleRepository>();
 
 // ========== Service 注册 ==========
 builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();

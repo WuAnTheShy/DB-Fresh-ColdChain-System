@@ -8,92 +8,63 @@ public class SuppliersController : Controller
 {
     private readonly ISupplierService _service;
 
-    public SuppliersController(ISupplierService service)
-    {
-        _service = service;
-    }
+    public SuppliersController(ISupplierService service) => _service = service;
 
     [HttpGet]
     public async Task<IActionResult> Index(int pageIndex = 1, int pageSize = 10)
     {
-        var result = await _service.GetSuppliersAsync(pageIndex, pageSize);
-        return View(result.Data);
+        var r = await _service.GetSuppliersAsync(pageIndex, pageSize);
+        return View(r.Data);
     }
 
     [HttpGet]
-    public async Task<IActionResult> Details(int id)
+    public async Task<IActionResult> Details(string id)
     {
-        var result = await _service.GetSupplierByIdAsync(id);
-        if (!result.IsSuccess)
-            return NotFound(result.Message);
-        return View(result.Data);
+        var r = await _service.GetSupplierByIdAsync(id);
+        if (!r.IsSuccess) return NotFound(r.Message);
+        return View(r.Data);
     }
 
     [HttpGet]
-    public IActionResult Create()
-    {
-        return View(new CreateSupplierDto());
-    }
+    public IActionResult Create() => View(new CreateSupplierDto());
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(CreateSupplierDto dto)
     {
-        if (!ModelState.IsValid)
-            return View(dto);
-
-        var result = await _service.CreateSupplierAsync(dto);
-        if (!result.IsSuccess)
-        {
-            ModelState.AddModelError("", result.Message);
-            return View(dto);
-        }
-
-        TempData["Success"] = result.Message;
+        var r = await _service.CreateSupplierAsync(dto);
+        TempData["Success"] = r.Message;
         return RedirectToAction(nameof(Index));
     }
 
     [HttpGet]
-    public async Task<IActionResult> Edit(int id)
+    public async Task<IActionResult> Edit(string id)
     {
-        var result = await _service.GetSupplierByIdAsync(id);
-        if (!result.IsSuccess)
-            return NotFound(result.Message);
-
+        var r = await _service.GetSupplierByIdAsync(id);
+        if (!r.IsSuccess) return NotFound(r.Message);
         return View(new CreateSupplierDto
         {
-            Name = result.Data!.Name,
-            ContactPerson = result.Data.ContactPerson,
-            Phone = result.Data.Phone,
-            Address = result.Data.Address,
-            Remark = result.Data.Remark
+            SupplierName = r.Data!.SupplierName, LicenseNo = r.Data.LicenseNo,
+            ExpiryDate = r.Data.ExpiryDate, CreditLevel = r.Data.CreditLevel,
+            ContactPhone = r.Data.ContactPhone, LoginAccount = r.Data.LoginAccount
         });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int id, CreateSupplierDto dto)
+    public async Task<IActionResult> Edit(string id, CreateSupplierDto dto)
     {
-        if (!ModelState.IsValid)
-            return View(dto);
-
-        var result = await _service.UpdateSupplierAsync(id, dto);
-        if (!result.IsSuccess)
-        {
-            ModelState.AddModelError("", result.Message);
-            return View(dto);
-        }
-
-        TempData["Success"] = result.Message;
+        var r = await _service.UpdateSupplierAsync(id, dto);
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Delete(int id)
+    public async Task<IActionResult> Delete(string id)
     {
-        var result = await _service.DeleteSupplierAsync(id);
-        TempData[result.IsSuccess ? "Success" : "Error"] = result.Message;
+        var r = await _service.DeleteSupplierAsync(id);
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(Index));
     }
 }
