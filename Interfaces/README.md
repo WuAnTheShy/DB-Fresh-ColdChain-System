@@ -1,46 +1,26 @@
-# 跨组交互接口规范
+# A 组 — 供应商 + 产品 + 库存
 
 ## 接口目录
 
-| 接口 | 所属模块 | 路径 |
-|------|---------|------|
-| `IProductInventoryService` | 产品库存（A组） | `Interfaces/IProductInventoryService.cs` |
-| `ISupplierService` | 供应商（A组） | `Interfaces/ISupplierService.cs` |
-| `IOrderService` | 订单（B组） | `Interfaces/IOrderService.cs` |
-| `IGroupLeaderService` | 团长（C组） | `Interfaces/IGroupLeaderService.cs` |
-| `ILogisticsService` | 物流（C组） | `Interfaces/ILogisticsService.cs` |
+| 接口 | 用途 |
+|------|------|
+| `IProductInventoryService` | 产品和库存管理（供 B 组下单时调用） |
+| `ISupplierService` | 供应商管理 |
 
-## 铁律
+## 负责的表
 
-1. **任何小组绝不允许直接写 SQL 操作其他小组负责的表**
-2. 跨表操作必须通过对方提供的 Service 接口调用
-3. 事务由业务发起方控制（调用方 Begin/Commit/Rollback）
+| 表 | 说明 |
+|----|------|
+| `SUPPLIER` | 供应商 |
+| `PRODUCT` | 产品 |
+| `INVENTORY` | 库存 |
 
-## Mock 隔离测试
+## 跨组接口说明
 
-如果依赖的小组还没开发完，需要创建 Dummy 实现：
+B 组（订单）创建订单时需要查询产品信息和锁定库存，请调用 `IProductInventoryService` 接口：
 
-```csharp
-// 示例: MockProductInventoryService
-public class MockProductInventoryService : IProductInventoryService
-{
-    public Task<ApiResponse<InventoryDto>> GetInventoryAsync(int productId)
-        => Task.FromResult(ApiResponse<InventoryDto>.Success(new InventoryDto
-        {
-            ProductId = productId,
-            ProductName = "Mock产品",
-            StockQuantity = 999,
-            LockedQuantity = 0,
-            AvailableQuantity = 999
-        }));
-    // ... 其余方法返回成功假数据
-}
-```
+- `GetProductByIdAsync(int id)` — 查询产品是否存在、是否上架
+- `GetInventoryAsync(int productId)` — 查询可用库存
+- `StockInAsync` / `StockOutAsync` — 入库/出库
 
-## 每组负责的表
-
-| 组 | 表 | 
-|----|-----|
-| A组 | `SUPPLIER`, `PRODUCT`, `INVENTORY` |
-| B组 | `ORDER`, `ORDER_ITEM` |
-| C组 | `GROUP_LEADER` + 物流业务 |
+事务控制由 B 组负责（调用方 BeginAsync/CommitAsync/RollbackAsync）。
