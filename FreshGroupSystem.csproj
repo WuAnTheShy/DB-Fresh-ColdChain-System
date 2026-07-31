@@ -7,16 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-<<<<<<< HEAD
     <PackageReference Include="Oracle.EntityFrameworkCore" Version="10.23.26200" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.8">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
-=======
-    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.300" />
->>>>>>> 426d4f8de3687c9f651feb2f1c38d1fcd5444391
   </ItemGroup>
 
 </Project>
