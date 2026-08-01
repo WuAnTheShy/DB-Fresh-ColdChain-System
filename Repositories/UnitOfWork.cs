@@ -4,6 +4,7 @@ namespace FreshGroupSystem.Repositories;
 
 /// <summary>
 /// 工作单元实现：一次 HTTP 请求内共享同一个连接和事务
+/// Connection 首次访问时自动打开连接 — 纯读操作无需 BeginAsync
 /// </summary>
 public class UnitOfWork : IUnitOfWork
 {
@@ -12,8 +13,24 @@ public class UnitOfWork : IUnitOfWork
     private IDbTransaction? _transaction;
     private bool _disposed;
 
+    /// <summary>
+    /// 数据库连接 — 首次访问自动创建并打开
+    /// </summary>
     public IDbConnection Connection
-        => _connection ?? throw new InvalidOperationException("请先调用 BeginAsync 开启事务");
+    {
+        get
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(UnitOfWork));
+
+            if (_connection == null)
+            {
+                _connection = _connectionFactory.CreateConnection();
+                _connection.Open();
+            }
+            return _connection;
+        }
+    }
 
     public IDbTransaction? Transaction => _transaction;
 
@@ -22,26 +39,33 @@ public class UnitOfWork : IUnitOfWork
         _connectionFactory = connectionFactory;
     }
 
+    /// <summary>
+    /// 开启事务 — 写操作前调用
+    /// </summary>
     public async Task BeginAsync()
     {
-        if (_connection != null)
-            throw new InvalidOperationException("事务已开启，请勿重复调用 BeginAsync");
+        // 确保连接已打开
+        var conn = Connection;
+        if (_transaction != null)
+            throw new InvalidOperationException("事务已开启，请勿重复调用");
 
-        _connection = _connectionFactory.CreateConnection();
-        _connection.Open();
-        _transaction = _connection.BeginTransaction();
+        _transaction = conn.BeginTransaction();
         await Task.CompletedTask;
     }
 
     public async Task CommitAsync()
     {
         _transaction?.Commit();
+        _transaction?.Dispose();
+        _transaction = null;
         await Task.CompletedTask;
     }
 
     public async Task RollbackAsync()
     {
         _transaction?.Rollback();
+        _transaction?.Dispose();
+        _transaction = null;
         await Task.CompletedTask;
     }
 
