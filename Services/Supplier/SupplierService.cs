@@ -55,8 +55,13 @@ public class SupplierService : ISupplierService
 
     public async Task<ApiResponse> DeleteSupplierAsync(string id)
     {
-        var s = await _repo.GetByIdAsync(id);
+        var s = await _repo.GetByIdWithProductsAsync(id);
         if (s == null) return ApiResponse.Fail("供应商不存在", 404);
+
+        // 外键保护：有关联产品时拒绝删除
+        if (s.Products.Any())
+            return ApiResponse.Fail($"无法删除：该供应商下有 {s.Products.Count} 个产品，请先处理");
+
         _repo.Delete(s);
         return ApiResponse.Success("供应商已删除");
     }

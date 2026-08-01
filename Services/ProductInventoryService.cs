@@ -166,66 +166,87 @@ public class ProductInventoryService : IProductInventoryService
 
     public async Task<ApiResponse> StockInAsync(UpdateInventoryDto dto, string? batchNo = null)
     {
-        var st = await _stockRepo.GetByProductIdAsync(dto.ProductID);
-        if (st == null)
-        {
-            st = new InvStockSummary
-            {
-                ProductID = dto.ProductID,
-                TotalQty = dto.Quantity, LockedQty = 0, AvailableQty = dto.Quantity
-            };
-            await _stockRepo.AddAsync(st);
-        }
-        else
-        {
-            st.TotalQty += dto.Quantity;
-            st.AvailableQty = st.TotalQty - st.LockedQty;
-            st.UpdateTime = DateTime.Now;
-            _stockRepo.Update(st);
-        }
+        if (dto.Quantity <= 0)
+            return ApiResponse.Fail("入库数量必须大于 0");
 
-        // 有批次号则创建批次记录
-        if (!string.IsNullOrWhiteSpace(batchNo))
+        try
         {
-            var batch = new InvStockBatch
-            {
-                ProductID = dto.ProductID,
-                BatchNo = batchNo,
-                InitialQty = dto.Quantity,
-                CurrentQty = dto.Quantity,
-                Status = "ACTIVE"
-            };
-            await _batchRepo.AddAsync(batch);
-        }
+            await _uow.BeginAsync();
 
-        return ApiResponse.Success($"入库成功，当前库存: {st.TotalQty}");
+            var st = await _stockRepo.GetByProductIdForUpdateAsync(dto.ProductID);
+            if (st == null)
+            {
+                st = new InvStockSummary
+                {
+                    ProductID = dto.ProductID,
+                    TotalQty = dto.Quantity, LockedQty = 0, AvailableQty = dto.Quantity
+                };
+                await _stockRepo.AddAsync(st);
+            }
+            else
+            {
+                st.TotalQty += dto.Quantity;
+                st.AvailableQty = st.TotalQty - st.LockedQty;
+                st.UpdateTime = DateTime.Now;
+                _stockRepo.Update(st);
+            }
+
+            // 有批次号则创建批次记录
+            if (!string.IsNullOrWhiteSpace(batchNo))
+            {
+                var batch = new InvStockBatch
+                {
+                    ProductID = dto.ProductID,
+                    BatchNo = batchNo,
+                    InitialQty = dto.Quantity,
+                    CurrentQty = dto.Quantity,
+                    Status = "ACTIVE"
+                };
+                await _batchRepo.AddAsync(batch);
+            }
+
+            await _uow.CommitAsync();
+            return ApiResponse.Success($"入库成功，当前库存: {st.TotalQty}");
+        }
+        catch { await _uow.RollbackAsync(); throw; }
     }
 
     public async Task<ApiResponse> StockOutAsync(UpdateInventoryDto dto)
     {
-        var st = await _stockRepo.GetByProductIdAsync(dto.ProductID);
-        if (st == null) return ApiResponse.Fail("库存记录不存在", 404);
-        if (st.AvailableQty < dto.Quantity) return ApiResponse.Fail("库存不足");
+        if (dto.Quantity <= 0)
+            return ApiResponse.Fail("出库数量必须大于 0");
 
-        st.TotalQty -= dto.Quantity;
-        st.AvailableQty = st.TotalQty - st.LockedQty;
-        st.UpdateTime = DateTime.Now;
-        _stockRepo.Update(st);
-
-        // FEFO 扣减：从最早过期批次扣
-        var remaining = dto.Quantity;
-        var batches = await _batchRepo.GetByProductIdAsync(dto.ProductID);
-        foreach (var batch in batches)
+        try
         {
-            if (remaining <= 0) break;
-            var deduct = Math.Min(remaining, batch.CurrentQty);
-            batch.CurrentQty -= deduct;
-            if (batch.CurrentQty == 0) batch.Status = "DEPLETED";
-            _batchRepo.Update(batch);
-            remaining -= deduct;
-        }
+            await _uow.BeginAsync();
 
-        return ApiResponse.Success($"出库成功，当前库存: {st.TotalQty}");
+            // FOR UPDATE 行级锁：阻塞并发请求对同一产品库存的修改
+            var st = await _stockRepo.GetByProductIdForUpdateAsync(dto.ProductID);
+            if (st == null) { await _uow.RollbackAsync(); return ApiResponse.Fail("库存记录不存在", 404); }
+            if (st.AvailableQty < dto.Quantity) { await _uow.RollbackAsync(); return ApiResponse.Fail("库存不足"); }
+
+            st.TotalQty -= dto.Quantity;
+            st.AvailableQty = st.TotalQty - st.LockedQty;
+            st.UpdateTime = DateTime.Now;
+            _stockRepo.Update(st);
+
+            // FEFO 扣减：从最早过期批次扣
+            var remaining = dto.Quantity;
+            var batches = await _batchRepo.GetByProductIdAsync(dto.ProductID);
+            foreach (var batch in batches)
+            {
+                if (remaining <= 0) break;
+                var deduct = Math.Min(remaining, batch.CurrentQty);
+                batch.CurrentQty -= deduct;
+                if (batch.CurrentQty == 0) batch.Status = "DEPLETED";
+                _batchRepo.Update(batch);
+                remaining -= deduct;
+            }
+
+            await _uow.CommitAsync();
+            return ApiResponse.Success($"出库成功，当前库存: {st.TotalQty}");
+        }
+        catch { await _uow.RollbackAsync(); throw; }
     }
 
     // ========== 批次 ==========
@@ -244,22 +265,43 @@ public class ProductInventoryService : IProductInventoryService
 
     public async Task<ApiResponse<StockBatchDto>> AddBatchAsync(CreateStockBatchDto dto)
     {
-        var batch = new InvStockBatch
+        if (dto.InitialQty <= 0)
+            return ApiResponse<StockBatchDto>.Fail("批次数量必须大于 0");
+
+        try
         {
-            ProductID = dto.ProductID, SupplierID = dto.SupplierID,
-            BatchNo = dto.BatchNo, ProductionDate = dto.ProductionDate,
-            ExpiryDate = dto.ExpiryDate, InPrice = dto.InPrice,
-            InitialQty = dto.InitialQty, CurrentQty = dto.InitialQty,
-            Status = "ACTIVE"
-        };
-        await _batchRepo.AddAsync(batch);
-        return ApiResponse<StockBatchDto>.Success(new StockBatchDto
-        {
-            BatchID = batch.BatchID, ProductID = batch.ProductID,
-            BatchNo = batch.BatchNo, ProductionDate = batch.ProductionDate,
-            ExpiryDate = batch.ExpiryDate, InPrice = batch.InPrice,
-            InitialQty = batch.InitialQty, CurrentQty = batch.CurrentQty, Status = batch.Status
-        }, "批次创建成功");
+            await _uow.BeginAsync();
+
+            var batch = new InvStockBatch
+            {
+                ProductID = dto.ProductID, SupplierID = dto.SupplierID,
+                BatchNo = dto.BatchNo, ProductionDate = dto.ProductionDate,
+                ExpiryDate = dto.ExpiryDate, InPrice = dto.InPrice,
+                InitialQty = dto.InitialQty, CurrentQty = dto.InitialQty,
+                Status = "ACTIVE"
+            };
+            await _batchRepo.AddAsync(batch);
+
+            // 同步更新库存汇总
+            var st = await _stockRepo.GetByProductIdForUpdateAsync(dto.ProductID);
+            if (st != null)
+            {
+                st.TotalQty += dto.InitialQty;
+                st.AvailableQty = st.TotalQty - st.LockedQty;
+                st.UpdateTime = DateTime.Now;
+                _stockRepo.Update(st);
+            }
+
+            await _uow.CommitAsync();
+            return ApiResponse<StockBatchDto>.Success(new StockBatchDto
+            {
+                BatchID = batch.BatchID, ProductID = batch.ProductID,
+                BatchNo = batch.BatchNo, ProductionDate = batch.ProductionDate,
+                ExpiryDate = batch.ExpiryDate, InPrice = batch.InPrice,
+                InitialQty = batch.InitialQty, CurrentQty = batch.CurrentQty, Status = batch.Status
+            }, "批次创建成功");
+        }
+        catch { await _uow.RollbackAsync(); throw; }
     }
 
     // ========== 映射 ==========
