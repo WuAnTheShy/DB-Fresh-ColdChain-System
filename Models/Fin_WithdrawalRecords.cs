@@ -1,4 +1,4 @@
-namespace FreshColdChain.Models
+namespace DBFreshColdChain.Models
 {
     public class FinWithdrawalRecord
     {

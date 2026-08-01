@@ -281,6 +281,9 @@ namespace DBFreshColdChain.Services
             var hash = sha256.ComputeHash(bytes);
             return Convert.ToBase64String(hash);
         }
+
+    
+
     }
     // ==================== DTO 类（用于注册、登录、管理员添加） ====================
     public class PromoterRegisterInfo
