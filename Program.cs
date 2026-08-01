@@ -20,6 +20,8 @@ builder.Services.AddScoped<IPriceRuleRepository, PriceRuleRepository>();
 
 // ========== Service 注册 ==========
 builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
+// A组冷链运费报价与批次级可追溯发货服务。
+builder.Services.AddScoped<IColdChainLogisticsService, ColdChainLogisticsService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 
 // ========== MVC ==========
