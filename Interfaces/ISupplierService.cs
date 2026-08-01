@@ -1,3 +1,5 @@
+//供应商服务接口
+
 using FreshGroupSystem.Models;
 using FreshGroupSystem.Models.DTOs;
 

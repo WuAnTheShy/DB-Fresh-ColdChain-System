@@ -1,3 +1,5 @@
+//产品与库存服务接口
+
 using FreshGroupSystem.Models;
 using FreshGroupSystem.Models.DTOs;
 

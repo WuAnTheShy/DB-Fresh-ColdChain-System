@@ -1,3 +1,5 @@
+//用于前端页面API
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace FreshGroupSystem.Controllers;

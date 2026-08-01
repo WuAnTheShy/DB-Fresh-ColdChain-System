@@ -1,3 +1,6 @@
+//基础设施类
+//工作单元接口（多表操作事务一致性）
+
 using System.Data;
 
 namespace FreshGroupSystem.Repositories;
