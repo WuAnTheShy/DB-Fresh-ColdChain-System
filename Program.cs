@@ -1,7 +1,7 @@
-using FreshGroupSystem.Interfaces;
-using FreshGroupSystem.Services;
-using FreshGroupSystem.Services.Supplier;
-using FreshGroupSystem.Repositories;
+using FreshColdChain.Interfaces;
+using FreshColdChain.Services;
+using FreshColdChain.Services.Supplier;
+using FreshColdChain.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +23,11 @@ builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
 // A组冷链运费报价与批次级可追溯发货服务。
 builder.Services.AddScoped<IColdChainLogisticsService, ColdChainLogisticsService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
+
+// ========== B 组跨组接口适配器 ==========
+builder.Services.AddScoped<IInventoryService, InventoryServiceAdapter>();
+builder.Services.AddScoped<ILogisticsService, LogisticsServiceAdapter>();
+builder.Services.AddScoped<ICommissionService, DummyCommissionService>();
 
 // ========== MVC ==========
 builder.Services.AddControllersWithViews();

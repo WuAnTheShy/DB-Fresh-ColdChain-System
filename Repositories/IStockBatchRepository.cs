@@ -1,8 +1,8 @@
 //操作InvStockBatch表
 
-using FreshGroupSystem.Models;
+using FreshColdChain.Models;
 
-namespace FreshGroupSystem.Repositories;
+namespace FreshColdChain.Repositories;
 
 public interface IStockBatchRepository : IBaseRepository<InvStockBatch>
 {

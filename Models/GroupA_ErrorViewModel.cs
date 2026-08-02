@@ -1,4 +1,4 @@
-namespace FreshGroupSystem.Models;
+namespace FreshColdChain.Models;
 
 public class ErrorViewModel
 {

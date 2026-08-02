@@ -1,9 +1,9 @@
 //供应商服务接口
 
-using FreshGroupSystem.Models;
-using FreshGroupSystem.Models.DTOs;
+using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
 
-namespace FreshGroupSystem.Interfaces;
+namespace FreshColdChain.Interfaces;
 
 public interface ISupplierService
 {

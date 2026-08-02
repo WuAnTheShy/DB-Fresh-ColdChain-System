@@ -1,8 +1,8 @@
 //操作InvSupplier表
 
-using FreshGroupSystem.Models;
+using FreshColdChain.Models;
 
-namespace FreshGroupSystem.Repositories;
+namespace FreshColdChain.Repositories;
 
 public interface ISupplierRepository : IBaseRepository<InvSupplier>
 {

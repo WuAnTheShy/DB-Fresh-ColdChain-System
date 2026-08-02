@@ -1,7 +1,7 @@
 using Dapper;
-using FreshGroupSystem.Models;
+using FreshColdChain.Models;
 
-namespace FreshGroupSystem.Repositories;
+namespace FreshColdChain.Repositories;
 
 public class CategoryRepository : BaseRepository<InvCategory>, ICategoryRepository
 {

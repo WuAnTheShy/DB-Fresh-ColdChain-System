@@ -1,9 +1,9 @@
 //用于前端页面API
 
 using Microsoft.AspNetCore.Mvc;
-using FreshGroupSystem.Models;
+using FreshColdChain.Models;
 
-namespace FreshGroupSystem.Controllers;
+namespace FreshColdChain.Controllers;
 
 public class HomeController : Controller
 {

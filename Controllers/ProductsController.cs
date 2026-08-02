@@ -1,10 +1,10 @@
 //负责处理与生鲜产品和商品库存相关的页面跳转与请求交互
 
 using Microsoft.AspNetCore.Mvc;
-using FreshGroupSystem.Interfaces;
-using FreshGroupSystem.Models.DTOs;
+using FreshColdChain.Interfaces;
+using FreshColdChain.Models.DTOs;
 
-namespace FreshGroupSystem.Controllers;
+namespace FreshColdChain.Controllers;
 
 public class ProductsController : Controller
 {

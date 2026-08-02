@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace FreshGroupSystem.Models;
+namespace FreshColdChain.Models;
 
 /// <summary>
 /// 供应商（文档表名：Inv_Suppliers）

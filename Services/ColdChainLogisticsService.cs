@@ -1,9 +1,9 @@
-using FreshGroupSystem.Interfaces;
-using FreshGroupSystem.Models;
-using FreshGroupSystem.Models.DTOs;
-using FreshGroupSystem.Repositories;
+using FreshColdChain.Interfaces;
+using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
+using FreshColdChain.Repositories;
 
-namespace FreshGroupSystem.Services;
+namespace FreshColdChain.Services;
 
 /// <summary>
 /// A组冷链物流服务：阶梯运费报价 + FEFO批次发货 + 精准溯源
@@ -23,12 +23,23 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
     // 工作单元：一次请求共享同一连接和事务
     private readonly IUnitOfWork _uow;
 
-    public ColdChainLogisticsService(IProductRepository products, IStockSummaryRepository stockSummary,
-        IStockBatchRepository batches, IBaseRepository<LogFreightTemplate> templates,
-        IBaseRepository<LogExpressDelivery> deliveries, IBaseRepository<LogFulfillmentBatchItem> allocations,
+    public ColdChainLogisticsService(
+        IProductRepository products,
+        IStockSummaryRepository stockSummary,
+        IStockBatchRepository batches,
+        IBaseRepository<LogFreightTemplate> templates,
+        IBaseRepository<LogExpressDelivery> deliveries,
+        IBaseRepository<LogFulfillmentBatchItem> allocations,
         IUnitOfWork uow)
-        => (_products, _stockSummary, _batches, _templates, _deliveries, _allocations, _uow)
-            = (products, stockSummary, batches, templates, deliveries, allocations, uow);
+    {
+        _products = products;
+        _stockSummary = stockSummary;
+        _batches = batches;
+        _templates = templates;
+        _deliveries = deliveries;
+        _allocations = allocations;
+        _uow = uow;
+    }
 
     /// <summary>
     /// 冷链阶梯运费报价
@@ -40,7 +51,8 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
     /// </summary>
     public async Task<ApiResponse<FreightQuoteDto>> QuoteFreightAsync(FreightQuoteRequest request)
     {
-        if (request.Items.Count == 0) return ApiResponse<FreightQuoteDto>.Fail("至少需要一个商品");
+        if (request.Items.Count == 0)
+            return ApiResponse<FreightQuoteDto>.Fail("至少需要一个商品");
 
         // 加载全部启用的运费模板（数量少，全量加载做内存匹配）
         var rules = await _templates.GetAllAsync();
@@ -49,35 +61,43 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         foreach (var item in request.Items)
         {
             // 1. 校验商品信息 + 计费重量
-            var p = await _products.GetByIdAsync(item.ProductID);
-            if (p == null || item.Quantity <= 0 || p.WeightKG is not > 0)
+            var product = await _products.GetByIdAsync(item.ProductID);
+            if (product == null || item.Quantity <= 0 || product.WeightKG is not > 0)
                 return ApiResponse<FreightQuoteDto>.Fail("商品、数量或计费重量无效");
 
             // 2. 确定温区：默认 CHILLED（冷藏），读取商品 StorageReq 字段
-            var zone = string.IsNullOrWhiteSpace(p.StorageReq) ? "CHILLED" : p.StorageReq.ToUpperInvariant();
+            var zone = string.IsNullOrWhiteSpace(product.StorageReq)
+                ? "CHILLED"
+                : product.StorageReq.ToUpperInvariant();
 
-            // 3. 匹配运费模板：省/市/区三级匹配，越精确优先级越高
-            var rule = rules.Where(x => x.IsEnabled == 1 && x.TemperatureZone == zone &&
-                (x.DestinationProvince == "*" || x.DestinationProvince == request.Province) &&
-                (x.DestinationCity == "*" || x.DestinationCity == request.City) &&
-                (x.DestinationDistrict == "*" || x.DestinationDistrict == request.District))
-                .OrderByDescending(x => (x.DestinationProvince != "*" ? 4 : 0)
-                                      + (x.DestinationCity != "*" ? 2 : 0)
-                                      + (x.DestinationDistrict != "*" ? 1 : 0))
+            // 3. 按地区优先级匹配运费规则（省 > 市 > 区 > 通配 *）
+            var matchedRule = rules
+                .Where(r => r.IsEnabled == 1
+                    && r.TemperatureZone == zone
+                    && (r.DestinationProvince == "*" || r.DestinationProvince == request.Province)
+                    && (r.DestinationCity == "*" || r.DestinationCity == request.City)
+                    && (r.DestinationDistrict == "*" || r.DestinationDistrict == request.District))
+                .OrderByDescending(r =>
+                    (r.DestinationProvince != "*" ? 4 : 0)
+                    + (r.DestinationCity != "*" ? 2 : 0)
+                    + (r.DestinationDistrict != "*" ? 1 : 0))
                 .FirstOrDefault();
 
-            if (rule == null)
+            if (matchedRule == null)
                 return ApiResponse<FreightQuoteDto>.Fail($"缺少 {zone} 温层运费规则");
 
             // 4. 免运费阈值：货值达标则本商品不参与计费
-            if (rule.FreeShippingThreshold.HasValue && request.GoodsAmount >= rule.FreeShippingThreshold)
+            if (matchedRule.FreeShippingThreshold.HasValue
+                && request.GoodsAmount >= matchedRule.FreeShippingThreshold)
                 continue;
 
             // 5. 阶梯计费：首重费 + 续重费 × 续重阶梯数 + 包装费
-            var weight = p.WeightKG.Value * item.Quantity;
-            total += rule.BaseFee
-                   + Math.Max(0, decimal.Ceiling((weight - rule.BaseWeight) / rule.ExtraWeightUnit)) * rule.ExtraWeightFee
-                   + rule.PackagingFee;
+            var weight = product.WeightKG.Value * item.Quantity;
+            var extraUnits = Math.Max(0,
+                decimal.Ceiling((weight - matchedRule.BaseWeight) / matchedRule.ExtraWeightUnit));
+            total += matchedRule.BaseFee
+                + extraUnits * matchedRule.ExtraWeightFee
+                + matchedRule.PackagingFee;
         }
 
         return ApiResponse<FreightQuoteDto>.Success(new FreightQuoteDto
@@ -96,7 +116,9 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
     /// </summary>
     public async Task<ApiResponse<LogExpressDelivery>> CreateShipmentAsync(ShipmentRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.OrderID) || string.IsNullOrWhiteSpace(request.SupplierID) || request.Items.Count == 0)
+        if (string.IsNullOrWhiteSpace(request.OrderID)
+            || string.IsNullOrWhiteSpace(request.SupplierID)
+            || request.Items.Count == 0)
             return ApiResponse<LogExpressDelivery>.Fail("发货参数不完整");
 
         try
@@ -124,16 +146,19 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                     throw new InvalidOperationException($"商品 {item.ProductID} 库存不足（可用 {stock.AvailableQty}，需要 {item.Quantity}）");
 
                 // 3b. FEFO 先进先出：按过期时间从早到晚扣减库存批次
-                var remain = item.Quantity;
+                var remaining = item.Quantity;
                 var batches = await _batches.GetByProductIdAsync(item.ProductID);
-                foreach (var batch in batches.OrderBy(x => x.ExpiryDate))
-                {
-                    if (remain <= 0) break;
-                    var qty = Math.Min(remain, batch.CurrentQty);
-                    if (qty <= 0) continue;
 
-                    batch.CurrentQty -= qty;
-                    if (batch.CurrentQty == 0) batch.Status = "DEPLETED"; // 批次耗尽标记
+                foreach (var batch in batches.OrderBy(b => b.ExpiryDate))
+                {
+                    if (remaining <= 0) break;
+
+                    var deduct = Math.Min(remaining, batch.CurrentQty);
+                    if (deduct <= 0) continue;
+
+                    batch.CurrentQty -= deduct;
+                    if (batch.CurrentQty == 0)
+                        batch.Status = "DEPLETED"; // 批次耗尽标记
                     _batches.Update(batch);
 
                     // 3c. 精准溯源：记录本次发货用了哪个批次的多少货
@@ -142,14 +167,15 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                         DeliveryID = delivery.DeliveryID,
                         ProductID = item.ProductID,
                         BatchID = batch.BatchID,
-                        Quantity = qty
+                        Quantity = deduct
                     });
-                    remain -= qty;
+
+                    remaining -= deduct;
                 }
 
                 // 3d. 批次库存不足以满足需求时抛出异常，触发事务回滚
-                if (remain > 0)
-                    throw new InvalidOperationException($"商品 {item.ProductID} 可用批次库存不足（缺 {remain}）");
+                if (remaining > 0)
+                    throw new InvalidOperationException($"商品 {item.ProductID} 可用批次库存不足（缺 {remaining}）");
 
                 // 3e. 同步更新库存汇总 — 保证 Inv_StockSummary 与 Inv_StockBatches 汇总一致
                 stock.TotalQty -= item.Quantity;

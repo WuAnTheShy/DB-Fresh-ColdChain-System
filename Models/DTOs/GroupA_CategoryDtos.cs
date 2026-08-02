@@ -1,4 +1,4 @@
-namespace FreshGroupSystem.Models.DTOs;
+namespace FreshColdChain.Models.DTOs;
 
 public class CategoryDto
 {

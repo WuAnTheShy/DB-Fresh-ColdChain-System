@@ -1,4 +1,4 @@
-namespace FreshGroupSystem.Models;
+namespace FreshColdChain.Models;
 
 /// <summary>
 /// 统一 API 返回格式

@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace FreshGroupSystem.Models;
+namespace FreshColdChain.Models;
 
 /// <summary>A组可配置的地区、温层阶梯运费规则。</summary>
 [Table("Log_FreightTemplates")]
