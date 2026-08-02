@@ -9,13 +9,13 @@ namespace FreshColdChain.Controllers;
 public class ColdChainLogisticsController : Controller
 {
     private readonly IColdChainLogisticsService _logistics;
-    private readonly IBaseRepository<LogFreightTemplate> _templates;
-    private readonly IBaseRepository<LogExpressDelivery> _deliveries;
+    private readonly ILogFreightTemplateRepository _templates;
+    private readonly ILogExpressDeliveryRepository _deliveries;
 
     public ColdChainLogisticsController(
         IColdChainLogisticsService logistics,
-        IBaseRepository<LogFreightTemplate> templates,
-        IBaseRepository<LogExpressDelivery> deliveries)
+        ILogFreightTemplateRepository templates,
+        ILogExpressDeliveryRepository deliveries)
     {
         _logistics = logistics;
         _templates = templates;
@@ -97,5 +97,74 @@ public class ColdChainLogisticsController : Controller
         }
         TempData["Success"] = "发货成功，已记录批次溯源";
         return RedirectToAction(nameof(Shipments));
+    }
+
+    // ========== 精准溯源查询 ==========
+
+    /// <summary>溯源查询入口页</summary>
+    [HttpGet]
+    public IActionResult Traceability() => View();
+
+    /// <summary>按订单 ID 查询完整溯源链路</summary>
+    [HttpGet]
+    public async Task<IActionResult> TraceByOrder(string orderId)
+    {
+        if (string.IsNullOrWhiteSpace(orderId))
+        {
+            ViewBag.Error = "请输入订单 ID";
+            return View("Traceability");
+        }
+        var result = await _logistics.GetTraceabilityByOrderAsync(orderId);
+        if (!result.IsSuccess)
+        {
+            ViewBag.Error = result.Message;
+            return View("Traceability");
+        }
+        ViewBag.TraceResult = result.Data;
+        ViewBag.QueryType = "order";
+        ViewBag.QueryKey = orderId;
+        return View("Traceability");
+    }
+
+    /// <summary>按发货单 ID 查询单张发货单的批次明细</summary>
+    [HttpGet]
+    public async Task<IActionResult> TraceByDelivery(string deliveryId)
+    {
+        if (string.IsNullOrWhiteSpace(deliveryId))
+        {
+            ViewBag.Error = "请输入发货单 ID";
+            return View("Traceability");
+        }
+        var result = await _logistics.GetTraceabilityByDeliveryAsync(deliveryId);
+        if (!result.IsSuccess)
+        {
+            ViewBag.Error = result.Message;
+            return View("Traceability");
+        }
+        ViewBag.TraceResult = new List<DeliveryTraceDto> { result.Data! };
+        ViewBag.QueryType = "delivery";
+        ViewBag.QueryKey = deliveryId;
+        return View("Traceability");
+    }
+
+    /// <summary>反向溯源：按批次 ID 查去向</summary>
+    [HttpGet]
+    public async Task<IActionResult> TraceByBatch(string batchId)
+    {
+        if (string.IsNullOrWhiteSpace(batchId))
+        {
+            ViewBag.Error = "请输入批次 ID";
+            return View("Traceability");
+        }
+        var result = await _logistics.GetBatchTraceAsync(batchId);
+        if (!result.IsSuccess)
+        {
+            ViewBag.Error = result.Message;
+            return View("Traceability");
+        }
+        ViewBag.BatchTrace = result.Data;
+        ViewBag.QueryType = "batch";
+        ViewBag.QueryKey = batchId;
+        return View("Traceability");
     }
 }

@@ -16,10 +16,10 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
     private readonly IProductRepository _products;
     private readonly IStockSummaryRepository _stockSummary;  // P0修复新增：发货需同步更新库存汇总
     private readonly IStockBatchRepository _batches;
-    // 冷链专属仓储（暂用泛型，后续将抽取专属接口）
-    private readonly IBaseRepository<LogFreightTemplate> _templates;
-    private readonly IBaseRepository<LogExpressDelivery> _deliveries;
-    private readonly IBaseRepository<LogFulfillmentBatchItem> _allocations;
+    // 冷链专属仓储（P1新建：替代泛型，提供自定义查询能力）
+    private readonly ILogFreightTemplateRepository _templates;
+    private readonly ILogExpressDeliveryRepository _deliveries;
+    private readonly ILogFulfillmentBatchItemRepository _allocations;
     // 工作单元：一次请求共享同一连接和事务
     private readonly IUnitOfWork _uow;
 
@@ -27,9 +27,9 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         IProductRepository products,
         IStockSummaryRepository stockSummary,
         IStockBatchRepository batches,
-        IBaseRepository<LogFreightTemplate> templates,
-        IBaseRepository<LogExpressDelivery> deliveries,
-        IBaseRepository<LogFulfillmentBatchItem> allocations,
+        ILogFreightTemplateRepository templates,
+        ILogExpressDeliveryRepository deliveries,
+        ILogFulfillmentBatchItemRepository allocations,
         IUnitOfWork uow)
     {
         _products = products;
@@ -54,8 +54,8 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         if (request.Items.Count == 0)
             return ApiResponse<FreightQuoteDto>.Fail("至少需要一个商品");
 
-        // 加载全部启用的运费模板（数量少，全量加载做内存匹配）
-        var rules = await _templates.GetAllAsync();
+        // 只加载启用的运费模板，在内存中按地区优先级匹配
+        var rules = await _templates.GetEnabledAsync();
         decimal total = 0;
 
         foreach (var item in request.Items)
@@ -194,5 +194,119 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
             await _uow.RollbackAsync();
             return ApiResponse<LogExpressDelivery>.Fail(e.Message);
         }
+    }
+
+    // ========== 精准溯源查询 ==========
+
+    /// <summary>
+    /// 按订单 ID 查询溯源链路：该订单 → 所有发货单 → 每单用了哪些批次
+    /// </summary>
+    public async Task<ApiResponse<List<DeliveryTraceDto>>> GetTraceabilityByOrderAsync(string orderId)
+    {
+        var deliveries = await _deliveries.GetByOrderIdAsync(orderId);
+        if (deliveries.Count == 0)
+            return ApiResponse<List<DeliveryTraceDto>>.Fail("未找到该订单的发货记录", 404);
+
+        var result = new List<DeliveryTraceDto>();
+        foreach (var d in deliveries)
+        {
+            var trace = await BuildDeliveryTraceAsync(d);
+            result.Add(trace);
+        }
+
+        return ApiResponse<List<DeliveryTraceDto>>.Success(result);
+    }
+
+    /// <summary>
+    /// 按发货单 ID 查询单张发货单的批次溯源明细
+    /// </summary>
+    public async Task<ApiResponse<DeliveryTraceDto>> GetTraceabilityByDeliveryAsync(string deliveryId)
+    {
+        var delivery = await _deliveries.GetByIdAsync(deliveryId);
+        if (delivery == null)
+            return ApiResponse<DeliveryTraceDto>.Fail("发货单不存在", 404);
+
+        var trace = await BuildDeliveryTraceAsync(delivery);
+        return ApiResponse<DeliveryTraceDto>.Success(trace);
+    }
+
+    /// <summary>
+    /// 反向溯源：按批次 ID 查询该批次被哪些发货单使用
+    /// </summary>
+    public async Task<ApiResponse<BatchTraceDto>> GetBatchTraceAsync(string batchId)
+    {
+        var batch = await _batches.GetByIdAsync(batchId);
+        if (batch == null)
+            return ApiResponse<BatchTraceDto>.Fail("批次不存在", 404);
+
+        // 查询商品名
+        var product = await _products.GetByIdAsync(batch.ProductID);
+
+        // 查询该批次的所有扣减记录
+        var items = await _allocations.GetByBatchIdAsync(batchId);
+        var allocations = new List<BatchAllocationDto>();
+        foreach (var item in items)
+        {
+            var p = await _products.GetByIdAsync(item.ProductID);
+            allocations.Add(new BatchAllocationDto
+            {
+                AllocationID = item.AllocationID,
+                ProductID = item.ProductID,
+                ProductName = p?.ProductName ?? "",
+                BatchID = item.BatchID,
+                BatchNo = batch.BatchNo,
+                ExpiryDate = batch.ExpiryDate,
+                Quantity = item.Quantity
+            });
+        }
+
+        return ApiResponse<BatchTraceDto>.Success(new BatchTraceDto
+        {
+            BatchID = batch.BatchID,
+            BatchNo = batch.BatchNo,
+            ProductID = batch.ProductID,
+            ProductName = product?.ProductName ?? "",
+            ExpiryDate = batch.ExpiryDate,
+            Allocations = allocations
+        });
+    }
+
+    // ========== 溯源辅助方法 ==========
+
+    /// <summary>
+    /// 构建一张发货单的完整溯源链路：发货单信息 + 每件商品从哪些批次扣减
+    /// </summary>
+    private async Task<DeliveryTraceDto> BuildDeliveryTraceAsync(LogExpressDelivery delivery)
+    {
+        var items = await _allocations.GetByDeliveryIdAsync(delivery.DeliveryID);
+        var allocations = new List<BatchAllocationDto>();
+
+        foreach (var item in items)
+        {
+            var product = await _products.GetByIdAsync(item.ProductID);
+            var batch = await _batches.GetByIdAsync(item.BatchID);
+
+            allocations.Add(new BatchAllocationDto
+            {
+                AllocationID = item.AllocationID,
+                ProductID = item.ProductID,
+                ProductName = product?.ProductName ?? "",
+                BatchID = item.BatchID,
+                BatchNo = batch?.BatchNo ?? "",
+                ExpiryDate = batch?.ExpiryDate,
+                Quantity = item.Quantity
+            });
+        }
+
+        return new DeliveryTraceDto
+        {
+            DeliveryID = delivery.DeliveryID,
+            OrderID = delivery.OrderID,
+            SupplierID = delivery.SupplierID,
+            TrackingNo = delivery.TrackingNo,
+            LogisticsStatus = delivery.LogisticsStatus,
+            ShippedAt = delivery.ShippedAt,
+            Allocations = allocations
+        };
     }
 }

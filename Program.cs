@@ -17,6 +17,10 @@ builder.Services.AddScoped<IStockSummaryRepository, StockSummaryRepository>();
 builder.Services.AddScoped<IStockBatchRepository, StockBatchRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IPriceRuleRepository, PriceRuleRepository>();
+// A组冷链专属仓储
+builder.Services.AddScoped<ILogFreightTemplateRepository, LogFreightTemplateRepository>();
+builder.Services.AddScoped<ILogExpressDeliveryRepository, LogExpressDeliveryRepository>();
+builder.Services.AddScoped<ILogFulfillmentBatchItemRepository, LogFulfillmentBatchItemRepository>();
 
 // ========== Service 注册 ==========
 builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();

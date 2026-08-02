@@ -31,3 +31,52 @@ public class FreightQuoteDto
     public decimal FreightAmount { get; set; }
     public string RuleSummary { get; set; } = string.Empty;
 }
+
+// ========== 精准溯源 DTO ==========
+
+/// <summary>溯源明细：单条批次扣减记录（含商品名、批次号等可读信息）</summary>
+public class BatchAllocationDto
+{
+    public string AllocationID { get; set; } = string.Empty;
+    public string ProductID { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public string BatchID { get; set; } = string.Empty;
+    public string BatchNo { get; set; } = string.Empty;
+    public DateTime? ExpiryDate { get; set; }
+    public int Quantity { get; set; }
+}
+
+/// <summary>正向溯源：一张发货单的完整批次链路</summary>
+public class DeliveryTraceDto
+{
+    public string DeliveryID { get; set; } = string.Empty;
+    public string OrderID { get; set; } = string.Empty;
+    public string SupplierID { get; set; } = string.Empty;
+    public string TrackingNo { get; set; } = string.Empty;
+    public string LogisticsStatus { get; set; } = string.Empty;
+    public DateTime ShippedAt { get; set; }
+    public List<BatchAllocationDto> Allocations { get; set; } = new();
+}
+
+/// <summary>反向溯源：一个批次被哪些发货单使用</summary>
+public class BatchTraceDto
+{
+    public string BatchID { get; set; } = string.Empty;
+    public string BatchNo { get; set; } = string.Empty;
+    public string ProductID { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public DateTime? ExpiryDate { get; set; }
+    public List<BatchAllocationDto> Allocations { get; set; } = new();
+}
+
+/// <summary>发货单摘要（列表用）</summary>
+public class ShipmentSummaryDto
+{
+    public string DeliveryID { get; set; } = string.Empty;
+    public string OrderID { get; set; } = string.Empty;
+    public string SupplierID { get; set; } = string.Empty;
+    public string TrackingNo { get; set; } = string.Empty;
+    public string LogisticsStatus { get; set; } = string.Empty;
+    public DateTime ShippedAt { get; set; }
+    public int ItemCount { get; set; }
+}
