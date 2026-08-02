@@ -18,11 +18,11 @@ public class OrderRepository : BaseRepository, IOrderRepository
     {
         var sql = @"
             INSERT INTO Biz_Orders (
-                OrderNo, CustomerId, AddressId, ReceiverName, ReceiverPhone,
+                OrderNo, CustomerId, PromoterId, AddressId, ReceiverName, ReceiverPhone,
                 ShippingAddress, TotalAmount, DiscountAmount, FreightAmount,
                 FinalAmount, PointsEarned, OrderStatus, CreatedAt)
             VALUES (
-                :OrderNo, :CustomerId, :AddressId, :ReceiverName, :ReceiverPhone,
+                :OrderNo, :CustomerId, :PromoterId, :AddressId, :ReceiverName, :ReceiverPhone,
                 :ShippingAddress, :TotalAmount, :DiscountAmount, :FreightAmount,
                 :FinalAmount, :PointsEarned, :OrderStatus, SYSDATE)
             RETURNING OrderId INTO :OrderId";
@@ -58,6 +58,19 @@ public class OrderRepository : BaseRepository, IOrderRepository
                   FOR UPDATE",
                 new { OrderId = orderId },
                 transaction));
+    }
+
+    public async Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
+        DateTime threshold,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<BizOrder>(
+                @"SELECT * FROM Biz_Orders
+                                    WHERE OrderStatus IN (1, 2)
+                                        AND NVL(CommSettlementDate, CreatedAt) <= :Threshold",
+                new { Threshold = threshold },
+                transaction)).ToList());
     }
 
     public async Task<int> CountOrdersAsync(
@@ -173,6 +186,34 @@ public class OrderRepository : BaseRepository, IOrderRepository
         });
     }
 
+    public async Task<bool> TryUpdateCommissionSettlementAsync(
+        int orderId,
+        decimal? commBaseAmount,
+        decimal? commBonusAmount,
+        DateTime? commSettlementDate,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+        {
+            var affected = await connection.ExecuteAsync(
+                @"UPDATE Biz_Orders
+                  SET CommBaseAmount = :CommBaseAmount,
+                      CommBonusAmount = :CommBonusAmount,
+                      CommSettlementDate = :CommSettlementDate,
+                      UpdatedAt = SYSDATE
+                  WHERE OrderId = :OrderId",
+                new
+                {
+                    OrderId = orderId,
+                    CommBaseAmount = commBaseAmount,
+                    CommBonusAmount = commBonusAmount,
+                    CommSettlementDate = commSettlementDate
+                },
+                transaction);
+            return affected == 1;
+        });
+    }
+
     // ========== Biz_OrderDetails ==========
 
     /// <summary>批量插入订单明细</summary>
@@ -189,9 +230,9 @@ public class OrderRepository : BaseRepository, IOrderRepository
 
     private static string CreateOrderFilterSql()
     {
-        return @"WHERE (:CustomerId IS NULL OR o.CustomerId = :CustomerId)
-                   AND (:OrderStatus IS NULL OR o.OrderStatus = :OrderStatus)
-                   AND (:Keyword IS NULL
+           return @"WHERE (:CustomerId IS NULL OR o.CustomerId = :CustomerId)
+                    AND (:OrderStatus IS NULL OR o.OrderStatus = :OrderStatus)
+                    AND (:Keyword IS NULL
                         OR o.OrderNo LIKE '%' || :Keyword || '%'
                         OR c.CustomerName LIKE '%' || :Keyword || '%')";
     }

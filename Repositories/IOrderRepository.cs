@@ -13,6 +13,10 @@ public interface IOrderRepository
         int orderId,
         IDbTransaction transaction);
 
+    Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
+        DateTime threshold,
+        IDbTransaction? transaction = null);
+
     Task<int> CountOrdersAsync(
         OrderQueryRequest request,
         IDbTransaction? transaction = null);
@@ -34,6 +38,13 @@ public interface IOrderRepository
         int orderId,
         OrderStatus expectedStatus,
         OrderStatus targetStatus,
+        IDbTransaction transaction);
+
+    Task<bool> TryUpdateCommissionSettlementAsync(
+        int orderId,
+        decimal? commBaseAmount,
+        decimal? commBonusAmount,
+        DateTime? commSettlementDate,
         IDbTransaction transaction);
 
     Task InsertDetailsAsync(

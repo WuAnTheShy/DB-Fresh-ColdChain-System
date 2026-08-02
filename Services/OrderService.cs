@@ -110,6 +110,7 @@ public sealed class OrderService : IOrderService
             {
                 OrderNo = GenerateOrderNo(),
                 CustomerId = request.CustomerId,
+                PromoterId = customer.PromoterId,
                 AddressId = request.AddressId,
                 ReceiverName = address.ReceiverName,
                 ReceiverPhone = address.Phone,
