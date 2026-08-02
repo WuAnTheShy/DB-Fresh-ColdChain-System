@@ -24,6 +24,11 @@ builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
 builder.Services.AddScoped<IColdChainLogisticsService, ColdChainLogisticsService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 
+// ========== B 组跨组接口适配器 ==========
+builder.Services.AddScoped<IInventoryService, InventoryServiceAdapter>();
+builder.Services.AddScoped<ILogisticsService, LogisticsServiceAdapter>();
+builder.Services.AddScoped<ICommissionService, DummyCommissionService>();
+
 // ========== MVC ==========
 builder.Services.AddControllersWithViews();
 
