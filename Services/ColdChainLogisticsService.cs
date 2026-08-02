@@ -12,11 +12,9 @@ namespace FreshColdChain.Services;
 /// </summary>
 public class ColdChainLogisticsService : IColdChainLogisticsService
 {
-    // 共享仓储（A组其他同学维护）：只读商品信息 + 库存汇总读写 + 批次读写
     private readonly IProductRepository _products;
-    private readonly IStockSummaryRepository _stockSummary;  // P0修复新增：发货需同步更新库存汇总
+    private readonly IStockSummaryRepository _stockSummary;
     private readonly IStockBatchRepository _batches;
-    // 冷链专属仓储（P1新建：替代泛型，提供自定义查询能力）
     private readonly ILogFreightTemplateRepository _templates;
     private readonly ILogExpressDeliveryRepository _deliveries;
     private readonly ILogFulfillmentBatchItemRepository _allocations;
@@ -108,11 +106,8 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
     }
 
     /// <summary>
-    /// 冷链发货履约：一个订单按供应商拆分一张发货单，FEFO 扣减批次 + 写入溯源映射
-    /// P0修复（2026-08-02）：
-    ///   1. 加入 FOR UPDATE 行级锁，阻塞并发发货对同一产品的库存修改，防止超卖
-    ///   2. 扣减批次后同步更新 Inv_StockSummary.TotalQty/AvailableQty，修复库存汇总不一致
-    /// 事务保护：库存不足或批次不足时自动回滚，发货单和溯源记录不会残留
+    /// 冷链发货履约：一个订单按供应商拆分一张发货单，FEFO 扣减批次 + 写入溯源映射。
+    /// 使用 FOR UPDATE 行级锁防止并发超卖，事务内同步更新 Inv_StockSummary 保证库存一致性。
     /// </summary>
     public async Task<ApiResponse<LogExpressDelivery>> CreateShipmentAsync(ShipmentRequest request)
     {
