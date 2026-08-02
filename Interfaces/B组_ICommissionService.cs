@@ -1,7 +1,7 @@
 using System.Data;
-using FreshGroupSystem.Models.CrossGroup;
+using FreshColdChain.Models.CrossGroup;
 
-namespace FreshGroupSystem.Interfaces;
+namespace FreshColdChain.Interfaces;
 
 /// <summary>
 /// B 组调用 C 组佣金模块的跨组契约（C 组还未实现，目前用 Dummy）

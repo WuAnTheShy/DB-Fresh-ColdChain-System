@@ -1,10 +1,10 @@
 using System.Data;
-using FreshGroupSystem.Interfaces;
-using FreshGroupSystem.Models;
-using FreshGroupSystem.Models.CrossGroup;
-using FreshGroupSystem.Repositories;
+using FreshColdChain.Interfaces;
+using FreshColdChain.Models;
+using FreshColdChain.Models.CrossGroup;
+using FreshColdChain.Repositories;
 
-namespace FreshGroupSystem.Services;
+namespace FreshColdChain.Services;
 
 /// <summary>
 /// 物流适配器 — 实现 B 组的 ILogisticsService 接口

@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace FreshGroupSystem.Models;
+namespace FreshColdChain.Models;
 
 /// <summary>
 /// 动态定价规则（文档表名：Biz_PriceRules）

@@ -1,9 +1,9 @@
-using FreshGroupSystem.Interfaces;
-using FreshGroupSystem.Models;
-using FreshGroupSystem.Models.DTOs;
-using FreshGroupSystem.Repositories;
+using FreshColdChain.Interfaces;
+using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
+using FreshColdChain.Repositories;
 
-namespace FreshGroupSystem.Services;
+namespace FreshColdChain.Services;
 
 /// <summary>
 /// 冷链物流服务：按温层重量阶梯计费，FEFO 批次扣减发货，记录批次溯源

@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace FreshGroupSystem.Models;
+namespace FreshColdChain.Models;
 
 /// <summary>
 /// 库存批次 — 实现 FEFO 先进先出（文档表名：Inv_StockBatches）

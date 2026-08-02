@@ -1,7 +1,7 @@
 using System.Data;
 using Oracle.ManagedDataAccess.Client;
 
-namespace FreshGroupSystem.Repositories;
+namespace FreshColdChain.Repositories;
 
 /// <summary>
 /// Oracle 数据库连接工厂实现

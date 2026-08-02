@@ -1,8 +1,8 @@
 using System.Data;
-using FreshGroupSystem.Interfaces;
-using FreshGroupSystem.Models.CrossGroup;
+using FreshColdChain.Interfaces;
+using FreshColdChain.Models.CrossGroup;
 
-namespace FreshGroupSystem.Services;
+namespace FreshColdChain.Services;
 
 /// <summary>
 /// C 组佣金模块的 Mock 实现 — C 组完成前使用

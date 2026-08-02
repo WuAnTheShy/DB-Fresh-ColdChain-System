@@ -1,4 +1,4 @@
-namespace FreshGroupSystem.Models.CrossGroup;
+namespace FreshColdChain.Models.CrossGroup;
 
 // ========== A 组库存模块契约模型 ==========
 

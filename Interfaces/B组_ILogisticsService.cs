@@ -1,7 +1,7 @@
 using System.Data;
-using FreshGroupSystem.Models.CrossGroup;
+using FreshColdChain.Models.CrossGroup;
 
-namespace FreshGroupSystem.Interfaces;
+namespace FreshColdChain.Interfaces;
 
 /// <summary>
 /// B 组调用 A 组运费与物流模块的跨组契约。

@@ -1,4 +1,4 @@
-namespace FreshGroupSystem.Models.DTOs;
+namespace FreshColdChain.Models.DTOs;
 
 /// <summary>运费报价请求中的单个商品项</summary>
 public class FreightItemDto

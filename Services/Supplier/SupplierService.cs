@@ -1,9 +1,9 @@
-using FreshGroupSystem.Interfaces;
-using FreshGroupSystem.Models;
-using FreshGroupSystem.Models.DTOs;
-using FreshGroupSystem.Repositories;
+using FreshColdChain.Interfaces;
+using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
+using FreshColdChain.Repositories;
 
-namespace FreshGroupSystem.Services.Supplier;
+namespace FreshColdChain.Services.Supplier;
 
 public class SupplierService : ISupplierService
 {

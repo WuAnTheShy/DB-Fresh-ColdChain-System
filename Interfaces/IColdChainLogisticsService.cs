@@ -1,7 +1,7 @@
-using FreshGroupSystem.Models;
-using FreshGroupSystem.Models.DTOs;
+using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
 
-namespace FreshGroupSystem.Interfaces;
+namespace FreshColdChain.Interfaces;
 
 /// <summary>
 /// A组对外提供的冷链运费报价与批次级可追溯发货能力

@@ -1,7 +1,7 @@
 //基础设施类
 //基础仓储接口（定义通用的增删改查方法）
 
-namespace FreshGroupSystem.Repositories;
+namespace FreshColdChain.Repositories;
 
 public interface IBaseRepository<T> where T : class
 {

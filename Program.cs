@@ -1,7 +1,7 @@
-using FreshGroupSystem.Interfaces;
-using FreshGroupSystem.Services;
-using FreshGroupSystem.Services.Supplier;
-using FreshGroupSystem.Repositories;
+using FreshColdChain.Interfaces;
+using FreshColdChain.Services;
+using FreshColdChain.Services.Supplier;
+using FreshColdChain.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 

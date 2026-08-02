@@ -1,10 +1,10 @@
 //负责管理与供应商（合作商）相关的交互请求
 
 using Microsoft.AspNetCore.Mvc;
-using FreshGroupSystem.Interfaces;
-using FreshGroupSystem.Models.DTOs;
+using FreshColdChain.Interfaces;
+using FreshColdChain.Models.DTOs;
 
-namespace FreshGroupSystem.Controllers;
+namespace FreshColdChain.Controllers;
 
 public class SuppliersController : Controller
 {

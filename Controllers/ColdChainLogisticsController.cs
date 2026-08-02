@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
-using FreshGroupSystem.Interfaces;
-using FreshGroupSystem.Models;
-using FreshGroupSystem.Models.DTOs;
-using FreshGroupSystem.Repositories;
+using FreshColdChain.Interfaces;
+using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
+using FreshColdChain.Repositories;
 
-namespace FreshGroupSystem.Controllers;
+namespace FreshColdChain.Controllers;
 
 public class ColdChainLogisticsController : Controller
 {
