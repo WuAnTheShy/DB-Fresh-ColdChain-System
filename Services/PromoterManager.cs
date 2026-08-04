@@ -30,6 +30,7 @@ namespace DBFreshColdChain.Services
             var _promoterInfo = _dbHelper.GroupC_FindPromoterRecord(promoterID);
             if (_promoterInfo == null)
                 return false;
+            promoterInfo = _promoterInfo;
             // 注意：原方法未将查询结果赋值给 promoterInfo，但保留原样，不修改
             return true;
         }
@@ -146,13 +147,22 @@ namespace DBFreshColdChain.Services
         /// <summary>
         /// 团长注册（首次注册，待管理员审核激活）
         /// </summary>
-        public bool RegisterPromoter(PromoterRegisterInfo registerInfo)
+        public PromoterRegisterResult RegisterPromoter(PromoterRegisterInfo registerInfo)
         {
+            var promoterRegisterResult = new PromoterRegisterResult();
             if (registerInfo == null || string.IsNullOrWhiteSpace(registerInfo.LoginAccount))
-                return false;
+            {
+                promoterRegisterResult.IsSuccess = false;
+                promoterRegisterResult.Message = "输入注册信息不能为空";
+                return promoterRegisterResult;
+            }
 
             if (_dbHelper.GroupC_ExistsPromoterByLoginAccount(registerInfo.LoginAccount))
-                return false;
+            {
+                promoterRegisterResult.IsSuccess = false;
+                promoterRegisterResult.Message = "该用户名已存在，请重新输入";
+                return promoterRegisterResult;
+            }
 
             string hashedPassword = HashPassword(registerInfo.LoginPassword);
 
@@ -173,7 +183,12 @@ namespace DBFreshColdChain.Services
             };
 
             bool result = _dbHelper.GroupC_InsertPromoter(promoter);
-            if (!result) return false;
+            if (!result)
+            {
+                promoterRegisterResult.IsSuccess = false;
+                promoterRegisterResult.Message = "系统异常：添加团长信息失败，请稍后再试";
+                return promoterRegisterResult;
+            }
 
             var log = new Log_Auditrails
             {
@@ -181,11 +196,13 @@ namespace DBFreshColdChain.Services
                 ActionType = "Copy",
                 OperatorType = "Platform",
                 OperatorId = "\\",
-                OldValue = null,
+                OldValue = string.Empty,
                 NewValue = JsonConvert.SerializeObject(new { promoter.PromoterId, promoter.PromoterName, promoter.LoginAccount })
             };
             _logManager.WriteTableChangeLog(log);
-            return true;
+            promoterRegisterResult.IsSuccess = true;
+            promoterRegisterResult.Message = "";
+            return promoterRegisterResult;
         }
 
         /// <summary>
@@ -220,8 +237,7 @@ namespace DBFreshColdChain.Services
                 InviteCode = promoter.InviteCode
             };
         }
-
-        /// <summary>
+         /// <summary>
         /// 管理员直接添加团长（直接生效，无需审核）
         /// </summary>
         public bool AddPromoterByAdmin(PromoterAddInfo addInfo)
@@ -284,34 +300,5 @@ namespace DBFreshColdChain.Services
 
     
 
-    }
-    // ==================== DTO 类（用于注册、登录、管理员添加） ====================
-    public class PromoterRegisterInfo
-    {
-        public string PromoterName { get; set; }
-        public string LoginAccount { get; set; }
-        public string LoginPassword { get; set; }
-        public string Phone { get; set; }
-    }
-
-    public class PromoterAddInfo
-    {
-        public string PromoterName { get; set; }
-        public string LoginAccount { get; set; }
-        public string LoginPassword { get; set; }
-        public string Phone { get; set; }
-        public decimal? BaseCommissionRate { get; set; }
-    }
-
-    public class PromoterLoginResult
-    {
-        public bool IsSuccess { get; set; }
-        public string Message { get; set; }
-        public string PromoterId { get; set; }
-        public string PromoterName { get; set; }
-        public decimal CurrentBalance { get; set; }
-        public decimal PendingBalance { get; set; }
-        public decimal TotalSales { get; set; }
-        public string InviteCode { get; set; }
     }
 }

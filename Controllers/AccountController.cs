@@ -2,26 +2,32 @@
 using DBFreshColdChain.Repositories;
 using DBFreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Data;
 using System.Diagnostics;
-namespace DBFreshColdChainSystem.Controllers
+namespace DBFreshColdChain.Controllers
 {
     public class AccountController : Controller
     {
+        private readonly PromoterManager _promoterManager;
+        public AccountController(PromoterManager promoterManager)
+        {
+            _promoterManager = promoterManager;
+        }
         public IActionResult RoleSelect()
         {
             return View();
         }
         public IActionResult Login(string? role = null)
         {
-            if (role == "Promoter")
+            if (role == "团长")
             {
                 ViewBag.Role = "团长";
             }
-            else if (role == "Consumer")
+            else if (role == "消费者")
             {
                 ViewBag.Role = "消费者";
             }
-            else if (role == "Admin")
+            else if (role == "管理员")
             {
                 ViewBag.Role = "管理员";
             }
@@ -35,15 +41,58 @@ namespace DBFreshColdChainSystem.Controllers
         [HttpPost]
         public IActionResult Login(string username, string password,string? role = null)
         {
-               
-            if (username == "admin" && password == "123456")
+            ViewBag.Role = role;
+            if (role == "团长")
             {
-                return RedirectToAction("Index", "Home");
+                var loginResult = _promoterManager.LoginPromoter(username, password);
+                if(loginResult.IsSuccess == true)  //登录成功
+                {
+                    HttpContext.Session.SetString("PromoterName", username);
+                    return RedirectToAction("Index", "Promoters");    
+                }
+                ModelState.AddModelError("", loginResult.Message);
+                return View();
             }
-            ModelState.AddModelError("", "用户名或密码错误");
             return View();
         }
-
+        [HttpGet]
+        public IActionResult Register(string? role = null)
+        {
+            ViewBag.Role = role;
+            if (role == "团长")
+            {
+                return PromoterRegister();
+            }
+            return View();
+            
+        }
+        public IActionResult PromoterRegister()
+        {
+            ViewBag.Role = "团长";
+            return View("PromoterRegister");
+        }
+        [HttpPost]
+        public IActionResult PromoterRegister(string promotername, string username, string password, string phonenumber, string password_again)
+        {
+            if (password != password_again)
+            {
+                ModelState.AddModelError("", "两次输入密码不同");
+                return View("PromoterRegister");
+            }
+            var registerInfo = new PromoterRegisterInfo();
+            registerInfo.PromoterName = promotername;
+            registerInfo.Phone = phonenumber;
+            registerInfo.LoginPassword = password;
+            registerInfo.LoginAccount = username;
+            var registerResult = new PromoterRegisterResult();
+            registerResult = _promoterManager.RegisterPromoter(registerInfo);
+            if (registerResult.IsSuccess == true)
+            {
+                return RedirectToAction("Login", "Account", new { role = "团长" });
+            }
+            ModelState.AddModelError("", registerResult.Message);
+            return View("PromoterRegister");
+        }
     }
     
 }

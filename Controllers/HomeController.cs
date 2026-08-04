@@ -2,7 +2,7 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using DBFreshColdChain.Models;
 
-namespace Mirror.Controllers
+namespace DBFreshColdChain.Controllers
 {
     public class HomeController : Controller
     {

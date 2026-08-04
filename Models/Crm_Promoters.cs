@@ -12,11 +12,10 @@ namespace DBFreshColdChain.Models
         public decimal FrozenAmount { get; set; }                    // 冻结金额
         public decimal TotalSales { get; set; }                      // 累计有效销售额
         public int TotalOrderCount { get; set; }                     // 累计有效订单数
-        public string LevelName { get; set; } = string.Empty;        // 团长等级名称
         public string Status { get; set; } = "Enabled";              // 状态: Enabled / Disabled / Frozen
         public DateTime RegisterTime { get; set; }                   // 注册时间
         public DateTime? LastSettlementTime { get; set; }            // 最近一次结算时间
-        public string Remark { get; set; } = string.Empty;           // 备注
+        public string Remark { get; set; } = string.Empty;           // 备注  
         public string LoginAccount { get; set; } = string.Empty;     // 登录账号
         public string LoginPassword { get; set; } = string.Empty;    // 登录密码 
     }

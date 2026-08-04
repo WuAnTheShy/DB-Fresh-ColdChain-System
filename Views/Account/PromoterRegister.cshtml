@@ -1,14 +1,15 @@
-﻿@* Views/Account/Login.cshtml *@
+﻿
+@* Views/Account/Login.cshtml *@
 @{
-    ViewData["Title"] = $"{@ViewBag.Role} 登录";
+    ViewData["Title"] = $"{@ViewBag.Role} 注册";
 }
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-4">
             <div class="card shadow-sm">
                 <div class="card-body">
-                    <h3 class="card-title text-center mb-4">登录</h3>
-                    <h4>正在以 @ViewBag.Role 身份登录</h4>
+                    <h3 class="card-title text-center mb-4">注册</h3>
+                    <h4>正在以 @ViewBag.Role 身份注册</h4>
                     @* 显示全局错误信息 *@
                     @if (!ViewData.ModelState.IsValid)
                     {
@@ -17,7 +18,19 @@
                         </div>
                     }
 
-                    <form asp-action="Login" asp-route-role="@ViewBag.Role" method="post">
+                    <form asp-action="PromoterRegister" method="post">
+                        <div class="mb-3">
+                            <label for="promotername" class="form-label">真实姓名</label>
+                            <input type="text" class="form-control" id="promotername" name="promotername"
+                                   placeholder="请输入真实姓名" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="phonenumber" class="form-label">联系电话</label>
+                            <input type="text" class="form-control" id="phonenumber" name="phonenumber"
+                                   placeholder="请输入联系电话号码" required />
+                        </div>
+
                         <div class="mb-3">
                             <label for="username" class="form-label">用户名</label>
                             <input type="text" class="form-control" id="username" name="username"
@@ -30,11 +43,10 @@
                                    placeholder="请输入密码" required />
                         </div>
 
-                        <div class="mb-3 text-center" style="font-size: 0.9rem;">
-                            <span class="text-muted">没有账号？</span>
-                            <a asp-action="Register" asp-controller="Account" asp-route-role="@ViewBag.Role" class="text-decoration-none fw-bold text-primary">
-                                点击注册新账户
-                            </a>
+                        <div class="mb-3">
+                            <label for="password_again" class="form-label">确认密码</label>
+                            <input type="password" class="form-control" id="password_again" name="password_again"
+                                   placeholder="请再次输入密码" required />
                         </div>
 
                         <div class="d-grid gap-2">
