@@ -50,7 +50,7 @@ const { categories, leaders, products } = useShop()
     </section>
 
     <section class="home-section amazon-home-panel store-container">
-      <div class="section-title-row"><div><h2>今天值得跟的团</h2></div></div>
+      <div class="section-title-row"><div><h2>今日特价</h2></div></div>
       <div class="product-grid">
         <ProductCard v-for="product in products" :key="product.id" :product="product" />
       </div>

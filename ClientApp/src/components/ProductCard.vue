@@ -26,7 +26,6 @@ function displayPrice(value) {
         <img :src="activeLeader.avatar" :alt="`${activeLeader.name}团长头像`" />
         <span>
           <strong>{{ activeLeader.name }}</strong>
-          <small>{{ activeLeader.title }} · 跟我一起团</small>
         </span>
       </header>
 
@@ -44,7 +43,7 @@ function displayPrice(value) {
         </div>
 
         <div class="social-product-price">
-          <span>¥</span><strong>{{ displayPrice(product.price) }}</strong><small>–{{ displayPrice(product.originalPrice) }}</small>
+          <span>¥</span><strong>{{ displayPrice(product.price) }}</strong><small>优惠后</small>
         </div>
 
         <div class="product-card-media">
