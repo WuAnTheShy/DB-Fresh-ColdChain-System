@@ -1,6 +1,6 @@
-﻿namespace DBFreshColdChain.Models
+﻿namespace DBFreshColdChain.Models.DTOs
 {
-    public class PromoterLoginResult
+    public class GroupC_PromoterLoginResult
     {
         public bool IsSuccess { get; set; }
         public string Message { get; set; }

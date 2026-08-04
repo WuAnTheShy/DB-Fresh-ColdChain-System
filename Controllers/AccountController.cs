@@ -1,4 +1,5 @@
-﻿using DBFreshColdChain.Models;
+﻿using DBFreshColdChain.Models.DTOs;
+using DBFreshColdChain.Models.CrossGroup;
 using DBFreshColdChain.Repositories;
 using DBFreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -8,8 +9,8 @@ namespace DBFreshColdChain.Controllers
 {
     public class AccountController : Controller
     {
-        private readonly PromoterManager _promoterManager;
-        public AccountController(PromoterManager promoterManager)
+        private readonly GroupC_PromoterManager _promoterManager;
+        public AccountController(GroupC_PromoterManager promoterManager)
         {
             _promoterManager = promoterManager;
         }
@@ -72,20 +73,20 @@ namespace DBFreshColdChain.Controllers
             return View("PromoterRegister");
         }
         [HttpPost]
-        public IActionResult PromoterRegister(string promotername, string username, string password, string phonenumber, string password_again)
+        public async Task<IActionResult> PromoterRegister(string promotername, string username, string password, string phonenumber, string password_again)
         {
             if (password != password_again)
             {
                 ModelState.AddModelError("", "两次输入密码不同");
                 return View("PromoterRegister");
             }
-            var registerInfo = new PromoterRegisterInfo();
+            var registerInfo = new GroupC_PromoterRegisterInfo();
             registerInfo.PromoterName = promotername;
             registerInfo.Phone = phonenumber;
             registerInfo.LoginPassword = password;
             registerInfo.LoginAccount = username;
-            var registerResult = new PromoterRegisterResult();
-            registerResult = _promoterManager.RegisterPromoter(registerInfo);
+            var registerResult = new GroupC_PromoterRegisterResult();
+            registerResult = await _promoterManager.RegisterPromoter(registerInfo);
             if (registerResult.IsSuccess == true)
             {
                 return RedirectToAction("Login", "Account", new { role = "团长" });

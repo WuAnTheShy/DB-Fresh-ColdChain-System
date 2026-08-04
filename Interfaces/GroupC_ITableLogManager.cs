@@ -1,10 +1,10 @@
-﻿using DBFreshColdChain.Models;
-
+﻿using DBFreshColdChain.Models.DTOs;
+using DBFreshColdChain.Models.CrossGroup;
 namespace DBFreshColdChain.Interfaces
 {
     public interface GroupC_ITableLogManager
     {
-        bool WriteTableChangeLog(Log_Auditrails? logData = null);
+        bool WriteTableChangeLog(GroupC_LogAuditrails? logData = null);
 
 
 

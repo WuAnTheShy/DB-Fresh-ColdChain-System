@@ -1,6 +1,6 @@
-﻿namespace DBFreshColdChain.Models
+﻿namespace DBFreshColdChain.Models.DTOs
 {
-    public class CreatePromoterRequest
+    public class GroupC_CreatePromoterRequest
     {
         public string PromoterId { get; set; } = string.Empty;       //团长ID号
         public string PromoterName { get; set; } = string.Empty;     // 团长姓名

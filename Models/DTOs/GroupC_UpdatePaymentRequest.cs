@@ -1,6 +1,6 @@
-﻿namespace DBFreshColdChain.Models
+﻿namespace DBFreshColdChain.Models.DTOs
 {
-    public class UpdatePaymentRequest
+    public class GroupC_UpdatePaymentRequest
     {
         public string PayId { get; set; } = string.Empty;                           //支付流水号
         public bool IsSuccess { get; set; } = false;                        //更新是否成功标志位

@@ -1,6 +1,6 @@
-﻿namespace DBFreshColdChain.Models
+﻿namespace DBFreshColdChain.Models.DTOs
 {
-    public class PromoterAddInfo
+    public class GroupC_PromoterAddInfo
     {
         public string PromoterName { get; set; }
         public string LoginAccount { get; set; }

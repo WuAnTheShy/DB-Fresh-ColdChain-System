@@ -1,6 +1,6 @@
-﻿namespace DBFreshColdChain.Models
+﻿namespace DBFreshColdChain.Models.DTOs
 {
-    public class RefundRequest
+    public class GroupC_RefundRequest
     {
         public string? OrderId { get; set; } = string.Empty;          // 订单编号 
         public string? DetailId { get; set; } = string.Empty;         // 订单明细编号 

@@ -1,6 +1,6 @@
-namespace DBFreshColdChain.Models
+namespace DBFreshColdChain.Models.DTOs
 {
-    public class SysUser
+    public class GroupC_SysUser
     {
         public string UserId { get; set; } = string.Empty;           // 用户编号 (主键)
         public string Username { get; set; } = string.Empty;         // 登录名

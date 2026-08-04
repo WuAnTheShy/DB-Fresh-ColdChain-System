@@ -1,5 +1,5 @@
-﻿using DBFreshColdChain.Models;
-
+﻿using DBFreshColdChain.Models.DTOs;
+using DBFreshColdChain.Models.CrossGroup;
 namespace DBFreshColdChain.Interfaces
 {
     public interface Mock_IGroupB   //模拟B组提供的接口函数

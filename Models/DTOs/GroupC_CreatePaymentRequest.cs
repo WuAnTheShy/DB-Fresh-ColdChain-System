@@ -1,6 +1,6 @@
-﻿namespace DBFreshColdChain.Models
+﻿namespace DBFreshColdChain.Models.DTOs
 {
-    public class CreatePaymentRequest
+    public class GroupC_CreatePaymentRequest
     {
         public string PayId { get; set; } = string.Empty;           //支付流水号
         public string PayMethod { get; set; } = string.Empty;       //支付方式

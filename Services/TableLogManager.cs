@@ -1,19 +1,23 @@
-﻿using DBFreshColdChain.Models;
+﻿using DBFreshColdChain.Interfaces;
 using DBFreshColdChain.Repositories;
-using DBFreshColdChain.Interfaces;
+using FreshColdChain.Repositories;
+using DBFreshColdChain.Models.DTOs;
+using DBFreshColdChain.Models.CrossGroup;
 using System;
 using System.Text.Json.Nodes;
 namespace DBFreshColdChain.Services
 {
-    public class TableLogManager: GroupC_ITableLogManager
+    public class GroupC_TableLogManager : GroupC_ITableLogManager
     {
-        private readonly DbHelper _dbHelper;
+        private readonly IUnitOfWork _uow;
+        private readonly TableLogRepository _tableLogRepository;
 
-        public TableLogManager(DbHelper dbHelper)
+        public GroupC_TableLogManager(IUnitOfWork uow, TableLogRepository tableLogRepository)
         {
-            _dbHelper = dbHelper;
+            _uow = uow;
+           _tableLogRepository = tableLogRepository;    
         }
-        public bool WriteTableChangeLog(Log_Auditrails? logData = null)
+        public bool WriteTableChangeLog(GroupC_LogAuditrails? logData = null)
         {
             if (logData == null)
             {
@@ -28,7 +32,7 @@ namespace DBFreshColdChain.Services
                 logData.OpTime = DateTime.Now;
             }
             logData.OldValue = logData.OldValue.Length > 1000 ? logData.OldValue.Substring(0, 1000) : logData.OldValue; //截断保护
-            _dbHelper.GroupC_AddLogRecord(logData); //Respositories层接口
+            _tableLogRepository.GroupC_AddLogRecord(logData); //Respositories层接口
             return true;
         }
         

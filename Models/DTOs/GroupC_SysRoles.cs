@@ -1,6 +1,6 @@
-namespace DBFreshColdChain.Models
+namespace DBFreshColdChain.Models.DTOs
 {
-    public class SysRole
+    public class GroupC_SysRole
     {
         public string RoleId { get; set; } = string.Empty;           //角色编号 (主键)
         public string RoleName { get; set; } = string.Empty;         //角色名称

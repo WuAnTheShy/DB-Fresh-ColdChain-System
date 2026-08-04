@@ -1,6 +1,6 @@
-namespace DBFreshColdChain.Models
+namespace DBFreshColdChain.Models.DTOs
 {
-    public class FinWithdrawalRecord
+    public class GroupC_FinWithdrawalRecord
     {
         public string WithdrawalId { get; set; } = string.Empty;     // 提现编号 (主键)
         public string PromoterId { get; set; } = string.Empty;       // 团长编号 (外键, 关联 Crm_Promoters)

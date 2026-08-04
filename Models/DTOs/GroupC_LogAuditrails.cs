@@ -1,6 +1,6 @@
-﻿namespace DBFreshColdChain.Models
+﻿namespace DBFreshColdChain.Models.DTOs
 { 
-    public class Log_Auditrails
+    public class GroupC_LogAuditrails
     {
         public string LogId { get; set; } = string.Empty;           //日志编号，自动生成
         public string TableName { get; set; } = string.Empty;       //操作表名

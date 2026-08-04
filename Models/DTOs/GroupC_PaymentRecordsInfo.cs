@@ -1,6 +1,6 @@
-namespace DBFreshColdChain.Models
+namespace DBFreshColdChain.Models.DTOs
 {
-    public class FinPaymentRecord
+    public class GroupC_FinPaymentRecord
     {
         public string PayId { get; set; } = string.Empty;            // 支付流水编号 (主键)
         public string OrderId { get; set; } = string.Empty;          // 订单编号 (外键, 关联 Biz_Orders)

@@ -1,8 +1,9 @@
-﻿using DBFreshColdChain.Models;
+﻿using DBFreshColdChain.Models.DTOs;
+using DBFreshColdChain.Models.CrossGroup;
 namespace DBFreshColdChain.Interfaces
 {
     public interface GroupC_IPaymentManager
     {
-        bool CreatePaymentRecord(string? orderID, string? payMethod, string? transactionNo, decimal payAmount, string? status, string? errorMessage); //创建支付流水函数
+        Task<Result> CreatePaymentRecord(string? orderID, string? payMethod, string? transactionNo, decimal payAmount, string? status, string? errorMessage); //创建支付流水函数
     }
 }
