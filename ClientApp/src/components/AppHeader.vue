@@ -1,5 +1,5 @@
 <script setup>
-import { MapPin, Menu, Search, ShoppingCart, UserRound, X } from '@lucide/vue'
+import { MapPin, Menu, Search, ShoppingCart, X } from '@lucide/vue'
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useShop } from '../state/shop'
@@ -34,8 +34,9 @@ function search() {
         </button>
 
         <RouterLink class="store-brand" to="/" aria-label="鲜邻团首页">
-          <span class="brand-symbol">鲜</span>
-          <span><strong>鲜邻团</strong><small>冷链社区团购</small></span>
+          <span class="brand-word">鲜邻团</span>
+          <span class="brand-smile" aria-hidden="true"></span>
+          <small>fresh</small>
         </RouterLink>
 
         <button class="delivery-location d-none d-xl-flex" type="button" title="选择配送地址">
@@ -48,16 +49,15 @@ function search() {
             <option>全部</option>
             <option v-for="category in categories" :key="category.slug">{{ category.name }}</option>
           </select>
-          <input v-model="keyword" type="search" placeholder="搜索商品、团长或团购活动" aria-label="搜索" />
+          <input v-model="keyword" type="search" placeholder="搜索鲜邻团" aria-label="搜索" />
           <button type="submit" aria-label="提交搜索" title="搜索"><Search :size="21" /></button>
         </form>
 
         <RouterLink class="header-account d-none d-md-flex" to="/profile">
-          <UserRound :size="20" />
-          <span><small>你好，消费者</small><strong>账户与会员</strong></span>
+          <span><small>你好，请登录</small><strong>账户与会员</strong></span>
         </RouterLink>
         <RouterLink class="header-account d-none d-lg-flex" to="/orders">
-          <span><small>查看</small><strong>我的订单</strong></span>
+          <span><small>退换货</small><strong>与订单</strong></span>
         </RouterLink>
         <RouterLink class="header-cart" to="/cart" aria-label="购物车">
           <ShoppingCart :size="28" />
@@ -70,7 +70,8 @@ function search() {
     <nav class="header-secondary d-none d-lg-block" aria-label="商城主导航">
       <div class="header-inner secondary-inner">
         <RouterLink to="/search"><Menu :size="17" />全部分类</RouterLink>
-        <RouterLink to="/leaders">团长广场</RouterLink>
+        <RouterLink to="/group-buys">今日特价</RouterLink>
+        <RouterLink to="/leaders">团长推荐</RouterLink>
         <RouterLink to="/group-buys">今日团购</RouterLink>
         <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`">{{ category.name }}</RouterLink>
         <RouterLink to="/coupons">领券中心</RouterLink>
@@ -79,7 +80,7 @@ function search() {
 
     <div id="mobileMenu" class="offcanvas offcanvas-start mobile-menu" tabindex="-1">
       <div class="offcanvas-header">
-        <div class="store-brand"><span class="brand-symbol">鲜</span><span><strong>鲜邻团</strong><small>冷链社区团购</small></span></div>
+        <div class="store-brand"><span class="brand-word">鲜邻团</span><span class="brand-smile" aria-hidden="true"></span><small>fresh</small></div>
         <button class="header-icon-button" type="button" data-bs-dismiss="offcanvas" aria-label="关闭菜单"><X :size="22" /></button>
       </div>
       <div class="offcanvas-body">

@@ -1,6 +1,7 @@
 <script setup>
 import AppHeader from './components/AppHeader.vue'
 import MobileBottomNav from './components/MobileBottomNav.vue'
+import ShopFooter from './components/ShopFooter.vue'
 </script>
 
 <template>
@@ -9,6 +10,7 @@ import MobileBottomNav from './components/MobileBottomNav.vue'
     <main class="store-main">
       <RouterView />
     </main>
+    <ShopFooter />
     <MobileBottomNav />
   </div>
 </template>
