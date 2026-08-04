@@ -43,7 +43,7 @@ if (!leader.value) router.replace('/leaders')
     </div>
 
     <div class="store-container home-section">
-      <div class="section-title-row"><div><h2>{{ leader.name }}团长正在带货</h2><p>所有商品均显示截团进度与预计送达时间</p></div></div>
+      <div class="section-title-row"><div><h2>{{ leader.name }}团长正在带货</h2></div></div>
       <div class="product-grid">
         <ProductCard v-for="product in leaderProducts" :key="product.id" :product="product" :leader-id="leader.id" />
       </div>

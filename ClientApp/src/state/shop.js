@@ -1,9 +1,18 @@
 import { computed, reactive, ref } from 'vue'
+import seasonalFruitImage from '../assets/categories/seasonal-fruit.jpg'
+import vegetableTofuImage from '../assets/categories/vegetable-tofu.jpg'
+import meatEggsImage from '../assets/categories/meat-eggs.jpg'
+import seafoodImage from '../assets/categories/seafood.jpg'
+import dairyBakeryImage from '../assets/categories/dairy-bakery.jpg'
+import otherGroceryImage from '../assets/categories/other-grocery.jpg'
 
 export const categories = [
-  { slug: 'fruit', name: '时令水果', icon: '樱桃' },
-  { slug: 'seafood', name: '海鲜水产', icon: '三文鱼' },
-  { slug: 'vegetable', name: '有机蔬菜', icon: '青菜' },
+  { slug: 'fruit', name: '时令水果', icon: '樱桃', image: seasonalFruitImage },
+  { slug: 'vegetable', name: '蔬菜豆品', icon: '青菜', image: vegetableTofuImage },
+  { slug: 'meat-eggs', name: '肉禽蛋品', icon: '鲜肉', image: meatEggsImage },
+  { slug: 'seafood', name: '海鲜水产', icon: '三文鱼', image: seafoodImage },
+  { slug: 'dairy-bakery', name: '乳品烘焙', icon: '牛奶', image: dairyBakeryImage },
+  { slug: 'other', name: '其他', icon: '杂货', image: otherGroceryImage },
 ]
 
 export const leaders = [
@@ -103,7 +112,12 @@ export const products = [
 ]
 
 const rawCart = JSON.parse(localStorage.getItem('freshMall.cart') ?? '[]')
+const rawRushCounts = JSON.parse(localStorage.getItem('freshMall.rushCounts') ?? '{}')
 const cart = reactive(Array.isArray(rawCart) ? rawCart : [])
+const rushCounts = reactive(Object.fromEntries(products.map((product) => [
+  product.id,
+  Math.max(product.sold, Number(rawRushCounts[product.id]) || product.sold),
+])))
 const selectedLeaderId = ref(Number(sessionStorage.getItem('freshMall.leaderId')) || 1)
 const lastOrder = ref(JSON.parse(sessionStorage.getItem('freshMall.lastOrder') ?? 'null'))
 
@@ -117,6 +131,20 @@ function productById(id) {
 
 function leaderById(id) {
   return leaders.find((leader) => leader.id === Number(id))
+}
+
+function productRushCount(productId) {
+  const product = productById(productId)
+  if (!product) return 0
+  return Number(rushCounts[product.id] ?? product.sold)
+}
+
+function recordProductEntry(productId) {
+  const product = productById(productId)
+  if (!product) return 0
+  rushCounts[product.id] = productRushCount(product.id) + 1
+  localStorage.setItem('freshMall.rushCounts', JSON.stringify(rushCounts))
+  return rushCounts[product.id]
 }
 
 function addToCart(productId, leaderId, quantity = 1) {
@@ -179,6 +207,8 @@ export function useShop() {
     lastOrder,
     productById,
     leaderById,
+    productRushCount,
+    recordProductEntry,
     addToCart,
     updateQuantity,
     removeFromCart,

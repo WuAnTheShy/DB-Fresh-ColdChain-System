@@ -76,7 +76,7 @@ onMounted(loadAssets)
     <form v-else-if="cartItems.length" class="checkout-layout" @submit.prevent="submit">
       <div class="checkout-sections">
         <section class="checkout-section">
-          <div class="checkout-section-title"><MapPin :size="21" /><div><h2>收货地址</h2><p>选择本次冷链配送地址</p></div><RouterLink to="/addresses">管理地址<ChevronRight :size="15" /></RouterLink></div>
+          <div class="checkout-section-title"><MapPin :size="21" /><div><h2>收货地址</h2></div><RouterLink to="/addresses">管理地址<ChevronRight :size="15" /></RouterLink></div>
           <div v-if="addresses.length" class="address-choice-grid">
             <label v-for="address in addresses" :key="address.addressId" :class="{ selected: form.addressId === String(address.addressId) }">
               <input v-model="form.addressId" type="radio" :value="String(address.addressId)" />
@@ -87,12 +87,12 @@ onMounted(loadAssets)
         </section>
 
         <section class="checkout-section">
-          <div class="checkout-section-title"><Truck :size="21" /><div><h2>配送安排</h2><p>选择到家时间与缺货处理</p></div></div>
+          <div class="checkout-section-title"><Truck :size="21" /><div><h2>配送安排</h2></div></div>
           <div class="checkout-form-grid"><label><span>配送时间</span><select v-model="form.deliveryWindow" class="form-select"><option>明日 09:00-12:00</option><option>明日 14:00-18:00</option><option>后日 09:00-12:00</option></select></label><label><span>缺货处理</span><select v-model="form.substitution" class="form-select"><option value="refund">缺货商品直接退款</option><option value="contact">由团长联系确认</option><option value="replace">接受同价替代商品</option></select></label></div>
         </section>
 
         <section class="checkout-section">
-          <div class="checkout-section-title"><BadgeCheck :size="21" /><div><h2>团长带货商品</h2><p>按团长核对本次参团商品</p></div></div>
+          <div class="checkout-section-title"><BadgeCheck :size="21" /><div><h2>团长带货商品</h2></div></div>
           <div v-for="group in groups" :key="group.leader.id" class="checkout-leader-group">
             <header><img :src="group.leader.avatar" alt="" /><strong>{{ group.leader.name }}团长</strong><BadgeCheck :size="15" /><span>{{ group.leader.area }}</span></header>
             <div v-for="item in group.items" :key="`${item.productId}-${item.leaderId}`" class="checkout-item"><img :src="item.product.image" :alt="item.product.name" /><div><strong>{{ item.product.name }}</strong><span>{{ item.product.spec }} · {{ item.product.delivery }}</span></div><span>× {{ item.quantity }}</span><strong>¥{{ (item.product.price * item.quantity).toFixed(2) }}</strong></div>
@@ -100,7 +100,7 @@ onMounted(loadAssets)
         </section>
 
         <section class="checkout-section">
-          <div class="checkout-section-title"><TicketPercent :size="21" /><div><h2>优惠券</h2><p>服务器会再次校验使用条件</p></div></div>
+          <div class="checkout-section-title"><TicketPercent :size="21" /><div><h2>优惠券</h2></div></div>
           <select v-model="form.couponRecordId" class="form-select coupon-select"><option value="">不使用优惠券</option><option v-for="coupon in coupons" :key="coupon.recordId" :value="String(coupon.recordId)">{{ coupon.couponName }} · 减 ¥{{ coupon.discountAmount.toFixed(2) }}</option></select>
         </section>
       </div>

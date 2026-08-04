@@ -41,7 +41,7 @@ watch(() => route.fullPath, () => {
   <div class="store-container page-space">
     <StoreBreadcrumb :items="[{ label: categoryName || (keyword ? `搜索：${keyword}` : '全部商品') }]" />
     <div class="listing-header">
-      <div><span class="title-icon"><SlidersHorizontal :size="22" /></span><div><h1>{{ categoryName || (keyword ? `“${keyword}”的搜索结果` : '全部在团商品') }}</h1><p>每件商品均由认证团长带货</p></div></div>
+      <div><span class="title-icon"><SlidersHorizontal :size="22" /></span><div><h1>{{ categoryName || (keyword ? `“${keyword}”的搜索结果` : '全部在团商品') }}</h1></div></div>
       <span>共 {{ results.length }} 件商品</span>
     </div>
 

@@ -27,11 +27,11 @@ onMounted(loadAddresses)
 <template>
   <div class="store-container page-space addresses-page">
     <StoreBreadcrumb :items="[{ label: '个人中心', to: '/profile' }, { label: '收货地址' }]" />
-    <div class="account-page-header"><div><MapPin :size="26" /><span><h1>收货地址</h1><p>管理冷链配送使用的联系人与地址</p></span></div><button class="btn btn-buy" type="button" @click="openCreate"><Plus :size="17" />新增地址</button></div>
+    <div class="account-page-header"><div><MapPin :size="26" /><span><h1>收货地址</h1></span></div><button class="btn btn-buy" type="button" @click="openCreate"><Plus :size="17" />新增地址</button></div>
     <div v-if="error" class="alert alert-danger">{{ error }}</div><div v-if="success" class="alert alert-success alert-dismissible">{{ success }}<button type="button" class="btn-close" aria-label="关闭" @click="success = ''"></button></div>
 
     <section v-if="editorOpen" class="address-editor">
-      <header><div><h2>{{ form.addressId ? '编辑收货地址' : '新增收货地址' }}</h2><p>请填写真实的配送联系信息</p></div><button type="button" title="关闭编辑" @click="editorOpen = false"><X :size="19" /></button></header>
+      <header><div><h2>{{ form.addressId ? '编辑收货地址' : '新增收货地址' }}</h2></div><button type="button" title="关闭编辑" @click="editorOpen = false"><X :size="19" /></button></header>
       <form class="address-form" @submit.prevent="saveAddress"><label><span>收货人</span><input v-model.trim="form.receiverName" class="form-control" maxlength="50" required /></label><label><span>手机号码</span><input v-model.trim="form.phone" class="form-control" pattern="1[0-9]{10}" maxlength="20" required /></label><label><span>省份</span><input v-model.trim="form.province" class="form-control" maxlength="50" required /></label><label><span>城市</span><input v-model.trim="form.city" class="form-control" maxlength="50" required /></label><label><span>区县</span><input v-model.trim="form.district" class="form-control" maxlength="50" required /></label><label class="wide"><span>详细地址</span><input v-model.trim="form.detailAddress" class="form-control" maxlength="200" required /></label><label class="address-default-check wide"><input v-model="form.isDefault" class="form-check-input" type="checkbox" />设为默认收货地址</label><div class="address-form-actions wide"><button class="btn btn-outline-secondary" type="button" @click="editorOpen = false">取消</button><button class="btn btn-buy" type="submit" :disabled="saving"><span v-if="saving" class="spinner-border spinner-border-sm"></span><Save v-else :size="17" />保存地址</button></div></form>
     </section>
 

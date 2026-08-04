@@ -45,7 +45,7 @@ onMounted(loadOrders)
 <template>
   <div class="store-container page-space orders-page">
     <StoreBreadcrumb :items="[{ label: '我的订单' }]" />
-    <div class="account-page-header"><div><PackageSearch :size="26" /><span><h1>我的订单</h1><p>查看团购、配送与售后进度</p></span></div><form class="order-search" @submit.prevent="search"><input v-model.trim="filters.keyword" type="search" placeholder="搜索订单号" /><button type="submit" title="搜索订单"><Search :size="18" /></button></form></div>
+    <div class="account-page-header"><div><PackageSearch :size="26" /><span><h1>我的订单</h1></span></div><form class="order-search" @submit.prevent="search"><input v-model.trim="filters.keyword" type="search" placeholder="搜索订单号" /><button type="submit" title="搜索订单"><Search :size="18" /></button></form></div>
 
     <nav class="order-tabs" aria-label="订单状态">
       <button v-for="tab in tabs" :key="String(tab.value)" type="button" :class="{ active: filters.status === tab.value }" @click="setStatus(tab.value)">{{ tab.label }}</button>

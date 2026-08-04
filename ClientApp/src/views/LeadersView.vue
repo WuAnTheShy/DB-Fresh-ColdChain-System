@@ -19,7 +19,7 @@ const results = computed(() => leaders.filter((leader) => {
   <div class="store-container page-space">
     <StoreBreadcrumb :items="[{ label: '团长广场' }]" />
     <div class="listing-header">
-      <div><span class="title-icon"><Store :size="23" /></span><div><h1>团长广场</h1><p>查看平台认证团长以及他们正在带货的商品</p></div></div>
+      <div><span class="title-icon"><Store :size="23" /></span><div><h1>团长广场</h1></div></div>
       <span>{{ results.length }} 位团长正在开团</span>
     </div>
 

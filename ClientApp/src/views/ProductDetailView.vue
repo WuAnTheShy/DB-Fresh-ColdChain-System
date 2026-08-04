@@ -1,6 +1,6 @@
 <script setup>
 import { BadgeCheck, Check, ChevronRight, Clock3, MapPin, PackageCheck, ShieldCheck, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import QuantityStepper from '../components/QuantityStepper.vue'
@@ -10,7 +10,7 @@ import { useShop } from '../state/shop'
 const props = defineProps({ id: { type: String, required: true } })
 const route = useRoute()
 const router = useRouter()
-const { products, productById, leaderById, addToCart } = useShop()
+const { products, productById, leaderById, recordProductEntry, addToCart } = useShop()
 const product = computed(() => productById(props.id))
 const requestedLeaderId = Number(route.query.leader)
 const activeLeaderId = ref(product.value?.leaderIds.includes(requestedLeaderId) ? requestedLeaderId : product.value?.leaderIds[0])
@@ -19,6 +19,10 @@ const quantity = ref(1)
 const added = ref(false)
 const progress = computed(() => product.value ? Math.min(100, Math.round((product.value.sold / product.value.target) * 100)) : 0)
 const related = computed(() => products.filter((item) => item.id !== Number(props.id)))
+
+watch(() => props.id, (productId) => {
+  if (productById(productId)) recordProductEntry(productId)
+}, { immediate: true })
 
 if (!product.value) router.replace('/search')
 
@@ -93,7 +97,7 @@ function buyNow() {
     </section>
 
     <section class="home-section px-0">
-      <div class="section-title-row"><div><h2>你可能还喜欢</h2><p>其他认证团长正在带货</p></div></div>
+      <div class="section-title-row"><div><h2>你可能还喜欢</h2></div></div>
       <div class="product-grid"><ProductCard v-for="item in related" :key="item.id" :product="item" /></div>
     </section>
   </div>
