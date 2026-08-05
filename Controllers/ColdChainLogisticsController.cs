@@ -54,6 +54,39 @@ public class ColdChainLogisticsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpGet]
+    public async Task<IActionResult> EditTemplate(string id)
+    {
+        var t = await _templates.GetByIdAsync(id);
+        if (t == null) { TempData["Error"] = "模板不存在"; return RedirectToAction(nameof(Index)); }
+        return View(t);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditTemplate(string id, LogFreightTemplate template)
+    {
+        if (id != template.TemplateID) { TempData["Error"] = "参数错误"; return RedirectToAction(nameof(Index)); }
+        var existing = await _templates.GetByIdAsync(id);
+        if (existing == null) { TempData["Error"] = "模板不存在"; return RedirectToAction(nameof(Index)); }
+
+        existing.TemplateName = template.TemplateName;
+        existing.DestinationProvince = template.DestinationProvince;
+        existing.DestinationCity = template.DestinationCity;
+        existing.DestinationDistrict = template.DestinationDistrict;
+        existing.TemperatureZone = template.TemperatureZone;
+        existing.BaseWeight = template.BaseWeight;
+        existing.BaseFee = template.BaseFee;
+        existing.ExtraWeightUnit = template.ExtraWeightUnit;
+        existing.ExtraWeightFee = template.ExtraWeightFee;
+        existing.PackagingFee = template.PackagingFee;
+        existing.FreeShippingThreshold = template.FreeShippingThreshold;
+
+        _templates.Update(existing);
+        TempData["Success"] = "运费模板已更新";
+        return RedirectToAction(nameof(Index));
+    }
+
     // ========== 运费报价 ==========
 
     [HttpGet]

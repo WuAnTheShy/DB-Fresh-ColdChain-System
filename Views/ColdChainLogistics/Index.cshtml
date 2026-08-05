@@ -12,7 +12,7 @@
     <thead class="table-dark">
         <tr>
             <th>模板名称</th><th>省份</th><th>城市</th><th>温区</th>
-            <th>首重(kg)</th><th>首费</th><th>续重单价</th><th>包装费</th><th>包邮阈值</th><th>操作</th>
+            <th>首重(kg)</th><th>首费</th><th>续重单价</th><th>包装费</th><th>包邮阈值</th><th>状态</th><th>操作</th>
         </tr>
     </thead>
     <tbody>
@@ -30,7 +30,9 @@
                 <td>¥@t.ExtraWeightFee/kg</td>
                 <td>¥@t.PackagingFee</td>
                 <td>@(t.FreeShippingThreshold?.ToString("F2") ?? "无")</td>
+                <td>@(t.IsEnabled == 1 ? "启用" : "禁用")</td>
                 <td>
+                    <a class="btn btn-sm btn-outline-primary" asp-action="EditTemplate" asp-route-id="@t.TemplateID">编辑</a>
                     <form asp-action="DeleteTemplate" asp-route-id="@t.TemplateID" method="post" style="display:inline">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定删除？')">删除</button>
@@ -41,7 +43,7 @@
     }
     else
     {
-        <tr><td colspan="10" class="text-center">暂无运费模板</td></tr>
+        <tr><td colspan="11" class="text-center">暂无运费模板</td></tr>
     }
     </tbody>
 </table>

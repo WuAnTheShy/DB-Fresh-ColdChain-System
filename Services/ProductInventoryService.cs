@@ -233,15 +233,19 @@ public class ProductInventoryService : IProductInventoryService
             // FEFO 扣减：从最早过期批次扣
             var remaining = dto.Quantity;
             var batches = await _batchRepo.GetByProductIdAsync(dto.ProductID);
-            foreach (var batch in batches)
+            foreach (var batch in batches.OrderBy(b => b.ExpiryDate))
             {
                 if (remaining <= 0) break;
                 var deduct = Math.Min(remaining, batch.CurrentQty);
+                if (deduct <= 0) continue;
                 batch.CurrentQty -= deduct;
                 if (batch.CurrentQty == 0) batch.Status = "DEPLETED";
                 _batchRepo.Update(batch);
                 remaining -= deduct;
             }
+
+            if (remaining > 0)
+                throw new InvalidOperationException($"商品 {dto.ProductID} 可用批次库存不足，还差 {remaining}");
 
             await _uow.CommitAsync();
             return ApiResponse.Success($"出库成功，当前库存: {st.TotalQty}");
