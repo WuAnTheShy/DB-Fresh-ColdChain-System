@@ -69,6 +69,7 @@ export const products = [
     stock: 100,
     cutoff: '今天 22:00 截团',
     delivery: '明日 16:00 前送达',
+    publishedAt: '2026-08-05T09:20:00+08:00',
     summary: '果径饱满、脆甜多汁，产地冷链直达，适合家庭分享。',
   },
   {
@@ -88,6 +89,7 @@ export const products = [
     stock: 50,
     cutoff: '明天 10:00 截团',
     delivery: '后日 12:00 前送达',
+    publishedAt: '2026-08-05T08:35:00+08:00',
     summary: '肉质细腻，家庭小包装，低温锁鲜运输，开盒即可分切烹饪。',
   },
   {
@@ -107,18 +109,23 @@ export const products = [
     stock: 200,
     cutoff: '今天 20:00 截团',
     delivery: '明日 12:00 前送达',
+    publishedAt: '2026-08-04T18:10:00+08:00',
     summary: '当日搭配叶菜与根茎菜，一次备齐家庭一周的基础蔬菜。',
   },
 ]
 
 const rawCart = JSON.parse(localStorage.getItem('freshMall.cart') ?? '[]')
 const rawRushCounts = JSON.parse(localStorage.getItem('freshMall.rushCounts') ?? '{}')
+const rawFollowedLeaderIds = JSON.parse(localStorage.getItem('freshMall.followedLeaderIds') ?? '[]')
 const cart = reactive(Array.isArray(rawCart) ? rawCart : [])
 const rushCounts = reactive(Object.fromEntries(products.map((product) => [
   product.id,
   Math.max(product.sold, Number(rawRushCounts[product.id]) || product.sold),
 ])))
 const selectedLeaderId = ref(Number(sessionStorage.getItem('freshMall.leaderId')) || 1)
+const followedLeaderIds = ref(Array.isArray(rawFollowedLeaderIds)
+  ? [...new Set(rawFollowedLeaderIds.map(Number).filter((id) => leaders.some((leader) => leader.id === id)))]
+  : [])
 const lastOrder = ref(JSON.parse(sessionStorage.getItem('freshMall.lastOrder') ?? 'null'))
 
 function persistCart() {
@@ -145,6 +152,20 @@ function recordProductEntry(productId) {
   rushCounts[product.id] = productRushCount(product.id) + 1
   localStorage.setItem('freshMall.rushCounts', JSON.stringify(rushCounts))
   return rushCounts[product.id]
+}
+
+function isLeaderFollowed(leaderId) {
+  return followedLeaderIds.value.includes(Number(leaderId))
+}
+
+function toggleLeaderFollow(leaderId) {
+  const id = Number(leaderId)
+  if (!leaderById(id)) return false
+  const index = followedLeaderIds.value.indexOf(id)
+  if (index >= 0) followedLeaderIds.value.splice(index, 1)
+  else followedLeaderIds.value.push(id)
+  localStorage.setItem('freshMall.followedLeaderIds', JSON.stringify(followedLeaderIds.value))
+  return isLeaderFollowed(id)
 }
 
 function addToCart(productId, leaderId, quantity = 1) {
@@ -204,11 +225,14 @@ export function useShop() {
     cartCount: computed(() => cart.reduce((sum, item) => sum + item.quantity, 0)),
     cartSubtotal: computed(() => cartItems.value.reduce((sum, item) => sum + item.product.price * item.quantity, 0)),
     selectedLeaderId,
+    followedLeaderIds,
     lastOrder,
     productById,
     leaderById,
     productRushCount,
     recordProductEntry,
+    isLeaderFollowed,
+    toggleLeaderFollow,
     addToCart,
     updateQuantity,
     removeFromCart,

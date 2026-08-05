@@ -1,10 +1,11 @@
 <script setup>
-import { House, PackageSearch, ShoppingCart, UserRound } from '@lucide/vue'
+import { Heart, House, PackageSearch, ShoppingCart, UserRound } from '@lucide/vue'
 import { useShop } from '../state/shop'
 
 const { cartCount } = useShop()
 const items = [
   { label: '首页', to: '/', icon: House },
+  { label: '关注', to: '/following', icon: Heart },
   { label: '购物车', to: '/cart', icon: ShoppingCart, cart: true },
   { label: '订单', to: '/orders', icon: PackageSearch },
   { label: '我的', to: '/profile', icon: UserRound },

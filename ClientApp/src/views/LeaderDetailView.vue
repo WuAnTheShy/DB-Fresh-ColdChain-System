@@ -1,5 +1,5 @@
 <script setup>
-import { BadgeCheck, MapPin, PackageCheck, UsersRound } from '@lucide/vue'
+import { BadgeCheck, Heart, MapPin, PackageCheck, UsersRound } from '@lucide/vue'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
@@ -8,9 +8,10 @@ import { useShop } from '../state/shop'
 
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
-const { leaderById, products } = useShop()
+const { leaderById, products, isLeaderFollowed, toggleLeaderFollow } = useShop()
 const leader = computed(() => leaderById(props.id))
 const leaderProducts = computed(() => products.filter((product) => product.leaderIds.includes(Number(props.id))))
+const followed = computed(() => isLeaderFollowed(props.id))
 
 if (!leader.value) router.replace('/search')
 </script>
@@ -32,12 +33,15 @@ if (!leader.value) router.replace('/search')
           <p>{{ leader.description }}</p>
           <span class="leader-area"><MapPin :size="16" />{{ leader.area }}</span>
         </div>
+        <button class="btn leader-follow-button" :class="followed ? 'btn-light' : 'btn-buy'" type="button" @click="toggleLeaderFollow(leader.id)">
+          <Heart :size="17" :fill="followed ? 'currentColor' : 'none'" />{{ followed ? '取消关注' : '关注团长' }}
+        </button>
       </div>
     </section>
 
     <div class="store-container leader-stat-row">
       <div><PackageCheck :size="20" /><span><strong>{{ leaderProducts.length }}</strong><small>正在带货</small></span></div>
-      <div><UsersRound :size="20" /><span><strong>{{ leader.following }}</strong><small>社区关注</small></span></div>
+      <div><UsersRound :size="20" /><span><strong>{{ leader.following + (followed ? 1 : 0) }}</strong><small>社区关注</small></span></div>
       <div><BadgeCheck :size="20" /><span><strong>已认证</strong><small>平台团长资质</small></span></div>
     </div>
 

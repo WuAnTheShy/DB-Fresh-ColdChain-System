@@ -71,7 +71,7 @@ img { display: block; max-width: 100%; }
 .mobile-menu .offcanvas-body { display: flex; flex-direction: column; padding: 14px; }
 .mobile-menu .offcanvas-body a { padding: 12px 9px; border-bottom: 1px solid #303b36; color: #e8edeb; text-decoration: none; }
 .mobile-menu-label { margin: 4px 9px 8px; color: #8fa099; font-size: 11px; font-weight: 700; }
-.mobile-bottom-nav { position: fixed; inset: auto 0 0; z-index: 1040; display: grid; height: 62px; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); background: #fff; box-shadow: 0 -2px 8px rgba(20, 29, 25, .08); }
+.mobile-bottom-nav { position: fixed; inset: auto 0 0; z-index: 1040; display: grid; height: 62px; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--line); background: #fff; box-shadow: 0 -2px 8px rgba(20, 29, 25, .08); }
 .mobile-bottom-nav a { display: flex; min-width: 0; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #65716b; text-decoration: none; }
 .mobile-bottom-nav a.router-link-exact-active { color: var(--brand); }
 .mobile-bottom-nav small { font-size: 10px; }
@@ -912,4 +912,66 @@ a:hover { color: #c7511f; }
   .social-product-card .social-product-card-body { padding: 13px 14px; }
   .product-card-description { min-height: 45px; font-size: 14px; }
   .product-card-media { aspect-ratio: 16 / 7.6; }
+}
+
+/* Followed leaders timeline */
+.following-page { max-width: 980px; }
+.following-page-header > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 650;
+}
+.following-feed { position: relative; max-width: 860px; margin: 0 auto; }
+.following-feed-item {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  padding-bottom: 24px;
+}
+.following-feed-time {
+  position: relative;
+  min-height: 100%;
+  padding: 17px 23px 0 0;
+  color: #737a77;
+  font-size: 11px;
+  text-align: right;
+  white-space: nowrap;
+}
+.following-feed-time::before {
+  position: absolute;
+  top: 0;
+  right: 5px;
+  bottom: -24px;
+  width: 1px;
+  background: #d8dfdc;
+  content: "";
+}
+.following-feed-time::after {
+  position: absolute;
+  top: 20px;
+  right: 0;
+  width: 11px;
+  height: 11px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 0 1px #a9c8be;
+  content: "";
+}
+.following-feed-item:last-child .following-feed-time::before { bottom: calc(100% - 26px); }
+.following-feed-card { min-width: 0; }
+.following-feed-card .social-product-card { width: 100%; }
+.following-empty { border-radius: 12px; }
+.following-empty > svg { color: var(--brand); }
+
+@media (max-width: 767.98px) {
+  .following-page-header > span { align-self: flex-start; }
+  .following-feed-item { display: block; padding-bottom: 18px; }
+  .following-feed-time { min-height: 0; padding: 0 0 8px 16px; text-align: left; }
+  .following-feed-time::before { display: none; }
+  .following-feed-time::after { top: 3px; left: 0; width: 8px; height: 8px; border-width: 2px; }
 }
