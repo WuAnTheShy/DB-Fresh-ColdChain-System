@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from './views/HomeView.vue'
 import SearchView from './views/SearchView.vue'
-import LeadersView from './views/LeadersView.vue'
 import LeaderDetailView from './views/LeaderDetailView.vue'
 import ProductDetailView from './views/ProductDetailView.vue'
 import CartView from './views/CartView.vue'
@@ -19,10 +18,9 @@ const router = createRouter({
     { path: '/', name: 'home', component: HomeView },
     { path: '/search', name: 'search', component: SearchView },
     { path: '/category/:slug', name: 'category', component: SearchView },
-    { path: '/leaders', name: 'leaders', component: LeadersView },
     { path: '/leaders/:id', name: 'leader-detail', component: LeaderDetailView, props: true },
     { path: '/products/:id', name: 'product-detail', component: ProductDetailView, props: true },
-    { path: '/group-buys', redirect: '/search?groupBuy=active' },
+    { path: '/deals', redirect: '/search?deal=today' },
     { path: '/cart', name: 'cart', component: CartView },
     { path: '/checkout', name: 'checkout', component: CheckoutView },
     { path: '/order-success/:id', name: 'order-success', component: OrderSuccessView, props: true },

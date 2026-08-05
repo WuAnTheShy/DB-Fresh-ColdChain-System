@@ -1,6 +1,6 @@
 <script setup>
-import { BadgeCheck, Bell, MapPin, PackageCheck, UsersRound } from '@lucide/vue'
-import { computed, ref } from 'vue'
+import { BadgeCheck, MapPin, PackageCheck, UsersRound } from '@lucide/vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
@@ -11,14 +11,16 @@ const router = useRouter()
 const { leaderById, products } = useShop()
 const leader = computed(() => leaderById(props.id))
 const leaderProducts = computed(() => products.filter((product) => product.leaderIds.includes(Number(props.id))))
-const followed = ref(false)
 
-if (!leader.value) router.replace('/leaders')
+if (!leader.value) router.replace('/search')
 </script>
 
 <template>
   <div v-if="leader" class="leader-detail-page">
-    <div class="store-container page-space pb-0"><StoreBreadcrumb :items="[{ label: '团长广场', to: '/leaders' }, { label: `${leader.name}团长` }]" /></div>
+    <div class="store-container page-space pb-0">
+      <StoreBreadcrumb :items="[{ label: '全部商品', to: '/search' }, { label: `${leader.name}团长` }]" />
+    </div>
+
     <section class="leader-profile-band">
       <img class="leader-cover" :src="leader.cover" alt="" />
       <div class="leader-cover-shade"></div>
@@ -30,9 +32,6 @@ if (!leader.value) router.replace('/leaders')
           <p>{{ leader.description }}</p>
           <span class="leader-area"><MapPin :size="16" />{{ leader.area }}</span>
         </div>
-        <button class="btn leader-follow-button" :class="followed ? 'btn-light' : 'btn-buy'" type="button" @click="followed = !followed">
-          <Bell :size="17" />{{ followed ? '已关注' : '关注团长' }}
-        </button>
       </div>
     </section>
 

@@ -56,7 +56,7 @@ function buyNow() {
         <div class="detail-leader-panel">
           <img :src="leader.avatar" :alt="`${leader.name}团长头像`" />
           <div><span><strong>{{ leader.name }}团长</strong><BadgeCheck :size="16" /></span><small>{{ leader.title }} · {{ leader.area }}</small></div>
-          <RouterLink :to="`/leaders/${leader.id}`">查看主页<ChevronRight :size="15" /></RouterLink>
+          <RouterLink :to="`/leaders/${leader.id}`">查看详情<ChevronRight :size="15" /></RouterLink>
         </div>
         <div v-if="product.leaderIds.length > 1" class="leader-choice">
           <span>选择带货团长</span>
@@ -93,7 +93,7 @@ function buyNow() {
 
     <section class="product-description-section">
       <h2>商品详情</h2>
-      <div class="description-grid"><div><h3>团长推荐理由</h3><p>{{ leader.description }}</p></div><div><h3>收货提示</h3><p>收到商品后请及时检查外包装及温度状态，并按照商品标注方式冷藏保存。</p></div><div><h3>团购进度</h3><p>当前已团 {{ product.sold }} 件，目标 {{ product.target }} 件。进度变化以页面实时展示为准。</p></div></div>
+      <div class="description-grid"><div><h3>商品亮点</h3><p>{{ product.summary }}</p></div><div><h3>收货提示</h3><p>收到商品后请及时检查外包装及温度状态，并按照商品标注方式冷藏保存。</p></div><div><h3>团购进度</h3><p>当前已团 {{ product.sold }} 件，目标 {{ product.target }} 件。进度变化以页面实时展示为准。</p></div></div>
     </section>
 
     <section class="home-section px-0">

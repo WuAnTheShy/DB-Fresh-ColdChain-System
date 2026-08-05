@@ -1,10 +1,9 @@
 <script setup>
 import { Clock3, ShieldCheck, Snowflake, Truck } from '@lucide/vue'
-import LeaderCard from '../components/LeaderCard.vue'
 import ProductCard from '../components/ProductCard.vue'
 import { useShop } from '../state/shop'
 
-const { categories, leaders, products } = useShop()
+const { categories, products } = useShop()
 </script>
 
 <template>
@@ -34,7 +33,7 @@ const { categories, leaders, products } = useShop()
 
     <section class="service-strip store-container" aria-label="服务承诺">
       <div><Snowflake :size="22" /><span><strong>全程冷链</strong></span></div>
-      <div><ShieldCheck :size="22" /><span><strong>团长严选</strong></span></div>
+      <div><ShieldCheck :size="22" /><span><strong>品质严选</strong></span></div>
       <div><Clock3 :size="22" /><span><strong>准时发货</strong></span></div>
       <div><Truck :size="22" /><span><strong>送货上门</strong></span></div>
     </section>
@@ -56,11 +55,5 @@ const { categories, leaders, products } = useShop()
       </div>
     </section>
 
-    <section class="home-section amazon-home-panel leader-feature-section store-container">
-      <div class="section-title-row"><div><h2>认识你的团长</h2></div></div>
-      <div class="leader-grid">
-        <LeaderCard v-for="leader in leaders" :key="leader.id" :leader="leader" />
-      </div>
-    </section>
   </div>
 </template>

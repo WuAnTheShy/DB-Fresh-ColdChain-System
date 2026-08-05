@@ -21,16 +21,14 @@ function displayPrice(value) {
 
 <template>
   <article class="product-card social-product-card">
+    <RouterLink v-if="activeLeader" class="product-card-leader" :to="`/leaders/${activeLeader.id}`" :aria-label="`查看${activeLeader.name}团长详情`">
+      <img :src="activeLeader.avatar" :alt="`${activeLeader.name}团长头像`" />
+      <span><strong>{{ activeLeader.name }}</strong></span>
+    </RouterLink>
+
+    <div class="product-card-divider"></div>
+
     <RouterLink class="product-card-entry" :to="productLink" :aria-label="`查看${product.name}`">
-      <header v-if="activeLeader" class="product-card-leader">
-        <img :src="activeLeader.avatar" :alt="`${activeLeader.name}团长头像`" />
-        <span>
-          <strong>{{ activeLeader.name }}</strong>
-        </span>
-      </header>
-
-      <div class="product-card-divider"></div>
-
       <div class="product-card-body social-product-card-body">
         <p class="product-card-description">
           <strong>{{ product.name }}</strong>

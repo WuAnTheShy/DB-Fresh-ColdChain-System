@@ -50,7 +50,7 @@ onMounted(loadOrder)
             <article v-for="item in detail.details" :key="item.orderDetailId" class="order-product-row">
               <img v-if="productImage(item.productId)" :src="productImage(item.productId)" :alt="item.productName" />
               <span v-else class="order-product-placeholder"><PackageCheck :size="24" /></span>
-              <div><strong>{{ item.productName }}</strong><small v-if="fallbackLeader(item.productId)"><BadgeCheck :size="13" />{{ fallbackLeader(item.productId).name }}团长推荐</small></div><span>{{ money(item.unitPrice) }} × {{ item.quantity }}</span><strong>{{ money(item.subTotal) }}</strong>
+              <div><strong>{{ item.productName }}</strong><small v-if="fallbackLeader(item.productId)"><BadgeCheck :size="13" />{{ fallbackLeader(item.productId).name }}团长带货</small></div><span>{{ money(item.unitPrice) }} × {{ item.quantity }}</span><strong>{{ money(item.subTotal) }}</strong>
             </article>
           </section>
           <section class="order-consumer-section delivery-section"><div class="consumer-section-title"><Truck :size="21" /><div><h2>冷链配送</h2></div></div><div class="delivery-status-row"><span class="delivery-icon"><Truck :size="20" /></span><div><strong>{{ detail.order.orderStatus >= 2 ? '商品已进入配送流程' : '团长正在确认团购与备货' }}</strong><small>确认后将在此展示最新配送状态</small></div></div></section>

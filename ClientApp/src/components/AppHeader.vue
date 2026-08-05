@@ -70,9 +70,7 @@ function search() {
     <nav class="header-secondary d-none d-lg-block" aria-label="商城主导航">
       <div class="header-inner secondary-inner">
         <RouterLink to="/search"><Menu :size="17" />全部分类</RouterLink>
-        <RouterLink to="/group-buys">今日特价</RouterLink>
-        <RouterLink to="/leaders">团长推荐</RouterLink>
-        <RouterLink to="/group-buys">今日团购</RouterLink>
+        <RouterLink to="/deals">今日特价</RouterLink>
         <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`">{{ category.name }}</RouterLink>
         <RouterLink to="/coupons">领券中心</RouterLink>
       </div>
@@ -85,8 +83,7 @@ function search() {
       </div>
       <div class="offcanvas-body">
         <p class="mobile-menu-label">商城导航</p>
-        <RouterLink to="/leaders" data-bs-dismiss="offcanvas">团长广场</RouterLink>
-        <RouterLink to="/group-buys" data-bs-dismiss="offcanvas">今日团购</RouterLink>
+        <RouterLink to="/deals" data-bs-dismiss="offcanvas">今日特价</RouterLink>
         <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`" data-bs-dismiss="offcanvas">{{ category.name }}</RouterLink>
         <RouterLink to="/coupons" data-bs-dismiss="offcanvas">领券中心</RouterLink>
         <RouterLink to="/addresses" data-bs-dismiss="offcanvas">收货地址</RouterLink>

@@ -26,7 +26,7 @@ const savings = computed(() => cartItems.value.reduce((sum, item) => sum + (item
       <div class="cart-groups">
         <section v-for="group in groups" :key="group.leader.id" class="cart-leader-group">
           <header>
-            <RouterLink :to="`/leaders/${group.leader.id}`"><img :src="group.leader.avatar" alt="" /><strong>{{ group.leader.name }}团长</strong><BadgeCheck :size="16" /></RouterLink>
+            <RouterLink class="cart-leader-identity" :to="`/leaders/${group.leader.id}`"><img :src="group.leader.avatar" alt="" /><strong>{{ group.leader.name }}团长</strong><BadgeCheck :size="16" /></RouterLink>
             <span>{{ group.leader.area }}</span>
           </header>
           <article v-for="item in group.items" :key="`${item.productId}-${item.leaderId}`" class="cart-item">
@@ -54,6 +54,6 @@ const savings = computed(() => cartItems.value.reduce((sum, item) => sum + (item
       </aside>
     </div>
 
-    <div v-else class="store-empty cart-empty"><ShoppingCart :size="42" /><strong>购物车还是空的</strong><span>从喜欢的团长主页挑选正在开团的商品</span><RouterLink class="btn btn-buy" to="/leaders">去逛团长广场</RouterLink></div>
+    <div v-else class="store-empty cart-empty"><ShoppingCart :size="42" /><strong>购物车还是空的</strong><span>浏览正在开团的生鲜商品</span><RouterLink class="btn btn-buy" to="/search">去逛全部商品</RouterLink></div>
   </div>
 </template>
