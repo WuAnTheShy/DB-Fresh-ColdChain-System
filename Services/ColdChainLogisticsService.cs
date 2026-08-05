@@ -91,8 +91,9 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
 
             // 5. 阶梯计费：首重费 + 续重费 × 续重阶梯数 + 包装费
             var weight = product.WeightKG.Value * item.Quantity;
-            var extraUnits = Math.Max(0,
-                decimal.Ceiling((weight - matchedRule.BaseWeight) / matchedRule.ExtraWeightUnit));
+            var extraUnits = matchedRule.ExtraWeightUnit > 0
+                ? Math.Max(0, decimal.Ceiling((weight - matchedRule.BaseWeight) / matchedRule.ExtraWeightUnit))
+                : 0;
             total += matchedRule.BaseFee
                 + extraUnits * matchedRule.ExtraWeightFee
                 + matchedRule.PackagingFee;
@@ -172,8 +173,9 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                 if (remaining > 0)
                     throw new InvalidOperationException($"商品 {item.ProductID} 可用批次库存不足（缺 {remaining}）");
 
-                // 3e. 同步更新库存汇总 — 保证 Inv_StockSummary 与 Inv_StockBatches 汇总一致
+                // 3e. 同步更新库存汇总 — 扣减总量并释放已锁定的预留量
                 stock.TotalQty -= item.Quantity;
+                stock.LockedQty = Math.Max(0, stock.LockedQty - item.Quantity);
                 stock.AvailableQty = stock.TotalQty - stock.LockedQty;
                 stock.UpdateTime = DateTime.Now;
                 _stockSummary.Update(stock);
@@ -234,24 +236,32 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         if (batch == null)
             return ApiResponse<BatchTraceDto>.Fail("批次不存在", 404);
 
-        // 查询商品名
-        var product = await _products.GetByIdAsync(batch.ProductID);
-
         // 查询该批次的所有扣减记录
         var items = await _allocations.GetByBatchIdAsync(batchId);
+
+        // 批量加载关联数据：所有涉及的发货单（去重）和产品（同一批次只有一个产品）
+        var deliveryIds = items.Select(i => i.DeliveryID).Distinct().ToList();
+        var deliveries = new Dictionary<string, LogExpressDelivery?>();
+        foreach (var did in deliveryIds)
+            deliveries[did] = await _deliveries.GetByIdAsync(did);
+
+        var product = await _products.GetByIdAsync(batch.ProductID);
+
         var allocations = new List<BatchAllocationDto>();
         foreach (var item in items)
         {
-            var p = await _products.GetByIdAsync(item.ProductID);
+            deliveries.TryGetValue(item.DeliveryID, out var delivery);
             allocations.Add(new BatchAllocationDto
             {
                 AllocationID = item.AllocationID,
                 ProductID = item.ProductID,
-                ProductName = p?.ProductName ?? "",
+                ProductName = product?.ProductName ?? "",
                 BatchID = item.BatchID,
                 BatchNo = batch.BatchNo,
                 ExpiryDate = batch.ExpiryDate,
-                Quantity = item.Quantity
+                Quantity = item.Quantity,
+                DeliveryID = item.DeliveryID,
+                TrackingNo = delivery?.TrackingNo ?? ""
             });
         }
 
@@ -274,12 +284,24 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
     private async Task<DeliveryTraceDto> BuildDeliveryTraceAsync(LogExpressDelivery delivery)
     {
         var items = await _allocations.GetByDeliveryIdAsync(delivery.DeliveryID);
-        var allocations = new List<BatchAllocationDto>();
 
+        // 批量加载关联数据，避免 N+1 查询
+        var productIds = items.Select(i => i.ProductID).Distinct().ToList();
+        var batchIds = items.Select(i => i.BatchID).Distinct().ToList();
+
+        var productMap = new Dictionary<string, InvProduct?>();
+        foreach (var pid in productIds)
+            productMap[pid] = await _products.GetByIdAsync(pid);
+
+        var batchMap = new Dictionary<string, InvStockBatch?>();
+        foreach (var bid in batchIds)
+            batchMap[bid] = await _batches.GetByIdAsync(bid);
+
+        var allocations = new List<BatchAllocationDto>();
         foreach (var item in items)
         {
-            var product = await _products.GetByIdAsync(item.ProductID);
-            var batch = await _batches.GetByIdAsync(item.BatchID);
+            productMap.TryGetValue(item.ProductID, out var product);
+            batchMap.TryGetValue(item.BatchID, out var batch);
 
             allocations.Add(new BatchAllocationDto
             {

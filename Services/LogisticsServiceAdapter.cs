@@ -82,8 +82,9 @@ public class LogisticsServiceAdapter : ILogisticsService
                 continue;
 
             var weight = product.WeightKG.Value * item.Quantity;
-            var extraUnits = Math.Max(0,
-                decimal.Ceiling((weight - matchedRule.BaseWeight) / matchedRule.ExtraWeightUnit));
+            var extraUnits = matchedRule.ExtraWeightUnit > 0
+                ? Math.Max(0, decimal.Ceiling((weight - matchedRule.BaseWeight) / matchedRule.ExtraWeightUnit))
+                : 0;
             total += matchedRule.BaseFee
                 + extraUnits * matchedRule.ExtraWeightFee
                 + matchedRule.PackagingFee;

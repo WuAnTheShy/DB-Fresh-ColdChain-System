@@ -34,7 +34,7 @@ public class FreightQuoteDto
 
 // ========== 精准溯源 DTO ==========
 
-/// <summary>溯源明细：单条批次扣减记录（含商品名、批次号等可读信息）</summary>
+/// <summary>溯源明细：单条批次扣减记录（含商品名、批次号、发货单等可读信息）</summary>
 public class BatchAllocationDto
 {
     public string AllocationID { get; set; } = string.Empty;
@@ -44,6 +44,10 @@ public class BatchAllocationDto
     public string BatchNo { get; set; } = string.Empty;
     public DateTime? ExpiryDate { get; set; }
     public int Quantity { get; set; }
+    /// <summary>所属发货单 ID（反向溯源时标识去向）</summary>
+    public string DeliveryID { get; set; } = string.Empty;
+    /// <summary>物流运单号（反向溯源时定位快递）</summary>
+    public string TrackingNo { get; set; } = string.Empty;
 }
 
 /// <summary>正向溯源：一张发货单的完整批次链路</summary>

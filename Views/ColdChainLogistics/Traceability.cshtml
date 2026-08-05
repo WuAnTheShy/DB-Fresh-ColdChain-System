@@ -114,14 +114,15 @@
             <table class="table table-sm table-bordered">
                 <thead class="table-light">
                     <tr>
-                        <th>溯源记录 ID</th><th>产品名称</th><th>发货数量</th>
+                        <th>发货单 ID</th><th>运单号</th><th>产品名称</th><th>发货数量</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var a in batchTrace.Allocations)
                     {
                         <tr>
-                            <td><code>@a.AllocationID</code></td>
+                            <td><code>@a.DeliveryID[..8]</code></td>
+                            <td>@a.TrackingNo</td>
                             <td>@a.ProductName</td>
                             <td>@a.Quantity</td>
                         </tr>
