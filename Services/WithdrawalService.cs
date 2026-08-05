@@ -1,26 +1,27 @@
 using DBFreshColdChain.Interfaces;
+using DBFreshColdChain.Models.CrossGroup;
+using DBFreshColdChain.Models.DTOs;
 using DBFreshColdChain.Repositories;
 using FreshColdChain.Repositories;
-using DBFreshColdChain.Models.DTOs;
-using DBFreshColdChain.Models.CrossGroup;
 using Newtonsoft.Json;
 using System;
 using System.Configuration;
+using System.Data;
 
 namespace DBFreshColdChain.Services
 {
-    public class GroupC_WithdrawalManager
+    public class WithdrawalService
     {
         private readonly IUnitOfWork _uow;
-        private readonly PromoterRepository _promoterRepository;
-        private readonly WithdrawalRepository _withdrawalRepository;
-        private readonly GroupC_ITableLogManager _logManager;
+        private readonly IPromoterRepository _ipromoterRepository;
+        private readonly IWithdrawalRepository _iwithdrawalRepository;
+        private readonly ITableLogService _logManager;
 
-        public GroupC_WithdrawalManager(IUnitOfWork uow, WithdrawalRepository withdrawalRepository, PromoterRepository promoterRepository, GroupC_ITableLogManager logManager)
+        public WithdrawalService(IUnitOfWork uow, IWithdrawalRepository iwithdrawalRepository, IPromoterRepository ipromoterRepository, ITableLogService logManager)
         {
             _uow = uow;
-            _withdrawalRepository = withdrawalRepository;   
-            _promoterRepository = promoterRepository;
+            _iwithdrawalRepository = iwithdrawalRepository;   
+            _ipromoterRepository = ipromoterRepository;
             _logManager = logManager;
         }
 
@@ -45,33 +46,29 @@ namespace DBFreshColdChain.Services
                 
 
                 // 1. 查找团长
-                var promoter = _promoterRepository.GroupC_FindPromoterRecord(request.PromoterId);
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(request.PromoterId, _uow.Transaction);
                 if (promoter == null)
                 {
-                    _result.IsSuccess = false;
-                    _result.ErrorMessage = "团长不存在";
-                    return _result;
+                    throw new Exception("团长不存在");
                 }
 
                 // 2. 防重检验：是否有正在审核的申请（Pending 或 Approved）
-                if (_withdrawalRepository.GroupC_HasPendingWithdrawal(request.PromoterId))
+                var exists = await _iwithdrawalRepository.GroupC_HasPendingWithdrawalAsync(request.PromoterId, _uow.Transaction);
+                if (exists)
                 {
-                    _result.IsSuccess = false;
-                    _result.ErrorMessage = "该团长已有正在审核或已通过的提现申请，请等待完成";
-                    return _result;
+                    throw new Exception("该团长已有正在审核或已通过的提现申请，请等待完成");
                 }
 
                 // 3. 余额充足校验
                 if (promoter.CurrentBalance < request.ApplyAmount)
                 {
-                    _result.IsSuccess = false;
-                    _result.ErrorMessage = $"可用余额不足，当前可用余额：{promoter.CurrentBalance}";
-                    return _result;
+                    throw new Exception($"可用余额不足，当前可用余额为 {promoter.CurrentBalance}元");
+
                 }
 
                 // 4. 扣减可用余额，增加冻结金额
-                _promoterRepository.GroupC_UpdatePromoterCurrentBalance(request.PromoterId, -request.ApplyAmount);
-                _withdrawalRepository.GroupC_UpdatePromoterFrozenAmount(request.PromoterId, request.ApplyAmount);
+                await _ipromoterRepository.GroupC_UpdatePromoterCurrentBalanceAsync(request.PromoterId, -request.ApplyAmount, _uow.Transaction);
+                await _iwithdrawalRepository.GroupC_UpdatePromoterFrozenAmountAsync(request.PromoterId, request.ApplyAmount, _uow.Transaction);
 
                 // 5. 记录提现申请
                 var record = new GroupC_FinWithdrawalRecord
@@ -88,7 +85,7 @@ namespace DBFreshColdChain.Services
                     TransferTime = null,
                     Remark = string.Empty
                 };
-                bool insertOk = _withdrawalRepository.GroupC_InsertWithdrawalRecord(record);
+                bool insertOk = await _iwithdrawalRepository.GroupC_InsertWithdrawalRecordAsync(record, _uow.Transaction);
                 if (!insertOk)
                 {
                     throw new Exception("创建提现记录失败");
@@ -109,7 +106,7 @@ namespace DBFreshColdChain.Services
                     }),
                     RecordId = request.PromoterId
                 };
-                _logManager.WriteTableChangeLog(log);
+                await _logManager.WriteTableChangeLog(log);
 
                 // 记录提现表日志
                 var log2 = new GroupC_LogAuditrails
@@ -122,19 +119,21 @@ namespace DBFreshColdChain.Services
                     NewValue = JsonConvert.SerializeObject(new { record.WithdrawalId, record.PromoterId, record.ApplyAmount }),
                     RecordId = record.WithdrawalId
                 };
-                _logManager.WriteTableChangeLog(log2);
-                await _uow.CommitAsync(); 
+                await _logManager.WriteTableChangeLog(log2);
+                await _uow.CommitAsync();
+                _result.IsSuccess = true;
+                return _result;
             }
             catch (Exception ex)
             {
-                // 任何步骤失败，统一回滚所有操作（余额、冻结金额、提现记录均撤销）
-                await _uow.RollbackAsync();
+                // 任何步骤失败，统一回滚所有操作
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
                 _result.IsSuccess = false;
                 _result.ErrorMessage = $"系统错误：{ex.Message}";
                 return _result;
             }
-            _result.IsSuccess = true;
-            return _result; 
+            
         }
 
         /// <summary>
@@ -148,34 +147,29 @@ namespace DBFreshColdChain.Services
             {
                 if (approved == null || string.IsNullOrWhiteSpace(approved.WithdrawalId))
                 {
-                    _result.IsSuccess = false;
-                    _result.ErrorMessage = "审核请求无效";
-                    return _result;
+                    throw new Exception(_result.ErrorMessage = "审核请求无效");
                 }
 
                 // 1. 获取提现记录
-                var record = _withdrawalRepository.GroupC_GetWithdrawalRecord(approved.WithdrawalId);
+                var record = await _iwithdrawalRepository.GroupC_GetWithdrawalRecordAsync(approved.WithdrawalId,_uow.Transaction);
                 if (record == null)
                 {
-                    _result.IsSuccess = false;
-                    _result.ErrorMessage = "提现记录不存在";
-                    return _result;
+                    throw new Exception(_result.ErrorMessage = "提现记录不存在");
                 }
                 if (record.AuditStatus != "Pending")
                 {
-                    _result.IsSuccess = false;
-                    _result.ErrorMessage = $"当前状态为 {record.AuditStatus}，无法审核";
-                    return _result;
+                    throw new Exception(_result.ErrorMessage = $"当前状态为 {record.AuditStatus}，无法审核");
                 }
 
                 // 2. 更新提现记录状态为 Approved，记录审核人和时间、打款时间（TransferTime 与 AuditTime 一致）
-                bool updateOk = _withdrawalRepository.GroupC_UpdateWithdrawalStatus(
+                bool updateOk = await  _iwithdrawalRepository.GroupC_UpdateWithdrawalStatusAsync(
                     approved.WithdrawalId,
                     "Approved",
                     approved.UserId,
                     approved.AuditTime,
                     approved.AuditTime,   // TransferTime 也设为审核时间
-                    null                  // 驳回原因无需
+                    null,                  // 驳回原因无需
+                    _uow.Transaction
                 );
                 if (!updateOk)
                 {
@@ -183,10 +177,10 @@ namespace DBFreshColdChain.Services
                 }
 
                 // 3. 减少团长冻结金额（该笔金额已在申请时冻结，现正式扣除）
-                _withdrawalRepository.GroupC_UpdatePromoterFrozenAmount(record.PromoterId, -record.ApplyAmount);
+                await _iwithdrawalRepository.GroupC_UpdatePromoterFrozenAmountAsync(record.PromoterId, -record.ApplyAmount,_uow.Transaction);
 
                 // 4. 记录日志（团长表 FrozenAmount 变更）
-                var promoter = _promoterRepository.GroupC_FindPromoterRecord(record.PromoterId);
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(record.PromoterId, _uow.Transaction);
                 if (promoter != null)
                 {
                     var log = new GroupC_LogAuditrails
@@ -199,7 +193,7 @@ namespace DBFreshColdChain.Services
                         NewValue = JsonConvert.SerializeObject(new { FrozenAmount = promoter.FrozenAmount }),
                         RecordId = record.PromoterId
                     };
-                    _logManager.WriteTableChangeLog(log);
+                    await _logManager.WriteTableChangeLog(log);
                 }
 
                 // 记录提现表更新日志
@@ -213,18 +207,20 @@ namespace DBFreshColdChain.Services
                     NewValue = JsonConvert.SerializeObject(new { AuditStatus = "Approved", AuditorUserId = approved.UserId, AuditTime = approved.AuditTime, TransferTime = approved.AuditTime }),
                     RecordId = approved.WithdrawalId
                 };
-                _logManager.WriteTableChangeLog(log2);
+                await _logManager.WriteTableChangeLog(log2);
                 await _uow.CommitAsync();
+                _result.IsSuccess = true;
+                return _result;
             }
             catch (Exception ex)
             {
-                await _uow.RollbackAsync();
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
                 _result.IsSuccess = false;
                 _result.ErrorMessage = $"系统错误：{ex.Message}";
                 return _result;
             }
-            _result.IsSuccess = true;
-            return _result;
+            
         }
 
         /// <summary>
@@ -238,44 +234,39 @@ namespace DBFreshColdChain.Services
             {
                 if (rejected == null || string.IsNullOrWhiteSpace(rejected.WithdrawalId))
                 {
-                    _result.IsSuccess = false;
-                    _result.ErrorMessage = "驳回请求无效";
-                    return _result;
+                    throw new Exception("驳回请求无效");
                 }
 
                 // 1. 获取提现记录
-                var record = _withdrawalRepository.GroupC_GetWithdrawalRecord(rejected.WithdrawalId);
+                var record = await _iwithdrawalRepository.GroupC_GetWithdrawalRecordAsync(rejected.WithdrawalId, _uow.Transaction);
                 if (record == null)
                 {
-                    _result.IsSuccess = false;
-                    _result.ErrorMessage = "提现记录不存在";
-                    return _result;
+                    throw new Exception("提现记录不存在");
                 }
                 if (record.AuditStatus != "Pending")
                 {
-                    _result.IsSuccess = false;
-                    _result.ErrorMessage = $"当前状态为 {record.AuditStatus}，无法驳回"; ;
-                    return _result;
+                    throw new Exception($"当前状态为 {record.AuditStatus}，无法驳回");
                 }
 
                 // 2. 更新状态为 Rejected，记录审核人、时间、驳回原因
-                bool updateOk = _withdrawalRepository.GroupC_UpdateWithdrawalStatus(
+                bool updateOk = await _iwithdrawalRepository.GroupC_UpdateWithdrawalStatusAsync(
                     rejected.WithdrawalId,
                     "Rejected",
                     rejected.UserId,
                     rejected.AuditTime,
                     null,                  // TransferTime 留空
-                    rejected.RejectReason
+                    rejected.RejectReason,
+                    _uow.Transaction
                 );
                 if (!updateOk)
                     throw new Exception("更新提现记录失败");
 
                 // 3. 解冻金额：减少冻结金额，同时加回可用余额
-                _withdrawalRepository.GroupC_UpdatePromoterFrozenAmount(record.PromoterId, -record.ApplyAmount);
-                _promoterRepository.GroupC_UpdatePromoterCurrentBalance(record.PromoterId, record.ApplyAmount);
+                await _iwithdrawalRepository.GroupC_UpdatePromoterFrozenAmountAsync(record.PromoterId, -record.ApplyAmount, _uow.Transaction);
+                await _ipromoterRepository.GroupC_UpdatePromoterCurrentBalanceAsync(record.PromoterId, record.ApplyAmount, _uow.Transaction);
 
                 // 4. 记录日志（团长表 FrozenAmount 和 CurrentBalance 变更）
-                var promoter = _promoterRepository.GroupC_FindPromoterRecord(record.PromoterId);
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(record.PromoterId, _uow.Transaction);
                 if (promoter != null)
                 {
                     var log = new GroupC_LogAuditrails
@@ -288,7 +279,7 @@ namespace DBFreshColdChain.Services
                         NewValue = JsonConvert.SerializeObject(new { CurrentBalance = promoter.CurrentBalance, FrozenAmount = promoter.FrozenAmount }),
                         RecordId = record.PromoterId
                     };
-                    _logManager.WriteTableChangeLog(log);
+                    await _logManager.WriteTableChangeLog(log);
                 }
 
                 var log2 = new GroupC_LogAuditrails
@@ -301,20 +292,21 @@ namespace DBFreshColdChain.Services
                     NewValue = JsonConvert.SerializeObject(new { AuditStatus = "Rejected", AuditorUserId = rejected.UserId, AuditTime = rejected.AuditTime, RejectReason = rejected.RejectReason }),
                     RecordId = rejected.WithdrawalId
                 };
-                _logManager.WriteTableChangeLog(log2);
+                await _logManager.WriteTableChangeLog(log2);
                 await _uow.CommitAsync();
+                _result.IsSuccess = true;
+                return _result;
             }
             catch (Exception ex)
             {
-                await _uow.RollbackAsync();
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
                 _result.IsSuccess = false;
                 _result.ErrorMessage = $"系统错误：{ex.Message}";
                 return _result;
             }
-            _result.IsSuccess = true;
-            return _result;
+
         }
-        //DTO类
 
            
         

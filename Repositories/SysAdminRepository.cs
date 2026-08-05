@@ -1,91 +1,124 @@
 using Dapper;
 using FreshColdChain.Repositories;
-using Microsoft.Extensions.Configuration;
 using DBFreshColdChain.Models.DTOs;
-using Oracle.ManagedDataAccess.Client;
+using System.Data;
+
 namespace DBFreshColdChain.Repositories
 {
-    public class SysAdminRepository
+    public class SysAdminRepository : ISysAdminRepository
     {
-        private readonly IUnitOfWork _uow;  // 注入工作单元
-        private readonly TableLogRepository _tableLogRepository;
-        public SysAdminRepository(IUnitOfWork uow, TableLogRepository tableLogRepository)
+        private readonly IUnitOfWork _uow;
+        private readonly ITableLogRepository _itableLogRepository;
+
+        public SysAdminRepository(IUnitOfWork uow, ITableLogRepository itableLogRepository)
         {
             _uow = uow;
-            _tableLogRepository = tableLogRepository;
+            _itableLogRepository = itableLogRepository;
         }
-        #region 
-        public GroupC_SysRole? GetRoleById(string roleId)//根据RoleID查找对应角色
+
+        #region 角色相关
+
+        public async Task<GroupC_SysRole?> GetRoleByIdAsync(
+            string roleId,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
         {
             string sql = "SELECT * FROM SYS_ROLES WHERE ROLEID = :RoleId";
-            using var conn = _uow.Connection;
-            return conn.QueryFirstOrDefault<GroupC_SysRole>(sql, new { RoleId = roleId });
+            return await _uow.Connection.QueryFirstOrDefaultAsync<GroupC_SysRole>(
+                sql,
+                new { RoleId = roleId },
+                transaction);
         }
 
-        public bool ExistsRoleCode(string roleCode, string? excludeRoleId = null)
+        public async Task<bool> ExistsRoleCodeAsync(
+            string roleCode,
+            string? excludeRoleId = null,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
         {
-            string sql = "SELECT COUNT(1) FROM SYS_ROLES WHERE ROLECODE = :RoleCode AND (:ExcludeRoleId IS NULL OR ROLEID <> :ExcludeRoleId)";
-            using var conn = _uow.Connection;
-            return conn.ExecuteScalar<int>(sql, new { RoleCode = roleCode, ExcludeRoleId = excludeRoleId }) > 0;
+            string sql = @"
+                SELECT COUNT(1) FROM SYS_ROLES 
+                WHERE ROLECODE = :RoleCode 
+                AND (:ExcludeRoleId IS NULL OR ROLEID <> :ExcludeRoleId)";
+
+            int count = await _uow.Connection.ExecuteScalarAsync<int>(
+                sql,
+                new { RoleCode = roleCode, ExcludeRoleId = excludeRoleId },
+                transaction);
+            return count > 0;
         }
 
-        /// <summary>
-        /// 通用 Save 方法：isNew=true 执行插入，isNew=false 执行全字段更新
-        /// </summary>
-        public void SaveRole(GroupC_SysRole role, bool isNew)
+        public async Task SaveRoleAsync(
+            GroupC_SysRole role,
+            bool isNew,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
         {
             string sql = isNew
                 ? @"INSERT INTO SYS_ROLES (ROLEID, ROLENAME, ROLECODE, DESCRIPTION, STATUS, CREATETIME)
-                    VALUES (:RoleId, :RoleName, :RoleCode, :Description, :Status, :CreateTime)"
+                   VALUES (:RoleId, :RoleName, :RoleCode, :Description, :Status, :CreateTime)"
                 : @"UPDATE SYS_ROLES 
-                    SET ROLENAME = :RoleName, ROLECODE = :RoleCode, DESCRIPTION = :Description, STATUS = :Status 
-                    WHERE ROLEID = :RoleId";
+                   SET ROLENAME = :RoleName, ROLECODE = :RoleCode, DESCRIPTION = :Description, STATUS = :Status 
+                   WHERE ROLEID = :RoleId";
 
-            using var conn = _uow.Connection;
-            conn.Execute(sql, role);
-        }
+            await _uow.Connection.ExecuteAsync(sql, role, transaction);
+        } 
 
         #endregion
 
-        #region 
+        #region 用户相关
 
-        public GroupC_SysUser? GetUserById(string userId)//根据UserID查找用户
+        public async Task<GroupC_SysUser?> GetUserByIdAsync(
+            string userId,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
         {
             string sql = "SELECT * FROM SYS_USERS WHERE USERID = :UserId";
-            using var conn = _uow.Connection;
-            return conn.QueryFirstOrDefault<GroupC_SysUser>(sql, new { UserId = userId });
+            return await _uow.Connection.QueryFirstOrDefaultAsync<GroupC_SysUser>(
+                sql,
+                new { UserId = userId },
+                transaction);
         }
 
-        public bool ExistsUsername(string username)//检查用户名是否存在
+        public async Task<bool> ExistsUsernameAsync(
+            string username,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
         {
             string sql = "SELECT COUNT(1) FROM SYS_USERS WHERE USERNAME = :Username";
-            using var conn = _uow.Connection;
-            return conn.ExecuteScalar<int>(sql, new { Username = username }) > 0;
+            int count = await _uow.Connection.ExecuteScalarAsync<int>(
+                sql,
+                new { Username = username },
+                transaction);
+            return count > 0;
         }
 
-        /// <summary>
-        /// 通用 Save 方法：更新密码/角色/状态都直接通过内存赋值后调用此方法
-        /// </summary>
-        public void SaveUser(GroupC_SysUser user, bool isNew)
+        public async Task SaveUserAsync(
+            GroupC_SysUser user,
+            bool isNew,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
         {
             string sql = isNew
                 ? @"INSERT INTO SYS_USERS (USERID, USERNAME, PASSWORDHASH, ROLEID, REALNAME, PHONE, STATUS, CREATETIME)
-                    VALUES (:UserId, :Username, :PasswordHash, :RoleId, :RealName, :Phone, :Status, :CreateTime)"
+                   VALUES (:UserId, :Username, :PasswordHash, :RoleId, :RealName, :Phone, :Status, :CreateTime)"
                 : @"UPDATE SYS_USERS 
-                    SET USERNAME = :Username, PASSWORDHASH = :PasswordHash, ROLEID = :RoleId, REALNAME = :RealName, PHONE = :Phone, STATUS = :Status 
-                    WHERE USERID = :UserId";
+                   SET USERNAME = :Username, PASSWORDHASH = :PasswordHash, ROLEID = :RoleId, REALNAME = :RealName, PHONE = :Phone, STATUS = :Status 
+                   WHERE USERID = :UserId";
 
-            using var conn = _uow.Connection;
-            conn.Execute(sql, user);
+            await _uow.Connection.ExecuteAsync(sql, user, transaction);
         }
 
         #endregion
 
-        #region 
+        #region 日志记录
 
-        public void AddLogRecord(GroupC_LogAuditrails logData)//日志记录更新
+        public async Task AddLogRecordAsync(
+            GroupC_LogAuditrails logData,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
         {
-            _tableLogRepository.GroupC_AddLogRecord(logData);
+            await _itableLogRepository.GroupC_AddLogRecordAsync(logData);
         }
 
         #endregion

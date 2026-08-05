@@ -1,73 +1,78 @@
 ﻿using DBFreshColdChain.Interfaces;
+using DBFreshColdChain.Models.CrossGroup;
+using DBFreshColdChain.Models.DTOs;
 using DBFreshColdChain.Repositories;
 using FreshColdChain.Repositories;
 using Newtonsoft.Json;
+using System.Data;
 using System.Transactions;
-using DBFreshColdChain.Models.DTOs;
-using DBFreshColdChain.Models.CrossGroup;
 namespace DBFreshColdChain.Services
 {
 
-    public class GroupC_PaymentManager : GroupC_IPaymentManager
+    public class PaymentService : IPaymentService
     {
         private readonly IUnitOfWork _uow;
-        private readonly PaymentRepository _paymentRepository;
-        private readonly GroupC_ITableLogManager _logManager;
+        private readonly IPaymentRepository _ipaymentRepository;
+        private readonly ITableLogService _logManager;
 
 
-        public GroupC_PaymentManager(IUnitOfWork uow,PaymentRepository paymentRepository, GroupC_ITableLogManager logmanager)
+        public PaymentService(IUnitOfWork uow,IPaymentRepository ipaymentRepository, ITableLogService logmanager)
         {
             _uow = uow;
-            _paymentRepository = paymentRepository;
+            _ipaymentRepository = ipaymentRepository;
             _logManager = logmanager;
         }
-        public async Task<Result> CreatePaymentRecord(string? orderID, string? payMethod, string? transactionNo,decimal payAmount,string? status,string? errorMessage) //创建支付流水函数
+        public async Task<Result> CreatePaymentRecord(PaymentRequest paymentRequest,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default) //创建支付流水函数
         {
-            // 开启事务
-            await _uow.BeginAsync();
             var _result = new Result();
+            bool ownTransaction = false;
             try
             {
-                if (orderID == null || orderID == string.Empty
-            || payMethod == null || payMethod == string.Empty
-            || status == null || status == string.Empty) //不完整的订单信息或支付渠道信息或订单状态
+                // 事务控制：如果外部没传事务，自己开启
+                if (transaction == null)
                 {
-                    await _uow.RollbackAsync();
-                    _result.IsSuccess = false;
-                    _result.ErrorMessage = "不完整的订单信息或支付渠道信息或订单状态";
-                    return _result;
+                    await _uow.BeginAsync();
+                    ownTransaction = true;
+                    transaction = _uow.Transaction;
+                }
+                
+                //throw new Exception("团长信息不存在");
+                if (paymentRequest.orderID == null || paymentRequest.orderID == string.Empty
+                || paymentRequest.payMethod == null || paymentRequest.payMethod == string.Empty
+                || paymentRequest.status == null || paymentRequest.status == string.Empty) //不完整的订单信息或支付渠道信息或订单状态
+                {
+                    throw new Exception("不完整的订单信息或支付渠道信息或订单状态");
                 }
                 GroupC_CreatePaymentRequest _createPaymentRequest = new GroupC_CreatePaymentRequest();
                 _createPaymentRequest.PayId = "PAY_" + Guid.NewGuid().ToString("N"); //自动生成支付流水编号
-                _createPaymentRequest.PayMethod = payMethod;
-                _createPaymentRequest.TransactionNo = transactionNo;
+                _createPaymentRequest.PayMethod = paymentRequest.payMethod;
+                _createPaymentRequest.TransactionNo = paymentRequest.transactionNo;
 
                 GroupC_UpdatePaymentRequest _updatePaymentRequest = new GroupC_UpdatePaymentRequest();
                 _updatePaymentRequest.PayId = _createPaymentRequest.PayId;
                 GroupC_FinPaymentRecord _finPaymentRecord = new GroupC_FinPaymentRecord();
-                if (status == "Failed") //支付失败
+                if (paymentRequest.status == "Failed") //支付失败
                 {
                     _updatePaymentRequest.IsSuccess = false;
-                    if (errorMessage == null || errorMessage == string.Empty)  //支付失败时一定得有错误信息
+                    if (paymentRequest.errorMessage == null || paymentRequest.errorMessage == string.Empty)  //支付失败时一定得有错误信息
                     {
-                        await _uow.RollbackAsync();
-                        _result.IsSuccess = false;
-                        _result.ErrorMessage = "支付失败原因缺失";
-                        return _result;
+                        throw new Exception("支付失败原因缺失");
                     }
-                    _updatePaymentRequest.ErrorMessage = errorMessage;
+                    _updatePaymentRequest.ErrorMessage = paymentRequest.errorMessage;
 
                     //设置数据库处理的支付流水类
                     _finPaymentRecord.PayId = _createPaymentRequest.PayId;
                     _finPaymentRecord.PayMethod = _createPaymentRequest.PayMethod;
                     _finPaymentRecord.Status = "Failed";
                     _finPaymentRecord.Remark = "Failed Reason:" + _updatePaymentRequest.ErrorMessage;
-                    _finPaymentRecord.OrderId = orderID;
-                    _finPaymentRecord.PayAmount = payAmount;
+                    _finPaymentRecord.OrderId = paymentRequest.orderID;
+                    _finPaymentRecord.PayAmount = paymentRequest.payAmount;
                     _finPaymentRecord.PayTime = DateTime.Now;
                     _finPaymentRecord.TransactionNo = _createPaymentRequest.TransactionNo;
                 }
-                else if (status == "Success")   //支付成功
+                else if (paymentRequest.status == "Success")   //支付成功
                 {
                     _updatePaymentRequest.IsSuccess = true;
                     //设置数据库处理的支付流水类
@@ -75,14 +80,14 @@ namespace DBFreshColdChain.Services
                     _finPaymentRecord.PayMethod = _createPaymentRequest.PayMethod;
                     _finPaymentRecord.Status = "Success";
                     _finPaymentRecord.Remark = string.Empty;
-                    _finPaymentRecord.OrderId = orderID;
-                    _finPaymentRecord.PayAmount = payAmount;
+                    _finPaymentRecord.OrderId = paymentRequest.orderID;
+                    _finPaymentRecord.PayAmount = paymentRequest.payAmount;
                     _finPaymentRecord.PayTime = DateTime.Now;
                     _finPaymentRecord.TransactionNo = _createPaymentRequest.TransactionNo;
 
                 }
                 //调用Repository层函数添加数据记录
-                _paymentRepository.GroupC_AddPaymentRecord(_finPaymentRecord);
+                await _ipaymentRepository.GroupC_AddPaymentRecordAsync(_finPaymentRecord,transaction);
                 //记录表修改日志
                 var _tableLog = new GroupC_LogAuditrails();
                 _tableLog.ActionType = "Create";
@@ -101,19 +106,22 @@ namespace DBFreshColdChain.Services
                     PayTime = _finPaymentRecord.PayTime,
                     Remark = _finPaymentRecord.Remark
                 });
-                _logManager.WriteTableChangeLog(_tableLog);
+                await _logManager.WriteTableChangeLog(_tableLog);
                 // 所有业务操作成功，提交事务
-                await _uow.CommitAsync();
+                if(ownTransaction)
+                    await _uow.CommitAsync();
+                _result.IsSuccess = true;
+                return _result;
             }
             catch (Exception ex)
             {
-                await _uow.RollbackAsync();
+                if (ownTransaction && _uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
                 _result.IsSuccess = false;
                 _result.ErrorMessage = $"系统错误：{ex.Message}";
                 return _result;
             }
-            _result.IsSuccess = true;
-            return _result;
+           
         }
     }
 

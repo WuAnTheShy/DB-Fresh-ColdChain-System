@@ -21,7 +21,10 @@ public class UnitOfWork : IUnitOfWork
         get
         {
             if (_disposed)
-                throw new ObjectDisposedException(nameof(UnitOfWork));
+            {
+                ObjectDisposedException objectDisposedException = new(nameof(UnitOfWork));
+                throw objectDisposedException;
+            }
 
             if (_externalMode && _transaction != null)
                 return _transaction.Connection
@@ -43,10 +46,8 @@ public class UnitOfWork : IUnitOfWork
         _connectionFactory = connectionFactory;
     }
 
-    /// <summary>
-    /// 挂载外部事务 — B 组调用 A 组接口时使用。
-    /// 挂载后 Connection 和 Transaction 都由外部管理，BeginAsync/CommitAsync/RollbackAsync 变为空操作。
-    /// </summary>
+    // 挂载外部事务 — B 组调用 A 组接口时使用。
+    // 挂载后 Connection 和 Transaction 都由外部管理，BeginAsync/CommitAsync/RollbackAsync 变为空操作。
     public void AttachExternalTransaction(IDbTransaction externalTransaction)
     {
         ArgumentNullException.ThrowIfNull(externalTransaction);
@@ -58,9 +59,7 @@ public class UnitOfWork : IUnitOfWork
         _transaction = externalTransaction;
     }
 
-    /// <summary>
-    /// 开启内部事务 — A 组自己的写操作使用
-    /// </summary>
+    // 开启内部事务 — A 组自己的写操作使用
     public async Task BeginAsync()
     {
         if (_externalMode) return; // 外部模式不自己开事务

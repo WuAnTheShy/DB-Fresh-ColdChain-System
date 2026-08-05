@@ -5,27 +5,28 @@ using FreshColdChain.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddControllersWithViews();
 
 // ========== Dapper 基础设施 ==========
 builder.Services.AddScoped<IDbConnectionFactory, OracleDbConnectionFactory>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 // ========== Repository 注册 ==========
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-builder.Services.AddScoped<PaymentRepository>();
-builder.Services.AddScoped<PromoterRepository>();
-builder.Services.AddScoped<SysAdminRepository>();
-builder.Services.AddScoped<TableLogRepository>();
-builder.Services.AddScoped<WithdrawalRepository>();
+builder.Services.AddScoped<IRefundRepository, RefundRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IPromoterRepository, PromoterRepository>();
+builder.Services.AddScoped<ISysAdminRepository, SysAdminRepository>();
+builder.Services.AddScoped<ITableLogRepository, TableLogRepository>();
+builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
 // ========== Service 注册 ==========
-builder.Services.AddScoped<GroupC_PromoterManager>();
-builder.Services.AddScoped<GroupC_TableLogManager>();
-builder.Services.AddScoped<GroupC_ITableLogManager, GroupC_TableLogManager>();
-builder.Services.AddScoped<GroupC_IProMonterManager, GroupC_PromoterManager>();
+builder.Services.AddScoped<WithdrawalService>();
+builder.Services.AddScoped<PromoterService>();
+//builder.Services.AddScoped<SystemAdminService>();
+builder.Services.AddScoped<ITableLogService, TableLogService>();
+builder.Services.AddScoped<ICommissionService, CommissionService> ();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPromoterService, PromoterService>();
+//builder.Services.AddScoped<IRefundService, RefundService>();
 // ========== MVC ==========
 builder.Services.AddControllersWithViews();
-
 builder.Services.AddDistributedMemoryCache();
 // ======== Controller 页面会话 ======== 
 builder.Services.AddSession(options =>

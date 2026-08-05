@@ -1,22 +1,20 @@
 ﻿using Dapper;
-using FreshColdChain.Repositories;
-using Microsoft.Extensions.Configuration;
 using DBFreshColdChain.Models.DTOs;
-using Oracle.ManagedDataAccess.Client;
+using FreshColdChain.Repositories;
+using System.Data;
+
 namespace DBFreshColdChain.Repositories
 {
-    public class PromoterRepository
+    public class PromoterRepository : IPromoterRepository
     {
-        private readonly IUnitOfWork _uow;  // 注入工作单元
+        private readonly IUnitOfWork _uow;
 
         public PromoterRepository(IUnitOfWork uow)
         {
             _uow = uow;
         }
 
-        // 供所有 Service 调用的执行 SQL 方法
-
-        public GroupC_CrmPromoter? GroupC_FindPromoterRecord(string? promoterId)
+        public async Task<GroupC_CrmPromoter?> GroupC_FindPromoterRecordAsync(string? promoterId, IDbTransaction? transaction = null)
         {
             string sql = @"
                 SELECT 
@@ -38,78 +36,72 @@ namespace DBFreshColdChain.Repositories
                 FROM CRM_PROMOTERS
                 WHERE PROMOTERID = :PromoterId";
 
-            return _uow.Connection.QueryFirstOrDefault<GroupC_CrmPromoter>(sql, new { PromoterId = promoterId });
+            return await _uow.Connection.QueryFirstOrDefaultAsync<GroupC_CrmPromoter>(sql, new { PromoterId = promoterId }, transaction);
         }
 
-        public void GroupC_UpdatePromoterTotalSales(string? promoterId, decimal deltaAmount)
+        public async Task GroupC_UpdatePromoterTotalSalesAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null)
         {
             string sql = @"
                 UPDATE CRM_PROMOTERS
                 SET TOTALSALES = TOTALSALES + :DeltaAmount
                 WHERE PROMOTERID = :PromoterId";
 
-            _uow.Connection.Execute(sql, new
+            await _uow.Connection.ExecuteAsync(sql, new
             {
                 PromoterId = promoterId,
                 DeltaAmount = deltaAmount
-            });
+            }, transaction);
         }
 
-        public void GroupC_UpdatePromoterPendingBalance(string? promoterId, decimal deltaAmount)
+        public async Task GroupC_UpdatePromoterPendingBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null)
         {
             string sql = @"
                 UPDATE CRM_PROMOTERS
                 SET PENDINGBALANCE = PENDINGBALANCE + :DeltaAmount
                 WHERE PROMOTERID = :PromoterId";
 
-            _uow.Connection.Execute(sql, new
+            await _uow.Connection.ExecuteAsync(sql, new
             {
                 PromoterId = promoterId,
                 DeltaAmount = deltaAmount
-            });
+            }, transaction);
         }
 
-        public decimal? GroupC_FindPromoterPendingBalance(string? promoterId)
+        public async Task<decimal?> GroupC_FindPromoterPendingBalanceAsync(string? promoterId, IDbTransaction? transaction = null)
         {
             string sql = @"
                 SELECT PENDINGBALANCE
                 FROM CRM_PROMOTERS
                 WHERE PROMOTERID = :PromoterId";
-            return _uow.Connection.QueryFirstOrDefault<decimal?>(sql, new { PromoterId = promoterId });
+
+            return await _uow.Connection.QueryFirstOrDefaultAsync<decimal?>(sql, new { PromoterId = promoterId }, transaction);
         }
 
-        public void GroupC_UpdatePromoterCurrentBalance(string? promoterId, decimal deltaAmount)
+        public async Task GroupC_UpdatePromoterCurrentBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null)
         {
             string sql = @"
                 UPDATE CRM_PROMOTERS
                 SET CURRENTBALANCE = CURRENTBALANCE + :DeltaAmount
                 WHERE PROMOTERID = :PromoterId";
 
-            _uow.Connection.Execute(sql, new
+            await _uow.Connection.ExecuteAsync(sql, new
             {
                 PromoterId = promoterId,
                 DeltaAmount = deltaAmount
-            });
+            }, transaction);
         }
-        // ========== 新增方法（供注册/登录/管理员添加使用） ==========
 
-        /// <summary>
-        /// 检查登录账号是否已存在
-        /// </summary>
-        public bool GroupC_ExistsPromoterByLoginAccount(string loginAccount)
+        public async Task<bool> GroupC_ExistsPromoterByLoginAccountAsync(string loginAccount, IDbTransaction? transaction = null)
         {
             string sql = @"
                 SELECT COUNT(1) 
                 FROM CRM_PROMOTERS 
                 WHERE LOGINACCOUNT = :LoginAccount";
 
-            int count = _uow.Connection.ExecuteScalar<int>(sql, new { LoginAccount = loginAccount });
+            int count = await _uow.Connection.ExecuteScalarAsync<int>(sql, new { LoginAccount = loginAccount }, transaction);
             return count > 0;
         }
 
-        /// <summary>
-        /// 根据登录账号获取团长信息（用于登录验证）
-        /// </summary>
         public GroupC_CrmPromoter? GroupC_FindPromoterByLoginAccount(string loginAccount)
         {
             string sql = @"
@@ -132,13 +124,10 @@ namespace DBFreshColdChain.Repositories
                 FROM CRM_PROMOTERS
                 WHERE LOGINACCOUNT = :LoginAccount";
 
-            return _uow.Connection.QueryFirstOrDefault<GroupC_CrmPromoter>(sql, new { LoginAccount = loginAccount });
+            return  _uow.Connection.QueryFirstOrDefault<GroupC_CrmPromoter>(sql, new { LoginAccount = loginAccount });
         }
 
-        /// <summary>
-        /// 插入新的团长记录
-        /// </summary>
-        public bool GroupC_InsertPromoter(GroupC_CrmPromoter promoter)
+        public async Task<bool> GroupC_InsertPromoterAsync(GroupC_CrmPromoter promoter, IDbTransaction? transaction = null)
         {
             string sql = @"
                 INSERT INTO CRM_PROMOTERS (
@@ -175,9 +164,8 @@ namespace DBFreshColdChain.Repositories
                     :LoginPassword
                 )";
 
-            int rows = _uow.Connection.Execute(sql, promoter);
+            int rows = await _uow.Connection.ExecuteAsync(sql, promoter, transaction);
             return rows > 0;
         }
     }
-
 }

@@ -1,6 +1,7 @@
 ﻿using DBFreshColdChain.Models.DTOs;
 using DBFreshColdChain.Models.CrossGroup;
 using DBFreshColdChain.Repositories;
+using DBFreshColdChain.Interfaces;
 using DBFreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Data;
@@ -9,8 +10,8 @@ namespace DBFreshColdChain.Controllers
 {
     public class AccountController : Controller
     {
-        private readonly GroupC_PromoterManager _promoterManager;
-        public AccountController(GroupC_PromoterManager promoterManager)
+        private readonly PromoterService _promoterManager;
+        public AccountController(PromoterService promoterManager)
         {
             _promoterManager = promoterManager;
         }

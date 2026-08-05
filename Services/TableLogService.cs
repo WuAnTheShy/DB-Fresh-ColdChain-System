@@ -7,17 +7,15 @@ using System;
 using System.Text.Json.Nodes;
 namespace DBFreshColdChain.Services
 {
-    public class GroupC_TableLogManager : GroupC_ITableLogManager
+    public class TableLogService : ITableLogService
     {
-        private readonly IUnitOfWork _uow;
-        private readonly TableLogRepository _tableLogRepository;
+        private readonly ITableLogRepository _itableLogRepository;
 
-        public GroupC_TableLogManager(IUnitOfWork uow, TableLogRepository tableLogRepository)
+        public TableLogService(ITableLogRepository itableLogRepository)
         {
-            _uow = uow;
-           _tableLogRepository = tableLogRepository;    
+           _itableLogRepository = itableLogRepository;    
         }
-        public bool WriteTableChangeLog(GroupC_LogAuditrails? logData = null)
+        public async Task<bool> WriteTableChangeLog(GroupC_LogAuditrails? logData = null)
         {
             if (logData == null)
             {
@@ -32,7 +30,7 @@ namespace DBFreshColdChain.Services
                 logData.OpTime = DateTime.Now;
             }
             logData.OldValue = logData.OldValue.Length > 1000 ? logData.OldValue.Substring(0, 1000) : logData.OldValue; //截断保护
-            _tableLogRepository.GroupC_AddLogRecord(logData); //Respositories层接口
+            await _itableLogRepository.GroupC_AddLogRecordAsync(logData); //Respositories层接口
             return true;
         }
         

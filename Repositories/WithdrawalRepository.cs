@@ -1,25 +1,25 @@
 ﻿using Dapper;
-using FreshColdChain.Repositories;
-using Microsoft.Extensions.Configuration;
 using DBFreshColdChain.Models.DTOs;
-using Oracle.ManagedDataAccess.Client;
-namespace DBFreshColdChain.Repositories
-{   
-    public class WithdrawalRepository
-    {
+using DBFreshColdChain.Repositories;
+using FreshColdChain.Repositories;
+using System.Data;
 
-        private readonly IUnitOfWork _uow;  // 注入工作单元
+namespace DBFreshColdChain.Repositories
+{
+    public class WithdrawalRepository : IWithdrawalRepository
+    {
+        private readonly IUnitOfWork _uow;
 
         public WithdrawalRepository(IUnitOfWork uow)
         {
             _uow = uow;
         }
-        // ========== 提现相关新增方法 ==========
 
-        /// <summary>
-        /// 检查团长是否有正在审核中的提现申请（Pending 或 Approved）
-        /// </summary>
-        public bool GroupC_HasPendingWithdrawal(string promoterId)
+        // 检查团长是否有正在审核中的提现申请（Pending 或 Approved）
+        public async Task<bool> GroupC_HasPendingWithdrawalAsync(
+            string promoterId,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
         {
             string sql = @"
                 SELECT COUNT(1) 
@@ -27,14 +27,18 @@ namespace DBFreshColdChain.Repositories
                 WHERE PROMOTERID = :PromoterId 
                 AND AUDITSTATUS IN ('Pending', 'Approved')";
 
-            int count = _uow.Connection.ExecuteScalar<int>(sql, new { PromoterId = promoterId });
+            int count = await _uow.Connection.ExecuteScalarAsync<int>(
+                sql,
+                new { PromoterId = promoterId },
+                transaction);
             return count > 0;
         }
 
-        /// <summary>
-        /// 插入提现记录
-        /// </summary>
-        public bool GroupC_InsertWithdrawalRecord(GroupC_FinWithdrawalRecord record)
+        // 插入提现记录
+        public async Task<bool> GroupC_InsertWithdrawalRecordAsync(
+            GroupC_FinWithdrawalRecord record,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
         {
             string sql = @"
                 INSERT INTO FIN_WITHDRAWALRECORDS (
@@ -63,20 +67,20 @@ namespace DBFreshColdChain.Repositories
                     :Remark
                 )";
 
-            int rows = _uow.Connection.Execute(sql, record);
+            int rows = await _uow.Connection.ExecuteAsync(sql, record, transaction);
             return rows > 0;
         }
 
-        /// <summary>
-        /// 更新提现记录状态（审核通过/驳回）
-        /// </summary>
-        public bool GroupC_UpdateWithdrawalStatus(
+        // 更新提现记录状态（审核通过/驳回）
+        public async Task<bool> GroupC_UpdateWithdrawalStatusAsync(
             string withdrawalId,
             string status,
             string auditorUserId,
             DateTime? auditTime,
             DateTime? transferTime,
-            string? rejectReason = null)
+            string? rejectReason = null,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
         {
             string sql = @"
                 UPDATE FIN_WITHDRAWALRECORDS
@@ -87,7 +91,7 @@ namespace DBFreshColdChain.Repositories
                     REJECTREASON = :RejectReason
                 WHERE WITHDRAWALID = :WithdrawalId";
 
-            int rows = _uow.Connection.Execute(sql, new
+            int rows = await _uow.Connection.ExecuteAsync(sql, new
             {
                 WithdrawalId = withdrawalId,
                 Status = status,
@@ -95,14 +99,15 @@ namespace DBFreshColdChain.Repositories
                 AuditTime = auditTime,
                 TransferTime = transferTime,
                 RejectReason = rejectReason
-            });
+            }, transaction);
             return rows > 0;
         }
 
-        /// <summary>
-        /// 获取提现记录（用于审核时获取申请金额等）
-        /// </summary>
-        public GroupC_FinWithdrawalRecord? GroupC_GetWithdrawalRecord(string withdrawalId)
+        // 获取提现记录（用于审核时获取申请金额等）
+        public async Task<GroupC_FinWithdrawalRecord?> GroupC_GetWithdrawalRecordAsync(
+            string withdrawalId,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
         {
             string sql = @"
                 SELECT 
@@ -120,22 +125,25 @@ namespace DBFreshColdChain.Repositories
                 FROM FIN_WITHDRAWALRECORDS
                 WHERE WITHDRAWALID = :WithdrawalId";
 
-            return _uow.Connection.QueryFirstOrDefault<GroupC_FinWithdrawalRecord>(sql, new { WithdrawalId = withdrawalId });
+            return await _uow.Connection.QueryFirstOrDefaultAsync<GroupC_FinWithdrawalRecord>(
+                sql,
+                new { WithdrawalId = withdrawalId },
+                transaction);
         }
 
-        /// <summary>
-        /// 更新团长的冻结金额（增加或减少）
-        /// </summary>
-        public void GroupC_UpdatePromoterFrozenAmount(string promoterId, decimal delta)
+        // 更新团长的冻结金额（增加或减少）
+        public async Task GroupC_UpdatePromoterFrozenAmountAsync(
+            string promoterId,
+            decimal delta,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
         {
             string sql = @"
                 UPDATE CRM_PROMOTERS
                 SET FROZENAMOUNT = FROZENAMOUNT + :Delta
                 WHERE PROMOTERID = :PromoterId";
 
-            _uow.Connection.Execute(sql, new { PromoterId = promoterId, Delta = delta });
+            await _uow.Connection.ExecuteAsync(sql, new { PromoterId = promoterId, Delta = delta }, transaction);
         }
     }
 }
-
-

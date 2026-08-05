@@ -689,7 +689,9 @@
       Data.set(this._element, this.constructor.DATA_KEY, this);
     }
 
-    dispose() {
+    
+
+() {
       Data.remove(this._element, this.constructor.DATA_KEY);
       EventHandler.off(this._element, this.constructor.EVENT_KEY);
       Object.getOwnPropertyNames(this).forEach(propertyName => {
