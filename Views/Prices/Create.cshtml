@@ -1,0 +1,102 @@
+@model SavePriceRuleDto
+@{
+    ViewData["Title"] = "新建定价规则";
+}
+
+<h3>➕ 新建定价规则</h3>
+
+<form asp-action="Create" method="post">
+    @Html.AntiForgeryToken()
+
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label class="form-label">商品 ID <span class="text-danger">*</span></label>
+            <input asp-for="ProductID" class="form-control" required />
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">规则名称</label>
+            <input asp-for="RuleName" class="form-control" placeholder="如：晚间特价、10件起批" />
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label class="form-label">触发类型 <span class="text-danger">*</span></label>
+            <select asp-for="TriggerType" class="form-select" id="triggerType" required>
+                <option value="">-- 请选择 --</option>
+                <option value="TimeBased">时段折扣</option>
+                <option value="ExpiryApproaching">临期折扣</option>
+                <option value="BulkDiscount">批量折扣</option>
+                <option value="ManualPrice">手动调价</option>
+            </select>
+        </div>
+        <div class="col-md-4" id="timeWindowGroup">
+            <label class="form-label">时间窗口（如 18:00-20:00）</label>
+            <input asp-for="TimeWindow" class="form-control" placeholder="18:00-20:00" />
+            <small class="text-muted">仅时段折扣需要填写</small>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">优先级 <small class="text-muted">（越小越优先）</small></label>
+            <input asp-for="Priority" class="form-control" type="number" value="100" />
+        </div>
+    </div>
+
+    <div class="row mb-3" id="discountGroup">
+        <div class="col-md-4">
+            <label class="form-label">折扣率 <small class="text-muted">（0.1=9折，0.3=7折）</small></label>
+            <input asp-for="DiscountRate" class="form-control" type="number" step="0.01" min="0" max="1" placeholder="0.00" />
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">手动定价 <small class="text-muted">（仅手动调价）</small></label>
+            <input asp-for="ManualPrice" class="form-control" type="number" step="0.01" min="0" placeholder="0.00" />
+        </div>
+    </div>
+
+    <div class="row mb-3" id="quantityGroup">
+        <div class="col-md-3">
+            <label class="form-label">最低购买量</label>
+            <input asp-for="MinQuantity" class="form-control" type="number" step="1" min="0" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">最高购买量</label>
+            <input asp-for="MaxQuantity" class="form-control" type="number" step="1" min="0" />
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <label class="form-label">开始日期</label>
+            <input asp-for="EffectiveFrom" class="form-control" type="date" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">结束日期</label>
+            <input asp-for="EffectiveTo" class="form-control" type="date" />
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <div class="form-check">
+                <input asp-for="IsActive" class="form-check-input" type="checkbox" value="1" checked />
+                <label class="form-check-label">启用规则</label>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-success">创建规则</button>
+    <a asp-action="Index" class="btn btn-outline-secondary">取消</a>
+</form>
+
+@section Scripts {
+    <script>
+        // 根据触发类型显隐对应字段
+        const triggerType = document.getElementById('triggerType');
+        const timeWindowGroup = document.getElementById('timeWindowGroup');
+        const quantityGroup = document.getElementById('quantityGroup');
+
+        function updateVisibility() {
+            const val = triggerType.value;
+            timeWindowGroup.style.display = val === 'TimeBased' ? '' : 'none';
+            quantityGroup.style.display = val === 'BulkDiscount' ? '' : 'none';
+        }
+        triggerType.addEventListener('change', updateVisibility);
+        updateVisibility();
+    </script>
+}
