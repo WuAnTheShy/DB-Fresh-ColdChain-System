@@ -1,5 +1,5 @@
 ﻿using System.Data;
-using DBFreshColdChain.Models.DTOs;
+using DBFreshColdChain.Models;
 
 namespace DBFreshColdChain.Repositories
 {
@@ -12,8 +12,9 @@ namespace DBFreshColdChain.Repositories
 
         // 用户相关
         Task<GroupC_SysUser?> GetUserByIdAsync(string userId, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
-        Task<bool> ExistsUsernameAsync(string username, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
-        Task SaveUserAsync(GroupC_SysUser user, bool isNew, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
+        GroupC_SysUser? GetUserByName(string username);
+        Task <bool> ExistsUsernameAsync(string username, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
+        Task <bool> SaveUserAsync(GroupC_SysUser user, bool isNew, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
 
         // 日志记录
         Task AddLogRecordAsync(GroupC_LogAuditrails logData, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);

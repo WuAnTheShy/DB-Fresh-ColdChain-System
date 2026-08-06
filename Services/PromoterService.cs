@@ -3,6 +3,7 @@ using DBFreshColdChain.Models.CrossGroup;
 using DBFreshColdChain.Models.DTOs;
 using DBFreshColdChain.Repositories;
 using FreshColdChain.Repositories;
+using DBFreshColdChain.Models;
 using Newtonsoft.Json;
 using System.Data;
 using System.Security.Cryptography;
@@ -29,9 +30,11 @@ namespace DBFreshColdChain.Services
 
         
 
+        
         // ========== 新增功能：团长注册、登录、管理员直接添加 ==========
 
         // 团长注册（首次注册，待管理员审核激活）
+        //团长注册
         public async Task<GroupC_PromoterRegisterResult> RegisterPromoter(GroupC_PromoterRegisterInfo registerInfo,
             IDbTransaction? transaction = null, CancellationToken cancellationToken = default)
         {
@@ -61,7 +64,7 @@ namespace DBFreshColdChain.Services
 
                 var promoter = new GroupC_CrmPromoter
                 {
-                    PromoterId = Guid.NewGuid().ToString("N"),
+                    PromoterId = "PRO_"+Guid.NewGuid().ToString("N"),
                     PromoterName = registerInfo.PromoterName,
                     LoginAccount = registerInfo.LoginAccount,
                     LoginPassword = hashedPassword,
@@ -84,7 +87,7 @@ namespace DBFreshColdChain.Services
                 var log = new GroupC_LogAuditrails
                 {
                     TableName = "CRM_PROMOTERS",
-                    ActionType = "Copy",
+                    ActionType = "Create",
                     OperatorType = "Platform",
                     OperatorId = "\\",
                     OldValue = string.Empty,
@@ -123,9 +126,11 @@ namespace DBFreshColdChain.Services
                 return new GroupC_PromoterLoginResult { IsSuccess = false, Message = "密码错误" };
 
             if (promoter.Status == "Pending")
-                return new GroupC_PromoterLoginResult { IsSuccess = false, Message = "账号尚未审核通过" };
-            if (promoter.Status == "Disabled")
+                return new GroupC_PromoterLoginResult { IsSuccess = false, Message = "账号尚未审核，请耐心等待" };
+            if (promoter.Status == "Frozen")
                 return new GroupC_PromoterLoginResult { IsSuccess = false, Message = "账号已被禁用" };
+            if (promoter.Status == "Disable")
+                return new GroupC_PromoterLoginResult { IsSuccess = false, Message = "账号未审核通过" };
 
             return new GroupC_PromoterLoginResult
             {
@@ -222,5 +227,14 @@ namespace DBFreshColdChain.Services
             var hash = sha256.ComputeHash(bytes);
             return Convert.ToBase64String(hash);
         }
+
+        public async Task<List<GroupC_CrmPromoter>> GetPendingPromotersAsync()
+        {
+            // 直接使用Repository查询所有状态为Pending的团长
+            var Pendinglist = await _ipromoterRepository.GroupC_GetPromotersByStatusAsync("Pending");
+            return Pendinglist.ToList();
+        }
+
+
     }
 }

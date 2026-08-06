@@ -1,4 +1,4 @@
-﻿using DBFreshColdChain.Models.DTOs;
+﻿using DBFreshColdChain.Models;
 using System.Data;
 
 namespace DBFreshColdChain.Repositories

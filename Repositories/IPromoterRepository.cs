@@ -1,5 +1,5 @@
 ﻿using System.Data;
-using DBFreshColdChain.Models.DTOs;
+using DBFreshColdChain.Models;
 
 namespace DBFreshColdChain.Repositories
 {
@@ -7,8 +7,10 @@ namespace DBFreshColdChain.Repositories
     {
         //需要事务：业务逻辑
         Task<GroupC_CrmPromoter?> GroupC_FindPromoterRecordAsync(string? promoterId, IDbTransaction? transaction = null);           //查找团长信息
+        Task<IEnumerable<GroupC_CrmPromoter>> GroupC_GetPromotersByStatusAsync(string status);  //查找指定状态下团长的信息
         Task GroupC_UpdatePromoterTotalSalesAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null);     //修改团长累计销售额
         Task GroupC_UpdatePromoterPendingBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null); //修改团长待结算余额
+        Task<bool> GroupC_UpdatePromoterStatusAsync(string promoterId, string newStatus, IDbTransaction? transaction = null);       //修改团长账号状态
         Task<decimal?> GroupC_FindPromoterPendingBalanceAsync(string? promoterId, IDbTransaction? transaction = null);              //查找团长待结算余额
         Task GroupC_UpdatePromoterCurrentBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null); //查找团长可提现余额
         Task<bool> GroupC_ExistsPromoterByLoginAccountAsync(string loginAccount, IDbTransaction? transaction = null);               //检查团长账号是否存在
@@ -18,3 +20,4 @@ namespace DBFreshColdChain.Repositories
 
     }
 }
+ 

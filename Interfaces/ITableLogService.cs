@@ -1,5 +1,5 @@
-﻿using DBFreshColdChain.Models.DTOs;
-using DBFreshColdChain.Models.CrossGroup;
+﻿using DBFreshColdChain.Models.CrossGroup;
+using DBFreshColdChain.Models;
 namespace DBFreshColdChain.Interfaces
 {
     public interface ITableLogService

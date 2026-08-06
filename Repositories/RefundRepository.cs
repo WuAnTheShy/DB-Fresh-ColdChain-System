@@ -1,6 +1,6 @@
 ﻿using Dapper;
-using DBFreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
+using DBFreshColdChain.Models;
 using System.Data;
 
 namespace DBFreshColdChain.Repositories

@@ -1,5 +1,6 @@
 ﻿using System.Data;
-using DBFreshColdChain.Models.DTOs;
+using DBFreshColdChain.Models;
+
 
 namespace DBFreshColdChain.Repositories
 {

@@ -3,6 +3,7 @@ using DBFreshColdChain.Models.CrossGroup;
 using DBFreshColdChain.Models.DTOs;
 using DBFreshColdChain.Repositories;
 using FreshColdChain.Repositories;
+using DBFreshColdChain.Models;
 using Newtonsoft.Json;
 using System.Data;
 using System.Transactions;

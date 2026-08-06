@@ -1,7 +1,7 @@
 ﻿using Dapper;
 using Microsoft.Extensions.Configuration;
-using DBFreshColdChain.Models.DTOs;
 using Oracle.ManagedDataAccess.Client;
+using DBFreshColdChain.Models;
 
 namespace DBFreshColdChain.Repositories
 {

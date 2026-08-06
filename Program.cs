@@ -1,7 +1,9 @@
 using DBFreshColdChain.Interfaces;
 using DBFreshColdChain.Repositories;
 using DBFreshColdChain.Services;
+using FreshColdChain.Interfaces;
 using FreshColdChain.Repositories;
+using FreshColdChain.Services.Supplier;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +12,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddScoped<IDbConnectionFactory, OracleDbConnectionFactory>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 // ========== Repository 注册 ==========
+//A组
+builder.Services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
+builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
+
+
+//C组
 builder.Services.AddScoped<IRefundRepository, RefundRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPromoterRepository, PromoterRepository>();
@@ -17,9 +25,14 @@ builder.Services.AddScoped<ISysAdminRepository, SysAdminRepository>();
 builder.Services.AddScoped<ITableLogRepository, TableLogRepository>();
 builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
 // ========== Service 注册 ==========
+//A组
+builder.Services.AddScoped<ISupplierService, SupplierService>();
+
+//C组
+builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<WithdrawalService>();
 builder.Services.AddScoped<PromoterService>();
-//builder.Services.AddScoped<SystemAdminService>();
+builder.Services.AddScoped<SystemAdminService>();
 builder.Services.AddScoped<ITableLogService, TableLogService>();
 builder.Services.AddScoped<ICommissionService, CommissionService> ();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
@@ -35,6 +48,7 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 });
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -49,7 +63,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
-
+app.UseSession();
 app.UseAuthorization();
 
 app.MapControllerRoute(

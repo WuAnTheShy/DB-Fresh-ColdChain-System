@@ -1,4 +1,4 @@
-namespace DBFreshColdChain.Models.DTOs
+namespace DBFreshColdChain.Models
 {
     public class GroupC_FinPaymentRecord
     {

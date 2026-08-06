@@ -1,7 +1,7 @@
 using Dapper;
 using FreshColdChain.Repositories;
-using DBFreshColdChain.Models.DTOs;
 using System.Data;
+using DBFreshColdChain.Models;
 
 namespace DBFreshColdChain.Repositories
 {
@@ -79,6 +79,14 @@ namespace DBFreshColdChain.Repositories
                 new { UserId = userId },
                 transaction);
         }
+        public GroupC_SysUser? GetUserByName(
+            string username)
+        {
+            string sql = "SELECT * FROM SYS_USERS WHERE USERNAME = :Username";
+            return _uow.Connection.QueryFirstOrDefault<GroupC_SysUser>(
+                sql,
+                new { Username = username });
+        }
 
         public async Task<bool> ExistsUsernameAsync(
             string username,
@@ -93,7 +101,7 @@ namespace DBFreshColdChain.Repositories
             return count > 0;
         }
 
-        public async Task SaveUserAsync(
+        public async Task<bool> SaveUserAsync(
             GroupC_SysUser user,
             bool isNew,
             IDbTransaction? transaction = null,
@@ -106,7 +114,7 @@ namespace DBFreshColdChain.Repositories
                    SET USERNAME = :Username, PASSWORDHASH = :PasswordHash, ROLEID = :RoleId, REALNAME = :RealName, PHONE = :Phone, STATUS = :Status 
                    WHERE USERID = :UserId";
 
-            await _uow.Connection.ExecuteAsync(sql, user, transaction);
+            return await _uow.Connection.ExecuteAsync(sql, user, transaction) > 0;
         }
 
         #endregion

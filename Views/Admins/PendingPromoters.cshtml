@@ -1,0 +1,64 @@
+﻿@model IEnumerable<DBFreshColdChain.Models.GroupC_CrmPromoter>
+
+@{
+    ViewData["Title"] = "待审核团长";
+}
+
+<h2>待审核团长账号</h2>
+
+@if (TempData["SuccessMsg"] != null)
+{
+    <div class="alert alert-success">@TempData["SuccessMsg"]</div>
+}
+@if (TempData["ErrorMsg"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMsg"]</div>
+}
+
+@if (!Model.Any())
+{
+    <p>暂无待审核的团长。</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>团长ID</th>
+                <th>团长名称</th>
+                <th>登录账号</th>
+                <th>手机号</th>
+                <th>注册时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@item.PromoterId</td>
+                    <td>@item.PromoterName</td>
+                    <td>@item.LoginAccount</td>
+                    <td>@item.Phone</td>
+                    <td>@item.RegisterTime</td>
+                    <td>
+                        <form asp-action="ApprovePromoter" method="post" style="display:inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="promoterId" value="@item.PromoterId" />
+                            <button type="submit" class="btn btn-success btn-sm">通过</button>
+                        </form>
+                        <form asp-action="RejectPromoter" method="post" style="display:inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="promoterId" value="@item.PromoterId" />
+                            <button type="submit" class="btn btn-danger btn-sm">拒绝</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<div>
+    <a asp-action="Index" class="btn btn-secondary">返回首页</a>
+</div>

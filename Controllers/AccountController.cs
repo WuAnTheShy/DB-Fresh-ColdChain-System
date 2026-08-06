@@ -1,19 +1,24 @@
 ﻿using DBFreshColdChain.Models.DTOs;
 using DBFreshColdChain.Models.CrossGroup;
-using DBFreshColdChain.Repositories;
 using DBFreshColdChain.Interfaces;
 using DBFreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Data;
 using System.Diagnostics;
+using FreshColdChain.Interfaces;
 namespace DBFreshColdChain.Controllers
 {
     public class AccountController : Controller
     {
-        private readonly PromoterService _promoterManager;
-        public AccountController(PromoterService promoterManager)
+        private readonly PromoterService _promoterService;
+        private readonly SystemAdminService  _systemAdminService;
+        private readonly AccountService _accountService;
+        
+        public AccountController(PromoterService promoterService, SystemAdminService systemAdminService, AccountService accountService)
         {
-            _promoterManager = promoterManager;
+            _promoterService = promoterService;
+            _systemAdminService = systemAdminService;
+            _accountService = accountService;
         }
         public IActionResult RoleSelect()
         {
@@ -33,6 +38,10 @@ namespace DBFreshColdChain.Controllers
             {
                 ViewBag.Role = "管理员";
             }
+            else if (role == "供应商")
+            {
+                ViewBag.Role = "供应商";
+            }
             else 
             {
                 ViewBag.Role = "缺省角色信息";
@@ -41,16 +50,38 @@ namespace DBFreshColdChain.Controllers
             return View();
         }
         [HttpPost]
-        public IActionResult Login(string username, string password,string? role = null)
+        public async Task<IActionResult> Login(string username, string password,string? role = null)
         {
             ViewBag.Role = role;
             if (role == "团长")
             {
-                var loginResult = _promoterManager.LoginPromoter(username, password);
+                var loginResult = _promoterService.LoginPromoter(username, password);
                 if(loginResult.IsSuccess == true)  //登录成功
                 {
                     HttpContext.Session.SetString("PromoterName", username);
                     return RedirectToAction("Index", "Promoters");    
+                }
+                ModelState.AddModelError("", loginResult.Message);
+                return View();
+            }
+            else if (role == "管理员")
+            {
+                var loginResult = _systemAdminService.LoginAdmin(username, password);
+                if (loginResult.IsSuccess == true)  //登录成功
+                {
+                    HttpContext.Session.SetString("AdminName", username);
+                    return RedirectToAction("Index", "Admins");
+                }
+                ModelState.AddModelError("", loginResult.Message);
+                return View();
+            }
+            else if(role == "供应商")
+            {
+                var loginResult = await _accountService.LoginSupplier(username, password);
+                if (loginResult.IsSuccess == true)  //登录成功
+                {
+                    HttpContext.Session.SetString("SupplierName", username);
+                    return RedirectToAction("Index", "Suppliers");
                 }
                 ModelState.AddModelError("", loginResult.Message);
                 return View();
@@ -65,14 +96,23 @@ namespace DBFreshColdChain.Controllers
             {
                 return PromoterRegister();
             }
-            return View();
-            
+            else if(role == "管理员")
+            {
+                return AdminRegister();
+            }
+                return View();
         }
         public IActionResult PromoterRegister()
         {
             ViewBag.Role = "团长";
             return View("PromoterRegister");
         }
+        public IActionResult AdminRegister()
+        {
+            ViewBag.Role = "管理员";
+            return View("AdminRegister");
+        }
+
         [HttpPost]
         public async Task<IActionResult> PromoterRegister(string promotername, string username, string password, string phonenumber, string password_again)
         {
@@ -87,7 +127,7 @@ namespace DBFreshColdChain.Controllers
             registerInfo.LoginPassword = password;
             registerInfo.LoginAccount = username;
             var registerResult = new GroupC_PromoterRegisterResult();
-            registerResult = await _promoterManager.RegisterPromoter(registerInfo);
+            registerResult = await _promoterService.RegisterPromoter(registerInfo);
             if (registerResult.IsSuccess == true)
             {
                 return RedirectToAction("Login", "Account", new { role = "团长" });
@@ -95,6 +135,31 @@ namespace DBFreshColdChain.Controllers
             ModelState.AddModelError("", registerResult.Message);
             return View("PromoterRegister");
         }
+        [HttpPost]
+        public async Task<IActionResult> AdminRegister(string realname, string username, string password, string phonenumber, string password_again)
+        {
+            if (password != password_again)
+            {
+                ModelState.AddModelError("", "两次输入密码不同");
+                return View("AdminRegister");
+            }
+            var registerInfo = new GroupC_AdminRegisterInfo();
+            registerInfo.RealName = realname;
+            registerInfo.Phone = phonenumber;
+            registerInfo.LoginPassword = password;
+            registerInfo.LoginAccount = username;
+            var registerResult = new Result();
+            registerResult = await _systemAdminService.RegisterAdmin(registerInfo);
+            if (registerResult.IsSuccess == true)
+            {
+                return RedirectToAction("Login", "Account", new { role = "管理员" });
+            }
+            ModelState.AddModelError("", registerResult.ErrorMessage);
+            return View("AdminRegister");
+        }
+
     }
-    
+
+
+
 }

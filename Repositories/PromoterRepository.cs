@@ -1,6 +1,6 @@
 ﻿using Dapper;
-using DBFreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
+using DBFreshColdChain.Models;
 using System.Data;
 
 namespace DBFreshColdChain.Repositories
@@ -66,7 +66,21 @@ namespace DBFreshColdChain.Repositories
                 DeltaAmount = deltaAmount
             }, transaction);
         }
+        public async Task<bool> GroupC_UpdatePromoterStatusAsync(string promoterId, string newStatus, IDbTransaction? transaction = null)
+        {
+            string sql = @"
+                UPDATE CRM_PROMOTERS
+                SET STATUS = :NewStatus
+                WHERE PROMOTERID = :PromoterId";
 
+            int rows = await _uow.Connection.ExecuteAsync(sql, new { PromoterId = promoterId, NewStatus = newStatus }, transaction);
+            return rows > 0;
+        }
+        public async Task<IEnumerable<GroupC_CrmPromoter>> GroupC_GetPromotersByStatusAsync(string status)
+        {
+            string sql = "SELECT * FROM CRM_PROMOTERS WHERE STATUS = :Status";
+            return await _uow.Connection.QueryAsync<GroupC_CrmPromoter>(sql, new { Status = status });
+        }
         public async Task<decimal?> GroupC_FindPromoterPendingBalanceAsync(string? promoterId, IDbTransaction? transaction = null)
         {
             string sql = @"
@@ -76,7 +90,7 @@ namespace DBFreshColdChain.Repositories
 
             return await _uow.Connection.QueryFirstOrDefaultAsync<decimal?>(sql, new { PromoterId = promoterId }, transaction);
         }
-
+            
         public async Task GroupC_UpdatePromoterCurrentBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null)
         {
             string sql = @"

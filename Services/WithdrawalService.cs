@@ -1,4 +1,5 @@
 using DBFreshColdChain.Interfaces;
+using DBFreshColdChain.Models;
 using DBFreshColdChain.Models.CrossGroup;
 using DBFreshColdChain.Models.DTOs;
 using DBFreshColdChain.Repositories;

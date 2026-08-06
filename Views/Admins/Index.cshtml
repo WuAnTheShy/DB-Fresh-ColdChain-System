@@ -1,0 +1,11 @@
+﻿@{
+    ViewData["Title"] = "管理员首页";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome</h1>
+    <p>你好 <strong>@ViewBag.Username</strong>，欢迎访问生鲜冷链团购分销供应链系统！</p>
+    <p>
+        <a asp-action="PendingPromoters" class="btn btn-primary">审核团长账号</a>
+    </p>
+</div>
