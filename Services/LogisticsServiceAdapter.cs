@@ -14,21 +14,24 @@ public class LogisticsServiceAdapter : ILogisticsService
 {
     private readonly IUnitOfWork _uow;
     private readonly IProductRepository _productRepo;
+    private readonly IStockSummaryRepository _stockSummaryRepo;
     private readonly IStockBatchRepository _batchRepo;
-    private readonly IBaseRepository<LogFreightTemplate> _templateRepo;
-    private readonly IBaseRepository<LogExpressDelivery> _deliveryRepo;
+    private readonly ILogFreightTemplateRepository _templateRepo;
+    private readonly ILogExpressDeliveryRepository _deliveryRepo;
     private readonly IBaseRepository<LogFulfillmentBatchItem> _allocationRepo;
 
     public LogisticsServiceAdapter(
         IUnitOfWork uow,
         IProductRepository productRepo,
+        IStockSummaryRepository stockSummaryRepo,
         IStockBatchRepository batchRepo,
-        IBaseRepository<LogFreightTemplate> templateRepo,
-        IBaseRepository<LogExpressDelivery> deliveryRepo,
+        ILogFreightTemplateRepository templateRepo,
+        ILogExpressDeliveryRepository deliveryRepo,
         IBaseRepository<LogFulfillmentBatchItem> allocationRepo)
     {
         _uow = uow;
         _productRepo = productRepo;
+        _stockSummaryRepo = stockSummaryRepo;
         _batchRepo = batchRepo;
         _templateRepo = templateRepo;
         _deliveryRepo = deliveryRepo;
@@ -50,7 +53,7 @@ public class LogisticsServiceAdapter : ILogisticsService
 
         if (request.Items.Count == 0) return 0m;
 
-        var rules = await _templateRepo.GetAllAsync();
+        var rules = await _templateRepo.GetEnabledAsync();
         decimal total = 0m;
 
         foreach (var item in request.Items)
@@ -94,7 +97,7 @@ public class LogisticsServiceAdapter : ILogisticsService
     }
 
     /// <summary>
-    /// FEFO 批次扣减 + 创建物流发货单 + 批次溯源记录
+    /// FEFO 批次扣减 + 创建物流发货单 + 批次溯源记录 + 同步库存汇总
     /// </summary>
     public async Task CreateShipmentAsync(
         FulfillmentOrderRequest request,
@@ -106,10 +109,14 @@ public class LogisticsServiceAdapter : ILogisticsService
 
         _uow.AttachExternalTransaction(transaction);
 
+        // 从首个商品获取供应商 ID
+        var supplierId = request.Items.FirstOrDefault()?.SupplierId ?? string.Empty;
+
         // 创建发货单
         var delivery = new LogExpressDelivery
         {
             OrderID = request.OrderId,
+            SupplierID = supplierId,
             TrackingNo = $"CC{Guid.NewGuid():N}"[..20],
             LogisticsStatus = "SHIPPED",
             ShippedAt = DateTime.Now
@@ -120,6 +127,13 @@ public class LogisticsServiceAdapter : ILogisticsService
         foreach (var item in request.Items)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            // FOR UPDATE 行级锁，阻塞并发请求对同一产品库存的修改
+            var stock = await _stockSummaryRepo.GetByProductIdForUpdateAsync(item.ProductId);
+            if (stock == null)
+                throw new InvalidOperationException($"商品 {item.ProductId} 库存记录不存在");
+            if (stock.AvailableQty < item.Quantity)
+                throw new InvalidOperationException($"商品 {item.ProductId}({item.ProductName}) 库存不足（可用 {stock.AvailableQty}，需要 {item.Quantity}）");
 
             var remaining = item.Quantity;
             var batches = await _batchRepo.GetByProductIdAsync(item.ProductId);
@@ -149,6 +163,13 @@ public class LogisticsServiceAdapter : ILogisticsService
             if (remaining > 0)
                 throw new InvalidOperationException(
                     $"商品 {item.ProductId}({item.ProductName}) 可用批次库存不足，还差 {remaining}");
+
+            // 同步更新库存汇总：扣减总量并释放已锁定的预留量
+            stock.TotalQty -= item.Quantity;
+            stock.LockedQty = Math.Max(0, stock.LockedQty - item.Quantity);
+            stock.AvailableQty = stock.TotalQty - stock.LockedQty;
+            stock.UpdateTime = DateTime.Now;
+            _stockSummaryRepo.Update(stock);
         }
     }
 
@@ -161,9 +182,7 @@ public class LogisticsServiceAdapter : ILogisticsService
         CancellationToken cancellationToken = default)
     {
         // 只读查询，不挂载外部事务
-        // 直接查 Log_ExpressDeliveries 表
-        var allDeliveries = await _deliveryRepo.GetAllAsync();
-        var orderDeliveries = allDeliveries.Where(d => d.OrderID == orderId).ToList();
+        var orderDeliveries = await _deliveryRepo.GetByOrderIdAsync(orderId);
 
         return supplierIds.Select(sid =>
         {
