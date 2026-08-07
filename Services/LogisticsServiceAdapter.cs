@@ -128,6 +128,9 @@ public class LogisticsServiceAdapter : ILogisticsService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            if (item.Quantity <= 0)
+                throw new InvalidOperationException($"商品 {item.ProductId}({item.ProductName}) 数量必须大于 0");
+
             // FOR UPDATE 行级锁，阻塞并发请求对同一产品库存的修改
             var stock = await _stockSummaryRepo.GetByProductIdForUpdateAsync(item.ProductId);
             if (stock == null)
@@ -138,7 +141,7 @@ public class LogisticsServiceAdapter : ILogisticsService
             var remaining = item.Quantity;
             var batches = await _batchRepo.GetByProductIdForUpdateAsync(item.ProductId);
 
-            foreach (var batch in batches.OrderBy(b => b.ExpiryDate))
+            foreach (var batch in batches)
             {
                 if (remaining <= 0) break;
 

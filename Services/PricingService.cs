@@ -239,6 +239,12 @@ public class PricingService : IPricingService
         if (rule == null)
             return ApiResponse<PriceRuleDto>.Fail("规则不存在", 404);
 
+        // 校验 TriggerType 和对应字段
+        if (dto.TriggerType == "ManualPrice" && dto.ManualPrice == null)
+            return ApiResponse<PriceRuleDto>.Fail("手动调价类型必须填写 ManualPrice");
+        if (dto.TriggerType != "ManualPrice" && dto.DiscountRate == null)
+            return ApiResponse<PriceRuleDto>.Fail("非手动调价类型必须填写 DiscountRate");
+
         var product = await _productRepo.GetByIdAsync(rule.ProductID);
 
         rule.RuleName = dto.RuleName;
@@ -253,8 +259,14 @@ public class PricingService : IPricingService
         rule.EffectiveFrom = dto.EffectiveFrom;
         rule.EffectiveTo = dto.EffectiveTo;
 
-        _ruleRepo.Update(rule);
-        return ApiResponse<PriceRuleDto>.Success(MapToDto(rule, product), "规则更新成功");
+        try
+        {
+            await _uow.BeginAsync();
+            _ruleRepo.Update(rule);
+            await _uow.CommitAsync();
+            return ApiResponse<PriceRuleDto>.Success(MapToDto(rule, product), "规则更新成功");
+        }
+        catch { await _uow.RollbackAsync(); throw; }
     }
 
     public async Task<ApiResponse<PriceRuleDto>> GetRuleByIdAsync(string ruleId)
@@ -273,8 +285,14 @@ public class PricingService : IPricingService
         if (rule == null)
             return ApiResponse.Fail("规则不存在", 404);
 
-        _ruleRepo.Delete(rule);
-        return ApiResponse.Success("规则已删除");
+        try
+        {
+            await _uow.BeginAsync();
+            _ruleRepo.Delete(rule);
+            await _uow.CommitAsync();
+            return ApiResponse.Success("规则已删除");
+        }
+        catch { await _uow.RollbackAsync(); throw; }
     }
 
     // ==================== 映射 ====================

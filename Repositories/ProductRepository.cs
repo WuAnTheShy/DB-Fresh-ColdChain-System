@@ -33,7 +33,7 @@ public class ProductRepository : BaseRepository<InvProduct>, IProductRepository
         var items = await _uow.Connection.QueryAsync<InvProduct, InvCategory, InvSupplier, InvStockSummary, InvProduct>(
             dataSql,
             (prod, cat, sup, st) => { prod.Category = cat; prod.Supplier = sup; prod.StockSummary = st; return prod; },
-            dp, _uow.Transaction, splitOn: "CategoryID,SupplierID,ProductID");
+            dp, _uow.Transaction, splitOn: "CategoryName,SupplierName,StockID");
 
         return (items.ToList(), total);
     }
@@ -51,7 +51,7 @@ public class ProductRepository : BaseRepository<InvProduct>, IProductRepository
         var result = await _uow.Connection.QueryAsync<InvProduct, InvCategory, InvSupplier, InvStockSummary, InvProduct>(
             sql,
             (prod, cat, sup, st) => { prod.Category = cat; prod.Supplier = sup; prod.StockSummary = st; return prod; },
-            new { Id = id }, _uow.Transaction, splitOn: "CategoryID,SupplierID,ProductID");
+            new { Id = id }, _uow.Transaction, splitOn: "CategoryName,SupplierName,StockID");
         return result.FirstOrDefault();
     }
 }

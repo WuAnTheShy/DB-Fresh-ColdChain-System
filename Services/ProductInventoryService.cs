@@ -233,7 +233,7 @@ public class ProductInventoryService : IProductInventoryService
             // FEFO 扣减：从最早过期批次扣（FOR UPDATE SKIP LOCKED 防止并发抢同一批次）
             var remaining = dto.Quantity;
             var batches = await _batchRepo.GetByProductIdForUpdateAsync(dto.ProductID);
-            foreach (var batch in batches.OrderBy(b => b.ExpiryDate))
+            foreach (var batch in batches)
             {
                 if (remaining <= 0) break;
                 var deduct = Math.Min(remaining, batch.CurrentQty);

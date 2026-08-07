@@ -134,6 +134,8 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
             // 3. 逐商品处理：加锁 → 校验库存 → FEFO 扣批次 → 更新汇总 → 写溯源
             foreach (var item in request.Items)
             {
+                if (item.Quantity <= 0)
+                    throw new InvalidOperationException($"商品 {item.ProductID} 数量必须大于 0");
                 // 3a. SELECT ... FOR UPDATE：行级锁，阻塞并发请求对同一产品库存的修改
                 var stock = await _stockSummary.GetByProductIdForUpdateAsync(item.ProductID);
                 if (stock == null)
@@ -145,7 +147,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                 var remaining = item.Quantity;
                 var batches = await _batches.GetByProductIdForUpdateAsync(item.ProductID);
 
-                foreach (var batch in batches.OrderBy(b => b.ExpiryDate))
+                foreach (var batch in batches)
                 {
                     if (remaining <= 0) break;
 
@@ -311,7 +313,9 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                 BatchID = item.BatchID,
                 BatchNo = batch?.BatchNo ?? "",
                 ExpiryDate = batch?.ExpiryDate,
-                Quantity = item.Quantity
+                Quantity = item.Quantity,
+                DeliveryID = delivery.DeliveryID,
+                TrackingNo = delivery.TrackingNo
             });
         }
 

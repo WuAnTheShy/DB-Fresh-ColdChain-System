@@ -18,7 +18,7 @@ public class SupplierRepository : BaseRepository<InvSupplier>, ISupplierReposito
         var result = await _uow.Connection.QueryAsync<InvProduct, InvStockSummary, InvProduct>(
             sql,
             (prod, summary) => { prod.StockSummary = summary; return prod; },
-            new { Id = supplierId }, _uow.Transaction, splitOn: "ProductID");
+            new { Id = supplierId }, _uow.Transaction, splitOn: "StockID");
         return result.ToList();
     }
 

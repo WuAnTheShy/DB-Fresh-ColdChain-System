@@ -36,7 +36,7 @@ public class StockSummaryRepository : BaseRepository<InvStockSummary>, IStockSum
         var result = await _uow.Connection.QueryAsync<InvStockSummary, InvProduct, InvStockSummary>(
             sql,
             (st, prod) => { st.Product = prod; return st; },
-            new { Threshold = threshold }, _uow.Transaction, splitOn: "ProductID");
+            new { Threshold = threshold }, _uow.Transaction, splitOn: "ProductName");
         return result.ToList();
     }
 }

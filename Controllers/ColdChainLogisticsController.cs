@@ -81,6 +81,7 @@ public class ColdChainLogisticsController : Controller
         existing.ExtraWeightFee = template.ExtraWeightFee;
         existing.PackagingFee = template.PackagingFee;
         existing.FreeShippingThreshold = template.FreeShippingThreshold;
+        existing.IsEnabled = template.IsEnabled;
 
         _templates.Update(existing);
         TempData["Success"] = "运费模板已更新";
