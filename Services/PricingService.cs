@@ -56,7 +56,7 @@ public class PricingService : IPricingService
         // 3. 遍历规则取第一个命中
         foreach (var rule in rules)
         {
-            if (IsRuleTriggered(rule, product, request.Quantity, now))
+            if (await IsRuleTriggeredAsync(rule, product, request.Quantity, now))
             {
                 var finalPrice = ComputeFinalPrice(rule, product.DefaultPrice);
                 return ApiResponse<PriceCalculationResult>.Success(new PriceCalculationResult
@@ -87,13 +87,13 @@ public class PricingService : IPricingService
     /// <summary>
     /// 判断当前规则是否满足触发条件
     /// </summary>
-    private bool IsRuleTriggered(BizPriceRule rule, InvProduct product, decimal quantity, DateTime now)
+    private async Task<bool> IsRuleTriggeredAsync(BizPriceRule rule, InvProduct product, decimal quantity, DateTime now)
     {
         return rule.TriggerType switch
         {
             "TimeBased" => IsTimeInWindow(rule.TimeWindow, now),
             "BulkDiscount" => IsBulkMatch(rule, quantity),
-            "ExpiryApproaching" => IsProductExpiringSoon(product, now),
+            "ExpiryApproaching" => await IsProductExpiringSoonAsync(product, now),
             "ManualPrice" => rule.ManualPrice.HasValue,
             _ => true // 未知类型默认触发（向后兼容）
         };
@@ -131,16 +131,16 @@ public class PricingService : IPricingService
         return true;
     }
 
-    /// <summary>临期折扣：基于产品的 ExpiryHours 判断</summary>
-    private static bool IsProductExpiringSoon(InvProduct product, DateTime now)
+    /// <summary>临期折扣：查询产品批次，有批次在 24 小时内过期则触发</summary>
+    private async Task<bool> IsProductExpiringSoonAsync(InvProduct product, DateTime now)
     {
-        // 通过产品保质期估算：如果 ExpiryHours 有值，判断是否接近保质期的一半
-        // 实际场景中会关联 Inv_StockBatches.ExpiryDate
         if (product.ExpiryHours is not > 0) return false;
 
-        // 简单判断：如果当前时间到产品生产时间 + 保质期的一半，视为临期
-        // 生产时间取批次中最晚的生产日期（简化：直接用当前时间判断）
-        return true; // 注：精确判断需要查批次表，这里保留简化逻辑供扩展
+        // 查询该产品所有活跃批次
+        var batches = await _batchRepo.GetByProductIdAsync(product.ProductID);
+        var threshold = now.AddHours(24);
+
+        return batches.Any(b => b.ExpiryDate.HasValue && b.ExpiryDate.Value <= threshold);
     }
 
     // ==================== 价格计算 ====================
@@ -175,12 +175,9 @@ public class PricingService : IPricingService
 
     public async Task<ApiResponse<PagedResult<PriceRuleDto>>> GetAllRulesAsync(int pageIndex, int pageSize)
     {
-        var allRules = await _ruleRepo.GetAllAsync();
-        var total = allRules.Count;
-        var paged = allRules
-            .Skip((pageIndex - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
+        // 数据库级分页，避免全表加载
+        var paged = await _ruleRepo.GetPagedAsync(pageIndex, pageSize);
+        var total = await _ruleRepo.CountAsync();
 
         // 批量加载关联产品名
         var productIds = paged.Select(r => r.ProductID).Distinct().ToList();
