@@ -141,9 +141,9 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                 if (stock.AvailableQty < item.Quantity)
                     throw new InvalidOperationException($"商品 {item.ProductID} 库存不足（可用 {stock.AvailableQty}，需要 {item.Quantity}）");
 
-                // 3b. FEFO 先进先出：按过期时间从早到晚扣减库存批次
+                // 3b. FEFO 先进先出：按过期时间从早到晚扣减库存批次（SKIP LOCKED 防并发冲突）
                 var remaining = item.Quantity;
-                var batches = await _batches.GetByProductIdAsync(item.ProductID);
+                var batches = await _batches.GetByProductIdForUpdateAsync(item.ProductID);
 
                 foreach (var batch in batches.OrderBy(b => b.ExpiryDate))
                 {

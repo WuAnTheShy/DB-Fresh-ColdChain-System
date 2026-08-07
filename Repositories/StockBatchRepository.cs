@@ -18,6 +18,21 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
     }
 
     /// <summary>
+    /// 带行级锁的 FEFO 批次查询：FOR UPDATE SKIP LOCKED
+    /// 必须在事务内调用。并发出库时，已被其他事务锁定的批次行会被跳过，避免等待和死锁。
+    /// </summary>
+    public async Task<List<InvStockBatch>> GetByProductIdForUpdateAsync(string productId)
+    {
+        var sql = """
+            SELECT * FROM "Inv_StockBatches"
+            WHERE "ProductID" = :Id AND "CurrentQty" > 0 AND "Status" = 'ACTIVE'
+            ORDER BY "ExpiryDate" ASC
+            FOR UPDATE SKIP LOCKED
+            """;
+        return (await _uow.Connection.QueryAsync<InvStockBatch>(sql, new { Id = productId }, _uow.Transaction)).ToList();
+    }
+
+    /// <summary>
     /// FEFO：取最早过期且还有库存的批次
     /// </summary>
     public async Task<InvStockBatch?> GetOldestAvailableBatchAsync(string productId)

@@ -212,7 +212,7 @@ public class ColdChainLogisticsServiceTests
             new() { BatchID = "B1", ProductID = "P1", BatchNo = "BN001", ExpiryDate = DateTime.Today.AddDays(5), CurrentQty = 3, Status = "ACTIVE" },
             new() { BatchID = "B2", ProductID = "P1", BatchNo = "BN002", ExpiryDate = DateTime.Today.AddDays(10), CurrentQty = 50, Status = "ACTIVE" }
         };
-        _batches.Setup(x => x.GetByProductIdAsync("P1")).ReturnsAsync(batches);
+        _batches.Setup(x => x.GetByProductIdForUpdateAsync("P1")).ReturnsAsync(batches);
 
         var request = new ShipmentRequest
         {
@@ -283,7 +283,7 @@ public class ColdChainLogisticsServiceTests
         {
             new() { BatchID = "B1", ProductID = "P1", BatchNo = "BN001", ExpiryDate = DateTime.Today, CurrentQty = 2, Status = "ACTIVE" }
         };
-        _batches.Setup(x => x.GetByProductIdAsync("P1")).ReturnsAsync(batches);
+        _batches.Setup(x => x.GetByProductIdForUpdateAsync("P1")).ReturnsAsync(batches);
 
         var request = new ShipmentRequest
         {

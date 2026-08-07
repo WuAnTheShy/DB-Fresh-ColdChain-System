@@ -136,7 +136,7 @@ public class LogisticsServiceAdapter : ILogisticsService
                 throw new InvalidOperationException($"商品 {item.ProductId}({item.ProductName}) 库存不足（可用 {stock.AvailableQty}，需要 {item.Quantity}）");
 
             var remaining = item.Quantity;
-            var batches = await _batchRepo.GetByProductIdAsync(item.ProductId);
+            var batches = await _batchRepo.GetByProductIdForUpdateAsync(item.ProductId);
 
             foreach (var batch in batches.OrderBy(b => b.ExpiryDate))
             {
