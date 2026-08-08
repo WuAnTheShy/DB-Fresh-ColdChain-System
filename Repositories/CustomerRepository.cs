@@ -56,6 +56,17 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
                 transaction));
     }
 
+    public async Task<CrmCustomer?> GetByPhoneAsync(
+        string phone,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, connection =>
+            connection.QueryFirstOrDefaultAsync<CrmCustomer>(
+                "SELECT * FROM Crm_Customers WHERE Phone = :Phone",
+                new { Phone = phone },
+                transaction));
+    }
+
     /// <summary>锁定消费者行，防止并发订单覆盖积分余额</summary>
     public async Task<CrmCustomer?> GetByIdForUpdateAsync(
         string customerId,

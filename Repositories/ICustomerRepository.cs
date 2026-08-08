@@ -18,6 +18,10 @@ public interface ICustomerRepository
         string customerId,
         IDbTransaction? transaction = null);
 
+    Task<CrmCustomer?> GetByPhoneAsync(
+        string phone,
+        IDbTransaction? transaction = null);
+
     Task<CrmCustomer?> GetByIdForUpdateAsync(
         string customerId,
         IDbTransaction transaction);

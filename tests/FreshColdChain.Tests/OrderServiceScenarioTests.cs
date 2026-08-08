@@ -179,4 +179,21 @@ internal static class AssertEx
         throw new InvalidOperationException(
             $"断言失败：期望抛出 {typeof(TException).Name}");
     }
+
+    public static async Task<TException> ThrowsAndReturnAsync<TException>(
+        Func<Task> operation)
+        where TException : Exception
+    {
+        try
+        {
+            await operation();
+        }
+        catch (TException exception)
+        {
+            return exception;
+        }
+
+        throw new InvalidOperationException(
+            $"断言失败：期望抛出 {typeof(TException).Name}");
+    }
 }

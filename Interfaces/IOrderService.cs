@@ -38,6 +38,8 @@ public interface ICustomerService
 {
     Task<string> CreateCustomerAsync(CustomerCreateRequest request);
 
+    Task<GroupBCustomerLoginResult> LoginAsync(GroupBCustomerLoginRequest request);
+
     Task<CrmCustomer?> GetCustomerAsync(string customerId);
 
     Task<CustomerProfileViewModel?> GetProfileAsync(string customerId);

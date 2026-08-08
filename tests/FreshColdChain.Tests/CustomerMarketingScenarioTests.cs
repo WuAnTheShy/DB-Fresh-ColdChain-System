@@ -10,6 +10,8 @@ internal static class CustomerMarketingScenarioTests
         var scenarios = new (string Name, Func<Task> Run)[]
         {
             ("新增消费者使用密码哈希并初始化基础等级", CustomerCreationHashesPasswordAsync),
+            ("注册后可使用统一入口登录", RegisteredCustomerCanLoginAsync),
+            ("登录失败不泄露账号是否存在", LoginFailureUsesGenericMessageAsync),
             ("消费者资料只更新允许维护的字段", ProfileUpdateCommitsAsync),
             ("第一条地址自动成为默认地址", FirstAddressBecomesDefaultAsync),
             ("编辑唯一地址时保持默认地址不变量", EditingOnlyAddressKeepsDefaultAsync),
@@ -88,6 +90,37 @@ internal static class CustomerMarketingScenarioTests
         AssertEx.Equal(originalPoints, context.CustomerRepository.Customer.Points);
         AssertEx.Equal(originalSpent, context.CustomerRepository.Customer.TotalSpent);
         AssertCommitted(context);
+    }
+
+    private static async Task RegisteredCustomerCanLoginAsync()
+    {
+        var context = TestContext.Create();
+        var request = CreateCustomerRequest();
+        var customerId = await context.CustomerService.CreateCustomerAsync(request);
+
+        var result = await context.CustomerService.LoginAsync(
+            new GroupBCustomerLoginRequest
+            {
+                Phone = request.Phone,
+                Password = request.Password
+            });
+
+        AssertEx.Equal(customerId, result.CustomerId);
+        AssertEx.Equal("新消费者", result.CustomerName);
+        AssertEx.Equal(request.Phone, result.Phone);
+    }
+
+    private static async Task LoginFailureUsesGenericMessageAsync()
+    {
+        var context = TestContext.Create();
+        var exception = await AssertEx.ThrowsAndReturnAsync<GroupBBusinessException>(() =>
+            context.CustomerService.LoginAsync(new GroupBCustomerLoginRequest
+            {
+                Phone = "13600136000",
+                Password = "WrongPass123!"
+            }));
+
+        AssertEx.Equal("手机号或密码错误", exception.Message);
     }
 
     private static async Task FirstAddressBecomesDefaultAsync()
@@ -237,6 +270,18 @@ internal static class CustomerMarketingScenarioTests
             District = "余杭区",
             DetailAddress = "文一西路1号",
             IsDefault = isDefault
+        };
+    }
+
+    private static CustomerCreateRequest CreateCustomerRequest()
+    {
+        return new CustomerCreateRequest
+        {
+            CustomerName = "新消费者",
+            Phone = "13600136000",
+            Email = "new@example.com",
+            Password = "SafePass123!",
+            ConfirmPassword = "SafePass123!"
         };
     }
 

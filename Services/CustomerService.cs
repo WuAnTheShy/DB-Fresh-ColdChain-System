@@ -64,6 +64,35 @@ public sealed class CustomerService : ICustomerService
         });
     }
 
+    public async Task<GroupBCustomerLoginResult> LoginAsync(
+        GroupBCustomerLoginRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        request.Phone = request.Phone?.Trim() ?? string.Empty;
+        if (!MainlandPhonePattern.IsMatch(request.Phone) ||
+            request.Password.Length is < 8 or > 100)
+        {
+            throw new GroupBBusinessException("手机号或密码错误");
+        }
+
+        var customer = await _customerRepo.GetByPhoneAsync(request.Phone);
+        if (customer == null ||
+            _passwordHasher.VerifyHashedPassword(
+                customer,
+                customer.PasswordHash,
+                request.Password) == PasswordVerificationResult.Failed)
+        {
+            throw new GroupBBusinessException("手机号或密码错误");
+        }
+
+        return new GroupBCustomerLoginResult
+        {
+            CustomerId = customer.CustomerId,
+            CustomerName = customer.CustomerName,
+            Phone = customer.Phone
+        };
+    }
+
     public async Task<CrmCustomer?> GetCustomerAsync(string customerId)
     {
         return !GroupBIds.IsValid(customerId)

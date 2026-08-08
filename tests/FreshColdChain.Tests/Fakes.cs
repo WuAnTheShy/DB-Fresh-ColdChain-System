@@ -435,6 +435,17 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
             : null);
     }
 
+    public Task<CrmCustomer?> GetByPhoneAsync(
+        string phone,
+        IDbTransaction? transaction = null)
+    {
+        var customer = new[] { Customer }
+            .Concat(CreatedCustomers)
+            .SingleOrDefault(item =>
+                string.Equals(item.Phone, phone, StringComparison.Ordinal));
+        return Task.FromResult(customer == null ? null : CloneCustomer(customer));
+    }
+
     public Task<CrmCustomer?> GetByIdForUpdateAsync(
         string customerId,
         IDbTransaction transaction)
