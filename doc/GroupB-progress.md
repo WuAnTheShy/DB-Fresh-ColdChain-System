@@ -49,10 +49,11 @@ B 组只负责以下 8 张表：
 ## 4. 当前验证结果
 
 - `dotnet build FreshColdChain.csproj --no-restore`：0 警告、0 错误。
-- `dotnet run --project tests/FreshColdChain.Tests/FreshColdChain.Tests.csproj --no-restore`：28 个事务/业务场景通过。
+- `dotnet run --project tests/FreshColdChain.Tests/FreshColdChain.Tests.csproj --no-restore`：30 个事务/业务场景通过。
   - 下单事务：4 个。
   - 客户营销与认证：12 个。
   - 订单生命周期与退款：12 个。
+  - 跨组契约与数据最小化：2 个。
 - `pwsh -NoProfile -File tests/verify-groupb-ddl.ps1`：8 表主键、演示数据和职责边界检查通过。
 - `npm audit --audit-level=high`：0 个已知漏洞。
 - `npm run build`：Vue/Vite 生产构建通过。

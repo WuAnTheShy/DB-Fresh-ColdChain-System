@@ -50,6 +50,25 @@ Task ReleaseAsync(
 `DummyInventoryService` 只校验数量并返回确定性快照，不持久化库存变化。
 `ProductId`、`SupplierId` 和 `PromoterId` 均使用字符串，兼容各组的 GUID 主键。
 
+### 2.4 商品目录与可信商品批量查询
+
+接口：`Interfaces/IExternalCatalogServices.cs` 中的 `IGroupAProductCatalogService`。
+
+```csharp
+Task<GroupAProductSearchResult> SearchSellableProductsAsync(
+    GroupAProductSearchRequest request,
+    CancellationToken cancellationToken = default);
+
+Task<IReadOnlyList<GroupATrustedProduct>> GetTrustedProductsAsync(
+    IReadOnlyList<string> productIds,
+    CancellationToken cancellationToken = default);
+```
+
+- B 组先从 C 组取得团长合作供应商集合，再传给 A 组查询可售商品。
+- `SupplierId` 只在后端协作和下单校验中使用；消费者商品 DTO 已用 `JsonIgnore` 禁止输出该字段。
+- 结算和下单必须重新批量读取实际价格、库存、上下架状态和供应商，不能信任购物车缓存。
+- 本仓库只冻结契约，不实现 A 组查询，也不读取 A 组表。
+
 ## 3. B 组调用 A 组：运费与物流履约
 
 接口：`Interfaces/ILogisticsService.cs`
@@ -112,6 +131,34 @@ Task RegisterCompletedOrderAsync(
 - C 组负责阶梯佣金算法、预计佣金和审计记录，不允许 B 组直接写 C 组表。
 - C 组失败时订单保持已发货，完整事务回滚。
 - `origin/dev-groupC` 当前尚无佣金接口，现阶段使用 `DummyCommissionService`。
+
+### 4.1 团长目录与合作范围
+
+接口：`Interfaces/IExternalCatalogServices.cs` 中的 `IGroupCPromoterCatalogService`。
+
+```csharp
+Task<GroupCPromoterSearchResult> SearchAvailablePromotersAsync(
+    GroupCPromoterSearchRequest request,
+    CancellationToken cancellationToken = default);
+
+Task<GroupCPromoterSummary?> GetPromoterAsync(
+    string promoterId,
+    CancellationToken cancellationToken = default);
+
+Task<IReadOnlyList<string>> GetCooperatingSupplierIdsAsync(
+    string promoterId,
+    CancellationToken cancellationToken = default);
+
+Task<IReadOnlyList<GroupCPromoterProductValidation>> ValidatePromoterProductsAsync(
+    string promoterId,
+    IReadOnlyList<GroupCPromoterProductCandidate> products,
+    CancellationToken cancellationToken = default);
+```
+
+- C 组维护独立的团长—供应商合作关系，不要求修改 `Crm_Promoters` 字段。
+- 消费者端只接收团长和商品信息，不接收供应商编号或合作关系。
+- B 组下单前使用 A 组可信商品快照，再由 C 组批量校验每件商品是否允许该团长带货。
+- 本仓库不创建 C 组合作关系表，也不实现 C 组查询。
 
 ## 5. C 组调用 B 组：退款积分扣回
 
