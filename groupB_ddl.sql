@@ -179,3 +179,83 @@ ALTER TABLE Mkt_CouponRecords ADD CONSTRAINT FK_CouponRec_Order
 
 ALTER TABLE Crm_PointLogs ADD CONSTRAINT FK_PointLog_Order
     FOREIGN KEY (OrderId) REFERENCES Biz_Orders(OrderId);
+
+-- ============================================================
+-- B 组最小可联调演示数据（覆盖本组 8 张表）
+-- 演示消费者：13800138000 / FreshB2026!
+-- ============================================================
+
+INSERT INTO Crm_MemberLevels (
+    MemberLevelId, LevelName, MinSpent, DiscountRate, PointsMultiplier)
+VALUES ('00000000000000000000000000000001', '普通会员', 0, 1, 1);
+
+INSERT INTO Crm_MemberLevels (
+    MemberLevelId, LevelName, MinSpent, DiscountRate, PointsMultiplier)
+VALUES ('00000000000000000000000000000002', '银卡会员', 1000, 0.98, 2);
+
+INSERT INTO Crm_MemberLevels (
+    MemberLevelId, LevelName, MinSpent, DiscountRate, PointsMultiplier)
+VALUES ('00000000000000000000000000000003', '金卡会员', 5000, 0.95, 3);
+
+INSERT INTO Crm_Customers (
+    CustomerId, CustomerName, Phone, Email, PasswordHash, MemberLevelId,
+    TotalSpent, Points, GrowthValue, CreatedAt)
+VALUES (
+    '10000000000000000000000000000001', 'B组演示消费者', '13800138000',
+    'groupb-demo@example.com',
+    'AQAAAAIAAYagAAAAELZ+JUYKNB5uhEWheNPT8V/P2ZU/5gCHQxkXY/P1OOizxu3qpbZoMEccZ7Pgs+EwKg==',
+    '00000000000000000000000000000001', 160, 16, 0, SYSDATE);
+
+INSERT INTO Crm_UserAddresses (
+    AddressId, CustomerId, ReceiverName, Phone, Province, City, District,
+    DetailAddress, IsDefault, CreatedAt)
+VALUES (
+    '20000000000000000000000000000001',
+    '10000000000000000000000000000001',
+    '演示收件人', '13800138000', '浙江省', '杭州市', '西湖区',
+    '文三路演示园区1号', 1, SYSDATE);
+
+INSERT INTO Mkt_Coupons (
+    CouponId, CouponName, MinOrderAmount, DiscountAmount, TotalQuantity,
+    RemainingQuantity, StartTime, EndTime, Status)
+VALUES (
+    '30000000000000000000000000000001', '新人满100减20', 100, 20,
+    100, 99, SYSDATE - 1, SYSDATE + 30, 1);
+
+INSERT INTO Biz_Orders (
+    OrderId, OrderNo, CustomerId, AddressId, ReceiverName, ReceiverPhone,
+    ShippingAddress, TotalAmount, DiscountAmount, FreightAmount, FinalAmount,
+    PointsEarned, OrderStatus, CreatedAt)
+VALUES (
+    '50000000000000000000000000000001', 'ORD-DEMO-B-0001',
+    '10000000000000000000000000000001',
+    '20000000000000000000000000000001',
+    '演示收件人', '13800138000', '浙江省 杭州市 西湖区 文三路演示园区1号',
+    180, 20, 0, 160, 16, 'COMPLETED', SYSDATE);
+
+INSERT INTO Biz_OrderDetails (
+    OrderDetailId, OrderId, ProductId, ProductName, Quantity, UnitPrice,
+    SubTotal, SupplierId)
+VALUES (
+    '60000000000000000000000000000001',
+    '50000000000000000000000000000001',
+    'P1', '演示车厘子', 2, 90, 180, 'SUP1');
+
+INSERT INTO Mkt_CouponRecords (
+    RecordId, CouponId, CustomerId, OrderId, Status, UsedAt, CreatedAt)
+VALUES (
+    '40000000000000000000000000000001',
+    '30000000000000000000000000000001',
+    '10000000000000000000000000000001',
+    '50000000000000000000000000000001', 1, SYSDATE, SYSDATE);
+
+INSERT INTO Crm_PointLogs (
+    PointLogId, CustomerId, ChangeAmount, BalanceAfter, ChangeType, OrderId,
+    CreatedAt)
+VALUES (
+    '70000000000000000000000000000001',
+    '10000000000000000000000000000001',
+    16, 16, 'ORDER_EARN', '50000000000000000000000000000001',
+    SYSDATE);
+
+COMMIT;
