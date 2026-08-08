@@ -987,6 +987,21 @@ internal sealed class FakePointRepository : IPointRepository
         return Task.CompletedTask;
     }
 
+    public Task<bool> HasPointLogAsync(
+        int customerId,
+        int orderId,
+        string changeType,
+        IDbTransaction? transaction = null)
+    {
+        return Task.FromResult(Logs.Any(log =>
+            log.CustomerId == customerId &&
+            log.OrderId == orderId &&
+            string.Equals(
+                log.ChangeType,
+                changeType,
+                StringComparison.Ordinal)));
+    }
+
     public Task<List<CrmMemberLevel>> GetAllLevelsAsync(
         IDbTransaction? transaction = null)
     {

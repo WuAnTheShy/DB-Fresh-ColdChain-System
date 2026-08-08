@@ -120,18 +120,17 @@ Task RegisterCompletedOrderAsync(
 Task DeductPointsForRefundAsync(
     int customerId,
     int orderId,
-    int pointsToDeduct);
+    int pointsToDeduct,
+    CancellationToken cancellationToken = default);
 ```
 
 当前行为：
 
-- 参数必须为正数。
-- 消费者记录会在事务内锁定。
-- 实际扣减不超过当前积分余额。
-- 积分余额与 `REFUND_DEDUCT` 流水在同一事务提交。
+- 参数必须为正数，且订单必须属于指定消费者。
+- 订单和消费者记录会在同一事务内按固定顺序锁定。
+- 同一订单只允许生成一条 `REFUND_DEDUCT` 流水；订单已经是“已退款”时重复调用直接成功返回。
+- 实际扣减不超过当前积分余额、调用方请求值及订单原始奖励积分三者中的最小值。
+- 已支付且尚未发货的订单会通过 A 组契约释放预留库存；已发货或已完成订单不会回补库存。
+- 积分余额、流水、库存释放和订单“已退款”状态在同一事务提交或回滚。
 
-阶段 5 还需补充：
-
-- 按 `orderId` 幂等校验，避免重复退款重复扣分。
-- B 组调用 C 组佣金撤销接口并统一处理失败回滚。
-- 完整退款状态 5→6 和支付退款结果协同。
+阶段 5 仍需由 C 组完成佣金撤销和支付渠道退款，并在调用本接口前保证财务退款结果可信。

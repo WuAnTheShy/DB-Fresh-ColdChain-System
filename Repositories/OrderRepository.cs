@@ -230,7 +230,7 @@ public class OrderRepository : BaseRepository, IOrderRepository
 
     private static string CreateOrderFilterSql()
     {
-           return @"WHERE (:CustomerId IS NULL OR o.CustomerId = :CustomerId)
+        return @"WHERE (:CustomerId IS NULL OR o.CustomerId = :CustomerId)
                     AND (:OrderStatus IS NULL OR o.OrderStatus = :OrderStatus)
                     AND (:Keyword IS NULL
                         OR o.OrderNo LIKE '%' || :Keyword || '%'

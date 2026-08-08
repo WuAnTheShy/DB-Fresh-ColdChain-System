@@ -396,7 +396,8 @@ public sealed class OrderService : IOrderService
     public async Task DeductPointsForRefundAsync(
         int customerId,
         int orderId,
-        int pointsToDeduct)
+        int pointsToDeduct,
+        CancellationToken cancellationToken = default)
     {
         if (customerId <= 0)
             throw new OrderBusinessException("消费者ID必须大于0");
@@ -407,25 +408,76 @@ public sealed class OrderService : IOrderService
 
         await _transactionManager.ExecuteAsync(async transaction =>
         {
-            var customer = await _customerRepo.GetByIdForUpdateAsync(
-                    customerId,
-                    transaction)
-                ?? throw new OrderBusinessException("消费者不存在");
+            cancellationToken.ThrowIfCancellationRequested();
+            var context = await GetLockedOrderContextAsync(orderId, transaction);
+            if (context.Customer.CustomerId != customerId)
+                throw new OrderBusinessException("订单不属于指定消费者");
 
-            var actualDeduction = Math.Min(customer.Points, pointsToDeduct);
-            if (actualDeduction == 0)
+            var currentStatus = (OrderStatus)context.Order.OrderStatus;
+            if (currentStatus == OrderStatus.Refunded)
                 return;
-
-            var newPoints = customer.Points - actualDeduction;
-            await _customerRepo.UpdatePointsAsync(customerId, newPoints, transaction);
-            await _pointRepo.InsertLogAsync(new CrmPointLog
+            if (currentStatus is OrderStatus.PendingPayment or OrderStatus.Cancelled)
+                throw new OrderBusinessException("当前订单状态不允许退款");
+            if (currentStatus is not (
+                OrderStatus.Paid or
+                OrderStatus.Shipped or
+                OrderStatus.Completed or
+                OrderStatus.Refunding))
             {
-                CustomerId = customerId,
-                ChangeAmount = -actualDeduction,
-                BalanceAfter = newPoints,
-                ChangeType = "REFUND_DEDUCT",
-                OrderId = orderId
-            }, transaction);
+                throw new OrderBusinessException("订单状态无效，无法完成退款");
+            }
+
+            if (await _pointRepo.HasPointLogAsync(
+                customerId,
+                orderId,
+                "REFUND_DEDUCT",
+                transaction))
+            {
+                throw new OrderBusinessException("退款积分流水已存在但订单状态不一致");
+            }
+
+            if (currentStatus == OrderStatus.Paid)
+            {
+                await _inventoryService.ReleaseAsync(
+                    CreateFulfillmentOrderRequest(
+                        context.Order,
+                        context.Details),
+                    transaction,
+                    cancellationToken);
+            }
+
+            var requestedDeduction = Math.Min(
+                pointsToDeduct,
+                context.Order.PointsEarned);
+            var actualDeduction = Math.Min(
+                context.Customer.Points,
+                requestedDeduction);
+
+            if (actualDeduction > 0)
+            {
+                var newPoints = context.Customer.Points - actualDeduction;
+                await _customerRepo.UpdatePointsAsync(
+                    customerId,
+                    newPoints,
+                    transaction);
+                await _pointRepo.InsertLogAsync(new CrmPointLog
+                {
+                    CustomerId = customerId,
+                    ChangeAmount = -actualDeduction,
+                    BalanceAfter = newPoints,
+                    ChangeType = "REFUND_DEDUCT",
+                    OrderId = orderId
+                }, transaction);
+            }
+
+            if (!await _orderRepo.TryUpdateStatusAsync(
+                orderId,
+                currentStatus,
+                OrderStatus.Refunded,
+                transaction))
+            {
+                throw new OrderBusinessException("订单状态已变化，请刷新后重试");
+            }
         });
     }
 

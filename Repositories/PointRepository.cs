@@ -24,6 +24,32 @@ public class PointRepository : BaseRepository, IPointRepository
         });
     }
 
+    /// <summary>检查订单对应类型的积分流水是否已经存在。</summary>
+    public async Task<bool> HasPointLogAsync(
+        int customerId,
+        int orderId,
+        string changeType,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+        {
+            var count = await connection.ExecuteScalarAsync<int>(
+                @"SELECT COUNT(1)
+                  FROM Crm_PointLogs
+                  WHERE CustomerId = :CustomerId
+                    AND OrderId = :OrderId
+                    AND ChangeType = :ChangeType",
+                new
+                {
+                    CustomerId = customerId,
+                    OrderId = orderId,
+                    ChangeType = changeType
+                },
+                transaction);
+            return count > 0;
+        });
+    }
+
     /// <summary>获取所有会员等级（按消费门槛升序）</summary>
     public async Task<List<CrmMemberLevel>> GetAllLevelsAsync(IDbTransaction? transaction = null)
     {

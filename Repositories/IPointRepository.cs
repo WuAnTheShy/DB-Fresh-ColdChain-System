@@ -6,6 +6,11 @@ namespace FreshColdChain.Repositories;
 public interface IPointRepository
 {
     Task InsertLogAsync(CrmPointLog log, IDbTransaction? transaction = null);
+    Task<bool> HasPointLogAsync(
+        int customerId,
+        int orderId,
+        string changeType,
+        IDbTransaction? transaction = null);
     Task<List<CrmMemberLevel>> GetAllLevelsAsync(IDbTransaction? transaction = null);
     Task<CrmMemberLevel?> GetLevelByIdAsync(
         int memberLevelId,

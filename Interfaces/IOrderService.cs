@@ -30,8 +30,12 @@ public interface IOrderService
         int orderId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>扣减买家积分（C组退款时调用）</summary>
-    Task DeductPointsForRefundAsync(int customerId, int orderId, int pointsToDeduct);
+    /// <summary>完成退款并幂等扣回买家积分（C组退款时调用）</summary>
+    Task DeductPointsForRefundAsync(
+        int customerId,
+        int orderId,
+        int pointsToDeduct,
+        CancellationToken cancellationToken = default);
 
     /// <summary>查询用户当前会员等级</summary>
     Task<CrmMemberLevel?> GetCustomerLevelAsync(int customerId);

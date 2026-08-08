@@ -17,7 +17,10 @@ internal static class OrderLifecycleScenarioTests
             ("非法状态跳转被拒绝并回滚", InvalidTransitionRollsBackAsync),
             ("佣金登记失败时订单完成回滚", CommissionFailureRollsBackAsync),
             ("取消订单归还库存和营销资产", CancellationCompensatesAssetsAsync),
-            ("库存释放失败时取消订单整体回滚", ReleaseFailureRollsBackCancellationAsync)
+            ("库存释放失败时取消订单整体回滚", ReleaseFailureRollsBackCancellationAsync),
+            ("未发货退款幂等释放库存并阻止再次发货", PaidRefundIsIdempotentAndPreventsShipmentAsync),
+            ("已发货退款不错误回补库存", ShippedRefundDoesNotReleaseInventoryAsync),
+            ("退款消费者与订单不匹配时整体回滚", RefundCustomerMismatchRollsBackAsync)
         };
 
         var failed = 0;
@@ -218,6 +221,77 @@ internal static class OrderLifecycleScenarioTests
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(130, context.CustomerRepository.Customer.Points);
         AssertEx.Equal(130m, context.CustomerRepository.Customer.TotalSpent);
+        AssertEx.Equal(0, context.InventoryService.ReleasedOrderIds.Count);
+        AssertEx.Equal(0, context.PointRepository.Logs.Count);
+        AssertRolledBack(context);
+    }
+
+    private static async Task PaidRefundIsIdempotentAndPreventsShipmentAsync()
+    {
+        var context = TestContext.Create();
+        context.CustomerRepository.Customer.Points = 130;
+        SeedOrder(
+            context,
+            1,
+            OrderStatus.Paid,
+            "ORD-REFUND-PAID-001",
+            pointsEarned: 30);
+
+        await context.Service.DeductPointsForRefundAsync(1, 1, 50);
+        await context.Service.DeductPointsForRefundAsync(1, 1, 50);
+
+        AssertEx.Equal(
+            (int)OrderStatus.Refunded,
+            context.OrderRepository.Orders[0].OrderStatus);
+        AssertEx.Equal(100, context.CustomerRepository.Customer.Points);
+        AssertEx.Equal(1, context.InventoryService.ReleasedOrderIds.Count);
+        AssertEx.Equal(1, context.PointRepository.Logs.Count);
+        AssertEx.Equal(-30, context.PointRepository.Logs[0].ChangeAmount);
+
+        await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
+            context.Service.TransitionOrderAsync(1, OrderStatus.Shipped));
+        AssertEx.Equal(0, context.LogisticsService.ShippedOrderIds.Count);
+    }
+
+    private static async Task ShippedRefundDoesNotReleaseInventoryAsync()
+    {
+        var context = TestContext.Create();
+        context.CustomerRepository.Customer.Points = 130;
+        SeedOrder(
+            context,
+            1,
+            OrderStatus.Shipped,
+            "ORD-REFUND-SHIPPED-001",
+            pointsEarned: 30);
+
+        await context.Service.DeductPointsForRefundAsync(1, 1, 30);
+
+        AssertEx.Equal(
+            (int)OrderStatus.Refunded,
+            context.OrderRepository.Orders[0].OrderStatus);
+        AssertEx.Equal(100, context.CustomerRepository.Customer.Points);
+        AssertEx.Equal(0, context.InventoryService.ReleasedOrderIds.Count);
+        AssertCommitted(context);
+    }
+
+    private static async Task RefundCustomerMismatchRollsBackAsync()
+    {
+        var context = TestContext.Create();
+        context.CustomerRepository.Customer.Points = 130;
+        SeedOrder(
+            context,
+            1,
+            OrderStatus.Paid,
+            "ORD-REFUND-MISMATCH-001",
+            pointsEarned: 30);
+
+        await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
+            context.Service.DeductPointsForRefundAsync(2, 1, 30));
+
+        AssertEx.Equal(
+            (int)OrderStatus.Paid,
+            context.OrderRepository.Orders[0].OrderStatus);
+        AssertEx.Equal(130, context.CustomerRepository.Customer.Points);
         AssertEx.Equal(0, context.InventoryService.ReleasedOrderIds.Count);
         AssertEx.Equal(0, context.PointRepository.Logs.Count);
         AssertRolledBack(context);
