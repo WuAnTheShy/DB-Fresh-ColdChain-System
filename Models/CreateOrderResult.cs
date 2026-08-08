@@ -20,7 +20,7 @@ public sealed class CreateOrderResult
 /// </summary>
 public sealed class SupplierOrderGroupResult
 {
-    public int SupplierId { get; init; }
+    public string SupplierId { get; init; } = string.Empty;
     public decimal SubTotal { get; init; }
     public IReadOnlyList<OrderItemResult> Items { get; init; } = [];
 }
@@ -30,7 +30,7 @@ public sealed class SupplierOrderGroupResult
 /// </summary>
 public sealed class OrderItemResult
 {
-    public int ProductId { get; init; }
+    public string ProductId { get; init; } = string.Empty;
     public string ProductName { get; init; } = string.Empty;
     public int Quantity { get; init; }
     public decimal UnitPrice { get; init; }

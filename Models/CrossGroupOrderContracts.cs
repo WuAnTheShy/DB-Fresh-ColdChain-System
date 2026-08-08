@@ -31,9 +31,9 @@ public sealed class FulfillmentOrderRequest
 /// </summary>
 public sealed class FulfillmentOrderItem
 {
-    public int ProductId { get; init; }
+    public string ProductId { get; init; } = string.Empty;
     public string ProductName { get; init; } = string.Empty;
-    public int SupplierId { get; init; }
+    public string SupplierId { get; init; } = string.Empty;
     public int Quantity { get; init; }
     public decimal UnitPrice { get; init; }
     public decimal SubTotal { get; init; }
@@ -44,7 +44,7 @@ public sealed class FulfillmentOrderItem
 /// </summary>
 public sealed class SupplierFulfillmentStatus
 {
-    public int SupplierId { get; init; }
+    public string SupplierId { get; init; } = string.Empty;
     public string StatusName { get; init; } = string.Empty;
     public string? TrackingNo { get; init; }
 }
@@ -57,7 +57,7 @@ public sealed class CommissionOrderRequest
     public int OrderId { get; init; }
     public string OrderNo { get; init; } = string.Empty;
     public int CustomerId { get; init; }
-    public int? PromoterId { get; init; }
+    public string? PromoterId { get; init; }
     public decimal CommissionBaseAmount { get; init; }
     public DateTime CompletedAt { get; init; }
 }

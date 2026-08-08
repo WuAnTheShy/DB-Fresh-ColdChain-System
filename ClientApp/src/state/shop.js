@@ -53,7 +53,7 @@ export const leaders = [
 
 export const products = [
   {
-    id: 1,
+    id: 'P1',
     slug: 'cherries',
     name: '智利进口车厘子礼盒',
     shortName: '车厘子',
@@ -73,7 +73,7 @@ export const products = [
     summary: '果径饱满、脆甜多汁，产地冷链直达，适合家庭分享。',
   },
   {
-    id: 2,
+    id: 'P2',
     slug: 'salmon',
     name: '冰鲜三文鱼中段',
     shortName: '三文鱼',
@@ -93,7 +93,7 @@ export const products = [
     summary: '肉质细腻，家庭小包装，低温锁鲜运输，开盒即可分切烹饪。',
   },
   {
-    id: 3,
+    id: 'P3',
     slug: 'organic-vegetables',
     name: '一周有机蔬菜组合',
     shortName: '有机蔬菜',
@@ -117,7 +117,14 @@ export const products = [
 const rawCart = JSON.parse(localStorage.getItem('freshMall.cart') ?? '[]')
 const rawRushCounts = JSON.parse(localStorage.getItem('freshMall.rushCounts') ?? '{}')
 const rawFollowedLeaderIds = JSON.parse(localStorage.getItem('freshMall.followedLeaderIds') ?? '[]')
-const cart = reactive(Array.isArray(rawCart) ? rawCart : [])
+function normalizeProductId(id) {
+  const value = String(id ?? '').trim()
+  return /^P\d+$/.test(value) ? value : `P${value}`
+}
+
+const cart = reactive(Array.isArray(rawCart)
+  ? rawCart.map((item) => ({ ...item, productId: normalizeProductId(item.productId) }))
+  : [])
 const rushCounts = reactive(Object.fromEntries(products.map((product) => [
   product.id,
   Math.max(product.sold, Number(rawRushCounts[product.id]) || product.sold),
@@ -133,7 +140,7 @@ function persistCart() {
 }
 
 function productById(id) {
-  return products.find((product) => product.id === Number(id))
+  return products.find((product) => product.id === normalizeProductId(id))
 }
 
 function leaderById(id) {
@@ -186,7 +193,7 @@ function addToCart(productId, leaderId, quantity = 1) {
 }
 
 function updateQuantity(productId, leaderId, quantity) {
-  const item = cart.find((entry) => entry.productId === Number(productId) && entry.leaderId === Number(leaderId))
+  const item = cart.find((entry) => entry.productId === normalizeProductId(productId) && entry.leaderId === Number(leaderId))
   const product = productById(productId)
   if (!item || !product) return
   item.quantity = Math.max(1, Math.min(product.stock, Number(quantity || 1)))
@@ -194,7 +201,7 @@ function updateQuantity(productId, leaderId, quantity) {
 }
 
 function removeFromCart(productId, leaderId) {
-  const index = cart.findIndex((item) => item.productId === Number(productId) && item.leaderId === Number(leaderId))
+  const index = cart.findIndex((item) => item.productId === normalizeProductId(productId) && item.leaderId === Number(leaderId))
   if (index >= 0) cart.splice(index, 1)
   persistCart()
 }

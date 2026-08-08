@@ -37,9 +37,10 @@ GroupB 负责 `Crm_Customers`、`Crm_UserAddresses`、`Crm_MemberLevels`、
 
 ### 2.3 主键类型差异
 
-数据库设计 PDF 约定主键为 `VARCHAR2(36)`，但当前 `dev-groupB` 的 DDL、模型和
-远端 `dev-groupA` 接口均采用 `NUMBER/INT`。为避免本阶段单方面破坏跨组契约，
-现阶段保留 `NUMBER/INT`，在跨组联调阶段统一确认后再迁移或更新设计文档。
+数据库设计 PDF 约定主键为 `VARCHAR2(36)`。截至 2026-08-08，远端 A/C 组的商品、
+供应商和团长标识已经使用字符串 GUID，B 组已同步将 `ProductId`、`SupplierId`、
+`PromoterId` 及对应跨组 DTO 改为字符串，避免联调时发生数值解析和状态漂移。
+B 组自有表主键的迁移独立进行，避免把跨组接口调整和本组数据库迁移混入同一提交。
 
 ### 2.4 分支与提交策略
 

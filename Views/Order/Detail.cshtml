@@ -144,7 +144,7 @@
                 <div class="card shadow-sm mb-3">
                     <div class="card-header bg-body-tertiary d-flex justify-content-between">
                         <span>
-                            @(group.SupplierId == 0
+                            @(string.IsNullOrWhiteSpace(group.SupplierId)
                                 ? "待分配供应商"
                                 : $"供应商 #{group.SupplierId}")
                         </span>

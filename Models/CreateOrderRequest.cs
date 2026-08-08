@@ -25,8 +25,9 @@ public sealed class CreateOrderRequest
 /// </summary>
 public sealed class CreateOrderItemRequest
 {
-    [Range(1, int.MaxValue, ErrorMessage = "商品ID必须大于0")]
-    public int ProductId { get; set; }
+    [Required(ErrorMessage = "商品ID不能为空")]
+    [StringLength(64, ErrorMessage = "商品ID不能超过64个字符")]
+    public string ProductId { get; set; } = string.Empty;
 
     [Range(1, 9999, ErrorMessage = "商品数量必须在1到9999之间")]
     public int Quantity { get; set; } = 1;

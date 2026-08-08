@@ -78,7 +78,7 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal(50m, result.SupplierGroups[0].SubTotal);
         AssertEx.Equal(80m, result.SupplierGroups[1].SubTotal);
         AssertEx.Equal("待发货", result.SupplierGroups[0].FulfillmentStatus);
-        AssertEx.Equal("TRACK-1-1", result.SupplierGroups[0].TrackingNo);
+        AssertEx.Equal("TRACK-1-SUP1", result.SupplierGroups[0].TrackingNo);
         AssertEx.True(result.CanShip);
         AssertEx.True(result.CanCancel);
         AssertEx.True(!result.CanComplete);
@@ -93,7 +93,7 @@ internal static class OrderLifecycleScenarioTests
         {
             CustomerId = 1,
             AddressId = 11,
-            Items = [new() { ProductId = 1, Quantity = 2 }]
+            Items = [new() { ProductId = "P1", Quantity = 2 }]
         });
 
         var order = context.OrderRepository.Orders.Single();
@@ -124,7 +124,7 @@ internal static class OrderLifecycleScenarioTests
     private static async Task ShippedOrderCompletesAsync()
     {
         var context = TestContext.Create();
-        context.CustomerRepository.Customer.PromoterId = 9;
+        context.CustomerRepository.Customer.PromoterId = "PROM9";
         SeedOrder(context, 1, OrderStatus.Shipped, "ORD-COMPLETE-001");
 
         await context.Service.TransitionOrderAsync(1, OrderStatus.Completed);
@@ -134,7 +134,7 @@ internal static class OrderLifecycleScenarioTests
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(1, context.CommissionService.CompletedOrders.Count);
         var commission = context.CommissionService.CompletedOrders[0];
-        AssertEx.Equal(9, commission.PromoterId);
+        AssertEx.Equal("PROM9", commission.PromoterId);
         AssertEx.Equal(130m, commission.CommissionBaseAmount);
         AssertCommitted(context);
     }
@@ -327,23 +327,23 @@ internal static class OrderLifecycleScenarioTests
             {
                 OrderDetailId = orderId * 10 + 1,
                 OrderId = orderId,
-                ProductId = 1,
+                ProductId = "P1",
                 ProductName = "车厘子",
                 Quantity = 1,
                 UnitPrice = 50m,
                 SubTotal = 50m,
-                SupplierId = 1
+                SupplierId = "SUP1"
             },
             new BizOrderDetail
             {
                 OrderDetailId = orderId * 10 + 2,
                 OrderId = orderId,
-                ProductId = 2,
+                ProductId = "P2",
                 ProductName = "三文鱼",
                 Quantity = 1,
                 UnitPrice = 80m,
                 SubTotal = 80m,
-                SupplierId = 2
+                SupplierId = "SUP2"
             }
         ]);
     }

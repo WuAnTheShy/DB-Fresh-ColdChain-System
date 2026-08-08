@@ -24,7 +24,7 @@ public sealed class OrderDetailViewModel
 /// </summary>
 public sealed class OrderSupplierGroupViewModel
 {
-    public int SupplierId { get; init; }
+    public string SupplierId { get; init; } = string.Empty;
     public decimal SubTotal { get; init; }
     public string FulfillmentStatus { get; init; } = "未同步";
     public string? TrackingNo { get; init; }

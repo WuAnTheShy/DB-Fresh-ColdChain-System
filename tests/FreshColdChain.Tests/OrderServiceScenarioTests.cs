@@ -53,9 +53,9 @@ internal static class OrderServiceScenarioTests
             CouponRecordId = 7,
             Items =
             [
-                new() { ProductId = 1, Quantity = 1 },
-                new() { ProductId = 1, Quantity = 1 },
-                new() { ProductId = 2, Quantity = 1 }
+                new() { ProductId = "P1", Quantity = 1 },
+                new() { ProductId = "P1", Quantity = 1 },
+                new() { ProductId = "P2", Quantity = 1 }
             ]
         });
 
@@ -64,7 +64,7 @@ internal static class OrderServiceScenarioTests
         AssertEx.Equal(1, context.OrderRepository.Orders.Count);
         AssertEx.Equal(2, context.OrderRepository.Details.Count);
         AssertEx.Equal(2, context.InventoryService.LastItems.Count);
-        AssertEx.Equal(2, context.InventoryService.LastItems.Single(item => item.ProductId == 1).Quantity);
+        AssertEx.Equal(2, context.InventoryService.LastItems.Single(item => item.ProductId == "P1").Quantity);
         AssertEx.Equal(180m, result.GoodsAmount);
         AssertEx.Equal(30m, result.DiscountAmount);
         AssertEx.Equal(150m, result.FinalAmount);
@@ -130,7 +130,7 @@ internal static class OrderServiceScenarioTests
         {
             CustomerId = 1,
             AddressId = 11,
-            Items = [new() { ProductId = 1, Quantity = 2 }]
+            Items = [new() { ProductId = "P1", Quantity = 2 }]
         };
     }
 

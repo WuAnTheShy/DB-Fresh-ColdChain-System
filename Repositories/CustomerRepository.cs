@@ -89,13 +89,13 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
                          Phone,
                          Points AS PointsBalance,
                          GrowthValue,
-                         TO_CHAR(PromoterId) AS BoundPromoterID,
+                         PromoterId AS BoundPromoterID,
                          BindExpireTime
                   FROM Crm_Customers
                   WHERE (:CustomerId IS NULL OR TO_CHAR(CustomerId) = :CustomerId)
                     AND (:OpenId IS NULL OR OpenId = :OpenId)
                     AND (:Phone IS NULL OR Phone = :Phone)
-                    AND (:BoundPromoterId IS NULL OR TO_CHAR(PromoterId) = :BoundPromoterId)",
+                    AND (:BoundPromoterId IS NULL OR PromoterId = :BoundPromoterId)",
                 new
                 {
                     CustomerId = customerId,
@@ -108,7 +108,7 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
 
     public async Task<bool> UpdateBindingAsync(
         int customerId,
-        int? boundPromoterId,
+        string? boundPromoterId,
         DateTime? bindExpireTime,
         int? growthValue = null,
         IDbTransaction? transaction = null)

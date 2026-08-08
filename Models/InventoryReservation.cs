@@ -5,7 +5,7 @@ namespace FreshColdChain.Models;
 /// </summary>
 public sealed class InventoryReservationItem
 {
-    public int ProductId { get; init; }
+    public string ProductId { get; init; } = string.Empty;
     public int Quantity { get; init; }
 }
 
@@ -14,8 +14,8 @@ public sealed class InventoryReservationItem
 /// </summary>
 public sealed class InventoryProductSnapshot
 {
-    public int ProductId { get; init; }
+    public string ProductId { get; init; } = string.Empty;
     public string ProductName { get; init; } = string.Empty;
-    public int SupplierId { get; init; }
+    public string SupplierId { get; init; } = string.Empty;
     public decimal UnitPrice { get; init; }
 }

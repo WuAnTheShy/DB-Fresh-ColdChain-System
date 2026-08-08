@@ -18,7 +18,7 @@ const leader = computed(() => leaderById(activeLeaderId.value))
 const quantity = ref(1)
 const added = ref(false)
 const progress = computed(() => product.value ? Math.min(100, Math.round((product.value.sold / product.value.target) * 100)) : 0)
-const related = computed(() => products.filter((item) => item.id !== Number(props.id)))
+const related = computed(() => products.filter((item) => item.id !== String(props.id)))
 
 watch(() => props.id, (productId) => {
   if (productById(productId)) recordProductEntry(productId)

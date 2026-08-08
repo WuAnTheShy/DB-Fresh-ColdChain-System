@@ -200,7 +200,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
                     OrderStatus = order.OrderStatus,
                     ItemCount = details.Count,
                     SupplierCount = details
-                        .Where(detail => detail.SupplierId.HasValue)
+                        .Where(detail => !string.IsNullOrWhiteSpace(detail.SupplierId))
                         .Select(detail => detail.SupplierId)
                         .Distinct()
                         .Count(),
@@ -449,7 +449,7 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
             (customerId == null || item.CustomerId.ToString() == customerId) &&
             (openId == null || string.Equals(item.OpenId, openId, StringComparison.Ordinal)) &&
             (phone == null || string.Equals(item.Phone, phone, StringComparison.Ordinal)) &&
-            (boundPromoterId == null || item.PromoterId?.ToString() == boundPromoterId))
+            (boundPromoterId == null || item.PromoterId == boundPromoterId))
             .Select(item => new CustomerAccount
             {
                 CustomerID = item.CustomerId.ToString(),
@@ -457,7 +457,7 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
                 Phone = item.Phone,
                 PointsBalance = item.Points,
                 GrowthValue = item.GrowthValue,
-                BoundPromoterID = item.PromoterId?.ToString(),
+                BoundPromoterID = item.PromoterId,
                 BindExpireTime = item.BindExpireTime
             })
             .ToList();
@@ -466,7 +466,7 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
 
     public Task<bool> UpdateBindingAsync(
         int customerId,
-        int? boundPromoterId,
+        string? boundPromoterId,
         DateTime? bindExpireTime,
         int? growthValue = null,
         IDbTransaction? transaction = null)
@@ -1063,18 +1063,18 @@ internal sealed class FakeInventoryService : IInventoryService
 
         var snapshots = items.Select(item => item.ProductId switch
         {
-            1 => new InventoryProductSnapshot
+            "P1" => new InventoryProductSnapshot
             {
-                ProductId = 1,
+                ProductId = "P1",
                 ProductName = "车厘子",
-                SupplierId = 1,
+                SupplierId = "SUP1",
                 UnitPrice = 50m
             },
-            2 => new InventoryProductSnapshot
+            "P2" => new InventoryProductSnapshot
             {
-                ProductId = 2,
+                ProductId = "P2",
                 ProductName = "三文鱼",
-                SupplierId = 2,
+                SupplierId = "SUP2",
                 UnitPrice = 80m
             },
             _ => throw new OrderBusinessException("商品不存在")
@@ -1128,7 +1128,7 @@ internal sealed class FakeLogisticsService : ILogisticsService
 
     public Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
         int orderId,
-        IReadOnlyList<int> supplierIds,
+        IReadOnlyList<string> supplierIds,
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<SupplierFulfillmentStatus> statuses = supplierIds

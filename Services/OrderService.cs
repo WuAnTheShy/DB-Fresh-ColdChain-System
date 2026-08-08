@@ -221,8 +221,8 @@ public sealed class OrderService : IOrderService
 
         var details = await _orderRepo.GetDetailsAsync(orderId);
         var supplierIds = details
-            .Where(detail => detail.SupplierId.HasValue)
-            .Select(detail => detail.SupplierId!.Value)
+            .Where(detail => !string.IsNullOrWhiteSpace(detail.SupplierId))
+            .Select(detail => detail.SupplierId!)
             .Distinct()
             .OrderBy(supplierId => supplierId)
             .ToList();
@@ -505,23 +505,26 @@ public sealed class OrderService : IOrderService
         if (request.Items == null || request.Items.Count == 0)
             throw new OrderBusinessException("订单至少需要一件商品");
 
-        var quantities = new Dictionary<int, int>();
+        var quantities = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var item in request.Items)
         {
-            if (item.ProductId <= 0)
-                throw new OrderBusinessException("商品ID必须大于0");
+            var productId = item.ProductId?.Trim();
+            if (string.IsNullOrWhiteSpace(productId))
+                throw new OrderBusinessException("商品ID不能为空");
+            if (productId.Length > 64)
+                throw new OrderBusinessException("商品ID不能超过64个字符");
             if (item.Quantity is <= 0 or > 9999)
                 throw new OrderBusinessException("商品数量必须在1到9999之间");
 
-            quantities.TryGetValue(item.ProductId, out var currentQuantity);
+            quantities.TryGetValue(productId, out var currentQuantity);
             var mergedQuantity = checked(currentQuantity + item.Quantity);
             if (mergedQuantity > 9999)
-                throw new OrderBusinessException($"商品 {item.ProductId} 的合计数量不能超过9999");
-            quantities[item.ProductId] = mergedQuantity;
+                throw new OrderBusinessException($"商品 {productId} 的合计数量不能超过9999");
+            quantities[productId] = mergedQuantity;
         }
 
         return quantities
-            .OrderBy(pair => pair.Key)
+            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .Select(pair => new InventoryReservationItem
             {
                 ProductId = pair.Key,
@@ -537,14 +540,17 @@ public sealed class OrderService : IOrderService
         if (productSnapshots.Count != reservationItems.Count)
             throw new OrderBusinessException("库存服务返回的商品数据不完整");
 
-        var snapshotsByProductId = new Dictionary<int, InventoryProductSnapshot>();
+        var snapshotsByProductId = new Dictionary<string, InventoryProductSnapshot>(
+            StringComparer.Ordinal);
         foreach (var snapshot in productSnapshots)
         {
+            if (string.IsNullOrWhiteSpace(snapshot.ProductId))
+                throw new OrderBusinessException("库存服务返回的商品ID为空");
             if (!snapshotsByProductId.TryAdd(snapshot.ProductId, snapshot))
                 throw new OrderBusinessException("库存服务返回了重复商品");
             if (string.IsNullOrWhiteSpace(snapshot.ProductName))
                 throw new OrderBusinessException($"商品 {snapshot.ProductId} 缺少名称");
-            if (snapshot.SupplierId <= 0)
+            if (string.IsNullOrWhiteSpace(snapshot.SupplierId))
                 throw new OrderBusinessException($"商品 {snapshot.ProductId} 缺少有效供应商");
             if (snapshot.UnitPrice <= 0 || snapshot.UnitPrice > MaxOrderAmount)
                 throw new OrderBusinessException($"商品 {snapshot.ProductId} 的价格无效");
@@ -699,8 +705,8 @@ public sealed class OrderService : IOrderService
             .GroupBy(status => status.SupplierId)
             .ToDictionary(group => group.Key, group => group.First());
         return details
-            .GroupBy(detail => detail.SupplierId ?? 0)
-            .OrderBy(group => group.Key)
+            .GroupBy(detail => detail.SupplierId ?? string.Empty)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
             .Select(group => new OrderSupplierGroupViewModel
             {
                 SupplierId = group.Key,
@@ -733,8 +739,8 @@ public sealed class OrderService : IOrderService
         IEnumerable<BizOrderDetail> details)
     {
         return details
-            .GroupBy(detail => detail.SupplierId!.Value)
-            .OrderBy(group => group.Key)
+            .GroupBy(detail => detail.SupplierId!)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
             .Select(group => new SupplierOrderGroupResult
             {
                 SupplierId = group.Key,

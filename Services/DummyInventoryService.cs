@@ -10,12 +10,12 @@ namespace FreshColdChain.Services;
 /// </summary>
 public sealed class DummyInventoryService : IInventoryService
 {
-    private static readonly IReadOnlyDictionary<int, DummyProduct> Products =
-        new Dictionary<int, DummyProduct>
+    private static readonly IReadOnlyDictionary<string, DummyProduct> Products =
+        new Dictionary<string, DummyProduct>(StringComparer.Ordinal)
         {
-            [1] = new("车厘子", 1, 50m, 100),
-            [2] = new("三文鱼", 2, 80m, 50),
-            [3] = new("有机蔬菜", 1, 20m, 200)
+            ["P1"] = new("车厘子", "SUP1", 50m, 100),
+            ["P2"] = new("三文鱼", "SUP2", 80m, 50),
+            ["P3"] = new("有机蔬菜", "SUP1", 20m, 200)
         };
 
     public Task<IReadOnlyList<InventoryProductSnapshot>> ReserveAsync(
@@ -64,7 +64,7 @@ public sealed class DummyInventoryService : IInventoryService
 
     private sealed record DummyProduct(
         string ProductName,
-        int SupplierId,
+        string SupplierId,
         decimal UnitPrice,
         int AvailableQuantity);
 }

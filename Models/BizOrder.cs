@@ -8,7 +8,7 @@ public class BizOrder
     public int OrderId { get; set; }
     public string OrderNo { get; set; } = string.Empty;    // 订单号(展示用)
     public int CustomerId { get; set; }
-    public int? PromoterId { get; set; }
+    public string? PromoterId { get; set; }
     public int AddressId { get; set; }
     public string ReceiverName { get; set; } = string.Empty;
     public string ReceiverPhone { get; set; } = string.Empty;

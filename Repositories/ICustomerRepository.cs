@@ -31,7 +31,7 @@ public interface ICustomerRepository
 
     Task<bool> UpdateBindingAsync(
         int customerId,
-        int? boundPromoterId,
+        string? boundPromoterId,
         DateTime? bindExpireTime,
         int? growthValue = null,
         IDbTransaction? transaction = null);

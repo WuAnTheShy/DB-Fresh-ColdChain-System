@@ -11,7 +11,7 @@ public class CrmCustomer
     public string Phone { get; set; } = string.Empty;
     public string? Email { get; set; }
     public string PasswordHash { get; set; } = string.Empty;
-    public int? PromoterId { get; set; }          // 所属团长ID
+    public string? PromoterId { get; set; }       // 所属团长ID（C组字符串GUID）
     public int? MemberLevelId { get; set; }        // 当前会员等级
     public decimal TotalSpent { get; set; }        // 累计消费金额(用于定级)
     public int Points { get; set; }                // 当前积分余额

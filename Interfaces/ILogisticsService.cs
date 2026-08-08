@@ -21,6 +21,6 @@ public interface ILogisticsService
 
     Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
         int orderId,
-        IReadOnlyList<int> supplierIds,
+        IReadOnlyList<string> supplierIds,
         CancellationToken cancellationToken = default);
 }
