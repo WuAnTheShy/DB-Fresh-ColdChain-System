@@ -7,8 +7,8 @@ namespace FreshColdChain.Models;
 /// </summary>
 public sealed class OrderQueryRequest
 {
-    [Range(1, int.MaxValue, ErrorMessage = "消费者ID必须大于0")]
-    public int? CustomerId { get; set; }
+    [StringLength(36, ErrorMessage = "消费者ID不能超过36个字符")]
+    public string? CustomerId { get; set; }
 
     public OrderStatus? Status { get; set; }
 
@@ -27,9 +27,9 @@ public sealed class OrderQueryRequest
 /// </summary>
 public sealed class OrderListItem
 {
-    public int OrderId { get; init; }
+    public string OrderId { get; init; } = string.Empty;
     public string OrderNo { get; init; } = string.Empty;
-    public int CustomerId { get; init; }
+    public string CustomerId { get; init; } = string.Empty;
     public string CustomerName { get; init; } = string.Empty;
     public decimal FinalAmount { get; init; }
     public string OrderStatus { get; init; } = OrderStatusCodes.PendingPayment;

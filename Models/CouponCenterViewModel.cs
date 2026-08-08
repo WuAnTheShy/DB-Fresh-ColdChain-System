@@ -5,7 +5,7 @@ namespace FreshColdChain.Models;
 /// </summary>
 public sealed class CouponCenterViewModel
 {
-    public int CustomerId { get; init; }
+    public string CustomerId { get; init; } = string.Empty;
     public string CustomerName { get; init; } = string.Empty;
     public IReadOnlyList<ClaimableCouponItem> ClaimableCoupons { get; init; } = [];
     public IReadOnlyList<AvailableCouponItem> AvailableCoupons { get; init; } = [];
@@ -16,7 +16,7 @@ public sealed class CouponCenterViewModel
 /// </summary>
 public sealed class ClaimableCouponItem
 {
-    public int CouponId { get; init; }
+    public string CouponId { get; init; } = string.Empty;
     public string CouponName { get; init; } = string.Empty;
     public decimal MinOrderAmount { get; init; }
     public decimal DiscountAmount { get; init; }
@@ -30,8 +30,8 @@ public sealed class ClaimableCouponItem
 /// </summary>
 public sealed class AvailableCouponItem
 {
-    public int RecordId { get; init; }
-    public int CouponId { get; init; }
+    public string RecordId { get; init; } = string.Empty;
+    public string CouponId { get; init; } = string.Empty;
     public string CouponName { get; init; } = string.Empty;
     public decimal MinOrderAmount { get; init; }
     public decimal DiscountAmount { get; init; }

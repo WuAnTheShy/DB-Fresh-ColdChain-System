@@ -40,17 +40,17 @@ internal static class OrderServiceScenarioTests
         var context = TestContext.Create();
         context.CouponRepository.UsableCoupon = new MktCouponUsage
         {
-            RecordId = 7,
-            CouponId = 3,
+            RecordId = TestIds.Record,
+            CouponId = TestIds.Coupon,
             CouponName = "满100减30",
             DiscountAmount = 30m
         };
 
         var result = await context.Service.CreateOrderAsync(new CreateOrderRequest
         {
-            CustomerId = 1,
-            AddressId = 11,
-            CouponRecordId = 7,
+            CustomerId = TestIds.Customer,
+            AddressId = TestIds.Address1,
+            CouponRecordId = TestIds.Record,
             Items =
             [
                 new() { ProductId = "P1", Quantity = 1 },
@@ -96,7 +96,7 @@ internal static class OrderServiceScenarioTests
         var context = TestContext.Create();
         context.CouponRepository.UsableCoupon = null;
         var request = CreateBasicRequest();
-        request.CouponRecordId = 99;
+        request.CouponRecordId = "missing-record";
 
         await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
             context.Service.CreateOrderAsync(request));
@@ -109,14 +109,14 @@ internal static class OrderServiceScenarioTests
         var context = TestContext.Create();
         context.CouponRepository.UsableCoupon = new MktCouponUsage
         {
-            RecordId = 7,
-            CouponId = 3,
+            RecordId = TestIds.Record,
+            CouponId = TestIds.Coupon,
             CouponName = "满100减20",
             DiscountAmount = 20m
         };
         context.PointRepository.ThrowOnInsert = true;
         var request = CreateBasicRequest();
-        request.CouponRecordId = 7;
+        request.CouponRecordId = TestIds.Record;
 
         await AssertEx.ThrowsAsync<InvalidOperationException>(() =>
             context.Service.CreateOrderAsync(request));
@@ -128,8 +128,8 @@ internal static class OrderServiceScenarioTests
     {
         return new CreateOrderRequest
         {
-            CustomerId = 1,
-            AddressId = 11,
+            CustomerId = TestIds.Customer,
+            AddressId = TestIds.Address1,
             Items = [new() { ProductId = "P1", Quantity = 2 }]
         };
     }

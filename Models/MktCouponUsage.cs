@@ -5,8 +5,8 @@ namespace FreshColdChain.Models;
 /// </summary>
 public sealed class MktCouponUsage
 {
-    public int RecordId { get; set; }
-    public int CouponId { get; set; }
+    public string RecordId { get; set; } = string.Empty;
+    public string CouponId { get; set; } = string.Empty;
     public string CouponName { get; set; } = string.Empty;
     public decimal DiscountAmount { get; set; }
 }

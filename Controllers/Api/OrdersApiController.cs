@@ -34,8 +34,8 @@ public sealed class OrdersApiController(
         });
     }
 
-    [HttpGet("{orderId:int}")]
-    public async Task<IActionResult> GetOrder(int orderId)
+    [HttpGet("{orderId}")]
+    public async Task<IActionResult> GetOrder(string orderId)
     {
         var detail = await orderService.GetOrderDetailAsync(orderId);
         if (detail?.Order == null)
@@ -104,9 +104,9 @@ public sealed class OrdersApiController(
             });
     }
 
-    [HttpPost("{orderId:int}/transition")]
+    [HttpPost("{orderId}/transition")]
     public async Task<IActionResult> TransitionOrder(
-        int orderId,
+        string orderId,
         OrderTransitionRequest request,
         CancellationToken cancellationToken)
     {
@@ -117,9 +117,9 @@ public sealed class OrdersApiController(
         return NoContent();
     }
 
-    [HttpPost("{orderId:int}/cancel")]
+    [HttpPost("{orderId}/cancel")]
     public async Task<IActionResult> CancelOrder(
-        int orderId,
+        string orderId,
         CancellationToken cancellationToken)
     {
         await orderService.CancelOrderAsync(orderId, cancellationToken);

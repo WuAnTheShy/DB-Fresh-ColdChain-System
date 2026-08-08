@@ -24,11 +24,13 @@ public sealed class CouponService : ICouponService
     }
 
     public async Task<bool> ValidateCouponAsync(
-        int recordId,
-        int customerId,
+        string recordId,
+        string customerId,
         decimal orderAmount)
     {
-        if (recordId <= 0 || customerId <= 0 || orderAmount < 0)
+        if (!GroupBIds.IsValid(recordId) ||
+            !GroupBIds.IsValid(customerId) ||
+            orderAmount < 0)
             return false;
 
         var coupons = await _couponRepo.GetUserCouponsAsync(customerId);
@@ -40,9 +42,9 @@ public sealed class CouponService : ICouponService
         return template != null && orderAmount >= template.MinOrderAmount;
     }
 
-    public async Task<CouponCenterViewModel?> GetCouponCenterAsync(int customerId)
+    public async Task<CouponCenterViewModel?> GetCouponCenterAsync(string customerId)
     {
-        if (customerId <= 0)
+        if (!GroupBIds.IsValid(customerId))
             return null;
 
         var customer = await _customerRepo.GetByIdAsync(customerId);
@@ -62,12 +64,12 @@ public sealed class CouponService : ICouponService
         };
     }
 
-    public async Task ClaimCouponAsync(int customerId, int couponId)
+    public async Task ClaimCouponAsync(string customerId, string couponId)
     {
-        if (customerId <= 0)
-            throw new GroupBBusinessException("消费者ID必须大于0");
-        if (couponId <= 0)
-            throw new GroupBBusinessException("优惠券ID必须大于0");
+        if (!GroupBIds.IsValid(customerId))
+            throw new GroupBBusinessException("消费者ID格式不正确");
+        if (!GroupBIds.IsValid(couponId))
+            throw new GroupBBusinessException("优惠券ID格式不正确");
 
         await _transactionManager.ExecuteAsync(async transaction =>
         {
@@ -95,6 +97,7 @@ public sealed class CouponService : ICouponService
                 throw new GroupBBusinessException("优惠券已领完或活动已结束");
 
             _ = await _couponRepo.CreateCouponRecordAsync(
+                GroupBIds.NewId(),
                 customerId,
                 couponId,
                 transaction);

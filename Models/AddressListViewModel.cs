@@ -5,6 +5,6 @@ namespace FreshColdChain.Models;
 /// </summary>
 public sealed class AddressListViewModel
 {
-    public int CustomerId { get; init; }
+    public string CustomerId { get; init; } = string.Empty;
     public IReadOnlyList<CrmUserAddress> Addresses { get; init; } = [];
 }

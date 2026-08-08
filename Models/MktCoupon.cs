@@ -5,7 +5,7 @@ namespace FreshColdChain.Models;
 /// </summary>
 public class MktCoupon
 {
-    public int CouponId { get; set; }
+    public string CouponId { get; set; } = string.Empty;
     public string CouponName { get; set; } = string.Empty;
     public decimal MinOrderAmount { get; set; }     // 最低使用门槛
     public decimal DiscountAmount { get; set; }      // 优惠金额

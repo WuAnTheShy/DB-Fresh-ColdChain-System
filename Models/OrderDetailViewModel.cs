@@ -5,7 +5,7 @@ namespace FreshColdChain.Models;
 /// </summary>
 public sealed class OrderDetailViewModel
 {
-    public int OrderId { get; init; }
+    public string OrderId { get; init; } = string.Empty;
     public BizOrder? Order { get; init; }
     public string CustomerName { get; init; } = string.Empty;
     public IReadOnlyList<BizOrderDetail> Details { get; init; } = [];
@@ -36,10 +36,10 @@ public sealed class OrderSupplierGroupViewModel
 /// </summary>
 public sealed class OrderDetailHeader
 {
-    public int OrderId { get; init; }
+    public string OrderId { get; init; } = string.Empty;
     public string OrderNo { get; init; } = string.Empty;
-    public int CustomerId { get; init; }
-    public int AddressId { get; init; }
+    public string CustomerId { get; init; } = string.Empty;
+    public string AddressId { get; init; } = string.Empty;
     public string CustomerName { get; init; } = string.Empty;
     public string ReceiverName { get; init; } = string.Empty;
     public string ReceiverPhone { get; init; } = string.Empty;

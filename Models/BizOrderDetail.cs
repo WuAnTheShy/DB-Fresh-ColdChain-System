@@ -5,8 +5,8 @@ namespace FreshColdChain.Models;
 /// </summary>
 public class BizOrderDetail
 {
-    public int OrderDetailId { get; set; }
-    public int OrderId { get; set; }
+    public string OrderDetailId { get; set; } = string.Empty;
+    public string OrderId { get; set; } = string.Empty;
     public string ProductId { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public int Quantity { get; set; }

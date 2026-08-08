@@ -12,7 +12,7 @@ const notFound = ref(false)
 const error = ref('')
 const success = ref('')
 const profile = ref(null)
-const form = reactive({ customerId: 0, customerName: '', phone: '', email: '' })
+const form = reactive({ customerId: '', customerName: '', phone: '', email: '' })
 function money(value) { return `¥${Number(value ?? 0).toFixed(2)}` }
 
 async function loadProfile() {

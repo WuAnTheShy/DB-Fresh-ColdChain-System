@@ -57,11 +57,12 @@ internal static class CustomerMarketingScenarioTests
             });
 
         var customer = context.CustomerRepository.CreatedCustomers.Single();
-        AssertEx.Equal(2, customerId);
+        AssertEx.Equal(customer.CustomerId, customerId);
+        AssertEx.True(GroupBIds.IsValid(customerId));
         AssertEx.Equal("新消费者", customer.CustomerName);
         AssertEx.True(customer.PasswordHash != "SafePass123!");
         AssertEx.True(customer.PasswordHash.Length > 20);
-        AssertEx.Equal(1, customer.MemberLevelId);
+        AssertEx.Equal(TestIds.Level1, customer.MemberLevelId);
         AssertEx.Equal(0, customer.Points);
         AssertEx.Equal(0m, customer.TotalSpent);
         AssertCommitted(context);
@@ -75,7 +76,7 @@ internal static class CustomerMarketingScenarioTests
 
         await context.CustomerService.UpdateProfileAsync(new CustomerProfileUpdateRequest
         {
-            CustomerId = 1,
+            CustomerId = TestIds.Customer,
             CustomerName = "  更新后的消费者  ",
             Phone = "13900139000",
             Email = "  customer@example.com  "
@@ -97,7 +98,7 @@ internal static class CustomerMarketingScenarioTests
         var addressId = await context.CustomerService.CreateAddressAsync(
             CreateAddressRequest(isDefault: false));
 
-        AssertEx.True(addressId > 0);
+        AssertEx.True(GroupBIds.IsValid(addressId));
         AssertEx.Equal(1, context.CustomerRepository.Addresses.Count);
         AssertEx.Equal(1, context.CustomerRepository.Addresses[0].IsDefault);
         AssertCommitted(context);
@@ -106,15 +107,15 @@ internal static class CustomerMarketingScenarioTests
     private static async Task SwitchingDefaultKeepsInvariantAsync()
     {
         var context = TestContext.Create();
-        context.CustomerRepository.Addresses.Add(CreateStoredAddress(12, isDefault: false));
+        context.CustomerRepository.Addresses.Add(CreateStoredAddress(TestIds.Address2, isDefault: false));
 
-        await context.CustomerService.SetDefaultAddressAsync(1, 12);
+        await context.CustomerService.SetDefaultAddressAsync(TestIds.Customer, TestIds.Address2);
 
         AssertEx.Equal(
             1,
             context.CustomerRepository.Addresses.Count(address => address.IsDefault == 1));
         AssertEx.Equal(
-            12,
+            TestIds.Address2,
             context.CustomerRepository.Addresses.Single(
                 address => address.IsDefault == 1).AddressId);
         AssertCommitted(context);
@@ -126,8 +127,8 @@ internal static class CustomerMarketingScenarioTests
 
         await context.CustomerService.UpdateAddressAsync(new AddressUpsertRequest
         {
-            AddressId = 11,
-            CustomerId = 1,
+            AddressId = TestIds.Address1,
+            CustomerId = TestIds.Customer,
             ReceiverName = "编辑后收件人",
             Phone = "13500135000",
             Province = "浙江省",
@@ -147,12 +148,12 @@ internal static class CustomerMarketingScenarioTests
     private static async Task DeletingDefaultPromotesFallbackAsync()
     {
         var context = TestContext.Create();
-        context.CustomerRepository.Addresses.Add(CreateStoredAddress(12, isDefault: false));
+        context.CustomerRepository.Addresses.Add(CreateStoredAddress(TestIds.Address2, isDefault: false));
 
-        await context.CustomerService.DeleteAddressAsync(1, 11);
+        await context.CustomerService.DeleteAddressAsync(TestIds.Customer, TestIds.Address1);
 
         AssertEx.Equal(1, context.CustomerRepository.Addresses.Count);
-        AssertEx.Equal(12, context.CustomerRepository.Addresses[0].AddressId);
+        AssertEx.Equal(TestIds.Address2, context.CustomerRepository.Addresses[0].AddressId);
         AssertEx.Equal(1, context.CustomerRepository.Addresses[0].IsDefault);
         AssertCommitted(context);
     }
@@ -160,20 +161,20 @@ internal static class CustomerMarketingScenarioTests
     private static async Task OrderAutomaticallyUpgradesMemberAsync()
     {
         var context = TestContext.Create();
-        context.CustomerRepository.Customer.MemberLevelId = 1;
+        context.CustomerRepository.Customer.MemberLevelId = TestIds.Level1;
         context.CustomerRepository.Customer.TotalSpent = 90m;
 
         var result = await context.Service.CreateOrderAsync(new CreateOrderRequest
         {
-            CustomerId = 1,
-            AddressId = 11,
+            CustomerId = TestIds.Customer,
+            AddressId = TestIds.Address1,
             Items = [new() { ProductId = "P1", Quantity = 1 }]
         });
 
         AssertEx.Equal(50m, result.FinalAmount);
         AssertEx.Equal(5, result.PointsEarned);
         AssertEx.Equal(140m, context.CustomerRepository.Customer.TotalSpent);
-        AssertEx.Equal(2, context.CustomerRepository.Customer.MemberLevelId);
+        AssertEx.Equal(TestIds.Level2, context.CustomerRepository.Customer.MemberLevelId);
         AssertCommitted(context);
     }
 
@@ -181,8 +182,8 @@ internal static class CustomerMarketingScenarioTests
     {
         var context = TestContext.Create();
 
-        await context.CouponService.ClaimCouponAsync(1, 3);
-        var center = await context.CouponService.GetCouponCenterAsync(1);
+        await context.CouponService.ClaimCouponAsync(TestIds.Customer, TestIds.Coupon);
+        var center = await context.CouponService.GetCouponCenterAsync(TestIds.Customer);
 
         AssertEx.Equal(1, context.CouponRepository.Coupons[0].RemainingQuantity);
         AssertEx.Equal(1, context.CouponRepository.Records.Count);
@@ -196,15 +197,15 @@ internal static class CustomerMarketingScenarioTests
         var context = TestContext.Create();
         context.CouponRepository.Records.Add(new MktCouponRecord
         {
-            RecordId = 1,
-            CouponId = 3,
-            CustomerId = 1,
+            RecordId = TestIds.Record,
+            CouponId = TestIds.Coupon,
+            CustomerId = TestIds.Customer,
             Status = 0,
             CreatedAt = DateTime.Now
         });
 
         await AssertEx.ThrowsAsync<GroupBBusinessException>(() =>
-            context.CouponService.ClaimCouponAsync(1, 3));
+            context.CouponService.ClaimCouponAsync(TestIds.Customer, TestIds.Coupon));
 
         AssertEx.Equal(2, context.CouponRepository.Coupons[0].RemainingQuantity);
         AssertEx.Equal(1, context.CouponRepository.Records.Count);
@@ -217,7 +218,7 @@ internal static class CustomerMarketingScenarioTests
         context.CouponRepository.Coupons[0].RemainingQuantity = 0;
 
         await AssertEx.ThrowsAsync<GroupBBusinessException>(() =>
-            context.CouponService.ClaimCouponAsync(1, 3));
+            context.CouponService.ClaimCouponAsync(TestIds.Customer, TestIds.Coupon));
 
         AssertEx.Equal(0, context.CouponRepository.Coupons[0].RemainingQuantity);
         AssertEx.Equal(0, context.CouponRepository.Records.Count);
@@ -228,7 +229,7 @@ internal static class CustomerMarketingScenarioTests
     {
         return new AddressUpsertRequest
         {
-            CustomerId = 1,
+            CustomerId = TestIds.Customer,
             ReceiverName = "新收件人",
             Phone = "13800138000",
             Province = "浙江省",
@@ -239,12 +240,12 @@ internal static class CustomerMarketingScenarioTests
         };
     }
 
-    private static CrmUserAddress CreateStoredAddress(int addressId, bool isDefault)
+    private static CrmUserAddress CreateStoredAddress(string addressId, bool isDefault)
     {
         return new CrmUserAddress
         {
             AddressId = addressId,
-            CustomerId = 1,
+            CustomerId = TestIds.Customer,
             ReceiverName = "备用收件人",
             Phone = "13700137000",
             Province = "浙江省",

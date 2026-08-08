@@ -5,7 +5,7 @@ namespace FreshColdChain.Models;
 /// </summary>
 public sealed class FreightCalculationRequest
 {
-    public int CustomerId { get; init; }
+    public string CustomerId { get; init; } = string.Empty;
     public string Province { get; init; } = string.Empty;
     public string City { get; init; } = string.Empty;
     public string District { get; init; } = string.Empty;
@@ -18,7 +18,7 @@ public sealed class FreightCalculationRequest
 /// </summary>
 public sealed class FulfillmentOrderRequest
 {
-    public int OrderId { get; init; }
+    public string OrderId { get; init; } = string.Empty;
     public string OrderNo { get; init; } = string.Empty;
     public string ReceiverName { get; init; } = string.Empty;
     public string ReceiverPhone { get; init; } = string.Empty;
@@ -54,9 +54,9 @@ public sealed class SupplierFulfillmentStatus
 /// </summary>
 public sealed class CommissionOrderRequest
 {
-    public int OrderId { get; init; }
+    public string OrderId { get; init; } = string.Empty;
     public string OrderNo { get; init; } = string.Empty;
-    public int CustomerId { get; init; }
+    public string CustomerId { get; init; } = string.Empty;
     public string? PromoterId { get; init; }
     public decimal CommissionBaseAmount { get; init; }
     public DateTime CompletedAt { get; init; }

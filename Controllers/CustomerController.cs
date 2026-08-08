@@ -21,7 +21,7 @@ public sealed class CustomerController : Controller
         _logger = logger;
     }
 
-    public async Task<IActionResult> Index(int id = 1)
+    public async Task<IActionResult> Index(string id = GroupBDemoIds.Customer)
     {
         var model = await _customerService.GetProfileAsync(id);
         return model == null ? NotFound() : View(model);
@@ -60,7 +60,7 @@ public sealed class CustomerController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Edit(int id)
+    public async Task<IActionResult> Edit(string id)
     {
         var customer = await _customerService.GetCustomerAsync(id);
         if (customer == null)
@@ -78,7 +78,7 @@ public sealed class CustomerController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(
-        int id,
+        string id,
         CustomerProfileUpdateRequest request)
     {
         if (id != request.CustomerId)
@@ -105,16 +105,16 @@ public sealed class CustomerController : Controller
         return View(request);
     }
 
-    public async Task<IActionResult> Addresses(int customerId)
+    public async Task<IActionResult> Addresses(string customerId)
     {
         var model = await _customerService.GetAddressesAsync(customerId);
         return model == null ? NotFound() : View(model);
     }
 
     [HttpGet]
-    public IActionResult CreateAddress(int customerId)
+    public IActionResult CreateAddress(string customerId)
     {
-        if (customerId <= 0)
+        if (!GroupBIds.IsValid(customerId))
             return BadRequest();
 
         return View(new AddressUpsertRequest { CustomerId = customerId });
@@ -154,7 +154,7 @@ public sealed class CustomerController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> EditAddress(int customerId, int id)
+    public async Task<IActionResult> EditAddress(string customerId, string id)
     {
         var model = await _customerService.GetAddressForEditAsync(customerId, id);
         return model == null ? NotFound() : View(model);
@@ -163,7 +163,7 @@ public sealed class CustomerController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditAddress(
-        int id,
+        string id,
         AddressUpsertRequest request)
     {
         if (id != request.AddressId)
@@ -195,7 +195,7 @@ public sealed class CustomerController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteAddress(int customerId, int id)
+    public async Task<IActionResult> DeleteAddress(string customerId, string id)
     {
         try
         {
@@ -217,7 +217,7 @@ public sealed class CustomerController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetDefaultAddress(int customerId, int id)
+    public async Task<IActionResult> SetDefaultAddress(string customerId, string id)
     {
         try
         {

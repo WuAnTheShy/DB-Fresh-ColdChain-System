@@ -5,7 +5,7 @@ namespace FreshColdChain.Models;
 /// </summary>
 public sealed class CreateOrderResult
 {
-    public int OrderId { get; init; }
+    public string OrderId { get; init; } = string.Empty;
     public string OrderNo { get; init; } = string.Empty;
     public decimal GoodsAmount { get; init; }
     public decimal DiscountAmount { get; init; }

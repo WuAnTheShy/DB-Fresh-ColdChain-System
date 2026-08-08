@@ -47,8 +47,8 @@ internal static class OrderLifecycleScenarioTests
     private static async Task OrderListFiltersAndPagesAsync()
     {
         var context = TestContext.Create();
-        SeedOrder(context, 1, OrderStatus.Paid, "ORD-PAID-001");
-        SeedOrder(context, 2, OrderStatus.Completed, "ORD-DONE-002");
+        SeedOrder(context, TestIds.Order, OrderStatus.Paid, "ORD-PAID-001");
+        SeedOrder(context, TestIds.Order2, OrderStatus.Completed, "ORD-DONE-002");
 
         var result = await context.Service.GetOrdersAsync(new OrderQueryRequest
         {
@@ -61,7 +61,7 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal(1, result.TotalCount);
         AssertEx.Equal(1, result.TotalPages);
         AssertEx.Equal(1, result.Orders.Count);
-        AssertEx.Equal(2, result.Orders[0].OrderId);
+        AssertEx.Equal(TestIds.Order2, result.Orders[0].OrderId);
         AssertEx.Equal("已完成", result.Orders[0].StatusName);
         AssertEx.Equal(2, result.Orders[0].SupplierCount);
     }
@@ -69,16 +69,16 @@ internal static class OrderLifecycleScenarioTests
     private static async Task OrderDetailGroupsBySupplierAsync()
     {
         var context = TestContext.Create();
-        SeedOrder(context, 1, OrderStatus.Paid, "ORD-GROUP-001");
+        SeedOrder(context, TestIds.Order, OrderStatus.Paid, "ORD-GROUP-001");
 
-        var result = await context.Service.GetOrderDetailAsync(1);
+        var result = await context.Service.GetOrderDetailAsync(TestIds.Order);
 
         AssertEx.True(result != null);
         AssertEx.Equal(2, result!.SupplierGroups.Count);
         AssertEx.Equal(50m, result.SupplierGroups[0].SubTotal);
         AssertEx.Equal(80m, result.SupplierGroups[1].SubTotal);
         AssertEx.Equal("待发货", result.SupplierGroups[0].FulfillmentStatus);
-        AssertEx.Equal("TRACK-1-SUP1", result.SupplierGroups[0].TrackingNo);
+        AssertEx.Equal($"TRACK-{TestIds.Order}-SUP1", result.SupplierGroups[0].TrackingNo);
         AssertEx.True(result.CanShip);
         AssertEx.True(result.CanCancel);
         AssertEx.True(!result.CanComplete);
@@ -91,8 +91,8 @@ internal static class OrderLifecycleScenarioTests
 
         var result = await context.Service.CreateOrderAsync(new CreateOrderRequest
         {
-            CustomerId = 1,
-            AddressId = 11,
+            CustomerId = TestIds.Customer,
+            AddressId = TestIds.Address1,
             Items = [new() { ProductId = "P1", Quantity = 2 }]
         });
 
@@ -109,15 +109,15 @@ internal static class OrderLifecycleScenarioTests
     private static async Task PaidOrderShipsAsync()
     {
         var context = TestContext.Create();
-        SeedOrder(context, 1, OrderStatus.Paid, "ORD-SHIP-001");
+        SeedOrder(context, TestIds.Order, OrderStatus.Paid, "ORD-SHIP-001");
 
-        await context.Service.TransitionOrderAsync(1, OrderStatus.Shipped);
+        await context.Service.TransitionOrderAsync(TestIds.Order, OrderStatus.Shipped);
 
         AssertEx.Equal(
             OrderStatusCodes.Shipped,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(1, context.LogisticsService.ShippedOrderIds.Count);
-        AssertEx.Equal(1, context.LogisticsService.ShippedOrderIds[0]);
+        AssertEx.Equal(TestIds.Order, context.LogisticsService.ShippedOrderIds[0]);
         AssertCommitted(context);
     }
 
@@ -125,9 +125,9 @@ internal static class OrderLifecycleScenarioTests
     {
         var context = TestContext.Create();
         context.CustomerRepository.Customer.PromoterId = "PROM9";
-        SeedOrder(context, 1, OrderStatus.Shipped, "ORD-COMPLETE-001");
+        SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-COMPLETE-001");
 
-        await context.Service.TransitionOrderAsync(1, OrderStatus.Completed);
+        await context.Service.TransitionOrderAsync(TestIds.Order, OrderStatus.Completed);
 
         AssertEx.Equal(
             OrderStatusCodes.Completed,
@@ -142,10 +142,10 @@ internal static class OrderLifecycleScenarioTests
     private static async Task InvalidTransitionRollsBackAsync()
     {
         var context = TestContext.Create();
-        SeedOrder(context, 1, OrderStatus.Paid, "ORD-INVALID-001");
+        SeedOrder(context, TestIds.Order, OrderStatus.Paid, "ORD-INVALID-001");
 
         await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
-            context.Service.TransitionOrderAsync(1, OrderStatus.Completed));
+            context.Service.TransitionOrderAsync(TestIds.Order, OrderStatus.Completed));
 
         AssertEx.Equal(
             OrderStatusCodes.Paid,
@@ -157,12 +157,12 @@ internal static class OrderLifecycleScenarioTests
     private static async Task CommissionFailureRollsBackAsync()
     {
         var context = TestContext.Create();
-        SeedOrder(context, 1, OrderStatus.Shipped, "ORD-COMM-FAIL-001");
+        SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-COMM-FAIL-001");
         context.CommissionService.ExceptionToThrow =
             new InvalidOperationException("模拟佣金登记失败");
 
         await AssertEx.ThrowsAsync<InvalidOperationException>(() =>
-            context.Service.TransitionOrderAsync(1, OrderStatus.Completed));
+            context.Service.TransitionOrderAsync(TestIds.Order, OrderStatus.Completed));
 
         AssertEx.Equal(
             OrderStatusCodes.Shipped,
@@ -176,27 +176,27 @@ internal static class OrderLifecycleScenarioTests
         var context = TestContext.Create();
         context.CustomerRepository.Customer.Points = 130;
         context.CustomerRepository.Customer.TotalSpent = 130m;
-        context.CustomerRepository.Customer.MemberLevelId = 2;
-        SeedOrder(context, 1, OrderStatus.Paid, "ORD-CANCEL-001", pointsEarned: 30);
+        context.CustomerRepository.Customer.MemberLevelId = TestIds.Level2;
+        SeedOrder(context, TestIds.Order, OrderStatus.Paid, "ORD-CANCEL-001", pointsEarned: 30);
         context.CouponRepository.Records.Add(new MktCouponRecord
         {
-            RecordId = 7,
-            CouponId = 3,
-            CustomerId = 1,
-            OrderId = 1,
+            RecordId = TestIds.Record,
+            CouponId = TestIds.Coupon,
+            CustomerId = TestIds.Customer,
+            OrderId = TestIds.Order,
             Status = 1,
             UsedAt = DateTime.Now,
             CreatedAt = DateTime.Now.AddMinutes(-5)
         });
 
-        await context.Service.CancelOrderAsync(1);
+        await context.Service.CancelOrderAsync(TestIds.Order);
 
         AssertEx.Equal(
             OrderStatusCodes.Cancelled,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(100, context.CustomerRepository.Customer.Points);
         AssertEx.Equal(0m, context.CustomerRepository.Customer.TotalSpent);
-        AssertEx.Equal(1, context.CustomerRepository.Customer.MemberLevelId);
+        AssertEx.Equal(TestIds.Level1, context.CustomerRepository.Customer.MemberLevelId);
         AssertEx.Equal(0, context.CouponRepository.Records[0].Status);
         AssertEx.Equal(null, context.CouponRepository.Records[0].OrderId);
         AssertEx.Equal(1, context.InventoryService.ReleasedOrderIds.Count);
@@ -209,12 +209,12 @@ internal static class OrderLifecycleScenarioTests
         var context = TestContext.Create();
         context.CustomerRepository.Customer.Points = 130;
         context.CustomerRepository.Customer.TotalSpent = 130m;
-        SeedOrder(context, 1, OrderStatus.Paid, "ORD-RELEASE-FAIL-001", pointsEarned: 30);
+        SeedOrder(context, TestIds.Order, OrderStatus.Paid, "ORD-RELEASE-FAIL-001", pointsEarned: 30);
         context.InventoryService.ReleaseExceptionToThrow =
             new InvalidOperationException("模拟库存释放失败");
 
         await AssertEx.ThrowsAsync<InvalidOperationException>(() =>
-            context.Service.CancelOrderAsync(1));
+            context.Service.CancelOrderAsync(TestIds.Order));
 
         AssertEx.Equal(
             OrderStatusCodes.Paid,
@@ -232,13 +232,13 @@ internal static class OrderLifecycleScenarioTests
         context.CustomerRepository.Customer.Points = 130;
         SeedOrder(
             context,
-            1,
+            TestIds.Order,
             OrderStatus.Paid,
             "ORD-REFUND-PAID-001",
             pointsEarned: 30);
 
-        await context.Service.DeductPointsForRefundAsync(1, 1, 50);
-        await context.Service.DeductPointsForRefundAsync(1, 1, 50);
+        await context.Service.DeductPointsForRefundAsync(TestIds.Customer, TestIds.Order, 50);
+        await context.Service.DeductPointsForRefundAsync(TestIds.Customer, TestIds.Order, 50);
 
         AssertEx.Equal(
             OrderStatusCodes.Refunded,
@@ -249,7 +249,7 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal(-30, context.PointRepository.Logs[0].ChangeAmount);
 
         await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
-            context.Service.TransitionOrderAsync(1, OrderStatus.Shipped));
+            context.Service.TransitionOrderAsync(TestIds.Order, OrderStatus.Shipped));
         AssertEx.Equal(0, context.LogisticsService.ShippedOrderIds.Count);
     }
 
@@ -259,12 +259,12 @@ internal static class OrderLifecycleScenarioTests
         context.CustomerRepository.Customer.Points = 130;
         SeedOrder(
             context,
-            1,
+            TestIds.Order,
             OrderStatus.Shipped,
             "ORD-REFUND-SHIPPED-001",
             pointsEarned: 30);
 
-        await context.Service.DeductPointsForRefundAsync(1, 1, 30);
+        await context.Service.DeductPointsForRefundAsync(TestIds.Customer, TestIds.Order, 30);
 
         AssertEx.Equal(
             OrderStatusCodes.Refunded,
@@ -280,13 +280,13 @@ internal static class OrderLifecycleScenarioTests
         context.CustomerRepository.Customer.Points = 130;
         SeedOrder(
             context,
-            1,
+            TestIds.Order,
             OrderStatus.Paid,
             "ORD-REFUND-MISMATCH-001",
             pointsEarned: 30);
 
         await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
-            context.Service.DeductPointsForRefundAsync(2, 1, 30));
+            context.Service.DeductPointsForRefundAsync("customer-2", TestIds.Order, 30));
 
         AssertEx.Equal(
             OrderStatusCodes.Paid,
@@ -299,7 +299,7 @@ internal static class OrderLifecycleScenarioTests
 
     private static void SeedOrder(
         TestContext context,
-        int orderId,
+        string orderId,
         OrderStatus status,
         string orderNo,
         int pointsEarned = 0)
@@ -308,8 +308,8 @@ internal static class OrderLifecycleScenarioTests
         {
             OrderId = orderId,
             OrderNo = orderNo,
-            CustomerId = 1,
-            AddressId = 11,
+            CustomerId = TestIds.Customer,
+            AddressId = TestIds.Address1,
             ReceiverName = "默认收件人",
             ReceiverPhone = "13800138000",
             ShippingAddress = "浙江省 杭州市 西湖区 测试路1号",
@@ -319,13 +319,13 @@ internal static class OrderLifecycleScenarioTests
             FinalAmount = 130m,
             PointsEarned = pointsEarned,
             OrderStatus = OrderStatusCodes.ToCode(status),
-            CreatedAt = DateTime.Now.AddMinutes(-orderId)
+            CreatedAt = DateTime.Now.AddMinutes(-1)
         });
         context.OrderRepository.Details.AddRange(
         [
             new BizOrderDetail
             {
-                OrderDetailId = orderId * 10 + 1,
+                OrderDetailId = $"{orderId}-detail-1",
                 OrderId = orderId,
                 ProductId = "P1",
                 ProductName = "车厘子",
@@ -336,7 +336,7 @@ internal static class OrderLifecycleScenarioTests
             },
             new BizOrderDetail
             {
-                OrderDetailId = orderId * 10 + 2,
+                OrderDetailId = $"{orderId}-detail-2",
                 OrderId = orderId,
                 ProductId = "P2",
                 ProductName = "三文鱼",

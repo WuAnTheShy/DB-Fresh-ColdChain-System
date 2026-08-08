@@ -5,14 +5,14 @@ namespace FreshColdChain.Models;
 /// </summary>
 public class CrmCustomer
 {
-    public int CustomerId { get; set; }
+    public string CustomerId { get; set; } = string.Empty;
     public string? OpenId { get; set; }
     public string CustomerName { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string? Email { get; set; }
     public string PasswordHash { get; set; } = string.Empty;
     public string? PromoterId { get; set; }       // 所属团长ID（C组字符串GUID）
-    public int? MemberLevelId { get; set; }        // 当前会员等级
+    public string? MemberLevelId { get; set; }     // 当前会员等级
     public decimal TotalSpent { get; set; }        // 累计消费金额(用于定级)
     public int Points { get; set; }                // 当前积分余额
     public int GrowthValue { get; set; }

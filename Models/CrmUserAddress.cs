@@ -5,8 +5,8 @@ namespace FreshColdChain.Models;
 /// </summary>
 public class CrmUserAddress
 {
-    public int AddressId { get; set; }
-    public int CustomerId { get; set; }
+    public string AddressId { get; set; } = string.Empty;
+    public string CustomerId { get; set; } = string.Empty;
     public string ReceiverName { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string Province { get; set; } = string.Empty;

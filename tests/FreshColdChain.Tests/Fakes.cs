@@ -8,6 +8,20 @@ using Microsoft.AspNetCore.Identity;
 
 namespace FreshColdChain.Tests;
 
+internal static class TestIds
+{
+    public const string Level1 = "level-1";
+    public const string Level2 = "level-2";
+    public const string Level3 = "level-3";
+    public const string Customer = "customer-1";
+    public const string Address1 = "address-11";
+    public const string Address2 = "address-12";
+    public const string Coupon = "coupon-3";
+    public const string Record = "record-7";
+    public const string Order = "order-1";
+    public const string Order2 = "order-2";
+}
+
 internal sealed class TestContext
 {
     private TestContext()
@@ -128,28 +142,23 @@ internal sealed class FakeOrderRepository : IOrderRepository
     public List<BizOrder> Orders { get; } = [];
     public List<BizOrderDetail> Details { get; } = [];
 
-    public Task<int> CreateOrderAsync(
+    public Task<string> CreateOrderAsync(
         BizOrder order,
         IDbTransaction? transaction = null)
     {
-        var orderId = Orders.Count + 1;
-        Stage(transaction, () =>
-        {
-            order.OrderId = orderId;
-            Orders.Add(order);
-        });
-        return Task.FromResult(orderId);
+        Stage(transaction, () => Orders.Add(order));
+        return Task.FromResult(order.OrderId);
     }
 
     public Task<BizOrder?> GetByIdAsync(
-        int orderId,
+        string orderId,
         IDbTransaction? transaction = null)
     {
         return Task.FromResult(Orders.SingleOrDefault(order => order.OrderId == orderId));
     }
 
     public Task<BizOrder?> GetByIdForUpdateAsync(
-        int orderId,
+        string orderId,
         IDbTransaction transaction)
     {
         return GetByIdAsync(orderId, transaction);
@@ -212,7 +221,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
     }
 
     public Task<OrderDetailHeader?> GetDetailHeaderAsync(
-        int orderId,
+        string orderId,
         IDbTransaction? transaction = null)
     {
         var order = Orders.SingleOrDefault(item => item.OrderId == orderId);
@@ -240,7 +249,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
     }
 
     public Task<List<BizOrderDetail>> GetDetailsAsync(
-        int orderId,
+        string orderId,
         IDbTransaction? transaction = null)
     {
         return Task.FromResult(Details
@@ -252,7 +261,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
     }
 
     public Task<bool> TryUpdateStatusAsync(
-        int orderId,
+        string orderId,
         OrderStatus expectedStatus,
         OrderStatus targetStatus,
         IDbTransaction transaction)
@@ -271,7 +280,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
     }
 
     public Task<bool> TryUpdateCommissionSettlementAsync(
-        int orderId,
+        string orderId,
         decimal? commBaseAmount,
         decimal? commBonusAmount,
         DateTime? commSettlementDate,
@@ -343,8 +352,8 @@ internal sealed class FakeOrderRepository : IOrderRepository
     private IEnumerable<BizOrder> FilterOrders(OrderQueryRequest request)
     {
         return Orders.Where(order =>
-            (!request.CustomerId.HasValue ||
-             order.CustomerId == request.CustomerId.Value) &&
+            (request.CustomerId == null ||
+             order.CustomerId == request.CustomerId) &&
             (!request.Status.HasValue ||
              order.OrderStatus == OrderStatusCodes.ToCode(request.Status.Value)) &&
             (request.Keyword == null ||
@@ -369,10 +378,10 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
 {
     public CrmCustomer Customer { get; } = new()
     {
-        CustomerId = 1,
+        CustomerId = TestIds.Customer,
         CustomerName = "测试消费者",
         OpenId = "openid-1",
-        MemberLevelId = 2,
+        MemberLevelId = TestIds.Level2,
         Points = 100,
         TotalSpent = 0m,
         GrowthValue = 0
@@ -381,8 +390,8 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     [
         new()
         {
-            AddressId = 11,
-            CustomerId = 1,
+            AddressId = TestIds.Address1,
+            CustomerId = TestIds.Customer,
             ReceiverName = "默认收件人",
             Phone = "13800138000",
             Province = "浙江省",
@@ -397,7 +406,7 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
 
     public Task<bool> PhoneExistsAsync(
         string phone,
-        int? excludeCustomerId = null,
+        string? excludeCustomerId = null,
         IDbTransaction? transaction = null)
     {
         return Task.FromResult(
@@ -408,19 +417,17 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
                 string.Equals(item.Phone, phone, StringComparison.Ordinal)));
     }
 
-    public Task<int> CreateCustomerAsync(
+    public Task<string> CreateCustomerAsync(
         CrmCustomer customer,
         IDbTransaction? transaction = null)
     {
-        var customerId = 2 + CreatedCustomers.Count;
         var copy = CloneCustomer(customer);
-        copy.CustomerId = customerId;
         Stage(transaction, () => CreatedCustomers.Add(copy));
-        return Task.FromResult(customerId);
+        return Task.FromResult(customer.CustomerId);
     }
 
     public Task<CrmCustomer?> GetByIdAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null)
     {
         return Task.FromResult(customerId == Customer.CustomerId
@@ -429,7 +436,7 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     public Task<CrmCustomer?> GetByIdForUpdateAsync(
-        int customerId,
+        string customerId,
         IDbTransaction transaction)
     {
         return GetByIdAsync(customerId, transaction);
@@ -465,7 +472,7 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     public Task<bool> UpdateBindingAsync(
-        int customerId,
+        string customerId,
         string? boundPromoterId,
         DateTime? bindExpireTime,
         int? growthValue = null,
@@ -513,7 +520,7 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     public Task UpdatePointsAsync(
-        int customerId,
+        string customerId,
         int newPoints,
         IDbTransaction? transaction = null)
     {
@@ -522,7 +529,7 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     public Task UpdateTotalSpentAsync(
-        int customerId,
+        string customerId,
         decimal addAmount,
         IDbTransaction? transaction = null)
     {
@@ -531,7 +538,7 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     public Task<bool> TrySubtractTotalSpentAsync(
-        int customerId,
+        string customerId,
         decimal amount,
         IDbTransaction transaction)
     {
@@ -546,8 +553,8 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     public Task UpdateMemberLevelAsync(
-        int customerId,
-        int memberLevelId,
+        string customerId,
+        string memberLevelId,
         IDbTransaction? transaction = null)
     {
         Stage(transaction, () => Customer.MemberLevelId = memberLevelId);
@@ -555,7 +562,7 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     public Task<List<CrmUserAddress>> GetAddressesAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null)
     {
         return Task.FromResult(Addresses
@@ -567,8 +574,8 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     public Task<CrmUserAddress?> GetAddressAsync(
-        int customerId,
-        int addressId,
+        string customerId,
+        string addressId,
         IDbTransaction? transaction = null)
     {
         var address = Addresses.SingleOrDefault(item =>
@@ -577,17 +584,13 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         return Task.FromResult(address == null ? null : CloneAddress(address));
     }
 
-    public Task<int> CreateAddressAsync(
+    public Task<string> CreateAddressAsync(
         CrmUserAddress address,
         IDbTransaction? transaction = null)
     {
-        var addressId = Addresses.Count == 0
-            ? 1
-            : Addresses.Max(item => item.AddressId) + 1;
         var copy = CloneAddress(address);
-        copy.AddressId = addressId;
         Stage(transaction, () => Addresses.Add(copy));
-        return Task.FromResult(addressId);
+        return Task.FromResult(address.AddressId);
     }
 
     public Task<bool> UpdateAddressAsync(
@@ -613,8 +616,8 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     public Task<bool> DeleteAddressAsync(
-        int customerId,
-        int addressId,
+        string customerId,
+        string addressId,
         IDbTransaction? transaction = null)
     {
         if (!Addresses.Any(item =>
@@ -631,7 +634,7 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     public Task ClearDefaultAddressesAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null)
     {
         Stage(transaction, () =>
@@ -646,8 +649,8 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
     }
 
     public Task<bool> SetDefaultAddressAsync(
-        int customerId,
-        int addressId,
+        string customerId,
+        string addressId,
         IDbTransaction? transaction = null)
     {
         if (!Addresses.Any(item =>
@@ -721,7 +724,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
     [
         new()
         {
-            CouponId = 3,
+            CouponId = TestIds.Coupon,
             CouponName = "满100减20",
             MinOrderAmount = 100m,
             DiscountAmount = 20m,
@@ -735,7 +738,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
     public List<MktCouponRecord> Records { get; } = [];
 
     public Task<List<MktCouponRecord>> GetUserCouponsAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null)
     {
         return Task.FromResult(Records
@@ -745,7 +748,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
     }
 
     public Task<MktCoupon?> GetCouponTemplateAsync(
-        int couponId,
+        string couponId,
         IDbTransaction? transaction = null)
     {
         var coupon = Coupons.SingleOrDefault(item => item.CouponId == couponId);
@@ -753,14 +756,14 @@ internal sealed class FakeCouponRepository : ICouponRepository
     }
 
     public Task<MktCoupon?> GetCouponTemplateForUpdateAsync(
-        int couponId,
+        string couponId,
         IDbTransaction transaction)
     {
         return GetCouponTemplateAsync(couponId, transaction);
     }
 
     public Task<List<ClaimableCouponItem>> GetClaimableCouponsAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null)
     {
         var now = DateTime.Now;
@@ -785,7 +788,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
     }
 
     public Task<List<AvailableCouponItem>> GetAvailableCouponsAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null)
     {
         var now = DateTime.Now;
@@ -810,8 +813,8 @@ internal sealed class FakeCouponRepository : ICouponRepository
     }
 
     public Task<bool> HasCustomerClaimedCouponAsync(
-        int customerId,
-        int couponId,
+        string customerId,
+        string couponId,
         IDbTransaction? transaction = null)
     {
         return Task.FromResult(Records.Any(record =>
@@ -819,15 +822,13 @@ internal sealed class FakeCouponRepository : ICouponRepository
             record.CouponId == couponId));
     }
 
-    public Task<int> CreateCouponRecordAsync(
-        int customerId,
-        int couponId,
-        IDbTransaction transaction)
+    public Task<string> CreateCouponRecordAsync(
+        string recordId,
+        string customerId,
+        string couponId,
+        IDbTransaction? transaction = null)
     {
-        var recordId = Records.Count == 0
-            ? 1
-            : Records.Max(record => record.RecordId) + 1;
-        ((FakeOrderTransaction)transaction).Stage(() => Records.Add(new MktCouponRecord
+        Stage(transaction, () => Records.Add(new MktCouponRecord
         {
             RecordId = recordId,
             CouponId = couponId,
@@ -839,8 +840,8 @@ internal sealed class FakeCouponRepository : ICouponRepository
     }
 
     public Task<MktCouponUsage?> GetUsableCouponForUpdateAsync(
-        int recordId,
-        int customerId,
+        string recordId,
+        string customerId,
         decimal orderAmount,
         IDbTransaction transaction)
     {
@@ -851,9 +852,9 @@ internal sealed class FakeCouponRepository : ICouponRepository
     }
 
     public Task<bool> TryUseCouponAsync(
-        int recordId,
-        int customerId,
-        int orderId,
+        string recordId,
+        string customerId,
+        string orderId,
         IDbTransaction transaction)
     {
         if (UsableCoupon?.RecordId != recordId)
@@ -864,8 +865,8 @@ internal sealed class FakeCouponRepository : ICouponRepository
     }
 
     public Task<int> RestoreCouponForCancelledOrderAsync(
-        int orderId,
-        int customerId,
+        string orderId,
+        string customerId,
         IDbTransaction transaction)
     {
         var matchingRecords = Records
@@ -887,7 +888,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
     }
 
     public Task<bool> DecrementCouponStockAsync(
-        int couponId,
+        string couponId,
         IDbTransaction? transaction = null)
     {
         var coupon = Coupons.SingleOrDefault(item =>
@@ -950,7 +951,7 @@ internal sealed class FakePointRepository : IPointRepository
     [
         new()
         {
-            MemberLevelId = 1,
+            MemberLevelId = TestIds.Level1,
             LevelName = "普通会员",
             MinSpent = 0m,
             DiscountRate = 1m,
@@ -958,7 +959,7 @@ internal sealed class FakePointRepository : IPointRepository
         },
         new()
         {
-            MemberLevelId = 2,
+            MemberLevelId = TestIds.Level2,
             LevelName = "双倍积分会员",
             MinSpent = 100m,
             DiscountRate = 1m,
@@ -966,7 +967,7 @@ internal sealed class FakePointRepository : IPointRepository
         },
         new()
         {
-            MemberLevelId = 3,
+            MemberLevelId = TestIds.Level3,
             LevelName = "三倍积分会员",
             MinSpent = 500m,
             DiscountRate = 1m,
@@ -989,8 +990,8 @@ internal sealed class FakePointRepository : IPointRepository
     }
 
     public Task<bool> HasPointLogAsync(
-        int customerId,
-        int orderId,
+        string customerId,
+        string orderId,
         string changeType,
         IDbTransaction? transaction = null)
     {
@@ -1013,7 +1014,7 @@ internal sealed class FakePointRepository : IPointRepository
     }
 
     public Task<CrmMemberLevel?> GetLevelByIdAsync(
-        int memberLevelId,
+        string memberLevelId,
         IDbTransaction? transaction = null)
     {
         var level = Levels.SingleOrDefault(
@@ -1050,7 +1051,7 @@ internal sealed class FakeInventoryService : IInventoryService
     public Exception? ExceptionToThrow { get; set; }
     public Exception? ReleaseExceptionToThrow { get; set; }
     public IReadOnlyList<InventoryReservationItem> LastItems { get; private set; } = [];
-    public List<int> ReleasedOrderIds { get; } = [];
+    public List<string> ReleasedOrderIds { get; } = [];
 
     public Task<IReadOnlyList<InventoryProductSnapshot>> ReserveAsync(
         IReadOnlyList<InventoryReservationItem> items,
@@ -1101,7 +1102,7 @@ internal sealed class FakeLogisticsService : ILogisticsService
 {
     public decimal FreightAmount { get; set; }
     public Exception? ShipmentExceptionToThrow { get; set; }
-    public List<int> ShippedOrderIds { get; } = [];
+    public List<string> ShippedOrderIds { get; } = [];
     public FreightCalculationRequest? LastFreightRequest { get; private set; }
 
     public Task<decimal> CalculateFreightAsync(
@@ -1127,7 +1128,7 @@ internal sealed class FakeLogisticsService : ILogisticsService
     }
 
     public Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
-        int orderId,
+        string orderId,
         IReadOnlyList<string> supplierIds,
         CancellationToken cancellationToken = default)
     {

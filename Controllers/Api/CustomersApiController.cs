@@ -9,8 +9,8 @@ namespace FreshColdChain.Controllers.Api;
 public sealed class CustomersApiController(
     ICustomerService customerService) : GroupBApiController
 {
-    [HttpGet("{customerId:int}")]
-    public async Task<IActionResult> GetProfile(int customerId)
+    [HttpGet("{customerId}")]
+    public async Task<IActionResult> GetProfile(string customerId)
     {
         var profile = await customerService.GetProfileAsync(customerId);
         if (profile == null)
@@ -48,9 +48,9 @@ public sealed class CustomersApiController(
             new { customerId });
     }
 
-    [HttpPut("{customerId:int}")]
+    [HttpPut("{customerId}")]
     public async Task<IActionResult> UpdateProfile(
-        int customerId,
+        string customerId,
         CustomerProfileUpdateRequest request)
     {
         if (request.CustomerId != customerId)
@@ -60,8 +60,8 @@ public sealed class CustomersApiController(
         return NoContent();
     }
 
-    [HttpGet("{customerId:int}/addresses")]
-    public async Task<IActionResult> GetAddresses(int customerId)
+    [HttpGet("{customerId}/addresses")]
+    public async Task<IActionResult> GetAddresses(string customerId)
     {
         var result = await customerService.GetAddressesAsync(customerId);
         return result == null
@@ -69,8 +69,8 @@ public sealed class CustomersApiController(
             : Ok(result);
     }
 
-    [HttpGet("{customerId:int}/addresses/{addressId:int}")]
-    public async Task<IActionResult> GetAddress(int customerId, int addressId)
+    [HttpGet("{customerId}/addresses/{addressId}")]
+    public async Task<IActionResult> GetAddress(string customerId, string addressId)
     {
         var address = await customerService.GetAddressForEditAsync(
             customerId,
@@ -80,9 +80,9 @@ public sealed class CustomersApiController(
             : Ok(address);
     }
 
-    [HttpPost("{customerId:int}/addresses")]
+    [HttpPost("{customerId}/addresses")]
     public async Task<IActionResult> CreateAddress(
-        int customerId,
+        string customerId,
         AddressUpsertRequest request)
     {
         if (request.CustomerId != customerId)
@@ -96,10 +96,10 @@ public sealed class CustomersApiController(
             new { addressId });
     }
 
-    [HttpPut("{customerId:int}/addresses/{addressId:int}")]
+    [HttpPut("{customerId}/addresses/{addressId}")]
     public async Task<IActionResult> UpdateAddress(
-        int customerId,
-        int addressId,
+        string customerId,
+        string addressId,
         AddressUpsertRequest request)
     {
         if (request.CustomerId != customerId)
@@ -111,17 +111,17 @@ public sealed class CustomersApiController(
         return NoContent();
     }
 
-    [HttpDelete("{customerId:int}/addresses/{addressId:int}")]
-    public async Task<IActionResult> DeleteAddress(int customerId, int addressId)
+    [HttpDelete("{customerId}/addresses/{addressId}")]
+    public async Task<IActionResult> DeleteAddress(string customerId, string addressId)
     {
         await customerService.DeleteAddressAsync(customerId, addressId);
         return NoContent();
     }
 
-    [HttpPut("{customerId:int}/addresses/{addressId:int}/default")]
+    [HttpPut("{customerId}/addresses/{addressId}/default")]
     public async Task<IActionResult> SetDefaultAddress(
-        int customerId,
-        int addressId)
+        string customerId,
+        string addressId)
     {
         await customerService.SetDefaultAddressAsync(customerId, addressId);
         return NoContent();

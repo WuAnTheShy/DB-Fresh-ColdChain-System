@@ -6,53 +6,54 @@ namespace FreshColdChain.Repositories;
 public interface ICouponRepository
 {
     Task<List<MktCouponRecord>> GetUserCouponsAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null);
 
     Task<MktCoupon?> GetCouponTemplateAsync(
-        int couponId,
+        string couponId,
         IDbTransaction? transaction = null);
 
     Task<MktCoupon?> GetCouponTemplateForUpdateAsync(
-        int couponId,
+        string couponId,
         IDbTransaction transaction);
 
     Task<List<ClaimableCouponItem>> GetClaimableCouponsAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null);
 
     Task<List<AvailableCouponItem>> GetAvailableCouponsAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null);
 
     Task<bool> HasCustomerClaimedCouponAsync(
-        int customerId,
-        int couponId,
+        string customerId,
+        string couponId,
         IDbTransaction? transaction = null);
 
-    Task<int> CreateCouponRecordAsync(
-        int customerId,
-        int couponId,
-        IDbTransaction transaction);
+    Task<string> CreateCouponRecordAsync(
+        string recordId,
+        string customerId,
+        string couponId,
+        IDbTransaction? transaction = null);
 
     Task<MktCouponUsage?> GetUsableCouponForUpdateAsync(
-        int recordId,
-        int customerId,
+        string recordId,
+        string customerId,
         decimal orderAmount,
         IDbTransaction transaction);
 
     Task<bool> TryUseCouponAsync(
-        int recordId,
-        int customerId,
-        int orderId,
+        string recordId,
+        string customerId,
+        string orderId,
         IDbTransaction transaction);
 
     Task<int> RestoreCouponForCancelledOrderAsync(
-        int orderId,
-        int customerId,
+        string orderId,
+        string customerId,
         IDbTransaction transaction);
 
     Task<bool> DecrementCouponStockAsync(
-        int couponId,
+        string couponId,
         IDbTransaction? transaction = null);
 }

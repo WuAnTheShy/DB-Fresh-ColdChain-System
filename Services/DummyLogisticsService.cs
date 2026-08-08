@@ -32,7 +32,7 @@ public sealed class DummyLogisticsService : ILogisticsService
     }
 
     public Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
-        int orderId,
+        string orderId,
         IReadOnlyList<string> supplierIds,
         CancellationToken cancellationToken = default)
     {

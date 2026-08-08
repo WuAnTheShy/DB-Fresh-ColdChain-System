@@ -1,15 +1,16 @@
 import { computed, ref } from 'vue'
 
-const storedCustomerId = Number.parseInt(localStorage.getItem('groupB.customerId') ?? '1', 10)
-const customerId = ref(Number.isInteger(storedCustomerId) && storedCustomerId > 0 ? storedCustomerId : 1)
+const defaultCustomerId = '10000000000000000000000000000001'
+const storedCustomerId = localStorage.getItem('groupB.customerId')?.trim()
+const customerId = ref(storedCustomerId && storedCustomerId.length <= 36 ? storedCustomerId : defaultCustomerId)
 
 export function useCustomerContext() {
   const setCustomerId = (value) => {
-    const parsed = Number.parseInt(value, 10)
-    if (!Number.isInteger(parsed) || parsed <= 0) return false
+    const normalized = String(value ?? '').trim()
+    if (!normalized || normalized.length > 36) return false
 
-    customerId.value = parsed
-    localStorage.setItem('groupB.customerId', String(parsed))
+    customerId.value = normalized
+    localStorage.setItem('groupB.customerId', normalized)
     return true
   }
 

@@ -7,8 +7,9 @@ namespace FreshColdChain.Models;
 /// </summary>
 public sealed class CustomerProfileUpdateRequest
 {
-    [Range(1, int.MaxValue, ErrorMessage = "消费者ID必须大于0")]
-    public int CustomerId { get; set; }
+    [Required(ErrorMessage = "消费者ID不能为空")]
+    [StringLength(36, ErrorMessage = "消费者ID不能超过36个字符")]
+    public string CustomerId { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "请输入消费者姓名")]
     [StringLength(100, ErrorMessage = "消费者姓名不能超过100个字符")]

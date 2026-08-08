@@ -5,7 +5,7 @@ namespace FreshColdChain.Models;
 /// </summary>
 public class CrmMemberLevel
 {
-    public int MemberLevelId { get; set; }
+    public string MemberLevelId { get; set; } = string.Empty;
     public string LevelName { get; set; } = string.Empty;   // 如: 普通/银卡/金卡/钻石
     public decimal MinSpent { get; set; }                    // 该等级最低消费门槛
     public decimal DiscountRate { get; set; }                // 折扣率 0.95 = 95折

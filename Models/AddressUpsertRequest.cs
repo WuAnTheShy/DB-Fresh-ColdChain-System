@@ -7,10 +7,12 @@ namespace FreshColdChain.Models;
 /// </summary>
 public sealed class AddressUpsertRequest
 {
-    public int? AddressId { get; set; }
+    [StringLength(36, ErrorMessage = "地址ID不能超过36个字符")]
+    public string? AddressId { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "消费者ID必须大于0")]
-    public int CustomerId { get; set; }
+    [Required(ErrorMessage = "消费者ID不能为空")]
+    [StringLength(36, ErrorMessage = "消费者ID不能超过36个字符")]
+    public string CustomerId { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "请输入收件人")]
     [StringLength(50, ErrorMessage = "收件人不能超过50个字符")]

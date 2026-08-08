@@ -32,7 +32,7 @@ public sealed class CustomerService : ICustomerService
         _passwordHasher = passwordHasher;
     }
 
-    public async Task<int> CreateCustomerAsync(CustomerCreateRequest request)
+    public async Task<string> CreateCustomerAsync(CustomerCreateRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         NormalizeAndValidateCreateRequest(request);
@@ -48,6 +48,7 @@ public sealed class CustomerService : ICustomerService
             var baseLevel = await _pointRepo.GetLevelForSpentAsync(0m, transaction);
             var customer = new CrmCustomer
             {
+                CustomerId = GroupBIds.NewId(),
                 CustomerName = request.CustomerName,
                 Phone = request.Phone,
                 Email = request.Email,
@@ -63,16 +64,16 @@ public sealed class CustomerService : ICustomerService
         });
     }
 
-    public async Task<CrmCustomer?> GetCustomerAsync(int customerId)
+    public async Task<CrmCustomer?> GetCustomerAsync(string customerId)
     {
-        return customerId <= 0
+        return !GroupBIds.IsValid(customerId)
             ? null
             : await _customerRepo.GetByIdAsync(customerId);
     }
 
-    public async Task<CustomerProfileViewModel?> GetProfileAsync(int customerId)
+    public async Task<CustomerProfileViewModel?> GetProfileAsync(string customerId)
     {
-        if (customerId <= 0)
+        if (!GroupBIds.IsValid(customerId))
             return null;
 
         var customer = await _customerRepo.GetByIdAsync(customerId);
@@ -80,8 +81,8 @@ public sealed class CustomerService : ICustomerService
             return null;
 
         var addressesTask = _customerRepo.GetAddressesAsync(customerId);
-        var levelTask = customer.MemberLevelId.HasValue
-            ? _pointRepo.GetLevelByIdAsync(customer.MemberLevelId.Value)
+        var levelTask = customer.MemberLevelId != null
+            ? _pointRepo.GetLevelByIdAsync(customer.MemberLevelId)
             : _pointRepo.GetLevelForSpentAsync(customer.TotalSpent);
 
         await Task.WhenAll(addressesTask, levelTask);
@@ -117,9 +118,10 @@ public sealed class CustomerService : ICustomerService
         });
     }
 
-    public async Task<AddressListViewModel?> GetAddressesAsync(int customerId)
+    public async Task<AddressListViewModel?> GetAddressesAsync(string customerId)
     {
-        if (customerId <= 0 || await _customerRepo.GetByIdAsync(customerId) == null)
+        if (!GroupBIds.IsValid(customerId) ||
+            await _customerRepo.GetByIdAsync(customerId) == null)
             return null;
 
         return new AddressListViewModel
@@ -130,17 +132,17 @@ public sealed class CustomerService : ICustomerService
     }
 
     public async Task<AddressUpsertRequest?> GetAddressForEditAsync(
-        int customerId,
-        int addressId)
+        string customerId,
+        string addressId)
     {
-        if (customerId <= 0 || addressId <= 0)
+        if (!GroupBIds.IsValid(customerId) || !GroupBIds.IsValid(addressId))
             return null;
 
         var address = await _customerRepo.GetAddressAsync(customerId, addressId);
         return address == null ? null : MapAddress(address);
     }
 
-    public async Task<int> CreateAddressAsync(AddressUpsertRequest request)
+    public async Task<string> CreateAddressAsync(AddressUpsertRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         NormalizeAndValidateAddress(request);
@@ -173,8 +175,8 @@ public sealed class CustomerService : ICustomerService
     {
         ArgumentNullException.ThrowIfNull(request);
         NormalizeAndValidateAddress(request);
-        if (!request.AddressId.HasValue || request.AddressId <= 0)
-            throw new GroupBBusinessException("地址ID必须大于0");
+        if (!GroupBIds.IsValid(request.AddressId))
+            throw new GroupBBusinessException("地址ID格式不正确");
 
         await _transactionManager.ExecuteAsync(async transaction =>
         {
@@ -185,7 +187,7 @@ public sealed class CustomerService : ICustomerService
 
             var address = await _customerRepo.GetAddressAsync(
                     request.CustomerId,
-                    request.AddressId.Value,
+                    request.AddressId!,
                     transaction)
                 ?? throw new GroupBBusinessException("收货地址不存在或不属于当前消费者");
             var addresses = await _customerRepo.GetAddressesAsync(
@@ -223,9 +225,9 @@ public sealed class CustomerService : ICustomerService
         });
     }
 
-    public async Task DeleteAddressAsync(int customerId, int addressId)
+    public async Task DeleteAddressAsync(string customerId, string addressId)
     {
-        EnsurePositiveIds(customerId, addressId);
+        EnsureValidIds(customerId, addressId);
 
         await _transactionManager.ExecuteAsync(async transaction =>
         {
@@ -261,9 +263,9 @@ public sealed class CustomerService : ICustomerService
         });
     }
 
-    public async Task SetDefaultAddressAsync(int customerId, int addressId)
+    public async Task SetDefaultAddressAsync(string customerId, string addressId)
     {
-        EnsurePositiveIds(customerId, addressId);
+        EnsureValidIds(customerId, addressId);
 
         await _transactionManager.ExecuteAsync(async transaction =>
         {
@@ -289,6 +291,7 @@ public sealed class CustomerService : ICustomerService
     {
         return new CrmUserAddress
         {
+            AddressId = GroupBIds.NewId(),
             CustomerId = request.CustomerId,
             ReceiverName = request.ReceiverName,
             Phone = request.Phone,
@@ -318,8 +321,8 @@ public sealed class CustomerService : ICustomerService
 
     private static void NormalizeAndValidateProfile(CustomerProfileUpdateRequest request)
     {
-        if (request.CustomerId <= 0)
-            throw new GroupBBusinessException("消费者ID必须大于0");
+        if (!GroupBIds.IsValid(request.CustomerId))
+            throw new GroupBBusinessException("消费者ID格式不正确");
 
         request.CustomerName = RequiredTrimmed(request.CustomerName, "消费者姓名", 100);
         request.Phone = RequiredTrimmed(request.Phone, "手机号码", 20);
@@ -368,8 +371,8 @@ public sealed class CustomerService : ICustomerService
 
     private static void NormalizeAndValidateAddress(AddressUpsertRequest request)
     {
-        if (request.CustomerId <= 0)
-            throw new GroupBBusinessException("消费者ID必须大于0");
+        if (!GroupBIds.IsValid(request.CustomerId))
+            throw new GroupBBusinessException("消费者ID格式不正确");
 
         request.ReceiverName = RequiredTrimmed(request.ReceiverName, "收件人", 50);
         request.Phone = RequiredTrimmed(request.Phone, "联系电话", 20);
@@ -391,11 +394,11 @@ public sealed class CustomerService : ICustomerService
         return normalized;
     }
 
-    private static void EnsurePositiveIds(int customerId, int addressId)
+    private static void EnsureValidIds(string customerId, string addressId)
     {
-        if (customerId <= 0)
-            throw new GroupBBusinessException("消费者ID必须大于0");
-        if (addressId <= 0)
-            throw new GroupBBusinessException("地址ID必须大于0");
+        if (!GroupBIds.IsValid(customerId))
+            throw new GroupBBusinessException("消费者ID格式不正确");
+        if (!GroupBIds.IsValid(addressId))
+            throw new GroupBBusinessException("地址ID格式不正确");
     }
 }

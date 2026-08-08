@@ -4,12 +4,12 @@ using Microsoft.AspNetCore.Mvc;
 namespace FreshColdChain.Controllers.Api;
 
 [ApiController]
-[Route("api/customers/{customerId:int}/coupons")]
+[Route("api/customers/{customerId}/coupons")]
 public sealed class CouponsApiController(
     ICouponService couponService) : GroupBApiController
 {
     [HttpGet]
-    public async Task<IActionResult> GetCouponCenter(int customerId)
+    public async Task<IActionResult> GetCouponCenter(string customerId)
     {
         var result = await couponService.GetCouponCenterAsync(customerId);
         return result == null
@@ -17,8 +17,8 @@ public sealed class CouponsApiController(
             : Ok(result);
     }
 
-    [HttpPost("{couponId:int}/claim")]
-    public async Task<IActionResult> ClaimCoupon(int customerId, int couponId)
+    [HttpPost("{couponId}/claim")]
+    public async Task<IActionResult> ClaimCoupon(string customerId, string couponId)
     {
         await couponService.ClaimCouponAsync(customerId, couponId);
         return NoContent();
