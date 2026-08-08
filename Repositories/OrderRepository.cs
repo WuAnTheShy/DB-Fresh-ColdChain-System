@@ -67,7 +67,7 @@ public class OrderRepository : BaseRepository, IOrderRepository
         return await WithConnectionAsync(transaction, async connection =>
             (await connection.QueryAsync<BizOrder>(
                 @"SELECT * FROM Biz_Orders
-                                    WHERE OrderStatus IN (1, 2)
+                                    WHERE OrderStatus IN ('PAID', 'SHIPPED')
                                         AND NVL(CommSettlementDate, CreatedAt) <= :Threshold",
                 new { Threshold = threshold },
                 transaction)).ToList());
@@ -178,8 +178,8 @@ public class OrderRepository : BaseRepository, IOrderRepository
                 new
                 {
                     OrderId = orderId,
-                    ExpectedStatus = (int)expectedStatus,
-                    TargetStatus = (int)targetStatus
+                    ExpectedStatus = OrderStatusCodes.ToCode(expectedStatus),
+                    TargetStatus = OrderStatusCodes.ToCode(targetStatus)
                 },
                 transaction);
             return affected == 1;
@@ -245,7 +245,7 @@ public class OrderRepository : BaseRepository, IOrderRepository
         {
             request.CustomerId,
             OrderStatus = request.Status.HasValue
-                ? (int?)request.Status.Value
+                ? OrderStatusCodes.ToCode(request.Status.Value)
                 : null,
             request.Keyword,
             Offset = offset,

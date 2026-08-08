@@ -16,7 +16,7 @@ public sealed class OrderDetailViewModel
 
     public string StatusName => Order == null
         ? string.Empty
-        : OrderStatusNames.GetName((OrderStatus)Order.OrderStatus);
+        : OrderStatusNames.GetName(OrderStatusCodes.Parse(Order.OrderStatus));
 }
 
 /// <summary>
@@ -49,7 +49,7 @@ public sealed class OrderDetailHeader
     public decimal FreightAmount { get; init; }
     public decimal FinalAmount { get; init; }
     public int PointsEarned { get; init; }
-    public int OrderStatus { get; init; }
+    public string OrderStatus { get; init; } = OrderStatusCodes.PendingPayment;
     public DateTime CreatedAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
 

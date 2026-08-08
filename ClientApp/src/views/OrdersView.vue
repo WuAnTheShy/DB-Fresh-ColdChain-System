@@ -13,11 +13,11 @@ const result = ref({ orders: [], totalCount: 0, totalPages: 0 })
 const filters = reactive({ status: '', keyword: '', page: 1, pageSize: 8 })
 const tabs = [
   { value: '', label: '全部订单' },
-  { value: 0, label: '待支付' },
-  { value: 1, label: '待发货' },
-  { value: 2, label: '配送中' },
-  { value: 3, label: '已完成' },
-  { value: 5, label: '退款售后' },
+  { value: 'PendingPayment', label: '待支付' },
+  { value: 'Paid', label: '待发货' },
+  { value: 'Shipped', label: '配送中' },
+  { value: 'Completed', label: '已完成' },
+  { value: 'Refunding', label: '退款售后' },
 ]
 
 function money(value) { return `¥${Number(value ?? 0).toFixed(2)}` }
@@ -60,7 +60,7 @@ onMounted(loadOrders)
           <div class="order-leader-identity"><span class="leader-order-avatar">团</span><div><strong>{{ order.promoterName ? `${order.promoterName}团长` : '社区认证团长' }}</strong><small><BadgeCheck :size="13" />团长带货订单</small></div></div>
           <div class="order-card-metric"><span>商品数量</span><strong>{{ order.itemCount }} 件</strong></div>
           <div class="order-card-metric"><span>实付金额</span><strong>{{ money(order.finalAmount) }}</strong></div>
-          <div class="order-card-actions"><RouterLink class="btn btn-sm btn-outline-secondary" :to="`/orders/${order.orderId}`">查看详情</RouterLink><RouterLink v-if="order.orderStatus === 3" class="btn btn-sm btn-cart" to="/">再次购买</RouterLink></div>
+          <div class="order-card-actions"><RouterLink class="btn btn-sm btn-outline-secondary" :to="`/orders/${order.orderId}`">查看详情</RouterLink><RouterLink v-if="order.orderStatus === 'COMPLETED'" class="btn btn-sm btn-cart" to="/">再次购买</RouterLink></div>
         </div>
       </article>
       <div v-if="result.totalPages > 1" class="store-pagination"><button type="button" title="上一页" :disabled="filters.page <= 1" @click="changePage(filters.page - 1)"><ChevronLeft :size="18" /></button><span>{{ filters.page }} / {{ result.totalPages }}</span><button type="button" title="下一页" :disabled="filters.page >= result.totalPages" @click="changePage(filters.page + 1)"><ChevronRight :size="18" /></button></div>

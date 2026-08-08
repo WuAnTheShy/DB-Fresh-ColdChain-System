@@ -21,7 +21,7 @@ public class BizOrder
     public decimal? CommBonusAmount { get; set; }
     public DateTime? CommSettlementDate { get; set; }
     public int PointsEarned { get; set; }                   // 该笔订单获得积分
-    public int OrderStatus { get; set; }                    // 0=待支付 1=已支付 2=已发货 3=已完成 4=已取消 5=退款中 6=已退款
+    public string OrderStatus { get; set; } = OrderStatusCodes.PendingPayment;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

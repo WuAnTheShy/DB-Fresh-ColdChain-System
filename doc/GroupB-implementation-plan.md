@@ -88,8 +88,8 @@ GroupB 负责 `Crm_Customers`、`Crm_UserAddresses`、`Crm_MemberLevels`、
 
 ### 3.3 阶段 4 落地决策
 
-- B 组订单状态统一使用 `OrderStatus`：待支付 0、已支付 1、已发货 2、已完成 3、
-  已取消 4、退款中 5、已退款 6；本阶段状态机只开放已支付→已发货、已发货→已完成和
+- B 组订单状态统一使用 `OrderStatus`，持久化为 `PENDING_PAYMENT`、`PAID`、`SHIPPED`、
+  `COMPLETED`、`CANCELLED`、`REFUNDING`、`REFUNDED` 七个字符串代码；状态机只开放已支付→已发货、已发货→已完成和
   已支付→已取消。
 - 状态更新必须先锁定消费者和订单，再以旧状态作为 `UPDATE` 条件；Controller 和
   Repository 不提供绕过状态机的无条件状态修改入口。

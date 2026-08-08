@@ -161,8 +161,8 @@ internal sealed class FakeOrderRepository : IOrderRepository
     {
         return Task.FromResult(Orders
             .Where(order =>
-                (order.OrderStatus == (int)OrderStatus.Paid ||
-                 order.OrderStatus == (int)OrderStatus.Shipped) &&
+                (order.OrderStatus == OrderStatusCodes.Paid ||
+                 order.OrderStatus == OrderStatusCodes.Shipped) &&
                 (order.CommSettlementDate ?? order.CreatedAt) <= threshold)
             .Select(CloneOrder)
             .ToList());
@@ -258,12 +258,13 @@ internal sealed class FakeOrderRepository : IOrderRepository
         IDbTransaction transaction)
     {
         var order = Orders.SingleOrDefault(item => item.OrderId == orderId);
-        if (order == null || order.OrderStatus != (int)expectedStatus)
+        if (order == null ||
+            order.OrderStatus != OrderStatusCodes.ToCode(expectedStatus))
             return Task.FromResult(false);
 
         Stage(transaction, () =>
         {
-            order.OrderStatus = (int)targetStatus;
+            order.OrderStatus = OrderStatusCodes.ToCode(targetStatus);
             order.UpdatedAt = DateTime.Now;
         });
         return Task.FromResult(true);
@@ -345,7 +346,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
             (!request.CustomerId.HasValue ||
              order.CustomerId == request.CustomerId.Value) &&
             (!request.Status.HasValue ||
-             order.OrderStatus == (int)request.Status.Value) &&
+             order.OrderStatus == OrderStatusCodes.ToCode(request.Status.Value)) &&
             (request.Keyword == null ||
              order.OrderNo.Contains(
                  request.Keyword,

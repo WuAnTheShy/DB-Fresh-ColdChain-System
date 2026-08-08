@@ -120,7 +120,7 @@ public sealed class OrderService : IOrderService
                 FreightAmount = freightAmount,
                 FinalAmount = finalAmount,
                 PointsEarned = pointsEarned,
-                OrderStatus = 1,
+                OrderStatus = OrderStatusCodes.Paid,
                 CreatedAt = DateTime.Now
             };
 
@@ -230,7 +230,7 @@ public sealed class OrderService : IOrderService
             await _logisticsService.GetSupplierStatusesAsync(
                 orderId,
                 supplierIds);
-        var status = (OrderStatus)header.OrderStatus;
+        var status = OrderStatusCodes.Parse(header.OrderStatus);
         return new OrderDetailViewModel
         {
             OrderId = orderId,
@@ -266,7 +266,7 @@ public sealed class OrderService : IOrderService
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = await GetLockedOrderContextAsync(orderId, transaction);
-            var currentStatus = (OrderStatus)context.Order.OrderStatus;
+            var currentStatus = OrderStatusCodes.Parse(context.Order.OrderStatus);
             OrderStateMachine.EnsureTransition(currentStatus, targetStatus);
 
             if (targetStatus == OrderStatus.Shipped)
@@ -316,7 +316,7 @@ public sealed class OrderService : IOrderService
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = await GetLockedOrderContextAsync(orderId, transaction);
-            var currentStatus = (OrderStatus)context.Order.OrderStatus;
+            var currentStatus = OrderStatusCodes.Parse(context.Order.OrderStatus);
             OrderStateMachine.EnsureTransition(
                 currentStatus,
                 OrderStatus.Cancelled);
@@ -413,7 +413,7 @@ public sealed class OrderService : IOrderService
             if (context.Customer.CustomerId != customerId)
                 throw new OrderBusinessException("订单不属于指定消费者");
 
-            var currentStatus = (OrderStatus)context.Order.OrderStatus;
+            var currentStatus = OrderStatusCodes.Parse(context.Order.OrderStatus);
             if (currentStatus == OrderStatus.Refunded)
                 return;
             if (currentStatus is OrderStatus.PendingPayment or OrderStatus.Cancelled)

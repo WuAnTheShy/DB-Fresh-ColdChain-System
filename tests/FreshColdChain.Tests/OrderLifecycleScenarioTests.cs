@@ -114,7 +114,7 @@ internal static class OrderLifecycleScenarioTests
         await context.Service.TransitionOrderAsync(1, OrderStatus.Shipped);
 
         AssertEx.Equal(
-            (int)OrderStatus.Shipped,
+            OrderStatusCodes.Shipped,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(1, context.LogisticsService.ShippedOrderIds.Count);
         AssertEx.Equal(1, context.LogisticsService.ShippedOrderIds[0]);
@@ -130,7 +130,7 @@ internal static class OrderLifecycleScenarioTests
         await context.Service.TransitionOrderAsync(1, OrderStatus.Completed);
 
         AssertEx.Equal(
-            (int)OrderStatus.Completed,
+            OrderStatusCodes.Completed,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(1, context.CommissionService.CompletedOrders.Count);
         var commission = context.CommissionService.CompletedOrders[0];
@@ -148,7 +148,7 @@ internal static class OrderLifecycleScenarioTests
             context.Service.TransitionOrderAsync(1, OrderStatus.Completed));
 
         AssertEx.Equal(
-            (int)OrderStatus.Paid,
+            OrderStatusCodes.Paid,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(0, context.CommissionService.CompletedOrders.Count);
         AssertRolledBack(context);
@@ -165,7 +165,7 @@ internal static class OrderLifecycleScenarioTests
             context.Service.TransitionOrderAsync(1, OrderStatus.Completed));
 
         AssertEx.Equal(
-            (int)OrderStatus.Shipped,
+            OrderStatusCodes.Shipped,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(0, context.CommissionService.CompletedOrders.Count);
         AssertRolledBack(context);
@@ -192,7 +192,7 @@ internal static class OrderLifecycleScenarioTests
         await context.Service.CancelOrderAsync(1);
 
         AssertEx.Equal(
-            (int)OrderStatus.Cancelled,
+            OrderStatusCodes.Cancelled,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(100, context.CustomerRepository.Customer.Points);
         AssertEx.Equal(0m, context.CustomerRepository.Customer.TotalSpent);
@@ -217,7 +217,7 @@ internal static class OrderLifecycleScenarioTests
             context.Service.CancelOrderAsync(1));
 
         AssertEx.Equal(
-            (int)OrderStatus.Paid,
+            OrderStatusCodes.Paid,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(130, context.CustomerRepository.Customer.Points);
         AssertEx.Equal(130m, context.CustomerRepository.Customer.TotalSpent);
@@ -241,7 +241,7 @@ internal static class OrderLifecycleScenarioTests
         await context.Service.DeductPointsForRefundAsync(1, 1, 50);
 
         AssertEx.Equal(
-            (int)OrderStatus.Refunded,
+            OrderStatusCodes.Refunded,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(100, context.CustomerRepository.Customer.Points);
         AssertEx.Equal(1, context.InventoryService.ReleasedOrderIds.Count);
@@ -267,7 +267,7 @@ internal static class OrderLifecycleScenarioTests
         await context.Service.DeductPointsForRefundAsync(1, 1, 30);
 
         AssertEx.Equal(
-            (int)OrderStatus.Refunded,
+            OrderStatusCodes.Refunded,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(100, context.CustomerRepository.Customer.Points);
         AssertEx.Equal(0, context.InventoryService.ReleasedOrderIds.Count);
@@ -289,7 +289,7 @@ internal static class OrderLifecycleScenarioTests
             context.Service.DeductPointsForRefundAsync(2, 1, 30));
 
         AssertEx.Equal(
-            (int)OrderStatus.Paid,
+            OrderStatusCodes.Paid,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(130, context.CustomerRepository.Customer.Points);
         AssertEx.Equal(0, context.InventoryService.ReleasedOrderIds.Count);
@@ -318,7 +318,7 @@ internal static class OrderLifecycleScenarioTests
             FreightAmount = 0m,
             FinalAmount = 130m,
             PointsEarned = pointsEarned,
-            OrderStatus = (int)status,
+            OrderStatus = OrderStatusCodes.ToCode(status),
             CreatedAt = DateTime.Now.AddMinutes(-orderId)
         });
         context.OrderRepository.Details.AddRange(

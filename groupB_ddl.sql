@@ -153,13 +153,16 @@ CREATE TABLE Biz_Orders (
     CommBonusAmount NUMBER(10,2),
     CommSettlementDate DATE,
     PointsEarned    NUMBER         DEFAULT 0,
-    OrderStatus     NUMBER(2)      DEFAULT 0,     -- 0=待付 1=已付 2=已发货 3=完成 4=取消 5=退款中 6=已退款
+    OrderStatus     VARCHAR2(20)   DEFAULT 'PENDING_PAYMENT',
     CreatedAt       DATE           DEFAULT SYSDATE,
     UpdatedAt       DATE,
     CONSTRAINT FK_Order_Customer FOREIGN KEY (CustomerId) REFERENCES Crm_Customers(CustomerId),
     CONSTRAINT FK_Order_Promoter  FOREIGN KEY (PromoterId)  REFERENCES Crm_Promoters(PromoterId),
     CONSTRAINT FK_Order_Address  FOREIGN KEY (AddressId)  REFERENCES Crm_UserAddresses(AddressId),
-    CONSTRAINT CK_Order_Status CHECK (OrderStatus IN (0, 1, 2, 3, 4, 5, 6)),
+    CONSTRAINT CK_Order_Status CHECK (OrderStatus IN (
+        'PENDING_PAYMENT', 'PAID', 'SHIPPED', 'COMPLETED',
+        'CANCELLED', 'REFUNDING', 'REFUNDED'
+    )),
     CONSTRAINT CK_Order_Amounts CHECK (
         TotalAmount >= 0
         AND DiscountAmount >= 0

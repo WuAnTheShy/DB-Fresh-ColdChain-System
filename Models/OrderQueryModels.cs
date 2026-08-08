@@ -32,12 +32,12 @@ public sealed class OrderListItem
     public int CustomerId { get; init; }
     public string CustomerName { get; init; } = string.Empty;
     public decimal FinalAmount { get; init; }
-    public int OrderStatus { get; init; }
+    public string OrderStatus { get; init; } = OrderStatusCodes.PendingPayment;
     public int ItemCount { get; init; }
     public int SupplierCount { get; init; }
     public DateTime CreatedAt { get; init; }
 
-    public OrderStatus Status => (OrderStatus)OrderStatus;
+    public OrderStatus Status => OrderStatusCodes.Parse(OrderStatus);
     public string StatusName => OrderStatusNames.GetName(Status);
 }
 

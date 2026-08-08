@@ -14,8 +14,9 @@ const detail = ref(null)
 const error = ref('')
 const success = ref('')
 const timeline = computed(() => {
-  const status = Number(detail.value?.order?.orderStatus ?? 0)
-  return [{ label: '订单已提交', done: status >= 0 }, { label: '团长确认', done: status >= 1 }, { label: '冷链配送', done: status >= 2 }, { label: '订单完成', done: status === 3 }]
+  const status = detail.value?.order?.orderStatus
+  const progress = { PENDING_PAYMENT: 0, PAID: 1, SHIPPED: 2, COMPLETED: 3 }[status] ?? 0
+  return [{ label: '订单已提交', done: true }, { label: '团长确认', done: progress >= 1 }, { label: '冷链配送', done: progress >= 2 }, { label: '订单完成', done: progress === 3 }]
 })
 
 function money(value) { return `¥${Number(value ?? 0).toFixed(2)}` }
@@ -53,12 +54,12 @@ onMounted(loadOrder)
               <div><strong>{{ item.productName }}</strong><small v-if="fallbackLeader(item.productId)"><BadgeCheck :size="13" />{{ fallbackLeader(item.productId).name }}团长带货</small></div><span>{{ money(item.unitPrice) }} × {{ item.quantity }}</span><strong>{{ money(item.subTotal) }}</strong>
             </article>
           </section>
-          <section class="order-consumer-section delivery-section"><div class="consumer-section-title"><Truck :size="21" /><div><h2>冷链配送</h2></div></div><div class="delivery-status-row"><span class="delivery-icon"><Truck :size="20" /></span><div><strong>{{ detail.order.orderStatus >= 2 ? '商品已进入配送流程' : '团长正在确认团购与备货' }}</strong><small>确认后将在此展示最新配送状态</small></div></div></section>
+          <section class="order-consumer-section delivery-section"><div class="consumer-section-title"><Truck :size="21" /><div><h2>冷链配送</h2></div></div><div class="delivery-status-row"><span class="delivery-icon"><Truck :size="20" /></span><div><strong>{{ ['SHIPPED', 'COMPLETED'].includes(detail.order.orderStatus) ? '商品已进入配送流程' : '团长正在确认团购与备货' }}</strong><small>确认后将在此展示最新配送状态</small></div></div></section>
         </div>
         <aside>
           <section class="order-side-section"><div class="consumer-section-title"><MapPin :size="20" /><div><h2>收货信息</h2></div></div><dl><div><dt>收货人</dt><dd>{{ detail.order.receiverName }} {{ detail.order.receiverPhone }}</dd></div><div><dt>地址</dt><dd>{{ detail.order.shippingAddress }}</dd></div></dl></section>
           <section class="order-side-section"><h2>金额明细</h2><dl><div><dt>商品金额</dt><dd>{{ money(detail.order.totalAmount) }}</dd></div><div><dt>团购优惠</dt><dd>-{{ money(detail.order.discountAmount) }}</dd></div><div><dt>冷链运费</dt><dd>{{ money(detail.order.freightAmount) }}</dd></div><div class="order-pay-total"><dt>实付金额</dt><dd>{{ money(detail.order.finalAmount) }}</dd></div></dl></section>
-          <div class="order-detail-actions"><button v-if="detail.canComplete" class="btn btn-buy" type="button" :disabled="acting" @click="runAction(() => api.transitionOrder(id, 3), '已确认收货')"><CheckCircle2 :size="17" />确认收货</button><button v-if="detail.canCancel" class="btn btn-outline-danger" type="button" :disabled="acting" @click="runAction(() => api.cancelOrder(id), '订单已取消')"><Ban :size="17" />取消订单</button><button class="btn btn-outline-secondary" type="button" @click="loadOrder"><RefreshCw :size="16" />刷新状态</button></div>
+          <div class="order-detail-actions"><button v-if="detail.canComplete" class="btn btn-buy" type="button" :disabled="acting" @click="runAction(() => api.transitionOrder(id, 'Completed'), '已确认收货')"><CheckCircle2 :size="17" />确认收货</button><button v-if="detail.canCancel" class="btn btn-outline-danger" type="button" :disabled="acting" @click="runAction(() => api.cancelOrder(id), '订单已取消')"><Ban :size="17" />取消订单</button><button class="btn btn-outline-secondary" type="button" @click="loadOrder"><RefreshCw :size="16" />刷新状态</button></div>
         </aside>
       </div>
     </template>

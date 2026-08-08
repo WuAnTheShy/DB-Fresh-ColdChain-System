@@ -36,7 +36,7 @@
                         <option value="">全部状态</option>
                         @foreach (var status in Enum.GetValues<OrderStatus>())
                         {
-                            <option value="@((int)status)"
+                            <option value="@status"
                                     selected="@(Model.Query.Status == status)">
                                 @OrderStatusNames.GetName(status)
                             </option>
