@@ -13,9 +13,15 @@ public abstract class BaseRepository
 
     protected BaseRepository(IConfiguration configuration)
     {
-        // 从 appsettings.json 读取 Oracle 连接字符串
-        _connectionString = configuration.GetConnectionString("OracleConnection")
-            ?? throw new InvalidOperationException("未配置 OracleConnection 连接字符串");
+        // 生产和开发环境均应通过 Secret 或环境变量注入连接字符串。
+        var connectionString = configuration.GetConnectionString("OracleConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "未配置 OracleConnection；请设置环境变量 ConnectionStrings__OracleConnection");
+        }
+
+        _connectionString = connectionString;
     }
 
     /// <summary>
