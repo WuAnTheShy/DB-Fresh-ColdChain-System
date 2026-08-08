@@ -1,6 +1,6 @@
 # GroupB 跨组接口契约
 
-更新日期：2026-07-27
+更新日期：2026-08-08
 
 ## 1. 通用事务规则
 
@@ -66,8 +66,8 @@ Task CreateShipmentAsync(
     CancellationToken cancellationToken = default);
 
 Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
-    int orderId,
-    IReadOnlyList<int> supplierIds,
+    string orderId,
+    IReadOnlyList<string> supplierIds,
     CancellationToken cancellationToken = default);
 ```
 
@@ -119,15 +119,15 @@ Task RegisterCompletedOrderAsync(
 
 ```csharp
 Task DeductPointsForRefundAsync(
-    int customerId,
-    int orderId,
+    string customerId,
+    string orderId,
     int pointsToDeduct,
     CancellationToken cancellationToken = default);
 ```
 
 当前行为：
 
-- 参数必须为正数，且订单必须属于指定消费者。
+- 消费者和订单 ID 必须为非空、最长 36 位字符串，且订单必须属于指定消费者。
 - 订单和消费者记录会在同一事务内按固定顺序锁定。
 - 同一订单只允许生成一条 `REFUND_DEDUCT` 流水；订单已经是“已退款”时重复调用直接成功返回。
 - 实际扣减不超过当前积分余额、调用方请求值及订单原始奖励积分三者中的最小值。
