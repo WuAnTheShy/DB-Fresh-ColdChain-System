@@ -11,15 +11,18 @@ public class ColdChainLogisticsController : Controller
     private readonly IColdChainLogisticsService _logistics;
     private readonly ILogFreightTemplateRepository _templates;
     private readonly ILogExpressDeliveryRepository _deliveries;
+    private readonly IProductRepository _products;
 
     public ColdChainLogisticsController(
         IColdChainLogisticsService logistics,
         ILogFreightTemplateRepository templates,
-        ILogExpressDeliveryRepository deliveries)
+        ILogExpressDeliveryRepository deliveries,
+        IProductRepository products)
     {
         _logistics = logistics;
         _templates = templates;
         _deliveries = deliveries;
+        _products = products;
     }
 
     // ========== 运费模板管理 ==========
@@ -97,6 +100,16 @@ public class ColdChainLogisticsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Quote(FreightQuoteRequest request)
     {
+        // 根据商品明细自动计算货值总额
+        decimal goodsAmount = 0;
+        foreach (var item in request.Items)
+        {
+            var product = await _products.GetByIdAsync(item.ProductID);
+            if (product != null)
+                goodsAmount += product.DefaultPrice * item.Quantity;
+        }
+        request.GoodsAmount = goodsAmount;
+
         var result = await _logistics.QuoteFreightAsync(request);
         if (!result.IsSuccess)
         {
