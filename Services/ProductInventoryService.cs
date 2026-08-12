@@ -191,13 +191,12 @@ public class ProductInventoryService : IProductInventoryService
                 _stockRepo.Update(st);
             }
 
-            // 有批次号则创建批次记录
-            if (!string.IsNullOrWhiteSpace(batchNo))
+            // 创建批次记录（批次号未填则自动生成）
             {
                 var batch = new InvStockBatch
                 {
                     ProductID = dto.ProductID,
-                    BatchNo = batchNo,
+                    BatchNo = !string.IsNullOrWhiteSpace(batchNo) ? batchNo : $"BAT{DateTime.Now:yyyyMMddHHmm}",
                     ProductionDate = productionDate,
                     ExpiryDate = expiryDate,
                     InitialQty = dto.Quantity,
