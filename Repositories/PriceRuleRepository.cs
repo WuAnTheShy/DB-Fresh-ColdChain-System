@@ -26,10 +26,10 @@ public class PriceRuleRepository : BaseRepository<BizPriceRule>, IPriceRuleRepos
         var sql = """
             SELECT * FROM "Biz_PriceRules"
             WHERE "ProductID" = :Id
-              AND "IsActive" = 1
+              AND ("IsActive" IS NULL OR "IsActive" = 1)
               AND ("EffectiveFrom" IS NULL OR "EffectiveFrom" <= :Now)
               AND ("EffectiveTo" IS NULL OR "EffectiveTo" >= :Now)
-            ORDER BY "Priority" ASC, "RuleID" ASC
+            ORDER BY "Priority" ASC NULLS LAST, "RuleID" ASC
             """;
         return (await _uow.Connection.QueryAsync<BizPriceRule>(sql,
             new { Id = productId, Now = now }, _uow.Transaction)).ToList();

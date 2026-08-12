@@ -69,16 +69,17 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                 : product.StorageReq.ToUpperInvariant();
 
             // 3. 按地区优先级匹配运费规则（省 > 市 > 区 > 通配 *）
+            //    空字符串/NULL 视为通配 *，TemperatureZone 为空时匹配所有温层
             var matchedRule = rules
                 .Where(r => r.IsEnabled == 1
-                    && r.TemperatureZone == zone
-                    && (r.DestinationProvince == "*" || r.DestinationProvince == request.Province)
-                    && (r.DestinationCity == "*" || r.DestinationCity == request.City)
-                    && (r.DestinationDistrict == "*" || r.DestinationDistrict == request.District))
+                    && (string.IsNullOrWhiteSpace(r.TemperatureZone) || r.TemperatureZone == zone)
+                    && (IsWildcard(r.DestinationProvince) || r.DestinationProvince == request.Province)
+                    && (IsWildcard(r.DestinationCity) || r.DestinationCity == request.City)
+                    && (IsWildcard(r.DestinationDistrict) || r.DestinationDistrict == request.District))
                 .OrderByDescending(r =>
-                    (r.DestinationProvince != "*" ? 4 : 0)
-                    + (r.DestinationCity != "*" ? 2 : 0)
-                    + (r.DestinationDistrict != "*" ? 1 : 0))
+                    (!IsWildcard(r.DestinationProvince) ? 4 : 0)
+                    + (!IsWildcard(r.DestinationCity) ? 2 : 0)
+                    + (!IsWildcard(r.DestinationDistrict) ? 1 : 0))
                 .FirstOrDefault();
 
             if (matchedRule == null)
@@ -279,6 +280,10 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
     }
 
     // ========== 溯源辅助方法 ==========
+
+    /// <summary>判断地区字段是否为通配符（* 或空或 NULL）</summary>
+    private static bool IsWildcard(string? val)
+        => string.IsNullOrWhiteSpace(val) || val == "*";
 
     /// <summary>
     /// 构建一张发货单的完整溯源链路：发货单信息 + 每件商品从哪些批次扣减

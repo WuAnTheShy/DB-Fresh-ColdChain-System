@@ -25,6 +25,31 @@ public class PricingService : IPricingService
     private readonly IStockBatchRepository _batchRepo;
     private readonly IUnitOfWork _uow;
 
+    /// <summary>
+    /// DB 存储的 TriggerType → 代码内部 TriggerType 映射。
+    /// DB 数据使用 NEAR_EXPIRY/SCHEDULED/QUANTITY/TIME_SLOT/SEASONAL/BULK 等值，
+    /// 代码内部使用 ExpiryApproaching/TimeBased/BulkDiscount/ManualPrice。
+    /// </summary>
+    private static readonly Dictionary<string, string> TriggerTypeMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["NEAR_EXPIRY"] = "ExpiryApproaching",
+        ["SCHEDULED"] = "TimeBased",
+        ["TIME_SLOT"] = "TimeBased",
+        ["SEASONAL"] = "TimeBased",
+        ["QUANTITY"] = "BulkDiscount",
+        ["BULK"] = "BulkDiscount",
+        ["ExpiryApproaching"] = "ExpiryApproaching",
+        ["TimeBased"] = "TimeBased",
+        ["BulkDiscount"] = "BulkDiscount",
+        ["ManualPrice"] = "ManualPrice",
+    };
+
+    /// <summary>将 DB 的 TriggerType 映射为内部标准值，未知类型返回原值</summary>
+    private static string NormalizeTriggerType(string? dbType)
+        => !string.IsNullOrWhiteSpace(dbType) && TriggerTypeMap.TryGetValue(dbType, out var mapped)
+            ? mapped
+            : dbType ?? string.Empty;
+
     public PricingService(
         IPriceRuleRepository ruleRepo,
         IProductRepository productRepo,
@@ -89,7 +114,8 @@ public class PricingService : IPricingService
     /// </summary>
     private async Task<bool> IsRuleTriggeredAsync(BizPriceRule rule, InvProduct product, decimal quantity, DateTime now)
     {
-        return rule.TriggerType switch
+        var triggerType = NormalizeTriggerType(rule.TriggerType);
+        return triggerType switch
         {
             "TimeBased" => IsTimeInWindow(rule.TimeWindow, now),
             "BulkDiscount" => IsBulkMatch(rule, quantity),
@@ -151,11 +177,12 @@ public class PricingService : IPricingService
         if (rule.TriggerType == "ManualPrice" && rule.ManualPrice.HasValue)
             return rule.ManualPrice.Value;
 
-        // 折扣率计算：FinalPrice = DefaultPrice * (1 - DiscountRate)
+        // 折扣率计算：DB 中 DiscountRate 存储的是「折后价格占比」（0.8 = 8折 = 原价×0.8）
+        // 例如 DefaultPrice=100, DiscountRate=0.8 → FinalPrice=80
         if (rule.DiscountRate.HasValue)
         {
             var rate = Math.Clamp(rule.DiscountRate.Value, 0m, 1m);
-            return Math.Round(defaultPrice * (1 - rate), 2);
+            return Math.Round(defaultPrice * rate, 2);
         }
 
         // 无折扣率，返回原价

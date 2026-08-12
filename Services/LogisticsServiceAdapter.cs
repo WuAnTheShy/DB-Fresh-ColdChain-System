@@ -68,14 +68,15 @@ public class LogisticsServiceAdapter : ILogisticsService
                 ? "CHILLED" : product.StorageReq.ToUpperInvariant();
 
             var matchedRule = rules
-                .Where(r => r.IsEnabled == 1 && r.TemperatureZone == zone
-                    && (r.DestinationProvince == "*" || r.DestinationProvince == request.Province)
-                    && (r.DestinationCity == "*" || r.DestinationCity == request.City)
-                    && (r.DestinationDistrict == "*" || r.DestinationDistrict == request.District))
+                .Where(r => r.IsEnabled == 1
+                    && (string.IsNullOrWhiteSpace(r.TemperatureZone) || r.TemperatureZone == zone)
+                    && (IsWildcard(r.DestinationProvince) || r.DestinationProvince == request.Province)
+                    && (IsWildcard(r.DestinationCity) || r.DestinationCity == request.City)
+                    && (IsWildcard(r.DestinationDistrict) || r.DestinationDistrict == request.District))
                 .OrderByDescending(r =>
-                    (r.DestinationProvince != "*" ? 4 : 0)
-                    + (r.DestinationCity != "*" ? 2 : 0)
-                    + (r.DestinationDistrict != "*" ? 1 : 0))
+                    (!IsWildcard(r.DestinationProvince) ? 4 : 0)
+                    + (!IsWildcard(r.DestinationCity) ? 2 : 0)
+                    + (!IsWildcard(r.DestinationDistrict) ? 1 : 0))
                 .FirstOrDefault();
 
             if (matchedRule == null) continue;
@@ -198,4 +199,8 @@ public class LogisticsServiceAdapter : ILogisticsService
             };
         }).ToList();
     }
+
+    /// <summary>判断地区字段是否为通配符（* 或空或 NULL）</summary>
+    private static bool IsWildcard(string? val)
+        => string.IsNullOrWhiteSpace(val) || val == "*";
 }
