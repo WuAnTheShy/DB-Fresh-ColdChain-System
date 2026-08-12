@@ -191,12 +191,18 @@ public class ProductInventoryService : IProductInventoryService
                 _stockRepo.Update(st);
             }
 
-            // 创建批次记录（批次号未填则自动生成）
+            // 创建批次记录（批次号未填则按 BAT年月日-序号 自动生成）
+            if (string.IsNullOrWhiteSpace(batchNo))
+            {
+                var prefix = $"BAT{DateTime.Now:yyyyMMdd}";
+                var maxNo = await _batchRepo.GetMaxBatchNoByPrefixAsync(prefix);
+                batchNo = $"{prefix}-{(maxNo + 1):D2}";
+            }
             {
                 var batch = new InvStockBatch
                 {
                     ProductID = dto.ProductID,
-                    BatchNo = !string.IsNullOrWhiteSpace(batchNo) ? batchNo : $"BAT{DateTime.Now:yyyyMMddHHmm}",
+                    BatchNo = batchNo,
                     ProductionDate = productionDate,
                     ExpiryDate = expiryDate,
                     InitialQty = dto.Quantity,
