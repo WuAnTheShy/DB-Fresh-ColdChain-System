@@ -126,26 +126,55 @@ public class PricingService : IPricingService
         };
     }
 
-    /// <summary>解析 "HH:mm-HH:mm" 格式的时间窗口并与当前时间比较</summary>
+    /// <summary>
+    /// 解析 TimeWindow 并判断当前时间是否在窗口内。支持格式：
+    ///   "HH:mm-HH:mm"  — 时段窗口（支持跨天如 "22:00-06:00"）
+    ///   ALL_DAY          — 全时段始终匹配
+    ///   WEEKEND_ONLY     — 周六日
+    ///   NIGHT_22_TO_02   — 深夜 22:00-02:00
+    ///   AFTER_18_00      — 18:00 之后
+    ///   SUMMER_SEASON    — 6-8 月夏季
+    ///   空/NULL           — 全时段匹配
+    /// </summary>
     private static bool IsTimeInWindow(string? timeWindow, DateTime now)
     {
         if (string.IsNullOrWhiteSpace(timeWindow))
-            return true; // 空窗口 = 全时段
+            return true;
 
+        // 特殊关键字匹配（大小写不敏感）
+        var tw = timeWindow.Trim().ToUpperInvariant();
+
+        if (tw is "ALL_DAY" or "ALLDAY")
+            return true;
+
+        if (tw == "WEEKEND_ONLY")
+            return now.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+
+        if (tw == "SUMMER_SEASON")
+            return now.Month is >= 6 and <= 8;
+
+        if (tw == "AFTER_18_00")
+            return now.TimeOfDay >= TimeSpan.FromHours(18);
+
+        // NIGHT_22_TO_02 → 转为 "22:00-02:00"
+        if (tw == "NIGHT_22_TO_02")
+            return now.TimeOfDay >= TimeSpan.FromHours(22)
+                || now.TimeOfDay <= TimeSpan.FromHours(2);
+
+        // 通用 "HH:mm-HH:mm" 格式
         var parts = timeWindow.Split('-');
-        if (parts.Length != 2) return false;
+        if (parts.Length == 2
+            && TimeSpan.TryParse(parts[0], out var start)
+            && TimeSpan.TryParse(parts[1], out var end))
+        {
+            var current = now.TimeOfDay;
+            if (start > end)
+                return current >= start || current <= end; // 跨天
+            else
+                return current >= start && current <= end;
+        }
 
-        if (!TimeSpan.TryParse(parts[0], out var start) ||
-            !TimeSpan.TryParse(parts[1], out var end))
-            return false;
-
-        var current = now.TimeOfDay;
-
-        // 处理跨天窗口（如 "22:00-06:00"）
-        if (start > end)
-            return current >= start || current <= end;
-        else
-            return current >= start && current <= end;
+        return false; // 无法识别的格式，不触发
     }
 
     /// <summary>批量折扣：数量 >= MinQuantity，且不超过 MaxQuantity</summary>
