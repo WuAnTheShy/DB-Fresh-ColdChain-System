@@ -233,16 +233,24 @@ public class ProductInventoryService : IProductInventoryService
             // FOR UPDATE 行级锁：阻塞并发请求对同一产品库存的修改
             var st = await _stockRepo.GetByProductIdForUpdateAsync(dto.ProductID);
             if (st == null) { await _uow.RollbackAsync(); return ApiResponse.Fail("库存记录不存在", 404); }
-            if (st.AvailableQty < dto.Quantity) { await _uow.RollbackAsync(); return ApiResponse.Fail("库存不足"); }
 
-            st.TotalQty -= dto.Quantity;
-            st.AvailableQty = st.TotalQty - st.LockedQty;
-            st.UpdateTime = DateTime.Now;
-            _stockRepo.Update(st);
-
-            // FEFO 扣减：从最早过期批次扣（FOR UPDATE SKIP LOCKED 防止并发抢同一批次）
+            // FEFO 扣减：先查批次实际可用量（双保险：汇总+批次都校验）
             var remaining = dto.Quantity;
             var batches = await _batchRepo.GetByProductIdForUpdateAsync(dto.ProductID);
+            var batchTotal = batches.Sum(b => b.CurrentQty);
+            if (batchTotal < dto.Quantity)
+            {
+                // 汇总数据不准时自动修正
+                st.TotalQty = batchTotal;
+                st.AvailableQty = st.TotalQty - st.LockedQty;
+                st.UpdateTime = DateTime.Now;
+                _stockRepo.Update(st);
+                await _uow.RollbackAsync();
+                return ApiResponse.Fail($"实际可用库存不足（汇总:{st.AvailableQty + dto.Quantity}, 批次:{batchTotal}），汇总已自动修正");
+            }
+            if (st.AvailableQty < dto.Quantity) { await _uow.RollbackAsync(); return ApiResponse.Fail("库存不足"); }
+
+            // 逐批次扣减
             foreach (var batch in batches)
             {
                 if (remaining <= 0) break;
@@ -256,6 +264,12 @@ public class ProductInventoryService : IProductInventoryService
 
             if (remaining > 0)
                 throw new InvalidOperationException($"商品 {dto.ProductID} 可用批次库存不足，还差 {remaining}");
+
+            // 扣减汇总（基于实际扣减量 = dto.Quantity - remaining）
+            st.TotalQty -= dto.Quantity;
+            st.AvailableQty = st.TotalQty - st.LockedQty;
+            st.UpdateTime = DateTime.Now;
+            _stockRepo.Update(st);
 
             await _uow.CommitAsync();
             return ApiResponse.Success($"出库成功，当前库存: {st.TotalQty}");
