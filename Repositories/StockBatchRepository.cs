@@ -34,12 +34,20 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         return (await _uow.Connection.QueryAsync<InvStockBatch>(sql, new { Id = productId }, _uow.Transaction)).ToList();
     }
 
-    /// <summary>查前缀匹配的最大序号，用于自动生成批次号。如 BAT20260812 → 查询 BAT20260812-% 的最大 NN</summary>
+    /// <summary>查前缀匹配的最大序号，用于自动生成批次号。如 BAT20260812 → 查当天已有批次的最大 NN</summary>
     public async Task<int> GetMaxBatchNoByPrefixAsync(string prefix)
     {
-        var sql = """SELECT NVL(MAX(TO_NUMBER(SUBSTR(BatchNo, INSTR(BatchNo, '-', -1) + 1))), 0) FROM Inv_StockBatches WHERE BatchNo LIKE :Prefix """;
-        return await _uow.Connection.ExecuteScalarAsync<int>(sql,
+        var sql = """SELECT BatchNo FROM Inv_StockBatches WHERE BatchNo LIKE :Prefix """;
+        var batchNos = await _uow.Connection.QueryAsync<string>(sql,
             new { Prefix = prefix + "%" }, _uow.Transaction);
+        int max = 0;
+        foreach (var bn in batchNos)
+        {
+            var dash = bn.LastIndexOf('-');
+            if (dash >= 0 && int.TryParse(bn[(dash + 1)..], out var n) && n > max)
+                max = n;
+        }
+        return max;
     }
 
     /// <summary>
