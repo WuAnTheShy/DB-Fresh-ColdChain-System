@@ -13,7 +13,7 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
             SELECT * FROM Inv_StockBatches
             WHERE ProductID = :Id AND CurrentQty > 0 AND Status = 'ACTIVE'
               AND (ExpiryDate IS NULL OR ExpiryDate >= SYSDATE)
-            ORDER BY ExpiryDate ASC
+            ORDER BY ExpiryDate ASC NULLS LAST, ProductionDate ASC NULLS LAST, BatchNo ASC
             """;
         return (await _uow.Connection.QueryAsync<InvStockBatch>(sql, new { Id = productId }, _uow.Transaction)).ToList();
     }
@@ -28,7 +28,7 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
             SELECT * FROM Inv_StockBatches
             WHERE ProductID = :Id AND CurrentQty > 0 AND Status = 'ACTIVE'
               AND (ExpiryDate IS NULL OR ExpiryDate >= SYSDATE)
-            ORDER BY ExpiryDate ASC
+            ORDER BY ExpiryDate ASC NULLS LAST, ProductionDate ASC NULLS LAST, BatchNo ASC
             FOR UPDATE SKIP LOCKED
             """;
         return (await _uow.Connection.QueryAsync<InvStockBatch>(sql, new { Id = productId }, _uow.Transaction)).ToList();
@@ -75,7 +75,7 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
             SELECT * FROM Inv_StockBatches
             WHERE ProductID = :Id AND CurrentQty > 0 AND Status = 'ACTIVE'
               AND (ExpiryDate IS NULL OR ExpiryDate >= SYSDATE)
-            ORDER BY ExpiryDate ASC
+            ORDER BY ExpiryDate ASC NULLS LAST, ProductionDate ASC NULLS LAST, BatchNo ASC
             FETCH FIRST 1 ROWS ONLY
             """;
         return await _uow.Connection.QuerySingleOrDefaultAsync<InvStockBatch>(sql, new { Id = productId }, _uow.Transaction);
