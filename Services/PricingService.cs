@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
@@ -119,7 +120,7 @@ public class PricingService : IPricingService
         {
             "TimeBased" => IsTimeInWindow(rule.TimeWindow, now),
             "BulkDiscount" => IsBulkMatch(rule, quantity),
-            "ExpiryApproaching" => await IsProductExpiringSoonAsync(product, now),
+            "ExpiryApproaching" => await IsProductExpiringSoonAsync(product, rule.TimeWindow, now),
             "ManualPrice" => rule.ManualPrice.HasValue,
             _ => true // 未知类型默认触发（向后兼容）
         };
@@ -157,16 +158,30 @@ public class PricingService : IPricingService
         return true;
     }
 
-    /// <summary>临期折扣：查询产品批次，有批次在 24 小时内过期则触发</summary>
-    private async Task<bool> IsProductExpiringSoonAsync(InvProduct product, DateTime now)
+    /// <summary>
+    /// 临期折扣：查询产品批次，有批次在阈值时间内过期则触发。
+    /// 阈值从 TimeWindow 解析（如 "EXPIRY_LESS_THAN_3_DAYS" → 72h），默认 24 小时。
+    /// </summary>
+    private async Task<bool> IsProductExpiringSoonAsync(InvProduct product, string? timeWindow, DateTime now)
     {
         if (product.ExpiryHours is not > 0) return false;
 
-        // 查询该产品所有活跃批次
+        var thresholdHours = ParseExpiryThresholdHours(timeWindow);
         var batches = await _batchRepo.GetByProductIdAsync(product.ProductID);
-        var threshold = now.AddHours(24);
+        var threshold = now.AddHours(thresholdHours);
 
         return batches.Any(b => b.ExpiryDate.HasValue && b.ExpiryDate.Value <= threshold);
+    }
+
+    /// <summary>从 TimeWindow 解析临期天数阈值，如 EXPIRY_LESS_THAN_3_DAYS → 72h，解析失败默认 24h</summary>
+    private static int ParseExpiryThresholdHours(string? timeWindow)
+    {
+        if (string.IsNullOrWhiteSpace(timeWindow)) return 24;
+        var match = System.Text.RegularExpressions.Regex.Match(
+            timeWindow, @"EXPIRY[_ ]LESS[_ ]THAN[_ ](\d+)[_ ]DAYS", RegexOptions.IgnoreCase);
+        if (match.Success && int.TryParse(match.Groups[1].Value, out var days) && days > 0)
+            return days * 24;
+        return 24;
     }
 
     // ==================== 价格计算 ====================

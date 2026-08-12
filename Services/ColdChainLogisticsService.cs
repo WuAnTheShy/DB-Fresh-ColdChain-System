@@ -2,6 +2,7 @@ using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
+using Microsoft.Extensions.Logging;
 
 namespace FreshColdChain.Services;
 
@@ -20,6 +21,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
     private readonly ILogFulfillmentBatchItemRepository _allocations;
     // 工作单元：一次请求共享同一连接和事务
     private readonly IUnitOfWork _uow;
+    private readonly ILogger<ColdChainLogisticsService> _logger;
 
     public ColdChainLogisticsService(
         IProductRepository products,
@@ -28,7 +30,8 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         ILogFreightTemplateRepository templates,
         ILogExpressDeliveryRepository deliveries,
         ILogFulfillmentBatchItemRepository allocations,
-        IUnitOfWork uow)
+        IUnitOfWork uow,
+        ILogger<ColdChainLogisticsService> logger)
     {
         _products = products;
         _stockSummary = stockSummary;
@@ -37,6 +40,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         _deliveries = deliveries;
         _allocations = allocations;
         _uow = uow;
+        _logger = logger;
     }
 
     /// <summary>
@@ -191,6 +195,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         catch (Exception e)
         {
             // 任一步骤失败 → 回滚事务，不残留任何数据
+            _logger.LogError(e, "冷链发货失败 OrderID={OrderID} SupplierID={SupplierID}", request.OrderID, request.SupplierID);
             await _uow.RollbackAsync();
             return ApiResponse<LogExpressDelivery>.Fail(e.Message);
         }
