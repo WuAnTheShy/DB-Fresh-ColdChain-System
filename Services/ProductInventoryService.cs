@@ -292,6 +292,11 @@ public class ProductInventoryService : IProductInventoryService
         }).ToList());
     }
 
+    public async Task MarkExpiredBatchesAsync()
+    {
+        await _batchRepo.MarkExpiredBatchesAsync();
+    }
+
     public async Task<ApiResponse<StockBatchDto>> AddBatchAsync(CreateStockBatchDto dto)
     {
         if (dto.InitialQty <= 0)

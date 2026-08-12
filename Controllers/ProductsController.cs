@@ -80,6 +80,8 @@ public class ProductsController : Controller
     [HttpGet]
     public async Task<IActionResult> Inventory(string productId)
     {
+        // 自动标记已过期批次
+        await _service.MarkExpiredBatchesAsync();
         var r = await _service.GetInventoryAsync(productId);
         if (!r.IsSuccess) return NotFound(r.Message);
         var batches = await _service.GetBatchesAsync(productId);

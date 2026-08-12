@@ -34,4 +34,6 @@ public interface IProductInventoryService
     // 批次
     Task<ApiResponse<List<StockBatchDto>>> GetBatchesAsync(string productId);
     Task<ApiResponse<StockBatchDto>> AddBatchAsync(CreateStockBatchDto dto);
+    /// <summary>自动标记已过期批次为EXPIRED</summary>
+    Task MarkExpiredBatchesAsync();
 }

@@ -50,6 +50,13 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         return result.ToList();
     }
 
+    /// <summary>将已过期但仍为ACTIVE的批次标记为EXPIRED</summary>
+    public async Task<int> MarkExpiredBatchesAsync()
+    {
+        var sql = """UPDATE Inv_StockBatches SET Status='EXPIRED' WHERE Status='ACTIVE' AND ExpiryDate IS NOT NULL AND ExpiryDate < SYSDATE""";
+        return await _uow.Connection.ExecuteAsync(sql, transaction: _uow.Transaction);
+    }
+
     /// <summary>查前缀匹配的最大序号，用于自动生成批次号。如 BAT20260812 → 查当天已有批次的最大 NN</summary>
     public async Task<int> GetMaxBatchNoByPrefixAsync(string prefix)
     {
