@@ -12,4 +12,6 @@ public interface IStockBatchRepository : IBaseRepository<InvStockBatch>
     Task<InvStockBatch?> GetOldestAvailableBatchAsync(string productId);//查询某个商品的最早可用库存批次（按入库时间升序排序，且库存数量大于 0）
     /// <summary>查前缀匹配的最大序号，用于自动生成批次号</summary>
     Task<int> GetMaxBatchNoByPrefixAsync(string prefix);
+    /// <summary>查询批次含供应商信息</summary>
+    Task<List<InvStockBatch>> GetByProductIdWithSupplierAsync(string productId);
 }

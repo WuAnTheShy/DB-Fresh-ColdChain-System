@@ -34,6 +34,22 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         return (await _uow.Connection.QueryAsync<InvStockBatch>(sql, new { Id = productId }, _uow.Transaction)).ToList();
     }
 
+    /// <summary>查询批次含供应商信息</summary>
+    public async Task<List<InvStockBatch>> GetByProductIdWithSupplierAsync(string productId)
+    {
+        var sql = """
+            SELECT b.*, s.* FROM Inv_StockBatches b
+            LEFT JOIN Inv_Suppliers s ON b.SupplierID = s.SupplierID
+            WHERE b.ProductID = :Id AND b.CurrentQty > 0 AND b.Status = 'ACTIVE'
+              AND (b.ExpiryDate IS NULL OR b.ExpiryDate >= SYSDATE)
+            ORDER BY b.ExpiryDate ASC
+            """;
+        var result = await _uow.Connection.QueryAsync<InvStockBatch, InvSupplier, InvStockBatch>(sql,
+            (batch, supplier) => { batch.Supplier = supplier; return batch; },
+            new { Id = productId }, _uow.Transaction, splitOn: "SUPPLIERNAME");
+        return result.ToList();
+    }
+
     /// <summary>查前缀匹配的最大序号，用于自动生成批次号。如 BAT20260812 → 查当天已有批次的最大 NN</summary>
     public async Task<int> GetMaxBatchNoByPrefixAsync(string prefix)
     {

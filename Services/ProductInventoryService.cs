@@ -199,9 +199,11 @@ public class ProductInventoryService : IProductInventoryService
                 batchNo = $"{prefix}-{(maxNo + 1):D2}";
             }
             {
+                var product = await _productRepo.GetByIdAsync(dto.ProductID);
                 var batch = new InvStockBatch
                 {
                     ProductID = dto.ProductID,
+                    SupplierID = product?.SupplierID,
                     BatchNo = batchNo,
                     InPrice = inPrice,
                     ProductionDate = productionDate,
@@ -265,10 +267,11 @@ public class ProductInventoryService : IProductInventoryService
 
     public async Task<ApiResponse<List<StockBatchDto>>> GetBatchesAsync(string productId)
     {
-        var list = await _batchRepo.GetByProductIdAsync(productId);
+        var list = await _batchRepo.GetByProductIdWithSupplierAsync(productId);
         return ApiResponse<List<StockBatchDto>>.Success(list.Select(b => new StockBatchDto
         {
             BatchID = b.BatchID, ProductID = b.ProductID,
+            SupplierID = b.SupplierID, SupplierName = b.Supplier?.SupplierName,
             BatchNo = b.BatchNo, ProductionDate = b.ProductionDate,
             ExpiryDate = b.ExpiryDate, InPrice = b.InPrice,
             InitialQty = b.InitialQty, CurrentQty = b.CurrentQty, Status = b.Status

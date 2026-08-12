@@ -22,6 +22,8 @@ public class StockBatchDto
     public string BatchID { get; set; } = string.Empty;
     public string ProductID { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
+    public string? SupplierID { get; set; }
+    public string? SupplierName { get; set; }
     public string BatchNo { get; set; } = string.Empty;
     public DateTime? ProductionDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
