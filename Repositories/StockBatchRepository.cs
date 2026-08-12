@@ -37,9 +37,9 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
     /// <summary>查前缀匹配的最大序号，用于自动生成批次号。如 BAT20260812 → 查询 BAT20260812-% 的最大 NN</summary>
     public async Task<int> GetMaxBatchNoByPrefixAsync(string prefix)
     {
-        var sql = """SELECT NVL(MAX(TO_NUMBER(REPLACE(BatchNo, :PrefixDash, ''))), 0) FROM Inv_StockBatches WHERE BatchNo LIKE :LikePrefix """;
+        var sql = """SELECT NVL(MAX(TO_NUMBER(SUBSTR(BatchNo, INSTR(BatchNo, '-', -1) + 1))), 0) FROM Inv_StockBatches WHERE BatchNo LIKE :Prefix """;
         return await _uow.Connection.ExecuteScalarAsync<int>(sql,
-            new { PrefixDash = prefix + "-", LikePrefix = prefix + "%" }, _uow.Transaction);
+            new { Prefix = prefix + "%" }, _uow.Transaction);
     }
 
     /// <summary>
