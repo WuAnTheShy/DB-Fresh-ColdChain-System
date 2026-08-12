@@ -85,6 +85,27 @@
                 <div class="card-body">
                     <h3 class="text-success">¥@result.FreightAmount.ToString("F2")</h3>
                     <p class="text-muted">@result.RuleSummary</p>
+                    @if (result.Items.Count > 0)
+                    {
+                        <hr />
+                        <h6>📦 商品明细</h6>
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr><th>商品名称</th><th>数量</th><th>单价</th><th>小计</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var qi in result.Items)
+                                {
+                                    <tr>
+                                        <td>@qi.ProductName <small class="text-muted">(@qi.ProductID[..8])</small></td>
+                                        <td>@qi.Quantity</td>
+                                        <td>¥@qi.UnitPrice.ToString("F2")</td>
+                                        <td>¥@qi.SubTotal.ToString("F2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
                 </div>
             </div>
         }

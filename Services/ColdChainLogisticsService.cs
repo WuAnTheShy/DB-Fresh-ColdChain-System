@@ -59,6 +59,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         // 只加载启用的运费模板，在内存中按地区优先级匹配
         var rules = await _templates.GetEnabledAsync();
         decimal total = 0;
+        var quoteItems = new List<FreightQuoteItemDto>();
 
         foreach (var item in request.Items)
         {
@@ -66,6 +67,15 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
             var product = await _products.GetByIdAsync(item.ProductID);
             if (product == null || item.Quantity <= 0 || product.WeightKG is not > 0)
                 return ApiResponse<FreightQuoteDto>.Fail("商品、数量或计费重量无效");
+
+            // 记录商品明细（无论是否免运费都展示）
+            quoteItems.Add(new FreightQuoteItemDto
+            {
+                ProductID = product.ProductID,
+                ProductName = product.ProductName,
+                Quantity = item.Quantity,
+                UnitPrice = product.DefaultPrice
+            });
 
             // 2. 确定温区：默认 CHILLED（冷藏），读取商品 StorageReq 字段
             var zone = string.IsNullOrWhiteSpace(product.StorageReq)
@@ -107,7 +117,8 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         return ApiResponse<FreightQuoteDto>.Success(new FreightQuoteDto
         {
             FreightAmount = decimal.Round(total, 2),
-            RuleSummary = "按地区、温层、首重和续重计算"
+            RuleSummary = "按地区、温层、首重和续重计算",
+            Items = quoteItems
         });
     }
 
