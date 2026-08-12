@@ -30,5 +30,5 @@ public class InvStockSummary
     [Column("UpdateTime")]
     public DateTime UpdateTime { get; set; } = DateTime.Now;
 
-    public InvProduct? Product { get; set; }
+    [NotMapped] public InvProduct? Product { get; set; }
 }

@@ -11,12 +11,12 @@ public class CategoryRepository : BaseRepository<InvCategory>, ICategoryReposito
     {
         if (string.IsNullOrEmpty(parentId))
         {
-            var sql = """SELECT * FROM "Inv_Category" WHERE "ParentID" IS NULL ORDER BY "CategoryID" """;
+            var sql = """SELECT * FROM Inv_Category WHERE ParentID IS NULL ORDER BY CategoryID """;
             return (await _uow.Connection.QueryAsync<InvCategory>(sql, transaction: _uow.Transaction)).ToList();
         }
         else
         {
-            var sql = """SELECT * FROM "Inv_Category" WHERE "ParentID" = :Id ORDER BY "CategoryID" """;
+            var sql = """SELECT * FROM Inv_Category WHERE ParentID = :Id ORDER BY CategoryID """;
             return (await _uow.Connection.QueryAsync<InvCategory>(sql, new { Id = parentId }, _uow.Transaction)).ToList();
         }
     }

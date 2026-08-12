@@ -10,10 +10,10 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
     public async Task<List<InvStockBatch>> GetByProductIdAsync(string productId)
     {
         var sql = """
-            SELECT * FROM "Inv_StockBatches"
-            WHERE "ProductID" = :Id AND "CurrentQty" > 0 AND "Status" = 'ACTIVE'
-              AND "ExpiryDate" >= SYSDATE
-            ORDER BY "ExpiryDate" ASC
+            SELECT * FROM Inv_StockBatches
+            WHERE ProductID = :Id AND CurrentQty > 0 AND Status = 'ACTIVE'
+              AND ExpiryDate >= SYSDATE
+            ORDER BY ExpiryDate ASC
             """;
         return (await _uow.Connection.QueryAsync<InvStockBatch>(sql, new { Id = productId }, _uow.Transaction)).ToList();
     }
@@ -25,10 +25,10 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
     public async Task<List<InvStockBatch>> GetByProductIdForUpdateAsync(string productId)
     {
         var sql = """
-            SELECT * FROM "Inv_StockBatches"
-            WHERE "ProductID" = :Id AND "CurrentQty" > 0 AND "Status" = 'ACTIVE'
-              AND "ExpiryDate" >= SYSDATE
-            ORDER BY "ExpiryDate" ASC
+            SELECT * FROM Inv_StockBatches
+            WHERE ProductID = :Id AND CurrentQty > 0 AND Status = 'ACTIVE'
+              AND ExpiryDate >= SYSDATE
+            ORDER BY ExpiryDate ASC
             FOR UPDATE SKIP LOCKED
             """;
         return (await _uow.Connection.QueryAsync<InvStockBatch>(sql, new { Id = productId }, _uow.Transaction)).ToList();
@@ -40,10 +40,10 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
     public async Task<InvStockBatch?> GetOldestAvailableBatchAsync(string productId)
     {
         var sql = """
-            SELECT * FROM "Inv_StockBatches"
-            WHERE "ProductID" = :Id AND "CurrentQty" > 0 AND "Status" = 'ACTIVE'
-              AND "ExpiryDate" >= SYSDATE
-            ORDER BY "ExpiryDate" ASC
+            SELECT * FROM Inv_StockBatches
+            WHERE ProductID = :Id AND CurrentQty > 0 AND Status = 'ACTIVE'
+              AND ExpiryDate >= SYSDATE
+            ORDER BY ExpiryDate ASC
             FETCH FIRST 1 ROWS ONLY
             """;
         return await _uow.Connection.QuerySingleOrDefaultAsync<InvStockBatch>(sql, new { Id = productId }, _uow.Transaction);

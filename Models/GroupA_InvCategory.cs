@@ -22,5 +22,5 @@ public class InvCategory
     [MaxLength(36)]
     public string? ParentID { get; set; }
 
-    public ICollection<InvProduct> Products { get; set; } = new List<InvProduct>();
+    [NotMapped] public ICollection<InvProduct> Products { get; set; } = new List<InvProduct>();
 }

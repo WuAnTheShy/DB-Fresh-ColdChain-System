@@ -9,7 +9,7 @@ public class PriceRuleRepository : BaseRepository<BizPriceRule>, IPriceRuleRepos
 
     public async Task<List<BizPriceRule>> GetByProductIdAsync(string productId)
     {
-        var sql = """SELECT * FROM "Biz_PriceRules" WHERE "ProductID" = :Id ORDER BY "RuleID" """;
+        var sql = """SELECT * FROM Biz_PriceRules WHERE ProductID = :Id ORDER BY RuleID """;
         return (await _uow.Connection.QueryAsync<BizPriceRule>(sql, new { Id = productId }, _uow.Transaction)).ToList();
     }
 
@@ -24,12 +24,12 @@ public class PriceRuleRepository : BaseRepository<BizPriceRule>, IPriceRuleRepos
     {
         var now = referenceTime ?? DateTime.Now;
         var sql = """
-            SELECT * FROM "Biz_PriceRules"
-            WHERE "ProductID" = :Id
-              AND ("IsActive" IS NULL OR "IsActive" = 1)
-              AND ("EffectiveFrom" IS NULL OR "EffectiveFrom" <= :Now)
-              AND ("EffectiveTo" IS NULL OR "EffectiveTo" >= :Now)
-            ORDER BY "Priority" ASC NULLS LAST, "RuleID" ASC
+            SELECT * FROM Biz_PriceRules
+            WHERE ProductID = :Id
+              AND (IsActive IS NULL OR IsActive = 1)
+              AND (EffectiveFrom IS NULL OR EffectiveFrom <= :Now)
+              AND (EffectiveTo IS NULL OR EffectiveTo >= :Now)
+            ORDER BY Priority ASC NULLS LAST, RuleID ASC
             """;
         return (await _uow.Connection.QueryAsync<BizPriceRule>(sql,
             new { Id = productId, Now = now }, _uow.Transaction)).ToList();

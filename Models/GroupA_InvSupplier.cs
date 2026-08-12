@@ -41,7 +41,7 @@ public class InvSupplier
     public string? LoginPassword { get; set; }
 
     // 导航属性
-    public ICollection<InvProduct> Products { get; set; } = new List<InvProduct>();
+    [NotMapped] public ICollection<InvProduct> Products { get; set; } = new List<InvProduct>();
 
     /// <summary>产品数量（SQL 聚合查询填充）</summary>
     [NotMapped]

@@ -54,7 +54,7 @@
                     <td>@(r.TimeWindow ?? "全时段")</td>
                     <td>@(r.ManualPrice.HasValue && r.TriggerType == "ManualPrice" ? $"¥{r.ManualPrice}" : r.DiscountRate.HasValue ? $"{(1 - r.DiscountRate.Value) * 100:F0}折" : "-")</td>
                     <td>@r.Priority</td>
-                    <td>@(r.IsActive == 1 ? "启用" : "禁用")</td>
+                    <td>@(r.IsActive ? "启用" : "禁用")</td>
                     <td>
                         @if (r.EffectiveFrom.HasValue || r.EffectiveTo.HasValue)
                         {

@@ -2,8 +2,12 @@ using FreshColdChain.Interfaces;
 using FreshColdChain.Services;
 using FreshColdChain.Services.Supplier;
 using FreshColdChain.Repositories;
+using Oracle.ManagedDataAccess.Client;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Oracle 参数按名称绑定（避免 ORA-00911）
+OracleConfiguration.BindByName = true;
 
 // ========== Dapper 基础设施 ==========
 builder.Services.AddScoped<IDbConnectionFactory, OracleDbConnectionFactory>();

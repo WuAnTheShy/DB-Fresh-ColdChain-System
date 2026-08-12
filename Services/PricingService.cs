@@ -289,7 +289,7 @@ public class PricingService : IPricingService
             MinQuantity = dto.MinQuantity,
             MaxQuantity = dto.MaxQuantity,
             Priority = dto.Priority,
-            IsActive = dto.IsActive,
+            IsActive = dto.IsActive ? 1 : 0,
             EffectiveFrom = dto.EffectiveFrom,
             EffectiveTo = dto.EffectiveTo
         };
@@ -326,7 +326,7 @@ public class PricingService : IPricingService
         rule.MinQuantity = dto.MinQuantity;
         rule.MaxQuantity = dto.MaxQuantity;
         rule.Priority = dto.Priority;
-        rule.IsActive = dto.IsActive;
+        rule.IsActive = dto.IsActive ? 1 : 0;
         rule.EffectiveFrom = dto.EffectiveFrom;
         rule.EffectiveTo = dto.EffectiveTo;
 
@@ -381,7 +381,7 @@ public class PricingService : IPricingService
         MinQuantity = r.MinQuantity,
         MaxQuantity = r.MaxQuantity,
         Priority = r.Priority,
-        IsActive = r.IsActive,
+        IsActive = r.IsActive == 1,
         EffectiveFrom = r.EffectiveFrom,
         EffectiveTo = r.EffectiveTo
     };

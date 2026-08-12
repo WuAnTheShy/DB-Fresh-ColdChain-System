@@ -71,5 +71,5 @@ public class BizPriceRule
     public DateTime? EffectiveTo { get; set; }
 
     // 导航属性
-    public InvProduct? Product { get; set; }
+    [NotMapped] public InvProduct? Product { get; set; }
 }

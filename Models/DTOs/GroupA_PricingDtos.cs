@@ -43,7 +43,7 @@ public class PriceRuleDto
     public decimal? MinQuantity { get; set; }
     public decimal? MaxQuantity { get; set; }
     public int Priority { get; set; }
-    public int IsActive { get; set; }
+    public bool IsActive { get; set; }
     public DateTime? EffectiveFrom { get; set; }
     public DateTime? EffectiveTo { get; set; }
 }
@@ -60,7 +60,7 @@ public class SavePriceRuleDto
     public decimal? MinQuantity { get; set; }
     public decimal? MaxQuantity { get; set; }
     public int Priority { get; set; } = 100;
-    public int IsActive { get; set; } = 1;
+    public bool IsActive { get; set; } = true;
     public DateTime? EffectiveFrom { get; set; }
     public DateTime? EffectiveTo { get; set; }
 }

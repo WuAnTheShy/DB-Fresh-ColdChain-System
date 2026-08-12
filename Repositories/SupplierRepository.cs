@@ -11,26 +11,26 @@ public class SupplierRepository : BaseRepository<InvSupplier>, ISupplierReposito
     {
         var sql = """
             SELECT p.*, s.*
-            FROM "Inv_Products" p
-            LEFT JOIN "Inv_StockSummary" s ON p."ProductID" = s."ProductID"
-            WHERE p."SupplierID" = :Id
+            FROM Inv_Products p
+            LEFT JOIN Inv_StockSummary s ON p.ProductID = s.ProductID
+            WHERE p.SupplierID = :Id
             """;
         var result = await _uow.Connection.QueryAsync<InvProduct, InvStockSummary, InvProduct>(
             sql,
             (prod, summary) => { prod.StockSummary = summary; return prod; },
-            new { Id = supplierId }, _uow.Transaction, splitOn: "StockID");
+            new { Id = supplierId }, _uow.Transaction, splitOn: "STOCKID");
         return result.ToList();
     }
 
     public async Task<(List<InvSupplier> Items, int Total)> GetPagedWithProductCountAsync(int pageIndex, int pageSize)
     {
-        var countSql = """SELECT COUNT(*) FROM "Inv_Suppliers" """;
+        var countSql = """SELECT COUNT(*) FROM Inv_Suppliers """;
         var dataSql = $"""
-            SELECT s.*, COUNT(p."ProductID") AS ProductCount
-            FROM "Inv_Suppliers" s
-            LEFT JOIN "Inv_Products" p ON s."SupplierID" = p."SupplierID"
-            GROUP BY s."SupplierID", s."SupplierName", s."LicenseNo", s."ExpiryDate", s."CreditLevel", s."ContactPhone", s."LoginAccount", s."LoginPassword"
-            ORDER BY s."SupplierID"
+            SELECT s.*, COUNT(p.ProductID) AS ProductCount
+            FROM Inv_Suppliers s
+            LEFT JOIN Inv_Products p ON s.SupplierID = p.SupplierID
+            GROUP BY s.SupplierID, s.SupplierName, s.LicenseNo, s.ExpiryDate, s.CreditLevel, s.ContactPhone, s.LoginAccount, s.LoginPassword
+            ORDER BY s.SupplierID
             OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY
             """;
         var total = await _uow.Connection.ExecuteScalarAsync<int>(countSql, transaction: _uow.Transaction);
