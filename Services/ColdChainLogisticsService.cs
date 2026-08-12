@@ -73,10 +73,10 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                 : product.StorageReq.ToUpperInvariant();
 
             // 3. 按地区优先级匹配运费规则（省 > 市 > 区 > 通配 *）
-            //    空字符串/NULL 视为通配 *，TemperatureZone 为空时匹配所有温层
+            //    * / 空 / NULL 都视为通配，匹配所有温区
             var matchedRule = rules
                 .Where(r => r.IsEnabled == 1
-                    && (string.IsNullOrWhiteSpace(r.TemperatureZone) || r.TemperatureZone == zone)
+                    && (IsWildcard(r.TemperatureZone) || r.TemperatureZone == zone)
                     && (IsWildcard(r.DestinationProvince) || r.DestinationProvince == request.Province)
                     && (IsWildcard(r.DestinationCity) || r.DestinationCity == request.City)
                     && (IsWildcard(r.DestinationDistrict) || r.DestinationDistrict == request.District))

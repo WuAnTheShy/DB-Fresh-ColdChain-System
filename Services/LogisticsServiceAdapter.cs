@@ -69,7 +69,7 @@ public class LogisticsServiceAdapter : ILogisticsService
 
             var matchedRule = rules
                 .Where(r => r.IsEnabled == 1
-                    && (string.IsNullOrWhiteSpace(r.TemperatureZone) || r.TemperatureZone == zone)
+                    && (IsWildcard(r.TemperatureZone) || r.TemperatureZone == zone)
                     && (IsWildcard(r.DestinationProvince) || r.DestinationProvince == request.Province)
                     && (IsWildcard(r.DestinationCity) || r.DestinationCity == request.City)
                     && (IsWildcard(r.DestinationDistrict) || r.DestinationDistrict == request.District))
