@@ -374,7 +374,7 @@ public class PricingService : IPricingService
         ProductID = r.ProductID,
         ProductName = product?.ProductName,
         RuleName = r.RuleName,
-        TriggerType = r.TriggerType,
+        TriggerType = NormalizeTriggerType(r.TriggerType),
         TimeWindow = r.TimeWindow,
         DiscountRate = r.DiscountRate,
         ManualPrice = r.ManualPrice,
