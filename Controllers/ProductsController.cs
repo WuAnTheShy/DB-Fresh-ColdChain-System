@@ -97,11 +97,11 @@ public class ProductsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> StockIn(string productId, int quantity, string? batchNo, DateTime? productionDate, DateTime? expiryDate)
+    public async Task<IActionResult> StockIn(string productId, int quantity, string? batchNo, decimal inPrice, DateTime? productionDate, DateTime? expiryDate)
     {
         var r = await _service.StockInAsync(
             new UpdateInventoryDto { ProductID = productId, Quantity = quantity },
-            batchNo, productionDate, expiryDate);
+            batchNo, inPrice, productionDate, expiryDate);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(Inventory), new { productId });
     }
