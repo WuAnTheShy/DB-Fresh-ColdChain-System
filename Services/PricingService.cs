@@ -174,7 +174,7 @@ public class PricingService : IPricingService
     private static decimal ComputeFinalPrice(BizPriceRule rule, decimal defaultPrice)
     {
         // ManualPrice：直接使用手动设置的价格
-        if (rule.TriggerType == "ManualPrice" && rule.ManualPrice.HasValue)
+        if (NormalizeTriggerType(rule.TriggerType) == "ManualPrice" && rule.ManualPrice.HasValue)
             return rule.ManualPrice.Value;
 
         // 折扣率计算：DB 中 DiscountRate 存储的是「折后价格占比」（0.8 = 8折 = 原价×0.8）
