@@ -19,7 +19,11 @@
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="productId" value="@Model.ProductID" />
                 <div class="mb-2"><input type="number" name="quantity" class="form-control" placeholder="数量" required /></div>
-                <div class="mb-2"><input type="text" name="batchNo" class="form-control" placeholder="批次号(选填)" /></div>
+                <div class="mb-2"><input type="text" name="batchNo" class="form-control" placeholder="批次号" /></div>
+                <div class="row mb-2">
+                    <div class="col-6"><input type="date" name="productionDate" class="form-control" placeholder="生产日期" /></div>
+                    <div class="col-6"><input type="date" name="expiryDate" class="form-control" placeholder="过期日期" /></div>
+                </div>
                 <button type="submit" class="btn btn-success">确认入库</button>
             </form>
         </div></div>

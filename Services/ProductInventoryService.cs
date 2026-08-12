@@ -164,7 +164,7 @@ public class ProductInventoryService : IProductInventoryService
         }).ToList());
     }
 
-    public async Task<ApiResponse> StockInAsync(UpdateInventoryDto dto, string? batchNo = null)
+    public async Task<ApiResponse> StockInAsync(UpdateInventoryDto dto, string? batchNo = null, DateTime? productionDate = null, DateTime? expiryDate = null)
     {
         if (dto.Quantity <= 0)
             return ApiResponse.Fail("入库数量必须大于 0");
@@ -198,6 +198,8 @@ public class ProductInventoryService : IProductInventoryService
                 {
                     ProductID = dto.ProductID,
                     BatchNo = batchNo,
+                    ProductionDate = productionDate,
+                    ExpiryDate = expiryDate,
                     InitialQty = dto.Quantity,
                     CurrentQty = dto.Quantity,
                     Status = "ACTIVE"

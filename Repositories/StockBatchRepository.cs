@@ -12,7 +12,7 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         var sql = """
             SELECT * FROM Inv_StockBatches
             WHERE ProductID = :Id AND CurrentQty > 0 AND Status = 'ACTIVE'
-              AND ExpiryDate >= SYSDATE
+              AND (ExpiryDate IS NULL OR ExpiryDate >= SYSDATE)
             ORDER BY ExpiryDate ASC
             """;
         return (await _uow.Connection.QueryAsync<InvStockBatch>(sql, new { Id = productId }, _uow.Transaction)).ToList();
@@ -27,7 +27,7 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         var sql = """
             SELECT * FROM Inv_StockBatches
             WHERE ProductID = :Id AND CurrentQty > 0 AND Status = 'ACTIVE'
-              AND ExpiryDate >= SYSDATE
+              AND (ExpiryDate IS NULL OR ExpiryDate >= SYSDATE)
             ORDER BY ExpiryDate ASC
             FOR UPDATE SKIP LOCKED
             """;
@@ -42,7 +42,7 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         var sql = """
             SELECT * FROM Inv_StockBatches
             WHERE ProductID = :Id AND CurrentQty > 0 AND Status = 'ACTIVE'
-              AND ExpiryDate >= SYSDATE
+              AND (ExpiryDate IS NULL OR ExpiryDate >= SYSDATE)
             ORDER BY ExpiryDate ASC
             FETCH FIRST 1 ROWS ONLY
             """;
