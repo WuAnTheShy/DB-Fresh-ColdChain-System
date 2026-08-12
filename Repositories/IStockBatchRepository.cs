@@ -16,4 +16,6 @@ public interface IStockBatchRepository : IBaseRepository<InvStockBatch>
     Task<List<InvStockBatch>> GetByProductIdWithSupplierAsync(string productId);
     /// <summary>将已过期但仍为ACTIVE的批次标记为EXPIRED,返回更新行数</summary>
     Task<int> MarkExpiredBatchesAsync();
+    /// <summary>查某产品活跃批次合计</summary>
+    Task<int> GetActiveTotalByProductIdAsync(string productId);
 }

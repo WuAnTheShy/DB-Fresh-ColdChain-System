@@ -57,6 +57,13 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         return await _uow.Connection.ExecuteAsync(sql, transaction: _uow.Transaction);
     }
 
+    /// <summary>查某产品活跃批次合计（过滤过期）</summary>
+    public async Task<int> GetActiveTotalByProductIdAsync(string productId)
+    {
+        var sql = """SELECT NVL(SUM(CurrentQty),0) FROM Inv_StockBatches WHERE ProductID=:Id AND Status='ACTIVE' AND (ExpiryDate IS NULL OR ExpiryDate>=SYSDATE)""";
+        return await _uow.Connection.ExecuteScalarAsync<int>(sql, new { Id = productId }, _uow.Transaction);
+    }
+
     /// <summary>查前缀匹配的最大序号，用于自动生成批次号。如 BAT20260812 → 查当天已有批次的最大 NN</summary>
     public async Task<int> GetMaxBatchNoByPrefixAsync(string prefix)
     {

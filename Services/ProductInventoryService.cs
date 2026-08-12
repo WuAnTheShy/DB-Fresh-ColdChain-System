@@ -294,7 +294,22 @@ public class ProductInventoryService : IProductInventoryService
 
     public async Task MarkExpiredBatchesAsync()
     {
-        await _batchRepo.MarkExpiredBatchesAsync();
+        var count = await _batchRepo.MarkExpiredBatchesAsync();
+        if (count == 0) return;
+
+        // 标记后重算所有产品库存汇总
+        var allStocks = await _stockRepo.GetAllAsync();
+        foreach (var st in allStocks)
+        {
+            var total = await _batchRepo.GetActiveTotalByProductIdAsync(st.ProductID);
+            if (st.TotalQty != total)
+            {
+                st.TotalQty = total;
+                st.AvailableQty = Math.Max(0, st.TotalQty - st.LockedQty);
+                st.UpdateTime = DateTime.Now;
+                _stockRepo.Update(st);
+            }
+        }
     }
 
     public async Task<ApiResponse<StockBatchDto>> AddBatchAsync(CreateStockBatchDto dto)
