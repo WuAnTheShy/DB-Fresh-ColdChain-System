@@ -13,6 +13,17 @@ public interface ISupplierService
     Task<ApiResponse<SupplierDto>> UpdateSupplierAsync(string id, CreateSupplierDto dto);
     Task<ApiResponse> DeleteSupplierAsync(string id);
 
+    // ========== 供货价（进价由供应商决定）==========
+
+    /// <summary>查询某供应商每个产品的供货价（未报价为 null）</summary>
+    Task<ApiResponse<List<SupplierProductQuoteDto>>> GetSupplierProductQuotesAsync(string supplierId);
+
+    /// <summary>设置/更新某供应商对某产品的供货价</summary>
+    Task<ApiResponse> SetSupplyPriceAsync(string supplierId, string productId, decimal supplyPrice);
+
+    /// <summary>供应商登录：账号密码校验，成功返回供应商信息</summary>
+    Task<ApiResponse<SupplierDto>> SupplierLoginAsync(string loginAccount, string password);
+
     // ========== 跨组接口（供 C 组调用）==========
 
     /// <summary>

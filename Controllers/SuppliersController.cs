@@ -24,7 +24,75 @@ public class SuppliersController : Controller
     {
         var r = await _service.GetSupplierByIdAsync(id);
         if (!r.IsSuccess) return NotFound(r.Message);
+        var quotes = await _service.GetSupplierProductQuotesAsync(id);
+        ViewBag.Quotes = quotes.Data ?? new List<SupplierProductQuoteDto>();
         return View(r.Data);
+    }
+
+    // ========== 供应商门户（供应商登录后自己维护报价）==========
+
+    [HttpGet]
+    public IActionResult Login()
+    {
+        // 已登录则直接进入我的报价
+        if (!string.IsNullOrEmpty(HttpContext.Session.GetString("SupplierId")))
+            return RedirectToAction(nameof(MyQuotes));
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Login(string loginAccount, string password)
+    {
+        var r = await _service.SupplierLoginAsync(loginAccount ?? "", password ?? "");
+        if (!r.IsSuccess)
+        {
+            ModelState.AddModelError("", r.Message);
+            return View();
+        }
+        HttpContext.Session.SetString("SupplierId", r.Data!.SupplierID);
+        return RedirectToAction(nameof(MyQuotes));
+    }
+
+    /// <summary>供应商自己的报价页：只能看到并维护自己的产品报价</summary>
+    [HttpGet]
+    public async Task<IActionResult> MyQuotes()
+    {
+        var supplierId = HttpContext.Session.GetString("SupplierId");
+        if (string.IsNullOrEmpty(supplierId))
+            return RedirectToAction(nameof(Login));
+
+        var supplier = await _service.GetSupplierByIdAsync(supplierId);
+        if (!supplier.IsSuccess)
+        {
+            HttpContext.Session.Clear();
+            return RedirectToAction(nameof(Login));
+        }
+
+        var quotes = await _service.GetSupplierProductQuotesAsync(supplierId);
+        ViewBag.Quotes = quotes.Data ?? new List<SupplierProductQuoteDto>();
+        return View(supplier.Data);
+    }
+
+    /// <summary>供应商设置自己产品的供货价（supplierId 取自登录态，无法替别人报价）</summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetMyPrice(string productId, decimal supplyPrice)
+    {
+        var supplierId = HttpContext.Session.GetString("SupplierId");
+        if (string.IsNullOrEmpty(supplierId))
+            return RedirectToAction(nameof(Login));
+
+        var r = await _service.SetSupplyPriceAsync(supplierId, productId, supplyPrice);
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
+        return RedirectToAction(nameof(MyQuotes));
+    }
+
+    [HttpPost]
+    public IActionResult Logout()
+    {
+        HttpContext.Session.Clear();
+        return RedirectToAction(nameof(Login));
     }
 
     [HttpGet]
@@ -35,7 +103,7 @@ public class SuppliersController : Controller
     public async Task<IActionResult> Create(CreateSupplierDto dto)
     {
         var r = await _service.CreateSupplierAsync(dto);
-        TempData["Success"] = r.Message;
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(Index));
     }
 

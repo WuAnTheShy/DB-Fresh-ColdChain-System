@@ -16,6 +16,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 // ========== Repository 注册 ==========
 builder.Services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
 builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
+builder.Services.AddScoped<ISupplierPriceRepository, SupplierPriceRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IStockSummaryRepository, StockSummaryRepository>();
 builder.Services.AddScoped<IStockBatchRepository, StockBatchRepository>();
@@ -41,6 +42,15 @@ builder.Services.AddScoped<ICommissionService, DummyCommissionService>();
 // ========== MVC ==========
 builder.Services.AddControllersWithViews();
 
+// 供应商登录态（供应商门户：登录后维护自己的供货价）
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
@@ -50,6 +60,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 app.UseRouting();
+app.UseSession();
 
 app.MapControllerRoute(
     name: "default",

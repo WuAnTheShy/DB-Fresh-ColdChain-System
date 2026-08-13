@@ -40,6 +40,5 @@ public class CreateStockBatchDto
     public string BatchNo { get; set; } = string.Empty;
     public DateTime? ProductionDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
-    public decimal InPrice { get; set; }
     public int InitialQty { get; set; }
 }
