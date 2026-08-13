@@ -5,7 +5,61 @@
 <div class="text-center">
     <h1 class="display-4">Welcome</h1>
     <p>你好 <strong>@ViewBag.Username</strong>，欢迎访问生鲜冷链团购分销供应链系统！</p>
-    <p>
-        <a asp-action="PendingPromoters" class="btn btn-primary">审核团长账号</a>
-    </p>
+</div>
+
+<div class="row g-3 mt-2">
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">团长管理</h5>
+                <p class="card-text text-muted small">审核注册、新增/编辑团长、启用禁用、佣金比例配置</p>
+                <a asp-action="PendingPromoters" class="btn btn-primary btn-sm">待审核团长</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">提现审核</h5>
+                <p class="card-text text-muted small">审核团长提现申请，通过或驳回（业务六/七）</p>
+                <button class="btn btn-secondary btn-sm" disabled>待开发</button>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">退款管理</h5>
+                <p class="card-text text-muted small">退款申请审核、佣金/积分回滚（业务八~十）</p>
+                <button class="btn btn-secondary btn-sm" disabled>待开发</button>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">支付流水</h5>
+                <p class="card-text text-muted small">查询支付记录、退款状态（业务二）</p>
+                <button class="btn btn-secondary btn-sm" disabled>待开发</button>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">用户与角色</h5>
+                <p class="card-text text-muted small">管理员账号、角色权限管理（业务十一）</p>
+                <button class="btn btn-secondary btn-sm" disabled>待开发</button>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title">操作日志</h5>
+                <p class="card-text text-muted small">审计日志查询（业务十二）</p>
+                <button class="btn btn-secondary btn-sm" disabled>待开发</button>
+            </div>
+        </div>
+    </div>
 </div>

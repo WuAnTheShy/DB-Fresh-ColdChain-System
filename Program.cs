@@ -37,6 +37,7 @@ builder.Services.AddScoped<ITableLogService, TableLogService>();
 builder.Services.AddScoped<ICommissionService, CommissionService> ();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPromoterService, PromoterService>();
+builder.Services.AddScoped<PromoterPortalDataProvider>();
 //builder.Services.AddScoped<IRefundService, RefundService>();
 // ========== MVC ==========
 builder.Services.AddControllersWithViews();

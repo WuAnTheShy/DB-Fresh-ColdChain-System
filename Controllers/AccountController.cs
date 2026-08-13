@@ -58,8 +58,9 @@ namespace DBFreshColdChain.Controllers
                 var loginResult = _promoterService.LoginPromoter(username, password);
                 if(loginResult.IsSuccess == true)  //登录成功
                 {
-                    HttpContext.Session.SetString("PromoterName", username);
-                    return RedirectToAction("Index", "Promoters");    
+                    HttpContext.Session.SetString("PromoterName", loginResult.PromoterName ?? username);
+                    HttpContext.Session.SetString("PromoterId", loginResult.PromoterId);
+                    return RedirectToAction("Dashboard", "Promoter");
                 }
                 ModelState.AddModelError("", loginResult.Message);
                 return View();
