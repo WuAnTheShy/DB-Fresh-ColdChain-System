@@ -11,6 +11,7 @@ public class ProductInventoryService : IProductInventoryService
     private readonly IStockSummaryRepository _stockRepo;
     private readonly IStockBatchRepository _batchRepo;
     private readonly ICategoryRepository _categoryRepo;
+    private readonly ISupplierPriceRepository _supplierPriceRepo;
     private readonly IUnitOfWork _uow;
 
     public ProductInventoryService(
@@ -18,12 +19,14 @@ public class ProductInventoryService : IProductInventoryService
         IStockSummaryRepository stockRepo,
         IStockBatchRepository batchRepo,
         ICategoryRepository categoryRepo,
+        ISupplierPriceRepository supplierPriceRepo,
         IUnitOfWork uow)
     {
         _productRepo = productRepo;
         _stockRepo = stockRepo;
         _batchRepo = batchRepo;
         _categoryRepo = categoryRepo;
+        _supplierPriceRepo = supplierPriceRepo;
         _uow = uow;
     }
 
@@ -75,7 +78,11 @@ public class ProductInventoryService : IProductInventoryService
             await _uow.CommitAsync();
             return ApiResponse<ProductDto>.Success(MapToDto(product), "产品创建成功");
         }
-        catch { await _uow.RollbackAsync(); throw; }
+        catch (Exception ex)
+        {
+            await _uow.RollbackAsync();
+            return ApiResponse<ProductDto>.Fail($"产品创建失败：{ex.Message}");
+        }
     }
 
     public async Task<ApiResponse<ProductDto>> UpdateProductAsync(string id, UpdateProductDto dto)
@@ -164,13 +171,23 @@ public class ProductInventoryService : IProductInventoryService
         }).ToList());
     }
 
-    public async Task<ApiResponse> StockInAsync(UpdateInventoryDto dto, string? batchNo = null, decimal inPrice = 0, DateTime? productionDate = null, DateTime? expiryDate = null)
+    public async Task<ApiResponse> StockInAsync(UpdateInventoryDto dto, string? batchNo = null, DateTime? productionDate = null, DateTime? expiryDate = null)
     {
         if (dto.Quantity <= 0)
             return ApiResponse.Fail("入库数量必须大于 0");
 
         try
         {
+            // 进价由供应商决定：入库时自动取该供应商对该产品的供货价，操作员不可手填
+            var product = await _productRepo.GetByIdAsync(dto.ProductID);
+            if (product == null)
+                return ApiResponse.Fail("产品不存在", 404);
+            if (string.IsNullOrWhiteSpace(product.SupplierID))
+                return ApiResponse.Fail("该产品未关联供应商，无法入库");
+            var quote = await _supplierPriceRepo.GetQuoteAsync(product.SupplierID, dto.ProductID);
+            if (quote == null)
+                return ApiResponse.Fail("该供应商尚未对此产品报价，请先在供应商详情页设置供货价");
+
             await _uow.BeginAsync();
 
             var st = await _stockRepo.GetByProductIdForUpdateAsync(dto.ProductID);
@@ -198,27 +215,29 @@ public class ProductInventoryService : IProductInventoryService
                 var maxNo = await _batchRepo.GetMaxBatchNoByPrefixAsync(prefix);
                 batchNo = $"{prefix}-{(maxNo + 1):D2}";
             }
+
+            var batch = new InvStockBatch
             {
-                var product = await _productRepo.GetByIdAsync(dto.ProductID);
-                var batch = new InvStockBatch
-                {
-                    ProductID = dto.ProductID,
-                    SupplierID = product?.SupplierID,
-                    BatchNo = batchNo,
-                    InPrice = inPrice,
-                    ProductionDate = productionDate,
-                    ExpiryDate = expiryDate,
-                    InitialQty = dto.Quantity,
-                    CurrentQty = dto.Quantity,
-                    Status = "ACTIVE"
-                };
-                await _batchRepo.AddAsync(batch);
-            }
+                ProductID = dto.ProductID,
+                SupplierID = product.SupplierID,
+                BatchNo = batchNo,
+                InPrice = quote.SupplyPrice,
+                ProductionDate = productionDate,
+                ExpiryDate = expiryDate,
+                InitialQty = dto.Quantity,
+                CurrentQty = dto.Quantity,
+                Status = "ACTIVE"
+            };
+            await _batchRepo.AddAsync(batch);
 
             await _uow.CommitAsync();
             return ApiResponse.Success($"入库成功，当前库存: {st.TotalQty}");
         }
-        catch { await _uow.RollbackAsync(); throw; }
+        catch (Exception ex)
+        {
+            await _uow.RollbackAsync();
+            return ApiResponse.Fail($"入库失败：{ex.Message}");
+        }
     }
 
     public async Task<ApiResponse> StockOutAsync(UpdateInventoryDto dto)
@@ -240,13 +259,13 @@ public class ProductInventoryService : IProductInventoryService
             var batchTotal = batches.Sum(b => b.CurrentQty);
             if (batchTotal < dto.Quantity)
             {
-                // 汇总数据不准时自动修正
+                // 汇总数据不准时自动修正：修正必须提交（回滚会撤销修正），故此处提交修正后返回失败
                 st.TotalQty = batchTotal;
                 st.AvailableQty = st.TotalQty - st.LockedQty;
                 st.UpdateTime = DateTime.Now;
                 _stockRepo.Update(st);
-                await _uow.RollbackAsync();
-                return ApiResponse.Fail($"实际可用库存不足（汇总:{st.AvailableQty + dto.Quantity}, 批次:{batchTotal}），汇总已自动修正");
+                await _uow.CommitAsync();
+                return ApiResponse.Fail($"实际可用库存不足（批次:{batchTotal}），库存汇总已自动修正");
             }
             if (st.AvailableQty < dto.Quantity) { await _uow.RollbackAsync(); return ApiResponse.Fail("库存不足"); }
 
@@ -274,7 +293,11 @@ public class ProductInventoryService : IProductInventoryService
             await _uow.CommitAsync();
             return ApiResponse.Success($"出库成功，当前库存: {st.TotalQty}");
         }
-        catch { await _uow.RollbackAsync(); throw; }
+        catch (Exception ex)
+        {
+            await _uow.RollbackAsync();
+            return ApiResponse.Fail($"出库失败：{ex.Message}");
+        }
     }
 
     // ========== 批次 ==========
@@ -319,13 +342,18 @@ public class ProductInventoryService : IProductInventoryService
 
         try
         {
+            // 进价由供应商决定：自动取该供应商对该产品的供货价
+            var quote = await _supplierPriceRepo.GetQuoteAsync(dto.SupplierID ?? "", dto.ProductID);
+            if (quote == null)
+                return ApiResponse<StockBatchDto>.Fail("该供应商尚未对此产品报价，请先在供应商详情页设置供货价");
+
             await _uow.BeginAsync();
 
             var batch = new InvStockBatch
             {
                 ProductID = dto.ProductID, SupplierID = dto.SupplierID,
                 BatchNo = dto.BatchNo, ProductionDate = dto.ProductionDate,
-                ExpiryDate = dto.ExpiryDate, InPrice = dto.InPrice,
+                ExpiryDate = dto.ExpiryDate, InPrice = quote.SupplyPrice,
                 InitialQty = dto.InitialQty, CurrentQty = dto.InitialQty,
                 Status = "ACTIVE"
             };
@@ -350,7 +378,11 @@ public class ProductInventoryService : IProductInventoryService
                 InitialQty = batch.InitialQty, CurrentQty = batch.CurrentQty, Status = batch.Status
             }, "批次创建成功");
         }
-        catch { await _uow.RollbackAsync(); throw; }
+        catch (Exception ex)
+        {
+            await _uow.RollbackAsync();
+            return ApiResponse<StockBatchDto>.Fail($"批次创建失败：{ex.Message}");
+        }
     }
 
     // ========== 映射 ==========

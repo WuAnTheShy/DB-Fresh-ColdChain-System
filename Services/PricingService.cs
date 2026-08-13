@@ -301,7 +301,11 @@ public class PricingService : IPricingService
             await _uow.CommitAsync();
             return ApiResponse<PriceRuleDto>.Success(MapToDto(rule, product), "规则创建成功");
         }
-        catch { await _uow.RollbackAsync(); throw; }
+        catch (Exception ex)
+        {
+            await _uow.RollbackAsync();
+            return ApiResponse<PriceRuleDto>.Fail($"规则创建失败：{ex.Message}");
+        }
     }
 
     public async Task<ApiResponse<PriceRuleDto>> UpdateRuleAsync(string ruleId, SavePriceRuleDto dto)
@@ -337,7 +341,11 @@ public class PricingService : IPricingService
             await _uow.CommitAsync();
             return ApiResponse<PriceRuleDto>.Success(MapToDto(rule, product), "规则更新成功");
         }
-        catch { await _uow.RollbackAsync(); throw; }
+        catch (Exception ex)
+        {
+            await _uow.RollbackAsync();
+            return ApiResponse<PriceRuleDto>.Fail($"规则更新失败：{ex.Message}");
+        }
     }
 
     public async Task<ApiResponse<PriceRuleDto>> GetRuleByIdAsync(string ruleId)
@@ -363,7 +371,11 @@ public class PricingService : IPricingService
             await _uow.CommitAsync();
             return ApiResponse.Success("规则已删除");
         }
-        catch { await _uow.RollbackAsync(); throw; }
+        catch (Exception ex)
+        {
+            await _uow.RollbackAsync();
+            return ApiResponse.Fail($"规则删除失败：{ex.Message}");
+        }
     }
 
     // ==================== 映射 ====================

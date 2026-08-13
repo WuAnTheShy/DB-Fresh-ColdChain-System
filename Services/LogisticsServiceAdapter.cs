@@ -113,6 +113,12 @@ public class LogisticsServiceAdapter : ILogisticsService
         // 从首个商品获取供应商 ID
         var supplierId = request.Items.FirstOrDefault()?.SupplierId ?? string.Empty;
 
+        // 幂等保护：该供应商在本订单已有发货单时直接返回，避免重复扣减库存
+        var existing = (await _deliveryRepo.GetByOrderIdAsync(request.OrderId))
+            ?.FirstOrDefault(d => d.SupplierID == supplierId);
+        if (existing != null)
+            return;
+
         // 创建发货单
         var delivery = new LogExpressDelivery
         {

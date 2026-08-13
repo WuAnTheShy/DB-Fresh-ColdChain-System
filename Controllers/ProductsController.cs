@@ -38,7 +38,7 @@ public class ProductsController : Controller
     public async Task<IActionResult> Create(CreateProductDto dto)
     {
         var r = await _service.CreateProductAsync(dto);
-        TempData["Success"] = r.Message;
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(Index));
     }
 
@@ -99,11 +99,11 @@ public class ProductsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> StockIn(string productId, int quantity, string? batchNo, decimal inPrice, DateTime? productionDate, DateTime? expiryDate)
+    public async Task<IActionResult> StockIn(string productId, int quantity, string? batchNo, DateTime? productionDate, DateTime? expiryDate)
     {
         var r = await _service.StockInAsync(
             new UpdateInventoryDto { ProductID = productId, Quantity = quantity },
-            batchNo, inPrice, productionDate, expiryDate);
+            batchNo, productionDate, expiryDate);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(Inventory), new { productId });
     }

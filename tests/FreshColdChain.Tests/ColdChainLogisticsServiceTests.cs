@@ -3,6 +3,7 @@ using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
 using FreshColdChain.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
 
@@ -20,7 +21,8 @@ public class ColdChainLogisticsServiceTests
 
     private ColdChainLogisticsService Sut() => new(
         _products.Object, _stockSummary.Object, _batches.Object,
-        _templates.Object, _deliveries.Object, _allocations.Object, _uow.Object);
+        _templates.Object, _deliveries.Object, _allocations.Object, _uow.Object,
+        NullLogger<ColdChainLogisticsService>.Instance);
 
     // ==================== 运费报价 ====================
 

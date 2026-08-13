@@ -135,6 +135,12 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
 
         try
         {
+            // 0. 幂等保护：同一订单+供应商已有发货单时直接返回，避免重复扣减库存
+            var existing = (await _deliveries.GetByOrderIdAsync(request.OrderID))
+                ?.FirstOrDefault(d => d.SupplierID == request.SupplierID);
+            if (existing != null)
+                return ApiResponse<LogExpressDelivery>.Success(existing, "该订单的该供应商已有发货单，未重复发货");
+
             // 1. 开启事务 — 后续所有操作在同一事务内，失败整体回滚
             await _uow.BeginAsync();
 

@@ -41,8 +41,15 @@ public class ColdChainLogisticsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateTemplate(LogFreightTemplate template)
     {
-        await _templates.AddAsync(template);
-        TempData["Success"] = "运费模板创建成功";
+        try
+        {
+            await _templates.AddAsync(template);
+            TempData["Success"] = "运费模板创建成功";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = $"运费模板创建失败：{ex.Message}";
+        }
         return RedirectToAction(nameof(Index));
     }
 
@@ -52,8 +59,15 @@ public class ColdChainLogisticsController : Controller
     {
         var t = await _templates.GetByIdAsync(id);
         if (t == null) { TempData["Error"] = "模板不存在"; return RedirectToAction(nameof(Index)); }
-        _templates.Delete(t);
-        TempData["Success"] = "模板已删除";
+        try
+        {
+            _templates.Delete(t);
+            TempData["Success"] = "模板已删除";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = $"运费模板删除失败：{ex.Message}";
+        }
         return RedirectToAction(nameof(Index));
     }
 
@@ -86,8 +100,15 @@ public class ColdChainLogisticsController : Controller
         existing.FreeShippingThreshold = template.FreeShippingThreshold;
         existing.IsEnabled = template.IsEnabled;
 
-        _templates.Update(existing);
-        TempData["Success"] = "运费模板已更新";
+        try
+        {
+            _templates.Update(existing);
+            TempData["Success"] = "运费模板已更新";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = $"运费模板更新失败：{ex.Message}";
+        }
         return RedirectToAction(nameof(Index));
     }
 
@@ -142,7 +163,7 @@ public class ColdChainLogisticsController : Controller
             ModelState.AddModelError("", result.Message);
             return View(request);
         }
-        TempData["Success"] = "发货成功，已记录批次溯源";
+        TempData["Success"] = result.Message;
         return RedirectToAction(nameof(Shipments));
     }
 
