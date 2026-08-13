@@ -26,6 +26,8 @@ public class SuppliersController : Controller
         if (!r.IsSuccess) return NotFound(r.Message);
         var quotes = await _service.GetSupplierProductQuotesAsync(id);
         ViewBag.Quotes = quotes.Data ?? new List<SupplierProductQuoteDto>();
+        // 多供应商模式下产品数 = 该供应商已报价的产品数
+        if (quotes.IsSuccess) r.Data!.ProductCount = quotes.Data!.Count;
         return View(r.Data);
     }
 
@@ -69,21 +71,21 @@ public class SuppliersController : Controller
             return RedirectToAction(nameof(Login));
         }
 
-        var quotes = await _service.GetSupplierProductQuotesAsync(supplierId);
+        var quotes = await _service.GetAllProductQuotesForSupplierAsync(supplierId);
         ViewBag.Quotes = quotes.Data ?? new List<SupplierProductQuoteDto>();
         return View(supplier.Data);
     }
 
-    /// <summary>供应商设置自己产品的供货价（supplierId 取自登录态，无法替别人报价）</summary>
+    /// <summary>供应商设置自己产品的供货价和保质期（supplierId 取自登录态，无法替别人报价）</summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetMyPrice(string productId, decimal supplyPrice)
+    public async Task<IActionResult> SetMyPrice(string productId, decimal supplyPrice, int? shelfLifeHours)
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
             return RedirectToAction(nameof(Login));
 
-        var r = await _service.SetSupplyPriceAsync(supplierId, productId, supplyPrice);
+        var r = await _service.SetSupplyPriceAsync(supplierId, productId, supplyPrice, shelfLifeHours);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(MyQuotes));
     }

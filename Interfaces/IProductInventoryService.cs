@@ -28,7 +28,9 @@ public interface IProductInventoryService
     // 库存
     Task<ApiResponse<InventoryDto>> GetInventoryAsync(string productId);
     Task<ApiResponse<List<InventoryDto>>> GetLowStockProductsAsync(int threshold = 10);
-    Task<ApiResponse> StockInAsync(UpdateInventoryDto dto, string? batchNo = null, DateTime? productionDate = null, DateTime? expiryDate = null);
+    Task<ApiResponse> StockInAsync(UpdateInventoryDto dto, string? supplierId = null, string? batchNo = null, DateTime? productionDate = null);
+    /// <summary>入库可选供应商下拉：该产品所有已报价的供应商</summary>
+    Task<ApiResponse<List<SupplierQuoteOptionDto>>> GetStockInSupplierOptionsAsync(string productId);
     Task<ApiResponse> StockOutAsync(UpdateInventoryDto dto);
 
     // 批次

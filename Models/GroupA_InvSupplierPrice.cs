@@ -26,6 +26,12 @@ public class InvSupplierPrice
     [Column("SupplyPrice")]
     public decimal SupplyPrice { get; set; }
 
+    /// <summary>供应商声明的该产品保质期（小时），未声明时用产品典型保质期</summary>
+    [Column("ShelfLifeHours")]
+    public int? ShelfLifeHours { get; set; }
+
     [Column("UpdateTime")]
     public DateTime UpdateTime { get; set; } = DateTime.Now;
+
+    [NotMapped] public InvSupplier? Supplier { get; set; }
 }

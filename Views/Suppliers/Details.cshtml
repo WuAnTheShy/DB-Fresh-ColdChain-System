@@ -8,7 +8,7 @@
     <tr><th>到期时间</th><td>@Model.ExpiryDate?.ToString("yyyy-MM-dd")</td></tr>
     <tr><th>信用等级</th><td>@Model.CreditLevel</td></tr>
     <tr><th>电话</th><td>@Model.ContactPhone</td></tr>
-    <tr><th>产品数</th><td>@Model.ProductCount</td></tr>
+    <tr><th>已报价产品数</th><td>@Model.ProductCount</td></tr>
 </table>
 <a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model.SupplierID">编辑</a>
 <a class="btn btn-outline-secondary" asp-action="Index">返回</a>
@@ -21,13 +21,15 @@
 @if (quotes.Any())
 {
     <table class="table table-sm table-striped w-75">
-        <thead><tr><th>产品</th><th>当前供货价</th><th>更新时间</th></tr></thead>
+        <thead><tr><th>产品</th><th>当前供货价</th><th>供应商声明保质期</th><th>更新时间</th></tr></thead>
         <tbody>
         @foreach (var q in quotes)
         {
+            var effectiveShelf = q.ShelfLifeHours ?? q.ProductExpiryHours;
             <tr>
                 <td>@q.ProductName</td>
                 <td>@(q.SupplyPrice.HasValue ? $"¥{q.SupplyPrice:F2}" : "未报价")</td>
+                <td>@(effectiveShelf.HasValue ? $"{effectiveShelf} 小时（{effectiveShelf / 24.0:0.#} 天）" : "未设置")</td>
                 <td>@(q.UpdateTime?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
             </tr>
         }

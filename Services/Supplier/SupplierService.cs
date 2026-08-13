@@ -98,24 +98,26 @@ public class SupplierService : ISupplierService
 
     // ========== 供货价（进价由供应商决定）==========
 
-    /// <summary>供应商详情页用：该供应商每个产品的供货价（无报价为 null）</summary>
+    /// <summary>供应商详情页用：该供应商已报价的所有产品（多供应商模式下，报价即供货关系）</summary>
     public async Task<ApiResponse<List<SupplierProductQuoteDto>>> GetSupplierProductQuotesAsync(string supplierId)
     {
         try
         {
-            var products = await _repo.GetProductsBySupplierIdAsync(supplierId);
             var quotes = await _priceRepo.GetQuotesBySupplierAsync(supplierId);
-            var quoteMap = quotes.ToDictionary(q => q.ProductID);
+            var products = await _productRepo.GetAllAsync();
+            var productMap = products.ToDictionary(p => p.ProductID);
 
-            var list = products.Select(p =>
+            var list = quotes.Select(q =>
             {
-                quoteMap.TryGetValue(p.ProductID, out var q);
+                productMap.TryGetValue(q.ProductID, out var p);
                 return new SupplierProductQuoteDto
                 {
-                    ProductID = p.ProductID,
-                    ProductName = p.ProductName,
-                    SupplyPrice = q?.SupplyPrice,
-                    UpdateTime = q?.UpdateTime
+                    ProductID = q.ProductID,
+                    ProductName = p?.ProductName ?? q.ProductID,
+                    SupplyPrice = q.SupplyPrice,
+                    UpdateTime = q.UpdateTime,
+                    ProductExpiryHours = p?.ExpiryHours,
+                    ShelfLifeHours = q.ShelfLifeHours
                 };
             }).ToList();
 
@@ -127,11 +129,46 @@ public class SupplierService : ISupplierService
         }
     }
 
+    /// <summary>供应商门户：全部上架产品的报价面板，任何供应商可对任何产品报价</summary>
+    public async Task<ApiResponse<List<SupplierProductQuoteDto>>> GetAllProductQuotesForSupplierAsync(string supplierId)
+    {
+        try
+        {
+            var products = await _productRepo.GetAllAsync();
+            var quotes = await _priceRepo.GetQuotesBySupplierAsync(supplierId);
+            var quoteMap = quotes.ToDictionary(q => q.ProductID);
+
+            var list = products
+                .Where(p => p.Status == "ACTIVE")
+                .Select(p =>
+                {
+                    quoteMap.TryGetValue(p.ProductID, out var q);
+                    return new SupplierProductQuoteDto
+                    {
+                        ProductID = p.ProductID,
+                        ProductName = p.ProductName,
+                        SupplyPrice = q?.SupplyPrice,
+                        UpdateTime = q?.UpdateTime,
+                        ProductExpiryHours = p.ExpiryHours,
+                        ShelfLifeHours = q?.ShelfLifeHours
+                    };
+                }).ToList();
+
+            return ApiResponse<List<SupplierProductQuoteDto>>.Success(list);
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<List<SupplierProductQuoteDto>>.Fail($"查询报价面板失败：{ex.Message}");
+        }
+    }
+
     /// <summary>设置/更新某供应商对某产品的供货价（已有报价则更新）</summary>
-    public async Task<ApiResponse> SetSupplyPriceAsync(string supplierId, string productId, decimal supplyPrice)
+    public async Task<ApiResponse> SetSupplyPriceAsync(string supplierId, string productId, decimal supplyPrice, int? shelfLifeHours = null)
     {
         if (supplyPrice <= 0)
             return ApiResponse.Fail("供货价必须大于 0");
+        if (shelfLifeHours.HasValue && shelfLifeHours.Value <= 0)
+            return ApiResponse.Fail("保质期必须大于 0 小时");
 
         try
         {
@@ -140,8 +177,7 @@ public class SupplierService : ISupplierService
 
             var product = await _productRepo.GetByIdAsync(productId);
             if (product == null) return ApiResponse.Fail("产品不存在", 404);
-            if (product.SupplierID != supplierId)
-                return ApiResponse.Fail("该产品不属于此供应商，无法报价");
+            // 任何供应商都可对任何产品报价：报价关系即代表“该供应商供应该产品”
 
             var quote = await _priceRepo.GetQuoteAsync(supplierId, productId);
             if (quote == null)
@@ -151,17 +187,20 @@ public class SupplierService : ISupplierService
                     SupplierID = supplierId,
                     ProductID = productId,
                     SupplyPrice = supplyPrice,
+                    ShelfLifeHours = shelfLifeHours,
                     UpdateTime = DateTime.Now
                 });
             }
             else
             {
                 quote.SupplyPrice = supplyPrice;
+                quote.ShelfLifeHours = shelfLifeHours;
                 quote.UpdateTime = DateTime.Now;
                 _priceRepo.Update(quote);
             }
 
-            return ApiResponse.Success($"已设置 {product.ProductName} 的供货价：¥{supplyPrice:F2}");
+            var shelfDays = (shelfLifeHours ?? product.ExpiryHours) is int h ? $"{h} 小时（{h / 24.0:0.#} 天）" : "未设置";
+            return ApiResponse.Success($"已设置 {product.ProductName} 的供货价：¥{supplyPrice:F2}，保质期：{shelfDays}");
         }
         catch (Exception ex)
         {
@@ -253,6 +292,7 @@ public class SupplierService : ISupplierService
         LicenseNo = s.LicenseNo, ExpiryDate = s.ExpiryDate,
         CreditLevel = s.CreditLevel, ContactPhone = s.ContactPhone,
         LoginAccount = s.LoginAccount,
-        ProductCount = s.Products?.Count ?? s.ProductCount
+        // SQL 聚合查出来的产品数优先（列表页）；否则用已加载的 Products（详情页）
+        ProductCount = s.ProductCount > 0 ? s.ProductCount : (s.Products?.Count ?? 0)
     };
 }

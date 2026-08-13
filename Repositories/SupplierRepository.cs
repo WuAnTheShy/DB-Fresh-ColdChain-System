@@ -26,9 +26,9 @@ public class SupplierRepository : BaseRepository<InvSupplier>, ISupplierReposito
     {
         var countSql = """SELECT COUNT(*) FROM Inv_Suppliers """;
         var dataSql = $"""
-            SELECT s.*, COUNT(p.ProductID) AS ProductCount
+            SELECT s.*, COUNT(p.PriceID) AS ProductCount
             FROM Inv_Suppliers s
-            LEFT JOIN Inv_Products p ON s.SupplierID = p.SupplierID
+            LEFT JOIN Inv_SupplierPrices p ON s.SupplierID = p.SupplierID
             GROUP BY s.SupplierID, s.SupplierName, s.LicenseNo, s.ExpiryDate, s.CreditLevel, s.ContactPhone, s.LoginAccount, s.LoginPassword
             ORDER BY s.SupplierID
             OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY

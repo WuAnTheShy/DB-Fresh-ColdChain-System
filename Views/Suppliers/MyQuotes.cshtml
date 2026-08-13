@@ -5,30 +5,36 @@
 }
 <div class="d-flex justify-content-between align-items-center">
     <h3>我的报价 — @Model.SupplierName</h3>
-    <form asp-action="Logout" method="post">
-        @Html.AntiForgeryToken()
-        <button type="submit" class="btn btn-outline-secondary btn-sm">退出登录</button>
-    </form>
+    <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-outline-secondary btn-sm" asp-controller="Home" asp-action="Index">← 返回首页</a>
+        <form asp-action="Logout" method="post" class="mb-0">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-outline-secondary btn-sm">退出登录</button>
+        </form>
+    </div>
 </div>
-<p class="text-muted small">供货价由您决定，平台入库时自动按此报价作为进价。</p>
+<p class="text-muted small">您可以为任意上架产品报价；平台入库时按所选供应商的报价作为进价。</p>
 
 @if (quotes.Any())
 {
     <table class="table table-striped">
-        <thead><tr><th>产品</th><th>当前供货价</th><th>更新时间</th><th>设置报价</th></tr></thead>
+        <thead><tr><th>产品</th><th>当前供货价</th><th>我的保质期</th><th>更新时间</th><th>设置报价与保质期</th></tr></thead>
         <tbody>
         @foreach (var q in quotes)
         {
+            var effectiveShelf = q.ShelfLifeHours ?? q.ProductExpiryHours;
             <tr>
                 <td>@q.ProductName</td>
                 <td>@(q.SupplyPrice.HasValue ? $"¥{q.SupplyPrice:F2}" : "未报价")</td>
+                <td>@(effectiveShelf.HasValue ? $"{effectiveShelf} 小时（{effectiveShelf / 24.0:0.#} 天）" : "未设置")</td>
                 <td>@(q.UpdateTime?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
                 <td>
                     <form asp-action="SetMyPrice" method="post" class="d-flex gap-2">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="productId" value="@q.ProductID" />
                         <input type="number" step="0.01" min="0" name="supplyPrice" class="form-control form-control-sm" placeholder="供货价" required />
-                        <button type="submit" class="btn btn-sm btn-primary">保存报价</button>
+                        <input type="number" step="1" min="1" name="shelfLifeHours" value="@(effectiveShelf ?? 0)" class="form-control form-control-sm" placeholder="保质期(小时)" title="产品典型保质期 @(q.ProductExpiryHours?.ToString() ?? "未设置") 小时" required />
+                        <button type="submit" class="btn btn-sm btn-primary">保存</button>
                     </form>
                 </td>
             </tr>

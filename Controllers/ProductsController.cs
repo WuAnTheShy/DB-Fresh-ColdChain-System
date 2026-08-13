@@ -86,6 +86,8 @@ public class ProductsController : Controller
         if (!r.IsSuccess) return NotFound(r.Message);
         var batches = await _service.GetBatchesAsync(productId);
         ViewBag.Batches = batches.Data;
+        var options = await _service.GetStockInSupplierOptionsAsync(productId);
+        ViewBag.SupplierOptions = options.Data ?? new List<SupplierQuoteOptionDto>();
         return View(r.Data);
     }
 
@@ -99,11 +101,11 @@ public class ProductsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> StockIn(string productId, int quantity, string? batchNo, DateTime? productionDate, DateTime? expiryDate)
+    public async Task<IActionResult> StockIn(string productId, int quantity, string? supplierId, string? batchNo, DateTime? productionDate)
     {
         var r = await _service.StockInAsync(
             new UpdateInventoryDto { ProductID = productId, Quantity = quantity },
-            batchNo, productionDate, expiryDate);
+            supplierId, batchNo, productionDate);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(Inventory), new { productId });
     }

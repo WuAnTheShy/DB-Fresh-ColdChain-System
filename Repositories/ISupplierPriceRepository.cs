@@ -11,4 +11,7 @@ public interface ISupplierPriceRepository : IBaseRepository<InvSupplierPrice>
 
     /// <summary>查询某供应商的所有供货价</summary>
     Task<List<InvSupplierPrice>> GetQuotesBySupplierAsync(string supplierId);
+
+    /// <summary>查询某产品所有已报价的供应商（含供应商名称，入库下拉用）</summary>
+    Task<List<InvSupplierPrice>> GetQuotesByProductWithSupplierAsync(string productId);
 }

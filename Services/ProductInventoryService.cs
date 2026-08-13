@@ -171,22 +171,56 @@ public class ProductInventoryService : IProductInventoryService
         }).ToList());
     }
 
-    public async Task<ApiResponse> StockInAsync(UpdateInventoryDto dto, string? batchNo = null, DateTime? productionDate = null, DateTime? expiryDate = null)
+    /// <summary>入库可选供应商下拉：该产品所有已报价的供应商（含生效保质期）</summary>
+    public async Task<ApiResponse<List<SupplierQuoteOptionDto>>> GetStockInSupplierOptionsAsync(string productId)
+    {
+        try
+        {
+            var quotes = await _supplierPriceRepo.GetQuotesByProductWithSupplierAsync(productId);
+            var product = await _productRepo.GetByIdAsync(productId);
+            var list = quotes.Select(q => new SupplierQuoteOptionDto
+            {
+                SupplierID = q.SupplierID,
+                SupplierName = q.Supplier?.SupplierName ?? q.SupplierID,
+                SupplyPrice = q.SupplyPrice,
+                // 生效保质期：供应商声明的优先，未声明用产品典型值
+                ShelfLifeHours = q.ShelfLifeHours ?? product?.ExpiryHours
+            }).ToList();
+            return ApiResponse<List<SupplierQuoteOptionDto>>.Success(list);
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<List<SupplierQuoteOptionDto>>.Fail($"查询入库供应商失败：{ex.Message}");
+        }
+    }
+
+    public async Task<ApiResponse> StockInAsync(UpdateInventoryDto dto, string? supplierId = null, string? batchNo = null, DateTime? productionDate = null)
     {
         if (dto.Quantity <= 0)
             return ApiResponse.Fail("入库数量必须大于 0");
+        if (!productionDate.HasValue)
+            return ApiResponse.Fail("请填写生产日期（货品包装标签上的生产日期）");
 
         try
         {
-            // 进价由供应商决定：入库时自动取该供应商对该产品的供货价，操作员不可手填
+            // 进价由供应商决定：入库时自动取所选供应商对该产品的供货价，操作员不可手填
             var product = await _productRepo.GetByIdAsync(dto.ProductID);
             if (product == null)
                 return ApiResponse.Fail("产品不存在", 404);
-            if (string.IsNullOrWhiteSpace(product.SupplierID))
-                return ApiResponse.Fail("该产品未关联供应商，无法入库");
-            var quote = await _supplierPriceRepo.GetQuoteAsync(product.SupplierID, dto.ProductID);
+
+            // 入库供应商：表单选择的优先，未选则回退到产品的默认供应商
+            var effectiveSupplierId = string.IsNullOrWhiteSpace(supplierId) ? product.SupplierID : supplierId;
+            if (string.IsNullOrWhiteSpace(effectiveSupplierId))
+                return ApiResponse.Fail("该产品未关联供应商，且未选择入库供应商，无法入库");
+            var quote = await _supplierPriceRepo.GetQuoteAsync(effectiveSupplierId, dto.ProductID);
             if (quote == null)
-                return ApiResponse.Fail("该供应商尚未对此产品报价，请先在供应商详情页设置供货价");
+                return ApiResponse.Fail($"所选供应商尚未对此产品报价，请先在供应商入口报价");
+
+            // 过期日期自动计算：生产日期 + 所选供应商声明的保质期（未声明用产品典型值）
+            var shelfHours = quote.ShelfLifeHours ?? product.ExpiryHours;
+            if (shelfHours is not > 0)
+                return ApiResponse.Fail("无法确定该产品的保质期，请先在供应商报价或产品信息中设置保质期");
+            var expiryDate = productionDate.Value.AddHours(shelfHours.Value);
 
             await _uow.BeginAsync();
 
@@ -219,7 +253,7 @@ public class ProductInventoryService : IProductInventoryService
             var batch = new InvStockBatch
             {
                 ProductID = dto.ProductID,
-                SupplierID = product.SupplierID,
+                SupplierID = effectiveSupplierId,
                 BatchNo = batchNo,
                 InPrice = quote.SupplyPrice,
                 ProductionDate = productionDate,

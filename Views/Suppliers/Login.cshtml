@@ -5,6 +5,9 @@
     <div class="col-md-5">
         <div class="card shadow-sm mt-4">
             <div class="card-body">
+                <div class="mb-2">
+                    <a class="btn btn-outline-secondary btn-sm" asp-controller="Home" asp-action="Index">← 返回首页</a>
+                </div>
                 <h4 class="card-title text-center mb-4">🏭 供应商登录</h4>
                 <form asp-action="Login" method="post">
                     @Html.AntiForgeryToken()

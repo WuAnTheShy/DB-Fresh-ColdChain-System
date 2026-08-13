@@ -32,6 +32,10 @@ public class SupplierProductQuoteDto
     public string ProductName { get; set; } = string.Empty;
     public decimal? SupplyPrice { get; set; }
     public DateTime? UpdateTime { get; set; }
+    /// <summary>产品典型保质期（小时）</summary>
+    public int? ProductExpiryHours { get; set; }
+    /// <summary>该供应商声明的保质期（小时），未声明为 null</summary>
+    public int? ShelfLifeHours { get; set; }
 }
 
 /// <summary>

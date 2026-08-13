@@ -20,4 +20,19 @@ public class SupplierPriceRepository : BaseRepository<InvSupplierPrice>, ISuppli
         return (await _uow.Connection.QueryAsync<InvSupplierPrice>(sql,
             new { SupplierId = supplierId }, _uow.Transaction)).ToList();
     }
+
+    public async Task<List<InvSupplierPrice>> GetQuotesByProductWithSupplierAsync(string productId)
+    {
+        var sql = """
+            SELECT p.*, s.*
+            FROM Inv_SupplierPrices p
+            JOIN Inv_Suppliers s ON p.SupplierID = s.SupplierID
+            WHERE p.ProductID = :Id
+            ORDER BY s.SupplierName
+            """;
+        var result = await _uow.Connection.QueryAsync<InvSupplierPrice, InvSupplier, InvSupplierPrice>(sql,
+            (price, supplier) => { price.Supplier = supplier; return price; },
+            new { Id = productId }, _uow.Transaction, splitOn: "SUPPLIERNAME");
+        return result.ToList();
+    }
 }
