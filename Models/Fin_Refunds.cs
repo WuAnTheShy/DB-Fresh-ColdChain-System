@@ -1,6 +1,6 @@
 namespace DBFreshColdChain.Models
 {
-    public class GroupC_FinRefundsRecord
+    public class FinRefund
     {
         public string? RefundId { get; set; } = string.Empty;         // 退款编号 (主键)
         public string? OrderId { get; set; } = string.Empty;          // 订单编号 (外键, 关联 Biz_Orders)
