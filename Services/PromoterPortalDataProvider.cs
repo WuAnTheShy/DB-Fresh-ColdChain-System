@@ -1,6 +1,7 @@
 using DBFreshColdChain.Models;
 using DBFreshColdChain.Models.ViewModels;
 using DBFreshColdChain.Repositories;
+using Microsoft.AspNetCore.Server.HttpSys;
 
 namespace DBFreshColdChain.Services
 {
@@ -10,6 +11,7 @@ namespace DBFreshColdChain.Services
     public class PromoterPortalDataProvider
     {
         private readonly IPromoterRepository? _promoterRepository;
+        private readonly ICommissionRepository _icommissionRepository;
         private static readonly Dictionary<string, GroupC_CrmPromoter> DemoPromoters = new();
         private static readonly Dictionary<string, List<PromoterWithdrawalRecordViewModel>> DemoWithdrawals = new();
 
@@ -20,9 +22,10 @@ namespace DBFreshColdChain.Services
             [5000m] = 150m
         };
 
-        public PromoterPortalDataProvider(IPromoterRepository? promoterRepository = null)
+        public PromoterPortalDataProvider(IPromoterRepository? promoterRepository, ICommissionRepository icommissionRepository)
         {
             _promoterRepository = promoterRepository;
+            _icommissionRepository = icommissionRepository;
         }
 
         public GroupC_CrmPromoter GetPromoter(string promoterId)
@@ -51,14 +54,28 @@ namespace DBFreshColdChain.Services
 
         public List<PromoterCommissionItemViewModel> GetCommissions(string promoterId, string? statusFilter = null)
         {
-            var items = BuildDemoCommissions();
-            if (!string.IsNullOrWhiteSpace(statusFilter))
-                items = items.Where(x => x.Status == statusFilter).ToList();
-            return items;
+            var records = _icommissionRepository.GetByPromoterId(promoterId, statusFilter);
+
+            return records.Select(r => new PromoterCommissionItemViewModel
+            {
+                OrderId = r.OrderId,
+                FinalAmount = r.FinalAmount,
+                CommBaseAmount = r.CommBaseAmount,
+                CommBonusAmount = r.CommBonusAmount,
+                Status = r.Status,
+                StatusLabel = GetStatusLabel(r.Status),          // 辅助方法转换状态文字
+                StatusBadgeClass = GetStatusBadgeClass(r.Status), // 辅助方法转换标签颜色
+                SignedAt = r.SignDate,
+                RefundedAmount = r.RefundedAmount,
+                CommSettlementDate  = r.ExpectedSettleDate,
+            }).ToList();
         }
 
         public PromoterCommissionsViewModel BuildCommissions(string promoterId, string? statusFilter = null)
         {
+            var promoter = _promoterRepository.GroupC_FindPromoterRecord(promoterId);
+            if (promoter == null)
+                return new PromoterCommissionsViewModel(); // 为空则返回空页面
             var all = GetCommissions(promoterId);
             var filtered = string.IsNullOrWhiteSpace(statusFilter)
                 ? all
@@ -72,10 +89,9 @@ namespace DBFreshColdChain.Services
                 PendingCount = all.Count(x => x.Status == "Pending"),
                 SettledCount = all.Count(x => x.Status == "Settled"),
                 RefundedCount = all.Count(x => x.Status == "Refunded"),
-                TotalCommission = all.Where(x => x.Status != "Refunded").Sum(x => x.TotalCommission),
-                PendingAmount = all.Where(x => x.Status == "Pending").Sum(x => x.TotalCommission),
-                SettledAmount = all.Where(x => x.Status == "Settled").Sum(x => x.TotalCommission),
-                RefundedAmount = all.Where(x => x.Status == "Refunded").Sum(x => x.TotalCommission)
+                PendingAmount = promoter.PendingBalance,
+                SettledAmount = promoter.CurrentBalance,
+                RefundedAmount = all.Sum(x => x.RefundedAmount)
             };
         }
 
@@ -306,81 +322,6 @@ namespace DBFreshColdChain.Services
             LastSettlementTime = new DateTime(2026, 8, 1)
         };
 
-        private static List<PromoterCommissionItemViewModel> BuildDemoCommissions() =>
-        [
-            new()
-            {
-                OrderId = "ORD20260812001",
-                FinalAmount = 428.00m,
-                CommBaseAmount = 21.40m,
-                CommBonusAmount = 0m,
-                Status = "Pending",
-                StatusLabel = "待结算",
-                StatusBadgeClass = "warning",
-                CommSettlementDate = DateTime.Today.AddDays(8),
-                SignedAt = DateTime.Today.AddDays(-6)
-            },
-            new()
-            {
-                OrderId = "ORD20260801001",
-                FinalAmount = 299.00m,
-                CommBaseAmount = 14.95m,
-                CommBonusAmount = 0m,
-                Status = "Pending",
-                StatusLabel = "待结算",
-                StatusBadgeClass = "warning",
-                CommSettlementDate = DateTime.Today.AddDays(10),
-                SignedAt = DateTime.Today.AddDays(-4)
-            },
-            new()
-            {
-                OrderId = "ORD20260728002",
-                FinalAmount = 158.00m,
-                CommBaseAmount = 7.90m,
-                CommBonusAmount = 50.00m,
-                Status = "Settled",
-                StatusLabel = "可提现",
-                StatusBadgeClass = "success",
-                CommSettlementDate = DateTime.Today.AddDays(-2),
-                SignedAt = DateTime.Today.AddDays(-16)
-            },
-            new()
-            {
-                OrderId = "ORD20260720004",
-                FinalAmount = 520.00m,
-                CommBaseAmount = 26.00m,
-                CommBonusAmount = 0m,
-                Status = "Settled",
-                StatusLabel = "可提现",
-                StatusBadgeClass = "success",
-                CommSettlementDate = DateTime.Today.AddDays(-5),
-                SignedAt = DateTime.Today.AddDays(-19)
-            },
-            new()
-            {
-                OrderId = "ORD20260710005",
-                FinalAmount = 199.00m,
-                CommBaseAmount = 9.95m,
-                CommBonusAmount = 80.00m,
-                Status = "Settled",
-                StatusLabel = "可提现",
-                StatusBadgeClass = "success",
-                CommSettlementDate = DateTime.Today.AddDays(-12),
-                SignedAt = DateTime.Today.AddDays(-26)
-            },
-            new()
-            {
-                OrderId = "ORD20260715003",
-                FinalAmount = 88.00m,
-                CommBaseAmount = 4.40m,
-                CommBonusAmount = 0m,
-                Status = "Refunded",
-                StatusLabel = "已退款扣减",
-                StatusBadgeClass = "danger",
-                CommSettlementDate = null,
-                SignedAt = DateTime.Today.AddDays(-28)
-            }
-        ];
 
         private static List<PromoterWithdrawalRecordViewModel> BuildDemoWithdrawalRecords(string promoterId) =>
         [
@@ -407,5 +348,28 @@ namespace DBFreshColdChain.Services
                 RejectReason = "收款账户信息与实名不一致"
             }
         ];
+
+
+
+        private string GetStatusLabel(string status)
+        {
+            return status switch
+            {
+                "Pending" => "待结算",
+                "Settled" => "可提现",
+                "Refunded" => "已退款扣减",
+                _ => status // 或者 "未知"
+            };
+        }
+        private string GetStatusBadgeClass(string status)
+        {
+            return status switch
+            {
+                "Pending" => "warning",
+                "Settled" => "success",
+                "Refunded" => "danger",
+                _ => "secondary"
+            };
+        }
     }
 }

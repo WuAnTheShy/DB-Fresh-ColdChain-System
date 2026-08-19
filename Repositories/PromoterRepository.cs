@@ -1,6 +1,7 @@
 ﻿using Dapper;
-using FreshColdChain.Repositories;
 using DBFreshColdChain.Models;
+using DBFreshColdChain.Models.ViewModels;
+using FreshColdChain.Repositories;
 using System.Data;
 
 namespace DBFreshColdChain.Repositories
@@ -37,6 +38,30 @@ namespace DBFreshColdChain.Repositories
                 WHERE PROMOTERID = :PromoterId";
 
             return await _uow.Connection.QueryFirstOrDefaultAsync<GroupC_CrmPromoter>(sql, new { PromoterId = promoterId }, transaction);
+        }
+        public GroupC_CrmPromoter? GroupC_FindPromoterRecord(string? promoterId, IDbTransaction? transaction = null)
+        {
+            string sql = @"
+                SELECT 
+                    PROMOTERID as PromoterId,
+                    PROMOTERNAME as PromoterName,
+                    PHONE as Phone,
+                    INVITECODE as InviteCode,
+                    BASECOMMISSIONRATE as BaseCommissionRate,
+                    CURRENTBALANCE as CurrentBalance,
+                    PENDINGBALANCE as PendingBalance,
+                    TOTALSALES as TotalSales,
+                    TOTALORDERCOUNT as TotalOrderCount,
+                    STATUS as Status,
+                    REGISTERTIME as RegisterTime,
+                    LASTSETTLEMENTTIME as LastSettlementTime,
+                    REMARK as Remark,
+                    LOGINACCOUNT as LoginAccount,
+                    LOGINPASSWORD as LoginPassword
+                FROM CRM_PROMOTERS
+                WHERE PROMOTERID = :PromoterId";
+
+            return _uow.Connection.QueryFirstOrDefault<GroupC_CrmPromoter>(sql, new { PromoterId = promoterId }, transaction);
         }
 
         public async Task GroupC_UpdatePromoterTotalSalesAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null)
@@ -181,6 +206,7 @@ namespace DBFreshColdChain.Repositories
             int rows = await _uow.Connection.ExecuteAsync(sql, promoter, transaction);
             return rows > 0;
         }
+
 
     }
 }

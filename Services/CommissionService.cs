@@ -20,12 +20,14 @@ namespace DBFreshColdChain.Services
         // Interface层句柄（修正字段名，与构造函数一致）
         private readonly ITableLogService _logManager;
 
+        private readonly ICommissionRepository _icommissionRecordRepository;
         // 构造函数
-        public CommissionService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager)
+        public CommissionService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, ICommissionRepository icommissionRecordRepository)
         {
             _uow = uow;
             _ipromoterRepository = ipromoterRepository;
             _logManager = logManager;
+            _icommissionRecordRepository = icommissionRecordRepository;
         }
         //佣金结算触发函数
         public async Task<CommissionResult> RegisterCompletedOrderAsync(CommissionOrderRequest commissionOrderRequest,
@@ -105,6 +107,41 @@ namespace DBFreshColdChain.Services
                 _tableLog.OldValue = JsonConvert.SerializeObject(new { PendingBalance = _oldPromoterPendingBalance });
                 _tableLog.NewValue = JsonConvert.SerializeObject(new { PendingBalance = _newPromoterPendingBalance });
                 await _logManager.WriteTableChangeLog(_tableLog);
+
+                var record = new CommissionRecord
+                {
+                    RecordId = "PROC_" + Guid.NewGuid().ToString("N"),
+                    PromoterId = commissionOrderRequest.promoterID,
+                    OrderId = commissionOrderRequest.orderID,  // 需要从请求中传入订单ID
+                    FinalAmount = commissionOrderRequest.finalAmount,
+                    CommBaseAmount = _commissionResult.CommBaseAmount,
+                    CommBonusAmount = _commissionResult.CommBonusAmount,
+                    TotalCommission = totalCommission,
+                    SignDate = DateTime.Now,
+                    ExpectedSettleDate = DateTime.Now.AddDays(14),
+                    Status = "Pending",
+                    RefundedAmount = 0
+                };
+                await _icommissionRecordRepository.InsertAsync(record, transaction);
+                _tableLog = new GroupC_LogAuditrails();
+                _tableLog.ActionType = "Create";
+                _tableLog.TableName = "FIN_PROCOMRECORDS";
+                _tableLog.OperatorType = "Platform";
+                _tableLog.OperatorId = "\\";
+                _tableLog.NewValue = JsonConvert.SerializeObject(new {
+                    PromoterId = commissionOrderRequest.promoterID,
+                    OrderId = commissionOrderRequest.orderID,  // 需要从请求中传入订单ID
+                    FinalAmount = commissionOrderRequest.finalAmount,
+                    CommBaseAmount = _commissionResult.CommBaseAmount,
+                    CommBonusAmount = _commissionResult.CommBonusAmount,
+                    TotalCommission = totalCommission,
+                    SignDate = DateTime.Now,
+                    ExpectedSettleDate = DateTime.Now.AddDays(14),
+                    Status = "Pending",
+                    RefundedAmount = 0
+                });
+
+                await _logManager.WriteTableChangeLog(_tableLog);
                 // 如果事务是自己建立的，则提交事务
                 if (ownTransaction)
                     await _uow.CommitAsync();
@@ -154,6 +191,13 @@ namespace DBFreshColdChain.Services
                 var _newPromoterPendingBalance = _oldPromoterPendingBalance - totalCommission;
                 var _newPromoterCurrentBalance = _oldPromoterCurrentBalance + totalCommission;
 
+
+                var record = await _icommissionRecordRepository.GetByOrderIdAsync(request.orderID, transaction);
+                if (record != null && record.Status == "Pending")
+                {
+                    await _icommissionRecordRepository.UpdateStatusAsync(record.RecordId, "Settled", transaction);
+                }
+
                 var _tableLog = new GroupC_LogAuditrails();
                 _tableLog.ActionType = "Update";
                 _tableLog.TableName = "CRM_PROMOTERS";
@@ -170,6 +214,15 @@ namespace DBFreshColdChain.Services
                 _tableLog.OperatorId = "\\";
                 _tableLog.OldValue = JsonConvert.SerializeObject(new { CurrentBalance = _oldPromoterCurrentBalance });
                 _tableLog.NewValue = JsonConvert.SerializeObject(new { CurrentBalance = _newPromoterCurrentBalance });
+                await _logManager.WriteTableChangeLog(_tableLog);
+
+                _tableLog = new GroupC_LogAuditrails();
+                _tableLog.ActionType = "Update";
+                _tableLog.TableName = "FIN_PROCOMRECORDS";
+                _tableLog.OperatorType = "Platform";
+                _tableLog.OperatorId = "\\";
+                _tableLog.OldValue = JsonConvert.SerializeObject(new { Status = "Pending" });
+                _tableLog.NewValue = JsonConvert.SerializeObject(new { PendingBalance = "Settled" });
                 await _logManager.WriteTableChangeLog(_tableLog);
                 // 所有业务操作成功，提交事务
                 if (ownTransaction)

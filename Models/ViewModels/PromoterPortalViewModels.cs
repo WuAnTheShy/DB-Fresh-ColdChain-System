@@ -67,7 +67,8 @@ namespace DBFreshColdChain.Models.ViewModels
         public string StatusBadgeClass { get; set; } = "secondary";
         public DateTime? CommSettlementDate { get; set; }
         public DateTime? SignedAt { get; set; }
-        public decimal TotalCommission => CommBaseAmount + CommBonusAmount;
+        public decimal RefundedAmount { get; set; } = 0;
+        public decimal TotalCommission => CommBaseAmount + CommBonusAmount - RefundedAmount;
     }
 
     public class PromoterCommissionsViewModel

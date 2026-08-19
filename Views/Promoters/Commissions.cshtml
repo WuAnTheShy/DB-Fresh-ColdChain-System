@@ -92,6 +92,7 @@
                             <th>实付金额</th>
                             <th>基础佣金</th>
                             <th>奖励佣金</th>
+                            <th>扣减佣金</th>
                             <th>合计</th>
                             <th>签收时间</th>
                             <th>预计结算日</th>
@@ -109,6 +110,16 @@
                                     @if (item.CommBonusAmount > 0)
                                     {
                                         <span class="text-success fw-semibold">+¥@item.CommBonusAmount.ToString("N2")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (item.RefundedAmount > 0)
+                                    {
+                                        <span class="text-danger fw-semibold">-¥@item.RefundedAmount.ToString("N2")</span>
                                     }
                                     else
                                     {

@@ -19,6 +19,7 @@ builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
 
 //C×é
 builder.Services.AddScoped<IRefundRepository, RefundRepository>();
+builder.Services.AddScoped<ICommissionRepository, CommissionRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPromoterRepository, PromoterRepository>();
 builder.Services.AddScoped<ISysAdminRepository, SysAdminRepository>();

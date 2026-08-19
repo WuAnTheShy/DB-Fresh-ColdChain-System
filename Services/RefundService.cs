@@ -1,12 +1,13 @@
 ﻿using DBFreshColdChain.Interfaces;
+using DBFreshColdChain.Models;
 using DBFreshColdChain.Models.CrossGroup;
 using DBFreshColdChain.Models.DTOs;
 using DBFreshColdChain.Repositories;
 using FreshColdChain.Repositories;
-using DBFreshColdChain.Models;
 using Newtonsoft.Json;
 using System.Data;
 using System.Runtime.ConstrainedExecution;
+using System.Transactions;
 
 namespace DBFreshColdChain.Services
 {
@@ -15,20 +16,21 @@ namespace DBFreshColdChain.Services
         private readonly IUnitOfWork _uow;
         private readonly IPromoterRepository _ipromoterRepository ;
         private readonly IRefundRepository _irefundRepository;
-        private readonly IPromoterService _ipromoterManager;
+        private readonly ICommissionRepository _icommissionRepository;
         private readonly ITableLogService _logManager;
         private readonly Mock_IGroupA _mockGroupAInterface;
         private readonly Mock_IGroupB _mockGroupBInterface;
-        public RefundService(IUnitOfWork uow,IPromoterRepository ipromoterRepository, 
-            IPromoterService ipromoterManager, IRefundRepository irefundRepository,
-                                ITableLogService log_Auditrails, 
-                                Mock_IGroupA mockGroupAInterface, 
-                                Mock_IGroupB mockGroupBInterface)
+        public RefundService(IUnitOfWork uow, IPromoterRepository ipromoterRepository,
+                             IRefundRepository irefundRepository,
+                                ITableLogService log_Auditrails,
+                                Mock_IGroupA mockGroupAInterface,
+                                Mock_IGroupB mockGroupBInterface,
+                                ICommissionRepository icommissionRepository)
         {
             _uow = uow;
             _ipromoterRepository = ipromoterRepository;
             _irefundRepository = irefundRepository;
-            _ipromoterManager = ipromoterManager;
+            _icommissionRepository = icommissionRepository;
             _logManager = log_Auditrails;
             _mockGroupAInterface = mockGroupAInterface;
             _mockGroupBInterface = mockGroupBInterface;
@@ -111,6 +113,13 @@ namespace DBFreshColdChain.Services
                 {
                     //具体接口函数需要B组提供,因为涉及到AB组之间定的物流发货逻辑
                 }
+                //更改佣金记录
+                var record = await _icommissionRepository.GetByOrderIdAsync(refundRequest.OrderId, _uow.Transaction);
+                if (record != null)
+                {
+                    await _icommissionRepository.UpdateStatusAsync(record.RecordId, "Refunded", _uow.Transaction);
+                    await _icommissionRepository.UpdateRefundedAmountAsync(record.RecordId, _refundAmount, _uow.Transaction);
+                }
                 //调用B组的积分回滚函数
                 var ratioPoints = _refundAmount / _orderInfo.FinalAmount;
                 _mockGroupBInterface.RollbackPoints(_orderInfo.CustomerId, ratioPoints);
@@ -185,6 +194,7 @@ namespace DBFreshColdChain.Services
                 _tableLog.OldValue = JsonConvert.SerializeObject(new { TotalSales = _oldPromoterTotalSales });
                 _tableLog.NewValue = JsonConvert.SerializeObject(new { TotalSales = _newPromoterTotalSales });
                 await _logManager.WriteTableChangeLog(_tableLog);
+
                 if (ownTransaction)
                     await _uow.RollbackAsync();
                 _result.IsSuccess = true;
@@ -229,8 +239,8 @@ namespace DBFreshColdChain.Services
                 _finRefund.Remark = remark;
                 await _irefundRepository.InsertRefundAsync(_finRefund, transaction);
 
-               //产生日志信息
-               var _tableLog = new GroupC_LogAuditrails();
+                //产生日志信息
+                var _tableLog = new GroupC_LogAuditrails();
                 _tableLog.ActionType = "Create";
                 _tableLog.TableName = "FIN_REFUNDS";
                 _tableLog.OperatorType = "Platform";

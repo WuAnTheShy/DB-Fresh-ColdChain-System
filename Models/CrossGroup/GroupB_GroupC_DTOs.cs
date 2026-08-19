@@ -17,12 +17,14 @@
     //Request类
     public class CommissionOrderRequest
     {
+        public string orderID { get; init; } = string.Empty;               //订单编号
         public string? promoterID { get; set; } = string.Empty;            //团长编号
         public decimal finalAmount { get; set; } = 0;                      //实付金额
         public decimal goodsAmount { get; set; } = 0;                      //商品金额
     }
     public class ActivateCommissionOrderRequest
     {
+        public string orderID { get; init; } = string.Empty;               //订单编号
         public string? promoterID { get; set; } = string.Empty;            //团长编号
         public decimal commBaseAmount { get; set; } = 0;                   //基础佣金
         public decimal commBonusAmount { get; set; } = 0;                  //奖励佣金
