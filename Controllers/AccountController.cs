@@ -60,7 +60,7 @@ namespace DBFreshColdChain.Controllers
                 {
                     HttpContext.Session.SetString("PromoterName", loginResult.PromoterName ?? username);
                     HttpContext.Session.SetString("PromoterId", loginResult.PromoterId);
-                    return RedirectToAction("Dashboard", "Promoter");
+                    return RedirectToAction("Dashboard", "Promoters");
                 }
                 ModelState.AddModelError("", loginResult.Message);
                 return View();

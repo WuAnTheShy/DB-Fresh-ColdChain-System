@@ -20,3 +20,9 @@ html {
 body {
   margin-bottom: 60px;
 }
+
+.bg-gradient-custom {
+    background: linear-gradient(135deg, #303f9f 0%, #1de9b6 100%);
+    border-bottom: 0;
+    box-shadow: 0 4px 12px rgba(48, 63, 159, 0.3);
+}

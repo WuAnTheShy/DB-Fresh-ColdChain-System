@@ -1,23 +1,34 @@
 ﻿@{
     ViewData["Title"] = "角色选择";
 }
-<h1>@ViewData["Title"]</h1>
+
+<link rel="stylesheet" href="~/css/accountsite.css" asp-append-version="true" />
+
 <div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h3 class="card-title text-center mb-4">选择您的身份</h3>
-                    <div class="d-grid gap-3">
-                        <a class="btn btn-primary btn-lg" asp-controller="Account" asp-action="Login" asp-route-role="团长">团长登入</a>
-                        <a class="btn btn-outline-success" asp-controller="Promoter" asp-action="Demo">团长工作台预览（演示数据）</a>
-                        <a class="btn btn-primary btn-lg" asp-controller="Account" asp-action="Login" asp-route-role="消费者">消费者登入</a>
-                        <a class="btn btn-primary btn-lg" asp-controller="Account" asp-action="Login" asp-route-role="供应商">供应商登入</a>
-                        <a class="btn btn-primary btn-lg" asp-controller="Account" asp-action="Login" asp-route-role="管理员">管理员登入</a>
-                    </div>
+        <div class="col-md-8 col-lg-6">
+            <div class="selection1 p-4 p-lg-5 text-center">
+                <!-- 卡片内部放一个小横幅，模拟首页 -->
+                <div class="selection2 mb-4" style="padding: 2rem;">
+                    <h3 class="fw-bold text-white" style="font-size: 2rem;">选择您的身份</h3>
+                    <p class="fw-bold text-white" style="font-size: 1rem;">请选择您的角色进入对应的系统界面</p>
+                </div>
+
+                <div class="d-grid gap-3">
+                    <a class="btn btn-primary btn-lg button1"  asp-controller="Account" asp-action="Login" asp-route-role="团长">
+                        团长登入
+                    </a>
+                    <a class="btn btn-primary btn-lg button1" asp-controller="Account" asp-action="Login" asp-route-role="消费者">
+                        消费者登入
+                    </a>
+                    <a class="btn btn-primary btn-lg button1" asp-controller="Account" asp-action="Login" asp-route-role="供应商">
+                        供应商登入
+                    </a>
+                    <a class="btn btn-primary btn-lg button2" asp-controller="Account" asp-action="Login" asp-route-role="管理员">
+                        管理员登入
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
-

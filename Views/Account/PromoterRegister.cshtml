@@ -3,13 +3,16 @@
 @{
     ViewData["Title"] = $"{@ViewBag.Role} 注册";
 }
+<link rel="stylesheet" href="~/css/accountsite.css" asp-append-version="true" />
+
 <div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-4">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h3 class="card-title text-center mb-4">注册</h3>
-                    <h4>正在以 @ViewBag.Role 身份注册</h4>
+        <div class="col-md-6 col-lg-5">
+            <div class="selection1 p-4">
+                <div class="selection2 mb-3" style="padding: 1.5rem; text-align: center;">
+                    <h3 style="font-size: 1.8rem; color: white;"> 注 册</h3>
+                    <div style="font-size: 0.9rem; opacity: 0.9; color: white;">正在以 @ViewBag.Role 身份注册</div>
+                </div>
                     @* 显示全局错误信息 *@
                     @if (!ViewData.ModelState.IsValid)
                     {
@@ -50,7 +53,7 @@
                         </div>
 
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary btn-lg">注 册</button>
+                            <button type="submit" class="btn btn-lg button1 text-white">注 册</button>
                         </div>
                     </form>
                 </div>
