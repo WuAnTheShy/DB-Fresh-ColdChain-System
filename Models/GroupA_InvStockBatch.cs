@@ -45,5 +45,6 @@ public class InvStockBatch
     [MaxLength(20)]
     public string Status { get; set; } = "ACTIVE";
 
-    public InvProduct? Product { get; set; }
+    [NotMapped] public InvProduct? Product { get; set; }
+    [NotMapped] public InvSupplier? Supplier { get; set; }
 }

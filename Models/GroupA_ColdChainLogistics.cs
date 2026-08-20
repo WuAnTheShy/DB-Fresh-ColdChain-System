@@ -29,6 +29,7 @@ public class LogExpressDelivery
     [Key, Column("DeliveryID")] public string DeliveryID { get; set; } = Guid.NewGuid().ToString();
     [Column("OrderID")] public string OrderID { get; set; } = string.Empty;
     [Column("SupplierID")] public string SupplierID { get; set; } = string.Empty;
+    [Column("LogisticsCompany")] public string? LogisticsCompany { get; set; }
     [Column("TrackingNo")] public string TrackingNo { get; set; } = string.Empty;
     [Column("PackageTemp")] public string PackageTemp { get; set; } = "CHILLED";
     [Column("LogisticsStatus")] public string LogisticsStatus { get; set; } = "SHIPPED";

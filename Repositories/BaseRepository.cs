@@ -29,7 +29,7 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
         var type = typeof(T);
 
         var tableAttr = type.GetCustomAttribute<TableAttribute>();
-        _tableName = tableAttr != null ? $"\"{tableAttr.Name}\"" : $"\"{type.Name.ToUpperInvariant()}\"";
+        _tableName = tableAttr != null ? tableAttr.Name : type.Name;
 
         var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(p => p.CanWrite)
@@ -114,9 +114,9 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
             var allParamNames = _allColumns.Select(c => $":{c.PropName}");
             var sql = $"INSERT INTO {_tableName} ({string.Join(", ", allColNames)}) VALUES ({string.Join(", ", allParamNames)})";
 
-            var dp = new DynamicParameters();
+            var dp = new Dictionary<string, object?>();
             foreach (var col in _allColumns)
-                dp.Add($":{col.PropName}", col.Property.GetValue(entity));
+                dp.Add(col.PropName, col.Property.GetValue(entity));
 
             await _uow.Connection.ExecuteAsync(sql, dp, _uow.Transaction);
         }
@@ -129,11 +129,11 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
 
             var dp = new DynamicParameters();
             foreach (var col in _columns)
-                dp.Add($":{col.PropName}", col.Property.GetValue(entity));
-            dp.Add(":OutId", dbType: System.Data.DbType.Int32, direction: System.Data.ParameterDirection.Output);
+                dp.Add(col.PropName, col.Property.GetValue(entity));
+            dp.Add("OutId", dbType: System.Data.DbType.Int32, direction: System.Data.ParameterDirection.Output);
 
             await _uow.Connection.ExecuteAsync(sql, dp, _uow.Transaction);
-            _keyProp.SetValue(entity, dp.Get<int>(":OutId"));
+            _keyProp.SetValue(entity, dp.Get<int>("OutId"));
         }
 
         return entity;
@@ -142,12 +142,12 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
     public virtual void Update(T entity)
     {
         var setClauses = _columns.Select(c => $"{c.ColName} = :{c.PropName}");
-        var sql = $"UPDATE {_tableName} SET {string.Join(", ", setClauses)} WHERE {_keyColumn} = :__PkVal";
+        var sql = $"UPDATE {_tableName} SET {string.Join(", ", setClauses)} WHERE {_keyColumn} = :PkVal";
 
-        var dp = new DynamicParameters();
+        var dp = new Dictionary<string, object?>();
         foreach (var col in _columns)
-            dp.Add($":{col.PropName}", col.Property.GetValue(entity));
-        dp.Add(":__PkVal", _keyProp.GetValue(entity));
+            dp.Add(col.PropName, col.Property.GetValue(entity));
+        dp.Add("PkVal", _keyProp.GetValue(entity));
 
         _uow.Connection.Execute(sql, dp, _uow.Transaction);
     }
@@ -165,6 +165,6 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
     private static string GetColumnName(PropertyInfo prop)
     {
         var colAttr = prop.GetCustomAttribute<ColumnAttribute>();
-        return colAttr != null ? $"\"{colAttr.Name}\"" : $"\"{prop.Name.ToUpperInvariant()}\"";
+        return colAttr != null ? colAttr.Name : prop.Name;
     }
 }

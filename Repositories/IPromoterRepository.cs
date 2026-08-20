@@ -1,5 +1,6 @@
-﻿using System.Data;
-using DBFreshColdChain.Models;
+﻿using DBFreshColdChain.Models;
+using DBFreshColdChain.Models.DTOs;
+using System.Data;
 
 namespace DBFreshColdChain.Repositories
 {
@@ -18,6 +19,14 @@ namespace DBFreshColdChain.Repositories
         Task<bool> GroupC_InsertPromoterAsync(GroupC_CrmPromoter promoter, IDbTransaction? transaction = null);                     //新插入团长账号信息
         //无需事务：登录账号时查找团长账号信息
         GroupC_CrmPromoter? GroupC_FindPromoterByLoginAccount(string loginAccount);             //查找团长账号信息
+
+
+
+        // 查询可用团长列表（分页 + 关键词搜索）
+        Task<GroupC_PromoterListResult> GetAvailablePromotersAsync(string? keyword,int skip,int take,IDbTransaction? transaction = null);
+
+
+
 
     }
 }

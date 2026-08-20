@@ -13,7 +13,7 @@ public class OracleDbConnectionFactory : IDbConnectionFactory
     public OracleDbConnectionFactory(IConfiguration configuration)
     {
         _connectionString = configuration.GetConnectionString("OracleDb")
-            ?? throw new InvalidOperationException("未找到 DefaultConnection 连接字符串");
+            ?? throw new InvalidOperationException("未找到 OracleDb 连接字符串");
     }
 
     public IDbConnection CreateConnection()

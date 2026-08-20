@@ -1,11 +1,16 @@
 using DBFreshColdChain.Interfaces;
 using DBFreshColdChain.Repositories;
 using DBFreshColdChain.Services;
+using DBFreshColdChainSystem.Repositories;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Repositories;
+using FreshColdChain.Services;
 using FreshColdChain.Services.Supplier;
 
 var builder = WebApplication.CreateBuilder(args);
+
+
+
 
 
 // ========== Dapper 基础设施 ==========
@@ -15,8 +20,16 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 //A组
 builder.Services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
 builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
-
-
+builder.Services.AddScoped<ISupplierPriceRepository, SupplierPriceRepository>();
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IStockSummaryRepository, StockSummaryRepository>();
+builder.Services.AddScoped<IStockBatchRepository, StockBatchRepository>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<IPriceRuleRepository, PriceRuleRepository>();
+// A组冷链专属仓储
+builder.Services.AddScoped<ILogFreightTemplateRepository, LogFreightTemplateRepository>();
+builder.Services.AddScoped<ILogExpressDeliveryRepository, LogExpressDeliveryRepository>();
+builder.Services.AddScoped<ILogFulfillmentBatchItemRepository, LogFulfillmentBatchItemRepository>();
 //C组
 builder.Services.AddScoped<IRefundRepository, RefundRepository>();
 builder.Services.AddScoped<ICommissionRepository, CommissionRepository>();
@@ -25,9 +38,14 @@ builder.Services.AddScoped<IPromoterRepository, PromoterRepository>();
 builder.Services.AddScoped<ISysAdminRepository, SysAdminRepository>();
 builder.Services.AddScoped<ITableLogRepository, TableLogRepository>();
 builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
+builder.Services.AddScoped<IPromoterSupplierRepository, PromoterSupplierRepository>();
 // ========== Service 注册 ==========
 //A组
 builder.Services.AddScoped<ISupplierService, SupplierService>();
+builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
+// A组冷链运费报价与批次级可追溯发货服务。
+builder.Services.AddScoped<IColdChainLogisticsService, ColdChainLogisticsService>();
+builder.Services.AddScoped<IPricingService, PricingService>();
 
 //C组
 builder.Services.AddScoped<AccountService>();

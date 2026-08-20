@@ -24,11 +24,12 @@ public class GroupC_PromoterBasicInfoDto
 /// </summary>
 public class GroupC_PagedResult<T>
 {
-    public int PageIndex { get; set; }
-    public int PageSize { get; set; }
+
+    public IEnumerable<GroupC_AvailablePromoterDto> Items { get; set; } = Enumerable.Empty<GroupC_AvailablePromoterDto>();
     public int TotalCount { get; set; }
-    public int TotalPages => PageSize == 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);
-    public List<T> Items { get; set; } = new();
+    public int PageSize { get; set; }
+    public int Pageindex { get; set; }
+
 }
 
 /// <summary>
@@ -39,4 +40,12 @@ public class GroupC_AvailablePromoterQuery
     public string? Keyword { get; set; }
     public int PageIndex { get; set; } = 1;
     public int PageSize { get; set; } = 20;
+}
+
+//团长查找列表类
+public class GroupC_PromoterListResult
+{
+    public IEnumerable<GroupC_AvailablePromoterDto> Items { get; set; } = Enumerable.Empty<GroupC_AvailablePromoterDto>();
+    public int TotalCount { get; set; }
+
 }

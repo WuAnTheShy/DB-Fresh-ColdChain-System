@@ -38,7 +38,7 @@ public class BizPriceRule
     [MaxLength(50)]
     public string? TimeWindow { get; set; }
 
-    /// <summary>折扣率（0.1=9折，0.3=7折），ManualPrice 类型可为 null</summary>
+    /// <summary>折后价格占比（0.8=8折=原价×0.8，0.95=95折），ManualPrice 类型可为 null</summary>
     [Column("DiscountRate")]
     public decimal? DiscountRate { get; set; }
 
@@ -71,5 +71,5 @@ public class BizPriceRule
     public DateTime? EffectiveTo { get; set; }
 
     // 导航属性
-    public InvProduct? Product { get; set; }
+    [NotMapped] public InvProduct? Product { get; set; }
 }

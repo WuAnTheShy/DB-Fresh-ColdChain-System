@@ -1,8 +1,11 @@
 ﻿using Dapper;
 using DBFreshColdChain.Models;
+using DBFreshColdChain.Models.DTOs;
 using DBFreshColdChain.Models.ViewModels;
 using FreshColdChain.Repositories;
 using System.Data;
+using System.Transactions;
+using static Microsoft.Extensions.Logging.EventSource.LoggingEventSource;
 
 namespace DBFreshColdChain.Repositories
 {
@@ -115,7 +118,7 @@ namespace DBFreshColdChain.Repositories
 
             return await _uow.Connection.QueryFirstOrDefaultAsync<decimal?>(sql, new { PromoterId = promoterId }, transaction);
         }
-            
+
         public async Task GroupC_UpdatePromoterCurrentBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null)
         {
             string sql = @"
@@ -163,7 +166,7 @@ namespace DBFreshColdChain.Repositories
                 FROM CRM_PROMOTERS
                 WHERE LOGINACCOUNT = :LoginAccount";
 
-            return  _uow.Connection.QueryFirstOrDefault<GroupC_CrmPromoter>(sql, new { LoginAccount = loginAccount });
+            return _uow.Connection.QueryFirstOrDefault<GroupC_CrmPromoter>(sql, new { LoginAccount = loginAccount });
         }
 
         public async Task<bool> GroupC_InsertPromoterAsync(GroupC_CrmPromoter promoter, IDbTransaction? transaction = null)
@@ -208,5 +211,42 @@ namespace DBFreshColdChain.Repositories
         }
 
 
+        public async Task<GroupC_PromoterListResult> GetAvailablePromotersAsync(
+        string? keyword,
+        int skip,
+        int take,
+        IDbTransaction? transaction = null)
+        {
+            var parameters = new
+            {
+                Keyword = string.IsNullOrWhiteSpace(keyword) ? null : keyword.Trim()
+            };
+
+            var countSql = @"
+            SELECT COUNT(*)
+            FROM CRM_PROMOTERS
+            WHERE UPPER(STATUS) IN ('ENABLE', 'ENABLED', 'ACTIVE')
+            AND INSTR(PROMOTERID || CHR(1) || PROMOTERNAME, NVL(:Keyword, CHR(1))) > 0";
+
+            var totalCount = await _uow.Connection.ExecuteScalarAsync<int>(
+                countSql, parameters, transaction);
+
+            var dataSql = @"
+            SELECT PROMOTERID AS PromoterId, PROMOTERNAME AS PromoterName
+            FROM CRM_PROMOTERS
+            WHERE UPPER(STATUS) IN ('ENABLE', 'ENABLED', 'ACTIVE')
+            AND INSTR(PROMOTERID || CHR(1) || PROMOTERNAME, NVL(:Keyword, CHR(1))) > 0
+            ORDER BY PROMOTERID
+            OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY";
+
+            var items = await _uow.Connection.QueryAsync<GroupC_AvailablePromoterDto>(
+                dataSql, new { Keyword = parameters.Keyword, Skip = skip, Take = take }, transaction);
+
+            return new GroupC_PromoterListResult
+            {
+                Items = items,
+                TotalCount = totalCount
+            };
+        }
     }
 }

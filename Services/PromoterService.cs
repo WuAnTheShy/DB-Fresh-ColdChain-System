@@ -1,9 +1,10 @@
 ﻿using DBFreshColdChain.Interfaces;
+using DBFreshColdChain.Models;
 using DBFreshColdChain.Models.CrossGroup;
 using DBFreshColdChain.Models.DTOs;
 using DBFreshColdChain.Repositories;
+using DBFreshColdChainSystem.Repositories;
 using FreshColdChain.Repositories;
-using DBFreshColdChain.Models;
 using Newtonsoft.Json;
 using System.Data;
 using System.Security.Cryptography;
@@ -19,18 +20,55 @@ namespace DBFreshColdChain.Services
         private readonly IPromoterRepository _ipromoterRepository;
         // Interface层句柄（修正字段名，与构造函数一致）
         private readonly ITableLogService _logManager;
-              
+        private readonly IPromoterSupplierRepository _ipsRepository;
         // 构造函数
-        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager)
+        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository)
         {
             _uow = uow;
             _ipromoterRepository = ipromoterRepository;
             _logManager = logManager;
+            _ipsRepository = ipsRepository;
         }
 
-        
 
-        
+        public async Task<GroupC_PagedResult<GroupC_AvailablePromoterDto>> GetAvailablePromotersAsync(
+        GroupC_AvailablePromoterQuery query,
+        CancellationToken cancellationToken = default)
+        {
+            var pageIndex = Math.Max(1, query.PageIndex);
+            var pageSize = Math.Clamp(query.PageSize, 1, 100);
+            var skip = (pageIndex - 1) * pageSize;
+
+            var result = await _ipromoterRepository.GetAvailablePromotersAsync(
+                query.Keyword, skip, pageSize, _uow.Transaction);
+
+            return new GroupC_PagedResult<GroupC_AvailablePromoterDto>
+            {
+                Pageindex = pageIndex,              
+                PageSize = pageSize,
+                TotalCount = result.TotalCount,   
+                Items = result.Items.ToList()
+            };
+        }
+
+
+        public async Task<GroupC_PromoterBasicInfoDto?> GetPromoterBasicInfoAsync(
+        string promoterId,
+        CancellationToken cancellationToken = default)
+        {
+            var promoterinfo = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, _uow.Transaction);
+
+
+            return new GroupC_PromoterBasicInfoDto
+            {
+                PromoterId = promoterinfo.PromoterId,
+                PromoterName = promoterinfo.PromoterName,
+                Status = promoterinfo.Status,
+            };
+        }
+
+
+
         // ========== 新增功能：团长注册、登录、管理员直接添加 ==========
 
         // 团长注册（首次注册，待管理员审核激活）
@@ -211,6 +249,54 @@ namespace DBFreshColdChain.Services
             }
            
         }
+
+
+
+        //============================团长-供应商合作服务===================================
+        public async Task<List<string>> GetActiveSupplierIdsAsync(string promoterId)
+        {
+            return await _ipsRepository.GetActiveSupplierIdsByPromoterAsync(promoterId, _uow.Transaction);
+        }
+
+        public async Task<Dictionary<string, bool>> ValidateSuppliersAsync(string promoterId, List<string> supplierIds)
+        {
+            if (supplierIds == null || !supplierIds.Any())
+                return new Dictionary<string, bool>();
+            return await _ipsRepository.ValidateRelationsAsync(promoterId, supplierIds, _uow.Transaction);
+        }
+
+        public async Task<bool> AddRelationAsync(string promoterId, string supplierId)
+        {
+            await _uow.BeginAsync();
+            try
+            {
+                var result = await _ipsRepository.AddOrUpdateRelationAsync(promoterId, supplierId, "Active", _uow.Transaction);
+                await _uow.CommitAsync();
+                return result;
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task<bool> RemoveRelationAsync(string promoterId, string supplierId)
+        {
+            await _uow.BeginAsync();
+            try
+            {
+                var result = await _ipsRepository.SoftDeleteRelationAsync(promoterId, supplierId, _uow.Transaction);
+                await _uow.CommitAsync();
+                return result;
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+        }
+
 
         // ========== 私有辅助方法 ==========
         private string GenerateInviteCode()

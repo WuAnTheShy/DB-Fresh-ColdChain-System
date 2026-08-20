@@ -22,6 +22,8 @@ public class StockBatchDto
     public string BatchID { get; set; } = string.Empty;
     public string ProductID { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
+    public string? SupplierID { get; set; }
+    public string? SupplierName { get; set; }
     public string BatchNo { get; set; } = string.Empty;
     public DateTime? ProductionDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
@@ -31,6 +33,16 @@ public class StockBatchDto
     public string Status { get; set; } = "ACTIVE";
 }
 
+/// <summary>入库时可选供应商报价选项（下拉用）</summary>
+public class SupplierQuoteOptionDto
+{
+    public string SupplierID { get; set; } = string.Empty;
+    public string SupplierName { get; set; } = string.Empty;
+    public decimal SupplyPrice { get; set; }
+    /// <summary>生效保质期（小时）：供应商声明的，未声明则用产品典型值</summary>
+    public int? ShelfLifeHours { get; set; }
+}
+
 public class CreateStockBatchDto
 {
     public string ProductID { get; set; } = string.Empty;
@@ -38,6 +50,5 @@ public class CreateStockBatchDto
     public string BatchNo { get; set; } = string.Empty;
     public DateTime? ProductionDate { get; set; }
     public DateTime? ExpiryDate { get; set; }
-    public decimal InPrice { get; set; }
     public int InitialQty { get; set; }
 }

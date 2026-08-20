@@ -30,6 +30,17 @@ public class FreightQuoteDto
 {
     public decimal FreightAmount { get; set; }
     public string RuleSummary { get; set; } = string.Empty;
+    public List<FreightQuoteItemDto> Items { get; set; } = new();
+}
+
+/// <summary>报价结果中的单个商品明细</summary>
+public class FreightQuoteItemDto
+{
+    public string ProductID { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+    public decimal SubTotal => UnitPrice * Quantity;
 }
 
 // ========== 精准溯源 DTO ==========

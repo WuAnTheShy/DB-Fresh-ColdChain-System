@@ -51,8 +51,8 @@ public class InvProduct
     public string Status { get; set; } = "ACTIVE"; // ACTIVE=上架, INACTIVE=下架
 
     // 导航属性
-    public InvCategory? Category { get; set; }
-    public InvSupplier? Supplier { get; set; }
-    public InvStockSummary? StockSummary { get; set; }
-    public ICollection<BizPriceRule> PriceRules { get; set; } = new List<BizPriceRule>();
+    [NotMapped] public InvCategory? Category { get; set; }
+    [NotMapped] public InvSupplier? Supplier { get; set; }
+    [NotMapped] public InvStockSummary? StockSummary { get; set; }
+    [NotMapped] public ICollection<BizPriceRule> PriceRules { get; set; } = new List<BizPriceRule>();
 }
