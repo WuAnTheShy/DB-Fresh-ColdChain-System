@@ -12,7 +12,6 @@ namespace DBFreshColdChain.Models
         public DateTime? AuditTime { get; set; }                     // 审核时间
         public string RejectReason { get; set; } = string.Empty;     // 驳回原因
         public DateTime? TransferTime { get; set; }                  // 实际打款时间
-        public string Remark { get; set; } = string.Empty;           // 备注
     }
 }
 

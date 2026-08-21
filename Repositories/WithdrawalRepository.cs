@@ -51,8 +51,7 @@ namespace DBFreshColdChain.Repositories
                     AUDITORUSERID,
                     AUDITTIME,
                     REJECTREASON,
-                    TRANSFERTIME,
-                    REMARK
+                    TRANSFERTIME
                 ) VALUES (
                     :WithdrawalId,
                     :PromoterId,
@@ -63,8 +62,7 @@ namespace DBFreshColdChain.Repositories
                     :AuditorUserId,
                     :AuditTime,
                     :RejectReason,
-                    :TransferTime,
-                    :Remark
+                    :TransferTime
                 )";
 
             int rows = await _uow.Connection.ExecuteAsync(sql, record, transaction);
@@ -120,8 +118,7 @@ namespace DBFreshColdChain.Repositories
                     AUDITORUSERID as AuditorUserId,
                     AUDITTIME as AuditTime,
                     REJECTREASON as RejectReason,
-                    TRANSFERTIME as TransferTime,
-                    REMARK as Remark
+                    TRANSFERTIME as TransferTime
                 FROM FIN_WITHDRAWALRECORDS
                 WHERE WITHDRAWALID = :WithdrawalId";
 
@@ -145,5 +142,31 @@ namespace DBFreshColdChain.Repositories
 
             await _uow.Connection.ExecuteAsync(sql, new { PromoterId = promoterId, Delta = delta }, transaction);
         }
+
+        public async Task<List<GroupC_FinWithdrawalRecord>> GroupC_GetPendingWithdrawalsAsync(
+        IDbTransaction? transaction = null,
+        CancellationToken cancellationToken = default)
+        {
+            const string sql = @"
+            SELECT 
+                WITHDRAWALID as WithdrawalId,
+                PROMOTERID as PromoterId,
+                APPLYAMOUNT as ApplyAmount,
+                ACCOUNTINFO as AccountInfo,
+                APPLYTIME as ApplyTime,
+                AUDITSTATUS as AuditStatus,
+                AUDITORUSERID as AuditorUserId,
+                AUDITTIME as AuditTime,
+                REJECTREASON as RejectReason,
+                TRANSFERTIME as TransferTime
+            FROM FIN_WITHDRAWALRECORDS
+            WHERE AUDITSTATUS = 'Pending'";
+
+            var result = await _uow.Connection.QueryAsync<GroupC_FinWithdrawalRecord>(sql,transaction: transaction);
+            return result.ToList();
+        }
+
+
+
     }
 }

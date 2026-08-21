@@ -29,6 +29,9 @@ namespace DBFreshColdChain.Services
             {
                 logData.OpTime = DateTime.Now;
             }
+
+            logData.OldValue ??= string.Empty;    // 如果 OldValue 为 null，赋值为空字符串
+            logData.NewValue ??= string.Empty;    // 如果 NewValue 为 null，同样处理
             logData.OldValue = logData.OldValue.Length > 1000 ? logData.OldValue.Substring(0, 1000) : logData.OldValue; //截断保护
             await _itableLogRepository.GroupC_AddLogRecordAsync(logData); //Respositories层接口
             return true;

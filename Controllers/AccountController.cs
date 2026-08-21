@@ -71,7 +71,7 @@ namespace DBFreshColdChain.Controllers
                 if (loginResult.IsSuccess == true)  //登录成功
                 {
                     HttpContext.Session.SetString("AdminName", username);
-                    return RedirectToAction("Index", "Admins");
+                    return RedirectToAction("Dashboard", "Admins");
                 }
                 ModelState.AddModelError("", loginResult.Message);
                 return View();
@@ -82,7 +82,7 @@ namespace DBFreshColdChain.Controllers
                 if (loginResult.IsSuccess == true)  //登录成功
                 {
                     HttpContext.Session.SetString("SupplierName", username);
-                    return RedirectToAction("Index", "Suppliers");
+                    return RedirectToAction("Index", "SuppliersHome");
                 }
                 ModelState.AddModelError("", loginResult.Message);
                 return View();

@@ -18,5 +18,8 @@ namespace DBFreshColdChain.Repositories
             CancellationToken cancellationToken = default);
         Task<GroupC_FinWithdrawalRecord?> GroupC_GetWithdrawalRecordAsync(string withdrawalId, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
         Task GroupC_UpdatePromoterFrozenAmountAsync(string promoterId, decimal delta, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
+
+
+        Task<List<GroupC_FinWithdrawalRecord>> GroupC_GetPendingWithdrawalsAsync(IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
     }
 }

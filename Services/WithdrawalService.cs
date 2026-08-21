@@ -83,8 +83,7 @@ namespace DBFreshColdChain.Services
                     AuditorUserId = string.Empty,
                     AuditTime = null,
                     RejectReason = string.Empty,
-                    TransferTime = null,
-                    Remark = string.Empty
+                    TransferTime = null
                 };
                 bool insertOk = await _iwithdrawalRepository.GroupC_InsertWithdrawalRecordAsync(record, _uow.Transaction);
                 if (!insertOk)
@@ -309,9 +308,12 @@ namespace DBFreshColdChain.Services
 
         }
 
-           
-        
-        
-        
+        public async Task<List<GroupC_FinWithdrawalRecord>> GetPendingWithdrawalsAsync()
+        {
+            return await _iwithdrawalRepository.GroupC_GetPendingWithdrawalsAsync();
+        }
+
+
+
     }
 }

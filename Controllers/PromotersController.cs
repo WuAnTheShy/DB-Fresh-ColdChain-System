@@ -1,3 +1,4 @@
+using DBFreshColdChain.Models.DTOs;
 using DBFreshColdChain.Models.ViewModels;
 using DBFreshColdChain.Services;
 using FreshColdChain.Interfaces;
@@ -13,15 +14,18 @@ namespace DBFreshColdChain.Controllers
         private readonly PromoterPortalDataProvider _dataProvider;
         private readonly ISupplierService _supplierService;
         private readonly PromoterService _promoterService;
+        private readonly WithdrawalService _withdrawalService;  
 
         public PromotersController(
-        PromoterPortalDataProvider dataProvider,
-        ISupplierService supplierService,
-        PromoterService promoterService)
-        {
+            PromoterPortalDataProvider dataProvider,
+            ISupplierService supplierService,
+            PromoterService promoterService,
+            WithdrawalService withdrawalService)
+        { 
             _dataProvider = dataProvider;
             _supplierService = supplierService;
             _promoterService = promoterService;
+            _withdrawalService = withdrawalService;
         }
 
         public IActionResult Dashboard()
@@ -57,17 +61,27 @@ namespace DBFreshColdChain.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Withdrawals(WithdrawalApplyForm form)
+        public async Task<IActionResult> Withdrawals(WithdrawalApplyForm form)
         {
             var redirect = EnsureLoggedIn();
             if (redirect != null) return redirect;
             var promoterId = GetPromoterId()!;
-            var (success, message) = _dataProvider.ApplyWithdrawal(promoterId, form);
-            if (success)
-                TempData["SuccessMessage"] = message;
+
+            var request = new GroupC_WithdrawalRequest
+            {
+                PromoterId = promoterId,
+                ApplyAmount = form.ApplyAmount,
+                AccountInfo = $"{form.AccountPlatform}：{form.AccountInfo}"
+            };
+
+            var result = await _withdrawalService.ApplyWithdrawal(promoterId, request);
+            if (result.IsSuccess)
+                TempData["SuccessMessage"] = "提现申请已提交，请等待审核。";
             else
-                TempData["ErrorMessage"] = message;
-            return View(_dataProvider.BuildWithdrawals(promoterId, form));
+                TempData["ErrorMessage"] = result.ErrorMessage;
+
+            var vm = _dataProvider.BuildWithdrawals(promoterId, form);
+            return View(vm);
         }
 
         public IActionResult Profile()

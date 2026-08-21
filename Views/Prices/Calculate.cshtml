@@ -1,0 +1,59 @@
+@model PriceCalculationRequest
+@{
+    ViewData["Title"] = "实时价格试算";
+}
+
+<h3>🧮 实时价格试算</h3>
+<p class="text-muted">输入商品 ID 和数量，动态计算当前应售价格</p>
+
+<form asp-action="Calculate" method="post" class="row g-3 mb-4">
+    @Html.AntiForgeryToken()
+    <div class="col-md-4">
+        <label class="form-label">商品 ID</label>
+        <input asp-for="ProductID" class="form-control" required placeholder="输入产品编号" />
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">数量</label>
+        <input asp-for="Quantity" class="form-control" type="number" step="1" min="1" value="1" />
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary">计算价格</button>
+    </div>
+</form>
+
+@if (ViewBag.Result is PriceCalculationResult result)
+{
+    <div class="card @(result.MatchedRuleName != null ? "border-success" : "border-secondary")">
+        <div class="card-header @(result.MatchedRuleName != null ? "bg-success text-white" : "bg-secondary text-white")">
+            @if (result.MatchedRuleName != null)
+            {
+                <span>✅ 命中规则：<strong>@result.MatchedRuleName</strong></span>
+                <span class="ms-3">类型：@result.TriggerType</span>
+            }
+            else
+            {
+                <span>📋 无规则命中，使用默认价格</span>
+            }
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <h6 class="text-muted">默认价格</h6>
+                    <h3 class="text-decoration-line-through">¥@result.DefaultPrice.ToString("F2")</h3>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="text-muted">折扣金额</h6>
+                    <h3 class="text-danger">-¥@result.DiscountAmount.ToString("F2")</h3>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="text-muted">最终售价</h6>
+                    <h3 class="text-success fw-bold">¥@result.FinalPrice.ToString("F2")</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="mt-3">
+    <a asp-action="Index" class="btn btn-outline-secondary">← 返回规则列表</a>
+</div>

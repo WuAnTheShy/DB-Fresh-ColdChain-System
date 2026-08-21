@@ -1,0 +1,122 @@
+﻿@{
+    ViewData["Title"] = "工作台";
+    // 假设你在控制器里通过 ViewBag 传了 AdminName
+    var adminName = ViewBag.AdminName as string ?? "管理员";
+}
+
+<!-- 欢迎横幅（与团长端风格一致） -->
+<div class="dashboard-hero">
+    <div class="hero-text">
+        <div class="hero-greeting">你好，@adminName 👋</div>
+        <div class="hero-meta">
+            <span class="level-badge">管理员</span>
+            <span class="text-white-50">· 生鲜冷链团购后台</span>
+        </div>
+    </div>
+    <div class="hero-actions">
+        <a asp-action="PendingPromoters" class="btn btn-light btn-sm">查看待审核团长</a>
+        <a asp-action="PendingWithdrawals" class="btn btn-outline-light btn-sm">查看待审核提现</a>
+    </div>
+</div>
+
+<!-- 核心指标统计卡片（模拟团长端 stat-grid） -->
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-primary-subtle text-primary">👤</span>
+            <span class="stat-label">待审核团长</span>
+        </div>
+        <div class="stat-value text-primary">
+            @* 这里可以用 ViewBag 或 Model 传入真实数量 *@
+            @(ViewBag.PendingPromoterCount ?? 0)
+        </div>
+        <div class="stat-sub">需平台审核激活</div>
+    </div>
+    <div class="stat-card pending">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-warning-subtle text-warning">↓</span>
+            <span class="stat-label">待审核提现</span>
+        </div>
+        <div class="stat-value text-warning">
+            @(ViewBag.PendingWithdrawalCount ?? 0)
+        </div>
+        <div class="stat-sub">需平台打款审核</div>
+    </div>
+    <div class="stat-card sales">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-purple-subtle text-purple">📋</span>
+            <span class="stat-label">今日操作日志</span>
+        </div>
+        <div class="stat-value">@(ViewBag.TodayLogCount ?? 0)</div>
+        <div class="stat-sub">系统自动记录</div>
+    </div>
+</div>
+
+<div class="row g-3 mt-2">
+    <div class="col-md-6 col-lg-4">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5>团长管理</h5>
+                <a asp-action="PendingPromoters" class="btn btn-sm btn-outline-primary">进入</a>
+            </div>
+            <div class="content-card-body">
+                <p class="text-muted small mb-0">审核注册、新增/编辑团长、启用禁用、佣金比例配置。</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5>提现审核</h5>
+                <a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary">进入</a>
+            </div>
+            <div class="content-card-body">
+                <p class="text-muted small mb-0">审核团长提现申请，通过或驳回，维护资金安全。</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5>退款管理</h5>
+                <button class="btn btn-sm btn-secondary" disabled>待开发</button>
+            </div>
+            <div class="content-card-body">
+                <p class="text-muted small mb-0">退款申请审核、佣金/积分回滚。</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5>支付流水</h5>
+                <button class="btn btn-sm btn-secondary" disabled>待开发</button>
+            </div>
+            <div class="content-card-body">
+                <p class="text-muted small mb-0">查询支付记录、退款状态。</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5>用户与角色</h5>
+                <button class="btn btn-sm btn-secondary" disabled>待开发</button>
+            </div>
+            <div class="content-card-body">
+                <p class="text-muted small mb-0">管理员账号、角色权限管理。</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-4">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5>操作日志</h5>
+                <button class="btn btn-sm btn-secondary" disabled>待开发</button>
+            </div>
+            <div class="content-card-body">
+                <p class="text-muted small mb-0">审计日志查询，监控系统操作。</p>
+            </div>
+        </div>
+    </div>
+</div>
