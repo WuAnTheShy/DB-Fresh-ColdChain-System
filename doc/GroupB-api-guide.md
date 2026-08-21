@@ -5,7 +5,7 @@
 ## 1. 通用约定
 
 - B 组内部及跨组 ID 均以 JSON 字符串传递，最大长度 36；不得转为 JavaScript `Number`。
-- 订单状态只接受：`PENDING_PAYMENT`、`PAID`、`SHIPPED`、`COMPLETED`、`CANCELLED`、`REFUNDING`、`REFUNDED`。
+- 订单状态在响应体中使用：`PENDING_PAYMENT`、`PAID`、`SHIPPED`、`COMPLETED`、`CANCELLED`、`REFUNDING`、`REFUNDED`；请求（Query/Body）中使用 `OrderStatus` 枚举名（如 `Paid` / `Shipped`），且不接受整数枚举。
 - 业务失败返回 `400`，资源不存在返回 `404`；错误体统一包含 `message` 和 `traceId`。
 - 演示消费者：`13800138000` / `FreshB2026!`，ID 为 `10000000000000000000000000000001`。
 
