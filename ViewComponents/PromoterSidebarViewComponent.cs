@@ -1,7 +1,7 @@
-using DBFreshColdChain.Services;
+using FreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace DBFreshColdChain.ViewComponents
+namespace FreshColdChain.ViewComponents
 {
     public class PromoterSidebarViewComponent : ViewComponent
     {

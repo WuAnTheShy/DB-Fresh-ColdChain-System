@@ -1,11 +1,7 @@
-﻿using DBFreshColdChain.Interfaces;
-using DBFreshColdChain.Repositories;
+﻿using FreshColdChain.Interfaces;
 using FreshColdChain.Repositories;
-using DBFreshColdChain.Models.CrossGroup;
-using System;
-using System.Text.Json.Nodes;
-using DBFreshColdChain.Models;
-namespace DBFreshColdChain.Services
+using FreshColdChain.Models;
+namespace FreshColdChain.Services
 {
     public class TableLogService : ITableLogService
     {

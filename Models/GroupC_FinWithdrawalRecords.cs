@@ -1,4 +1,4 @@
-namespace DBFreshColdChain.Models
+namespace FreshColdChain.Models
 {
     public class GroupC_FinWithdrawalRecord
     {

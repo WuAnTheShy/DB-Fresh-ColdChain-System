@@ -1,4 +1,4 @@
-namespace DBFreshColdChain.Models.DTOs;
+namespace FreshColdChain.Models.DTOs;
 
 /// <summary>
 /// An available promoter returned by the list endpoint.

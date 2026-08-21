@@ -1,42 +1,43 @@
-﻿using DBFreshColdChain.Interfaces;
-using DBFreshColdChain.Models;
-using DBFreshColdChain.Models.CrossGroup;
-using DBFreshColdChain.Models.DTOs;
-using DBFreshColdChain.Repositories;
+﻿using FreshColdChain.Interfaces;
+using FreshColdChain.Models;
+using FreshColdChain.Models.CrossGroup_C;
+using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
 using Newtonsoft.Json;
 using System.Data;
 using System.Runtime.ConstrainedExecution;
 using System.Transactions;
 
-namespace DBFreshColdChain.Services
+namespace FreshColdChain.Services
 {
     public class RefundService : IRefundService
     {
-        private readonly IUnitOfWork _uow;
-        private readonly IPromoterRepository _ipromoterRepository ;
-        private readonly IRefundRepository _irefundRepository;
-        private readonly ICommissionRepository _icommissionRepository;
-        private readonly ITableLogService _logManager;
-        private readonly Mock_IGroupA _mockGroupAInterface;
-        private readonly Mock_IGroupB _mockGroupBInterface;
-        public RefundService(IUnitOfWork uow, IPromoterRepository ipromoterRepository,
-                             IRefundRepository irefundRepository,
-                                ITableLogService log_Auditrails,
-                                Mock_IGroupA mockGroupAInterface,
-                                Mock_IGroupB mockGroupBInterface,
-                                ICommissionRepository icommissionRepository)
-        {
-            _uow = uow;
-            _ipromoterRepository = ipromoterRepository;
-            _irefundRepository = irefundRepository;
+		private readonly IUnitOfWork _uow;
+		private readonly IPromoterRepository _ipromoterRepository;
+		private readonly IRefundRepository _irefundRepository;
+		private readonly IPromoterService _ipromoterManager;
+		private readonly ITableLogService _logManager;
+		private readonly ICommissionRepository _icommissionRepository;
+		private readonly Mock_IGroupA _mockGroupAInterface;
+		private readonly Mock_IGroupB _mockGroupBInterface;
+		public RefundService(IUnitOfWork uow, IPromoterRepository ipromoterRepository,
+			IPromoterService ipromoterManager, IRefundRepository irefundRepository,
+								ITableLogService log_Auditrails,
+                                ICommissionRepository icommissionRepository,
+								Mock_IGroupA mockGroupAInterface,
+								Mock_IGroupB mockGroupBInterface)
+		{
+			_uow = uow;
+			_ipromoterRepository = ipromoterRepository;
+			_irefundRepository = irefundRepository;
+			_ipromoterManager = ipromoterManager;
+			_logManager = log_Auditrails;
             _icommissionRepository = icommissionRepository;
-            _logManager = log_Auditrails;
-            _mockGroupAInterface = mockGroupAInterface;
-            _mockGroupBInterface = mockGroupBInterface;
-        }
+			_mockGroupAInterface = mockGroupAInterface;
+			_mockGroupBInterface = mockGroupBInterface;
+		}
 
-        public async Task<Result> Refund(GroupC_RefundRequest refundRequest) //整体处理退款函数
+		public async Task<Result> Refund(GroupC_RefundRequest refundRequest) //整体处理退款函数
         {
             // 开启事务
             await _uow.BeginAsync();

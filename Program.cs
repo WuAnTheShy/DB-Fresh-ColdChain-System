@@ -1,12 +1,10 @@
-using DBFreshColdChain.Interfaces;
-using DBFreshColdChain.Repositories;
-using DBFreshColdChain.Services;
-using DBFreshColdChainSystem.Repositories;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Repositories;
 using FreshColdChain.Services;
+using FreshColdChainSystem.Repositories;
+using FreshColdChain.Models;
 using FreshColdChain.Services.Supplier;
-
+using Microsoft.AspNetCore.Identity;
 var builder = WebApplication.CreateBuilder(args);
 
 
@@ -30,6 +28,12 @@ builder.Services.AddScoped<IPriceRuleRepository, PriceRuleRepository>();
 builder.Services.AddScoped<ILogFreightTemplateRepository, LogFreightTemplateRepository>();
 builder.Services.AddScoped<ILogExpressDeliveryRepository, LogExpressDeliveryRepository>();
 builder.Services.AddScoped<ILogFulfillmentBatchItemRepository, LogFulfillmentBatchItemRepository>();
+// B组
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<ICouponRepository, CouponRepository>();
+builder.Services.AddScoped<IPointRepository, PointRepository>();
+builder.Services.AddScoped<IPromoterRepository, PromoterRepository>();
 //C组
 builder.Services.AddScoped<IRefundRepository, RefundRepository>();
 builder.Services.AddScoped<ICommissionRepository, CommissionRepository>();
@@ -46,7 +50,14 @@ builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
 // A组冷链运费报价与批次级可追溯发货服务。
 builder.Services.AddScoped<IColdChainLogisticsService, ColdChainLogisticsService>();
 builder.Services.AddScoped<IPricingService, PricingService>();
-
+//B组
+builder.Services.AddScoped<IOrderTransactionManager, OracleOrderTransactionManager>();
+builder.Services.AddScoped<IPasswordHasher<CrmCustomer>, PasswordHasher<CrmCustomer>>();
+builder.Services.AddScoped<IInventoryService, DummyInventoryService>();
+builder.Services.AddScoped<ILogisticsService, DummyLogisticsService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<ICouponService, CouponService>();
 //C组
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<WithdrawalService>();
@@ -80,6 +91,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.UseRouting();

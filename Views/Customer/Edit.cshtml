@@ -1,0 +1,47 @@
+@model CustomerProfileUpdateRequest
+@{
+    ViewData["Title"] = "编辑消费者资料";
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div class="mb-4">
+                <h1 class="h3 mb-2">编辑消费者资料</h1>
+                <p class="text-muted mb-0">积分、累计消费与会员等级由交易规则维护，不能手工修改。</p>
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <form asp-action="Edit" asp-route-id="@Model.CustomerId" method="post" novalidate>
+                        <input asp-for="CustomerId" type="hidden" />
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+                        <div class="mb-3">
+                            <label asp-for="CustomerName" class="form-label">姓名</label>
+                            <input asp-for="CustomerName" class="form-control" autocomplete="name" />
+                            <span asp-validation-for="CustomerName" class="text-danger"></span>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="Phone" class="form-label">手机号码</label>
+                            <input asp-for="Phone" class="form-control" inputmode="tel" autocomplete="tel" />
+                            <span asp-validation-for="Phone" class="text-danger"></span>
+                        </div>
+                        <div class="mb-4">
+                            <label asp-for="Email" class="form-label">邮箱（可选）</label>
+                            <input asp-for="Email" class="form-control" type="email" autocomplete="email" />
+                            <span asp-validation-for="Email" class="text-danger"></span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">保存资料</button>
+                            <a asp-action="Index" asp-route-id="@Model.CustomerId"
+                               class="btn btn-outline-secondary">取消</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

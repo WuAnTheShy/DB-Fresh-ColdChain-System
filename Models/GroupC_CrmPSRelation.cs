@@ -1,4 +1,4 @@
-﻿namespace DBFreshColdChainSystem.Models
+﻿namespace FreshColdChainSystem.Models
 {
     public class GroupC_CrmPSRelation
     {

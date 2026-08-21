@@ -1,15 +1,14 @@
-﻿using DBFreshColdChain.Interfaces;
-using DBFreshColdChain.Models;
-using DBFreshColdChain.Models.CrossGroup;
-using DBFreshColdChain.Models.DTOs;
-using DBFreshColdChain.Repositories;
-using DBFreshColdChainSystem.Repositories;
+﻿using FreshColdChain.Interfaces;
+using FreshColdChain.Models;
+using FreshColdChain.Models.CrossGroup_C;
+using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
+using FreshColdChainSystem.Repositories;
 using Newtonsoft.Json;
 using System.Data;
 using System.Security.Cryptography;
 using System.Text;
-namespace DBFreshColdChain.Services
+namespace FreshColdChain.Services
 {
     public class PromoterService: IPromoterService
     {

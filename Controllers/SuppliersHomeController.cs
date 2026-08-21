@@ -2,7 +2,6 @@
 
 using Microsoft.AspNetCore.Mvc;
 using FreshColdChain.Models;
-using DBFreshColdChain.Models;
 
 namespace FreshColdChain.Controllers;
 

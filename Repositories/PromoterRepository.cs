@@ -1,13 +1,13 @@
 ﻿using Dapper;
-using DBFreshColdChain.Models;
-using DBFreshColdChain.Models.DTOs;
-using DBFreshColdChain.Models.ViewModels;
+using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
+using FreshColdChain.Models.ViewModels;
 using FreshColdChain.Repositories;
 using System.Data;
 using System.Transactions;
 using static Microsoft.Extensions.Logging.EventSource.LoggingEventSource;
 
-namespace DBFreshColdChain.Repositories
+namespace FreshColdChain.Repositories
 {
     public class PromoterRepository : IPromoterRepository
     {

@@ -1,8 +1,8 @@
-﻿using DBFreshColdChain.Models.DTOs;
-using DBFreshColdChain.Services;
+﻿using FreshColdChain.Models.DTOs;
+using FreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace DBFreshColdChain.Controllers
+namespace FreshColdChain.Controllers
 {
     public class AdminsController : Controller
     {

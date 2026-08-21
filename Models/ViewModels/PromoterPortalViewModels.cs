@@ -1,4 +1,4 @@
-namespace DBFreshColdChain.Models.ViewModels
+namespace FreshColdChain.Models.ViewModels
 {
     public class PromoterDashboardViewModel
     {

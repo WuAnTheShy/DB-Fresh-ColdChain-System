@@ -1,8 +1,7 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using DBFreshColdChain.Models;
-
-namespace DBFreshColdChain.Controllers
+using FreshColdChain.Models;
+namespace FreshColdChain.Controllers
 {
     public class HomeController : Controller
     {

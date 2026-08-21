@@ -1,11 +1,10 @@
-using DBFreshColdChain.Models.DTOs;
-using DBFreshColdChain.Models.ViewModels;
-using DBFreshColdChain.Services;
-using FreshColdChain.Interfaces;
 using FreshColdChain.Models.DTOs;
+using FreshColdChain.Models.ViewModels;
+using FreshColdChain.Services;
+using FreshColdChain.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
-namespace DBFreshColdChain.Controllers
+namespace FreshColdChain.Controllers
 {
     public class PromotersController : Controller
     {

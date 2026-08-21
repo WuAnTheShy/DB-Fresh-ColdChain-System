@@ -61,15 +61,4 @@ public class SupplierFulfillmentStatus
     public string? TrackingNo { get; init; }
 }
 
-// ========== C 组佣金模块契约模型 ==========
 
-/// <summary>订单完成时传给 C 组计算佣金</summary>
-public class CommissionOrderRequest
-{
-    public string OrderId { get; init; } = string.Empty;
-    public string OrderNo { get; init; } = string.Empty;
-    public string CustomerId { get; init; } = string.Empty;
-    public string? PromoterId { get; init; }
-    public decimal CommissionBaseAmount { get; init; }
-    public DateTime CompletedAt { get; init; }
-}

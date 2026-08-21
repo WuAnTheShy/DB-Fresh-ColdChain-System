@@ -1,5 +1,5 @@
 ﻿using System.Data;
-namespace DBFreshColdChainSystem.Repositories
+namespace FreshColdChainSystem.Repositories
 {
     public interface IPromoterSupplierRepository
     {

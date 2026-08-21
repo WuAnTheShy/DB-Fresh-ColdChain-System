@@ -1,4 +1,5 @@
-﻿namespace DBFreshColdChain.Models.CrossGroup
+﻿using FreshColdChain.Models;
+namespace FreshColdChain.Models
 {
     public class MockGroupCtoA_ProductInfo
     {

@@ -1,4 +1,4 @@
-﻿namespace DBFreshColdChain.Models.CrossGroup
+﻿namespace FreshColdChain.Models.CrossGroup_C
 {
     //存放所有BC之间的DTO
 
@@ -15,6 +15,9 @@
         public DateTime? CommSettlementDate { get; set; }           //结算时间
     }
     //Request类
+    /// <summary>
+    /// C 组在订单完成时计算预计佣金所需的可信快照。
+    /// </summary>
     public class CommissionOrderRequest
     {
         public string orderID { get; init; } = string.Empty;               //订单编号
@@ -22,6 +25,7 @@
         public decimal finalAmount { get; set; } = 0;                      //实付金额
         public decimal goodsAmount { get; set; } = 0;                      //商品金额
     }
+
     public class ActivateCommissionOrderRequest
     {
         public string orderID { get; init; } = string.Empty;               //订单编号

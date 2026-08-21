@@ -1,0 +1,53 @@
+using System.Data;
+using FreshColdChain.Models;
+
+namespace FreshColdChain.Repositories;
+
+public interface IOrderRepository
+{
+    Task<string> CreateOrderAsync(BizOrder order, IDbTransaction? transaction = null);
+
+    Task<BizOrder?> GetByIdAsync(string orderId, IDbTransaction? transaction = null);
+
+    Task<BizOrder?> GetByIdForUpdateAsync(
+        string orderId,
+        IDbTransaction transaction);
+
+    Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
+        DateTime threshold,
+        IDbTransaction? transaction = null);
+
+    Task<int> CountOrdersAsync(
+        OrderQueryRequest request,
+        IDbTransaction? transaction = null);
+
+    Task<List<OrderListItem>> GetOrdersAsync(
+        OrderQueryRequest request,
+        int offset,
+        IDbTransaction? transaction = null);
+
+    Task<OrderDetailHeader?> GetDetailHeaderAsync(
+        string orderId,
+        IDbTransaction? transaction = null);
+
+    Task<List<BizOrderDetail>> GetDetailsAsync(
+        string orderId,
+        IDbTransaction? transaction = null);
+
+    Task<bool> TryUpdateStatusAsync(
+        string orderId,
+        OrderStatus expectedStatus,
+        OrderStatus targetStatus,
+        IDbTransaction transaction);
+
+    Task<bool> TryUpdateCommissionSettlementAsync(
+        string orderId,
+        decimal? commBaseAmount,
+        decimal? commBonusAmount,
+        DateTime? commSettlementDate,
+        IDbTransaction transaction);
+
+    Task InsertDetailsAsync(
+        IEnumerable<BizOrderDetail> details,
+        IDbTransaction? transaction = null);
+}

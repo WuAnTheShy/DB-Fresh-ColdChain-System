@@ -1,4 +1,4 @@
-﻿namespace DBFreshColdChain.Models.DTOs
+﻿namespace FreshColdChain.Models.DTOs
 {
     public class GroupC_PromoterLoginResult
     {

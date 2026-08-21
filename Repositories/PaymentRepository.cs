@@ -1,11 +1,11 @@
 ﻿using Dapper;
 using FreshColdChain.Repositories;
 using Microsoft.Extensions.Configuration;
-using DBFreshColdChain.Models;
+using FreshColdChain.Models;
 using Oracle.ManagedDataAccess.Client;
 using System.Data;
 using System.Data.Common;
-namespace DBFreshColdChain.Repositories
+namespace FreshColdChain.Repositories
 {
     public class PaymentRepository: IPaymentRepository
     {

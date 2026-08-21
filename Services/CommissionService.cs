@@ -1,13 +1,11 @@
-﻿using DBFreshColdChain.Interfaces;
-using DBFreshColdChain.Models;
-using DBFreshColdChain.Models.CrossGroup;
-using DBFreshColdChain.Models.DTOs;
-using DBFreshColdChain.Repositories;
+﻿using FreshColdChain.Interfaces;
+using FreshColdChain.Models;
+using FreshColdChain.Models.CrossGroup_C;
 using FreshColdChain.Repositories;
 using Newtonsoft.Json;
 using System.Data;
 
-namespace DBFreshColdChain.Services
+namespace FreshColdChain.Services
 {
 
     public class CommissionService: ICommissionService

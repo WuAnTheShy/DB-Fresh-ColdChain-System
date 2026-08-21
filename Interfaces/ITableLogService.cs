@@ -1,6 +1,6 @@
-﻿using DBFreshColdChain.Models.CrossGroup;
-using DBFreshColdChain.Models;
-namespace DBFreshColdChain.Interfaces
+﻿using FreshColdChain.Models.CrossGroup;
+using FreshColdChain.Models;
+namespace FreshColdChain.Interfaces
 {
     public interface ITableLogService
     {

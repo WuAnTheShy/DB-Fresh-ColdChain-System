@@ -1,8 +1,8 @@
-﻿using DBFreshColdChain.Models;
-using DBFreshColdChain.Models.DTOs;
+﻿using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
 using System.Data;
 
-namespace DBFreshColdChain.Repositories
+namespace FreshColdChain.Repositories
 {
     public interface IPromoterRepository
     {

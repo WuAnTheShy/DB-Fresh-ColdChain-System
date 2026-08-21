@@ -1,6 +1,6 @@
 ﻿using FreshColdChain.Models.DTOs; // 引用 A 组 DTO
 
-namespace DBFreshColdChain.Models.ViewModels
+namespace FreshColdChain.Models.ViewModels
 {
     public class SupplierSearchViewModel
     {

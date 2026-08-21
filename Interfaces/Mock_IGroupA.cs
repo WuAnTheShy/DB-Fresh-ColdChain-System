@@ -1,7 +1,7 @@
-﻿using DBFreshColdChain.Models.DTOs;
-using DBFreshColdChain.Models.CrossGroup;
+﻿using FreshColdChain.Models.DTOs;
+using FreshColdChain.Models;
 
-namespace DBFreshColdChain.Interfaces
+namespace FreshColdChain.Interfaces
 {
     public interface Mock_IGroupA   //模拟A组提供的接口函数
     {

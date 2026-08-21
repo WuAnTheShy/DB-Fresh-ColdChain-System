@@ -1,9 +1,9 @@
 ﻿using Dapper;
 using FreshColdChain.Repositories;
-using DBFreshColdChain.Models;
+using FreshColdChain.Models;
 using System.Data;
 
-namespace DBFreshColdChain.Repositories
+namespace FreshColdChain.Repositories
 {
     public class CommissionRepository : ICommissionRepository
     {

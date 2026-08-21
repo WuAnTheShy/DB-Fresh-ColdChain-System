@@ -1,9 +1,9 @@
 ﻿using Dapper;
-using DBFreshColdChainSystem.Repositories;
+using FreshColdChainSystem.Repositories;
 using FreshColdChain.Repositories;
 using System.Data;
 
-namespace DBFreshColdChain.Repositories
+namespace FreshColdChain.Repositories
 {
     public class PromoterSupplierRepository : IPromoterSupplierRepository
     {

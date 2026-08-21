@@ -1,4 +1,4 @@
-﻿namespace DBFreshColdChain.Models.DTOs
+﻿namespace FreshColdChain.Models.DTOs
 {
     /// 提现申请请求
     public class GroupC_WithdrawalRequest

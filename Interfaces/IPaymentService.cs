@@ -1,7 +1,7 @@
-﻿using DBFreshColdChain.Models.CrossGroup;
-using DBFreshColdChain.Models.DTOs;
+﻿using FreshColdChain.Models.CrossGroup;
+using FreshColdChain.Models.CrossGroup_C;
 using System.Data;
-namespace DBFreshColdChain.Interfaces
+namespace FreshColdChain.Interfaces
 {
     public interface IPaymentService
     {

@@ -1,0 +1,224 @@
+@model CreateOrderRequest
+@{
+    ViewData["Title"] = "创建订单";
+    var result = ViewData["OrderResult"] as CreateOrderResult;
+}
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-xl-10">
+            <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+                <div>
+                    <h1 class="h3 mb-2">创建订单</h1>
+                    <p class="text-muted mb-0">
+                        客户端仅提交商品ID和数量，价格、供应商、优惠金额与积分均由服务端计算。
+                    </p>
+                </div>
+                <span class="badge text-bg-warning align-self-md-start px-3 py-2">
+                    当前库存来源：A组 Dummy
+                </span>
+            </div>
+
+            @if (result != null)
+            {
+                <div class="alert alert-success" role="alert">
+                    <h2 class="h5 alert-heading">订单创建成功</h2>
+                    <div>订单号：<strong>@result.OrderNo</strong></div>
+                    <div>
+                        商品金额：¥@result.GoodsAmount.ToString("F2")，
+                        优惠：¥@result.DiscountAmount.ToString("F2")，
+                        实付：<strong>¥@result.FinalAmount.ToString("F2")</strong>，
+                        获得积分：@result.PointsEarned
+                    </div>
+                    <div class="mt-2">
+                        <a asp-action="Detail" asp-route-id="@result.OrderId"
+                           class="alert-link">查看订单详情</a>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-body-tertiary">供应商拆单结果</div>
+                    <div class="card-body">
+                        @foreach (var group in result.SupplierGroups)
+                        {
+                            <div class="mb-3">
+                                <div class="fw-semibold mb-2">
+                                    供应商 #@group.SupplierId
+                                    <span class="text-muted">小计 ¥@group.SubTotal.ToString("F2")</span>
+                                </div>
+                                <ul class="list-group list-group-flush">
+                                    @foreach (var item in group.Items)
+                                    {
+                                        <li class="list-group-item px-0 d-flex justify-content-between">
+                                            <span>@item.ProductName × @item.Quantity</span>
+                                            <span>¥@item.SubTotal.ToString("F2")</span>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <form asp-action="Create" method="post" id="order-form" novalidate>
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label asp-for="CustomerId" class="form-label">消费者ID</label>
+                                <input asp-for="CustomerId" class="form-control" />
+                                <span asp-validation-for="CustomerId" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="AddressId" class="form-label">收货地址ID</label>
+                                <input asp-for="AddressId" class="form-control" />
+                                <span asp-validation-for="AddressId" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label asp-for="CouponRecordId" class="form-label">
+                                    优惠券记录ID
+                                    <span class="text-muted fw-normal">（可选）</span>
+                                </label>
+                                <input asp-for="CouponRecordId" class="form-control" />
+                                <span asp-validation-for="CouponRecordId" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h2 class="h5 mb-0">商品明细</h2>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="add-item">
+                                添加商品
+                            </button>
+                        </div>
+
+                        <div class="table-responsive mb-3">
+                            <table class="table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>商品ID</th>
+                                        <th>数量</th>
+                                        <th class="text-end">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="item-rows">
+                                    @for (var index = 0; index < Model.Items.Count; index++)
+                                    {
+                                        <tr class="item-row">
+                                            <td>
+                                                <input asp-for="Items[index].ProductId"
+                                                       class="form-control product-id" />
+                                                <span asp-validation-for="Items[index].ProductId"
+                                                      class="text-danger validation-message"></span>
+                                            </td>
+                                            <td>
+                                                <input asp-for="Items[index].Quantity"
+                                                       class="form-control quantity" />
+                                                <span asp-validation-for="Items[index].Quantity"
+                                                      class="text-danger validation-message"></span>
+                                            </td>
+                                            <td class="text-end">
+                                                <button type="button"
+                                                        class="btn btn-outline-danger btn-sm remove-item">
+                                                    删除
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="alert alert-light border small">
+                            Dummy 商品：P1 车厘子 ¥50（库存100）、P2 三文鱼 ¥80（库存50）、
+                            P3 有机蔬菜 ¥20（库存200）。
+                        </div>
+
+                        <button type="submit" class="btn btn-primary px-4">提交订单</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const rows = document.getElementById("item-rows");
+            const addButton = document.getElementById("add-item");
+            const form = document.getElementById("order-form");
+
+            const renumberRows = () => {
+                rows.querySelectorAll(".item-row").forEach((row, index) => {
+                    const product = row.querySelector(".product-id");
+                    const quantity = row.querySelector(".quantity");
+                    const messages = row.querySelectorAll(".validation-message");
+
+                    product.name = `Items[${index}].ProductId`;
+                    product.id = `Items_${index}__ProductId`;
+                    quantity.name = `Items[${index}].Quantity`;
+                    quantity.id = `Items_${index}__Quantity`;
+                    messages[0].dataset.valmsgFor = product.name;
+                    messages[1].dataset.valmsgFor = quantity.name;
+                });
+            };
+
+            const refreshValidation = () => {
+                if (!window.jQuery?.validator?.unobtrusive)
+                    return;
+
+                const jqueryForm = window.jQuery(form);
+                jqueryForm.removeData("validator");
+                jqueryForm.removeData("unobtrusiveValidation");
+                window.jQuery.validator.unobtrusive.parse(form);
+            };
+
+            addButton.addEventListener("click", () => {
+                const row = document.createElement("tr");
+                row.className = "item-row";
+                row.innerHTML = `
+                    <td>
+                        <input type="number" class="form-control product-id"
+                               data-val="true" data-val-range="商品ID必须大于0"
+                               data-val-range-min="1" data-val-range-max="2147483647" />
+                        <span class="text-danger validation-message"
+                              data-valmsg-replace="true"></span>
+                    </td>
+                    <td>
+                        <input type="number" class="form-control quantity"
+                               value="1" data-val="true"
+                               data-val-range="商品数量必须在1到9999之间"
+                               data-val-range-min="1" data-val-range-max="9999" />
+                        <span class="text-danger validation-message"
+                              data-valmsg-replace="true"></span>
+                    </td>
+                    <td class="text-end">
+                        <button type="button"
+                                class="btn btn-outline-danger btn-sm remove-item">删除</button>
+                    </td>`;
+                rows.appendChild(row);
+                renumberRows();
+                refreshValidation();
+            });
+
+            rows.addEventListener("click", event => {
+                const removeButton = event.target.closest(".remove-item");
+                if (!removeButton)
+                    return;
+
+                if (rows.querySelectorAll(".item-row").length === 1) {
+                    window.alert("订单至少需要一件商品");
+                    return;
+                }
+
+                removeButton.closest(".item-row").remove();
+                renumberRows();
+                refreshValidation();
+            });
+        })();
+    </script>
+}

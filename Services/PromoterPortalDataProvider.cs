@@ -1,9 +1,9 @@
-using DBFreshColdChain.Models;
-using DBFreshColdChain.Models.ViewModels;
-using DBFreshColdChain.Repositories;
+using FreshColdChain.Models;
+using FreshColdChain.Models.ViewModels;
+using FreshColdChain.Repositories;
 using Microsoft.AspNetCore.Server.HttpSys;
 
-namespace DBFreshColdChain.Services
+namespace FreshColdChain.Services
 {
     /// <summary>
     /// 团长端页面数据提供者。优先读库，失败时回退演示数据，便于前端联调。

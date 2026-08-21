@@ -1,7 +1,7 @@
 ﻿using System.Data;
-using DBFreshColdChain.Models;
+using FreshColdChain.Models;
 
-namespace DBFreshColdChain.Repositories
+namespace FreshColdChain.Repositories
 {
     public interface ISysAdminRepository
     {

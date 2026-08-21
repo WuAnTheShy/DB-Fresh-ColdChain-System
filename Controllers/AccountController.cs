@@ -1,12 +1,11 @@
-﻿using DBFreshColdChain.Models.DTOs;
-using DBFreshColdChain.Models.CrossGroup;
-using DBFreshColdChain.Interfaces;
-using DBFreshColdChain.Services;
+﻿using FreshColdChain.Models.DTOs;
+using FreshColdChain.Models.CrossGroup_C;
+using FreshColdChain.Interfaces;
+using FreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Data;
 using System.Diagnostics;
-using FreshColdChain.Interfaces;
-namespace DBFreshColdChain.Controllers
+namespace FreshColdChain.Controllers
 {
     public class AccountController : Controller
     {
@@ -33,6 +32,7 @@ namespace DBFreshColdChain.Controllers
             else if (role == "消费者")
             {
                 ViewBag.Role = "消费者";
+                return Redirect("/app/");
             }
             else if (role == "管理员")
             {

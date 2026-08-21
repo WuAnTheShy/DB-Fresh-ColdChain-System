@@ -1,9 +1,9 @@
 ﻿using Dapper;
 using Microsoft.Extensions.Configuration;
 using Oracle.ManagedDataAccess.Client;
-using DBFreshColdChain.Models;
+using FreshColdChain.Models;
 
-namespace DBFreshColdChain.Repositories
+namespace FreshColdChain.Repositories
 {
     public class TableLogRepository:ITableLogRepository
     {

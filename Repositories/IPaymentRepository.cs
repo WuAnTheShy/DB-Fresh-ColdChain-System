@@ -1,7 +1,7 @@
-﻿using DBFreshColdChain.Models;
+﻿using FreshColdChain.Models;
 using System.Data;
 
-namespace DBFreshColdChain.Repositories
+namespace FreshColdChain.Repositories
 {
     public interface IPaymentRepository
     {

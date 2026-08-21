@@ -1,6 +1,6 @@
-﻿using DBFreshColdChain.Models.DTOs;
-using DBFreshColdChain.Models.CrossGroup;
-namespace DBFreshColdChain.Interfaces
+﻿using FreshColdChain.Models.DTOs;
+using FreshColdChain.Models.CrossGroup;
+namespace FreshColdChain.Interfaces
 {
     public interface IPromoterService
     {
