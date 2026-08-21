@@ -32,8 +32,8 @@ public sealed class DummyLogisticsService : ILogisticsService
     }
 
     public Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
-        int orderId,
-        IReadOnlyList<int> supplierIds,
+        string orderId,
+        IReadOnlyList<string> supplierIds,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(supplierIds);

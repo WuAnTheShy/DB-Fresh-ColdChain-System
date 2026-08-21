@@ -17,10 +17,36 @@ public class PointRepository : BaseRepository, IPointRepository
         await WithConnectionAsync(transaction, async connection =>
         {
             await connection.ExecuteAsync(
-                @"INSERT INTO Crm_PointLogs (CustomerId, ChangeAmount, BalanceAfter, ChangeType, OrderId, CreatedAt)
-                  VALUES (:CustomerId, :ChangeAmount, :BalanceAfter, :ChangeType, :OrderId, SYSDATE)",
+                @"INSERT INTO Crm_PointLogs (PointLogId, CustomerId, ChangeAmount, BalanceAfter, ChangeType, OrderId, CreatedAt)
+                  VALUES (:PointLogId, :CustomerId, :ChangeAmount, :BalanceAfter, :ChangeType, :OrderId, SYSDATE)",
                 log,
                 transaction);
+        });
+    }
+
+    /// <summary>检查订单对应类型的积分流水是否已经存在。</summary>
+    public async Task<bool> HasPointLogAsync(
+        string customerId,
+        string orderId,
+        string changeType,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+        {
+            var count = await connection.ExecuteScalarAsync<int>(
+                @"SELECT COUNT(1)
+                  FROM Crm_PointLogs
+                  WHERE CustomerId = :CustomerId
+                    AND OrderId = :OrderId
+                    AND ChangeType = :ChangeType",
+                new
+                {
+                    CustomerId = customerId,
+                    OrderId = orderId,
+                    ChangeType = changeType
+                },
+                transaction);
+            return count > 0;
         });
     }
 
@@ -35,7 +61,7 @@ public class PointRepository : BaseRepository, IPointRepository
 
     /// <summary>按ID读取会员等级，用于计算本次订单积分倍率</summary>
     public async Task<CrmMemberLevel?> GetLevelByIdAsync(
-        int memberLevelId,
+        string memberLevelId,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, connection =>

@@ -4,12 +4,12 @@
     var order = Model.Order;
     var badgeClass = order?.OrderStatus switch
     {
-        (int)OrderStatus.Paid => "text-bg-primary",
-        (int)OrderStatus.Shipped => "text-bg-info",
-        (int)OrderStatus.Completed => "text-bg-success",
-        (int)OrderStatus.Cancelled => "text-bg-secondary",
-        (int)OrderStatus.Refunding => "text-bg-warning",
-        (int)OrderStatus.Refunded => "text-bg-dark",
+        OrderStatusCodes.Paid => "text-bg-primary",
+        OrderStatusCodes.Shipped => "text-bg-info",
+        OrderStatusCodes.Completed => "text-bg-success",
+        OrderStatusCodes.Cancelled => "text-bg-secondary",
+        OrderStatusCodes.Refunding => "text-bg-warning",
+        OrderStatusCodes.Refunded => "text-bg-dark",
         _ => "text-bg-light"
     };
 }
@@ -65,14 +65,14 @@
                     @if (Model.CanShip)
                     {
                         <form asp-action="Transition" asp-route-id="@order.OrderId" method="post">
-                            <input type="hidden" name="targetStatus" value="@((int)OrderStatus.Shipped)" />
+                            <input type="hidden" name="targetStatus" value="@OrderStatus.Shipped" />
                             <button type="submit" class="btn btn-primary">标记已发货</button>
                         </form>
                     }
                     @if (Model.CanComplete)
                     {
                         <form asp-action="Transition" asp-route-id="@order.OrderId" method="post">
-                            <input type="hidden" name="targetStatus" value="@((int)OrderStatus.Completed)" />
+                            <input type="hidden" name="targetStatus" value="@OrderStatus.Completed" />
                             <button type="submit" class="btn btn-success">确认订单完成</button>
                         </form>
                     }
@@ -144,7 +144,7 @@
                 <div class="card shadow-sm mb-3">
                     <div class="card-header bg-body-tertiary d-flex justify-content-between">
                         <span>
-                            @(group.SupplierId == 0
+                            @(string.IsNullOrWhiteSpace(group.SupplierId)
                                 ? "待分配供应商"
                                 : $"供应商 #{group.SupplierId}")
                         </span>

@@ -14,31 +14,27 @@ public class OrderRepository : BaseRepository, IOrderRepository
     // ========== Biz_Orders ==========
 
     /// <summary>创建订单</summary>
-    public async Task<int> CreateOrderAsync(BizOrder order, IDbTransaction? transaction = null)
+    public async Task<string> CreateOrderAsync(BizOrder order, IDbTransaction? transaction = null)
     {
         var sql = @"
             INSERT INTO Biz_Orders (
-                OrderNo, CustomerId, PromoterId, AddressId, ReceiverName, ReceiverPhone,
+                OrderId, OrderNo, CustomerId, PromoterId, AddressId, ReceiverName, ReceiverPhone,
                 ShippingAddress, TotalAmount, DiscountAmount, FreightAmount,
                 FinalAmount, PointsEarned, OrderStatus, CreatedAt)
             VALUES (
-                :OrderNo, :CustomerId, :PromoterId, :AddressId, :ReceiverName, :ReceiverPhone,
+                :OrderId, :OrderNo, :CustomerId, :PromoterId, :AddressId, :ReceiverName, :ReceiverPhone,
                 :ShippingAddress, :TotalAmount, :DiscountAmount, :FreightAmount,
-                :FinalAmount, :PointsEarned, :OrderStatus, SYSDATE)
-            RETURNING OrderId INTO :OrderId";
-
-        var parameters = new DynamicParameters(order);
-        parameters.Add("OrderId", dbType: System.Data.DbType.Int32, direction: System.Data.ParameterDirection.Output);
+                :FinalAmount, :PointsEarned, :OrderStatus, SYSDATE)";
 
         return await WithConnectionAsync(transaction, async connection =>
         {
-            await connection.ExecuteAsync(sql, parameters, transaction);
-            return parameters.Get<int>("OrderId");
+            await connection.ExecuteAsync(sql, order, transaction);
+            return order.OrderId;
         });
     }
 
     /// <summary>根据ID查订单</summary>
-    public async Task<BizOrder?> GetByIdAsync(int orderId, IDbTransaction? transaction = null)
+    public async Task<BizOrder?> GetByIdAsync(string orderId, IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, connection =>
             connection.QueryFirstOrDefaultAsync<BizOrder>(
@@ -48,7 +44,7 @@ public class OrderRepository : BaseRepository, IOrderRepository
     }
 
     public async Task<BizOrder?> GetByIdForUpdateAsync(
-        int orderId,
+        string orderId,
         IDbTransaction transaction)
     {
         return await WithConnectionAsync(transaction, connection =>
@@ -67,7 +63,7 @@ public class OrderRepository : BaseRepository, IOrderRepository
         return await WithConnectionAsync(transaction, async connection =>
             (await connection.QueryAsync<BizOrder>(
                 @"SELECT * FROM Biz_Orders
-                                    WHERE OrderStatus IN (1, 2)
+                                    WHERE OrderStatus IN ('PAID', 'SHIPPED')
                                         AND NVL(CommSettlementDate, CreatedAt) <= :Threshold",
                 new { Threshold = threshold },
                 transaction)).ToList());
@@ -121,7 +117,7 @@ public class OrderRepository : BaseRepository, IOrderRepository
     }
 
     public async Task<OrderDetailHeader?> GetDetailHeaderAsync(
-        int orderId,
+        string orderId,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, connection =>
@@ -150,7 +146,7 @@ public class OrderRepository : BaseRepository, IOrderRepository
     }
 
     public async Task<List<BizOrderDetail>> GetDetailsAsync(
-        int orderId,
+        string orderId,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, async connection =>
@@ -164,7 +160,7 @@ public class OrderRepository : BaseRepository, IOrderRepository
 
     /// <summary>带旧状态条件的原子状态更新</summary>
     public async Task<bool> TryUpdateStatusAsync(
-        int orderId,
+        string orderId,
         OrderStatus expectedStatus,
         OrderStatus targetStatus,
         IDbTransaction transaction)
@@ -178,8 +174,8 @@ public class OrderRepository : BaseRepository, IOrderRepository
                 new
                 {
                     OrderId = orderId,
-                    ExpectedStatus = (int)expectedStatus,
-                    TargetStatus = (int)targetStatus
+                    ExpectedStatus = OrderStatusCodes.ToCode(expectedStatus),
+                    TargetStatus = OrderStatusCodes.ToCode(targetStatus)
                 },
                 transaction);
             return affected == 1;
@@ -187,7 +183,7 @@ public class OrderRepository : BaseRepository, IOrderRepository
     }
 
     public async Task<bool> TryUpdateCommissionSettlementAsync(
-        int orderId,
+        string orderId,
         decimal? commBaseAmount,
         decimal? commBonusAmount,
         DateTime? commSettlementDate,
@@ -220,8 +216,12 @@ public class OrderRepository : BaseRepository, IOrderRepository
     public async Task InsertDetailsAsync(IEnumerable<BizOrderDetail> details, IDbTransaction? transaction = null)
     {
         var sql = @"
-            INSERT INTO Biz_OrderDetails (OrderId, ProductId, ProductName, Quantity, UnitPrice, SubTotal, SupplierId)
-            VALUES (:OrderId, :ProductId, :ProductName, :Quantity, :UnitPrice, :SubTotal, :SupplierId)";
+            INSERT INTO Biz_OrderDetails (
+                OrderDetailId, OrderId, ProductId, ProductName,
+                Quantity, UnitPrice, SubTotal, SupplierId)
+            VALUES (
+                :OrderDetailId, :OrderId, :ProductId, :ProductName,
+                :Quantity, :UnitPrice, :SubTotal, :SupplierId)";
         await WithConnectionAsync(transaction, async connection =>
         {
             await connection.ExecuteAsync(sql, details, transaction);
@@ -230,7 +230,7 @@ public class OrderRepository : BaseRepository, IOrderRepository
 
     private static string CreateOrderFilterSql()
     {
-           return @"WHERE (:CustomerId IS NULL OR o.CustomerId = :CustomerId)
+        return @"WHERE (:CustomerId IS NULL OR o.CustomerId = :CustomerId)
                     AND (:OrderStatus IS NULL OR o.OrderStatus = :OrderStatus)
                     AND (:Keyword IS NULL
                         OR o.OrderNo LIKE '%' || :Keyword || '%'
@@ -245,7 +245,7 @@ public class OrderRepository : BaseRepository, IOrderRepository
         {
             request.CustomerId,
             OrderStatus = request.Status.HasValue
-                ? (int?)request.Status.Value
+                ? OrderStatusCodes.ToCode(request.Status.Value)
                 : null,
             request.Keyword,
             Offset = offset,

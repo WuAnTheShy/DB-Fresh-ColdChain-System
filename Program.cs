@@ -3,6 +3,7 @@ using FreshColdChain.Models;
 using FreshColdChain.Repositories;
 using FreshColdChain.Services;
 using Microsoft.AspNetCore.Identity;
+using System.Text.Json.Serialization;
 
 namespace FreshColdChain;
 
@@ -12,7 +13,11 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.Services.AddControllersWithViews();
+        builder.Services.AddControllersWithViews()
+            .AddJsonOptions(options =>
+                options.JsonSerializerOptions.Converters.Add(
+                    new JsonStringEnumConverter(allowIntegerValues: false)));
+        builder.Services.AddScoped<Controllers.Api.GroupBApiExceptionFilter>();
 
         builder.Services.AddScoped<IOrderRepository, OrderRepository>();
         builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();

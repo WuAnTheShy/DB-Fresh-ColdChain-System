@@ -108,6 +108,7 @@ public sealed class OrderService : IOrderService
 
             var order = new BizOrder
             {
+                OrderId = GroupBIds.NewId(),
                 OrderNo = GenerateOrderNo(),
                 CustomerId = request.CustomerId,
                 PromoterId = customer.PromoterId,
@@ -120,7 +121,7 @@ public sealed class OrderService : IOrderService
                 FreightAmount = freightAmount,
                 FinalAmount = finalAmount,
                 PointsEarned = pointsEarned,
-                OrderStatus = 1,
+                OrderStatus = OrderStatusCodes.Paid,
                 CreatedAt = DateTime.Now
             };
 
@@ -149,6 +150,7 @@ public sealed class OrderService : IOrderService
                     transaction);
                 await _pointRepo.InsertLogAsync(new CrmPointLog
                 {
+                    PointLogId = GroupBIds.NewId(),
                     CustomerId = customer.CustomerId,
                     ChangeAmount = pointsEarned,
                     BalanceAfter = newPoints,
@@ -210,9 +212,9 @@ public sealed class OrderService : IOrderService
         };
     }
 
-    public async Task<OrderDetailViewModel?> GetOrderDetailAsync(int orderId)
+    public async Task<OrderDetailViewModel?> GetOrderDetailAsync(string orderId)
     {
-        if (orderId <= 0)
+        if (!GroupBIds.IsValid(orderId))
             return null;
 
         var header = await _orderRepo.GetDetailHeaderAsync(orderId);
@@ -221,8 +223,8 @@ public sealed class OrderService : IOrderService
 
         var details = await _orderRepo.GetDetailsAsync(orderId);
         var supplierIds = details
-            .Where(detail => detail.SupplierId.HasValue)
-            .Select(detail => detail.SupplierId!.Value)
+            .Where(detail => !string.IsNullOrWhiteSpace(detail.SupplierId))
+            .Select(detail => detail.SupplierId!)
             .Distinct()
             .OrderBy(supplierId => supplierId)
             .ToList();
@@ -230,7 +232,7 @@ public sealed class OrderService : IOrderService
             await _logisticsService.GetSupplierStatusesAsync(
                 orderId,
                 supplierIds);
-        var status = (OrderStatus)header.OrderStatus;
+        var status = OrderStatusCodes.Parse(header.OrderStatus);
         return new OrderDetailViewModel
         {
             OrderId = orderId,
@@ -253,12 +255,12 @@ public sealed class OrderService : IOrderService
     }
 
     public async Task TransitionOrderAsync(
-        int orderId,
+        string orderId,
         OrderStatus targetStatus,
         CancellationToken cancellationToken = default)
     {
-        if (orderId <= 0)
-            throw new OrderBusinessException("订单ID必须大于0");
+        if (!GroupBIds.IsValid(orderId))
+            throw new OrderBusinessException("订单ID格式不正确");
         if (targetStatus is not (OrderStatus.Shipped or OrderStatus.Completed))
             throw new OrderBusinessException("目标订单状态不受此操作支持");
 
@@ -266,7 +268,7 @@ public sealed class OrderService : IOrderService
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = await GetLockedOrderContextAsync(orderId, transaction);
-            var currentStatus = (OrderStatus)context.Order.OrderStatus;
+            var currentStatus = OrderStatusCodes.Parse(context.Order.OrderStatus);
             OrderStateMachine.EnsureTransition(currentStatus, targetStatus);
 
             if (targetStatus == OrderStatus.Shipped)
@@ -306,17 +308,17 @@ public sealed class OrderService : IOrderService
     }
 
     public async Task CancelOrderAsync(
-        int orderId,
+        string orderId,
         CancellationToken cancellationToken = default)
     {
-        if (orderId <= 0)
-            throw new OrderBusinessException("订单ID必须大于0");
+        if (!GroupBIds.IsValid(orderId))
+            throw new OrderBusinessException("订单ID格式不正确");
 
         await _transactionManager.ExecuteAsync(async transaction =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = await GetLockedOrderContextAsync(orderId, transaction);
-            var currentStatus = (OrderStatus)context.Order.OrderStatus;
+            var currentStatus = OrderStatusCodes.Parse(context.Order.OrderStatus);
             OrderStateMachine.EnsureTransition(
                 currentStatus,
                 OrderStatus.Cancelled);
@@ -343,6 +345,7 @@ public sealed class OrderService : IOrderService
                     transaction);
                 await _pointRepo.InsertLogAsync(new CrmPointLog
                 {
+                    PointLogId = GroupBIds.NewId(),
                     CustomerId = context.Customer.CustomerId,
                     ChangeAmount = -context.Order.PointsEarned,
                     BalanceAfter = newPoints,
@@ -394,45 +397,98 @@ public sealed class OrderService : IOrderService
     /// 退款时扣回积分 - 供 C 组调用。
     /// </summary>
     public async Task DeductPointsForRefundAsync(
-        int customerId,
-        int orderId,
-        int pointsToDeduct)
+        string customerId,
+        string orderId,
+        int pointsToDeduct,
+        CancellationToken cancellationToken = default)
     {
-        if (customerId <= 0)
-            throw new OrderBusinessException("消费者ID必须大于0");
-        if (orderId <= 0)
-            throw new OrderBusinessException("订单ID必须大于0");
+        if (!GroupBIds.IsValid(customerId))
+            throw new OrderBusinessException("消费者ID格式不正确");
+        if (!GroupBIds.IsValid(orderId))
+            throw new OrderBusinessException("订单ID格式不正确");
         if (pointsToDeduct <= 0)
             throw new OrderBusinessException("扣回积分必须大于0");
 
         await _transactionManager.ExecuteAsync(async transaction =>
         {
-            var customer = await _customerRepo.GetByIdForUpdateAsync(
-                    customerId,
-                    transaction)
-                ?? throw new OrderBusinessException("消费者不存在");
+            cancellationToken.ThrowIfCancellationRequested();
+            var context = await GetLockedOrderContextAsync(orderId, transaction);
+            if (context.Customer.CustomerId != customerId)
+                throw new OrderBusinessException("订单不属于指定消费者");
 
-            var actualDeduction = Math.Min(customer.Points, pointsToDeduct);
-            if (actualDeduction == 0)
+            var currentStatus = OrderStatusCodes.Parse(context.Order.OrderStatus);
+            if (currentStatus == OrderStatus.Refunded)
                 return;
-
-            var newPoints = customer.Points - actualDeduction;
-            await _customerRepo.UpdatePointsAsync(customerId, newPoints, transaction);
-            await _pointRepo.InsertLogAsync(new CrmPointLog
+            if (currentStatus is OrderStatus.PendingPayment or OrderStatus.Cancelled)
+                throw new OrderBusinessException("当前订单状态不允许退款");
+            if (currentStatus is not (
+                OrderStatus.Paid or
+                OrderStatus.Shipped or
+                OrderStatus.Completed or
+                OrderStatus.Refunding))
             {
-                CustomerId = customerId,
-                ChangeAmount = -actualDeduction,
-                BalanceAfter = newPoints,
-                ChangeType = "REFUND_DEDUCT",
-                OrderId = orderId
-            }, transaction);
+                throw new OrderBusinessException("订单状态无效，无法完成退款");
+            }
+
+            if (await _pointRepo.HasPointLogAsync(
+                customerId,
+                orderId,
+                "REFUND_DEDUCT",
+                transaction))
+            {
+                throw new OrderBusinessException("退款积分流水已存在但订单状态不一致");
+            }
+
+            if (currentStatus == OrderStatus.Paid)
+            {
+                await _inventoryService.ReleaseAsync(
+                    CreateFulfillmentOrderRequest(
+                        context.Order,
+                        context.Details),
+                    transaction,
+                    cancellationToken);
+            }
+
+            var requestedDeduction = Math.Min(
+                pointsToDeduct,
+                context.Order.PointsEarned);
+            var actualDeduction = Math.Min(
+                context.Customer.Points,
+                requestedDeduction);
+
+            if (actualDeduction > 0)
+            {
+                var newPoints = context.Customer.Points - actualDeduction;
+                await _customerRepo.UpdatePointsAsync(
+                    customerId,
+                    newPoints,
+                    transaction);
+                await _pointRepo.InsertLogAsync(new CrmPointLog
+                {
+                    PointLogId = GroupBIds.NewId(),
+                    CustomerId = customerId,
+                    ChangeAmount = -actualDeduction,
+                    BalanceAfter = newPoints,
+                    ChangeType = "REFUND_DEDUCT",
+                    OrderId = orderId
+                }, transaction);
+            }
+
+            if (!await _orderRepo.TryUpdateStatusAsync(
+                orderId,
+                currentStatus,
+                OrderStatus.Refunded,
+                transaction))
+            {
+                throw new OrderBusinessException("订单状态已变化，请刷新后重试");
+            }
         });
     }
 
     /// <summary>
     /// 根据累计消费金额动态查询消费者应处的最高会员等级。
     /// </summary>
-    public async Task<CrmMemberLevel?> GetCustomerLevelAsync(int customerId)
+    public async Task<CrmMemberLevel?> GetCustomerLevelAsync(string customerId)
     {
         var customer = await _customerRepo.GetByIdAsync(customerId);
         if (customer == null)
@@ -444,32 +500,38 @@ public sealed class OrderService : IOrderService
     private static IReadOnlyList<InventoryReservationItem> ValidateAndNormalizeRequest(
         CreateOrderRequest request)
     {
-        if (request.CustomerId <= 0)
-            throw new OrderBusinessException("消费者ID必须大于0");
-        if (request.AddressId <= 0)
-            throw new OrderBusinessException("收货地址ID必须大于0");
-        if (request.CouponRecordId <= 0)
-            throw new OrderBusinessException("优惠券记录ID必须大于0");
+        if (!GroupBIds.IsValid(request.CustomerId))
+            throw new OrderBusinessException("消费者ID格式不正确");
+        if (!GroupBIds.IsValid(request.AddressId))
+            throw new OrderBusinessException("收货地址ID格式不正确");
+        if (request.CouponRecordId != null &&
+            !GroupBIds.IsValid(request.CouponRecordId))
+        {
+            throw new OrderBusinessException("优惠券记录ID格式不正确");
+        }
         if (request.Items == null || request.Items.Count == 0)
             throw new OrderBusinessException("订单至少需要一件商品");
 
-        var quantities = new Dictionary<int, int>();
+        var quantities = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var item in request.Items)
         {
-            if (item.ProductId <= 0)
-                throw new OrderBusinessException("商品ID必须大于0");
+            var productId = item.ProductId?.Trim();
+            if (string.IsNullOrWhiteSpace(productId))
+                throw new OrderBusinessException("商品ID不能为空");
+            if (productId.Length > 64)
+                throw new OrderBusinessException("商品ID不能超过64个字符");
             if (item.Quantity is <= 0 or > 9999)
                 throw new OrderBusinessException("商品数量必须在1到9999之间");
 
-            quantities.TryGetValue(item.ProductId, out var currentQuantity);
+            quantities.TryGetValue(productId, out var currentQuantity);
             var mergedQuantity = checked(currentQuantity + item.Quantity);
             if (mergedQuantity > 9999)
-                throw new OrderBusinessException($"商品 {item.ProductId} 的合计数量不能超过9999");
-            quantities[item.ProductId] = mergedQuantity;
+                throw new OrderBusinessException($"商品 {productId} 的合计数量不能超过9999");
+            quantities[productId] = mergedQuantity;
         }
 
         return quantities
-            .OrderBy(pair => pair.Key)
+            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .Select(pair => new InventoryReservationItem
             {
                 ProductId = pair.Key,
@@ -485,14 +547,17 @@ public sealed class OrderService : IOrderService
         if (productSnapshots.Count != reservationItems.Count)
             throw new OrderBusinessException("库存服务返回的商品数据不完整");
 
-        var snapshotsByProductId = new Dictionary<int, InventoryProductSnapshot>();
+        var snapshotsByProductId = new Dictionary<string, InventoryProductSnapshot>(
+            StringComparer.Ordinal);
         foreach (var snapshot in productSnapshots)
         {
+            if (string.IsNullOrWhiteSpace(snapshot.ProductId))
+                throw new OrderBusinessException("库存服务返回的商品ID为空");
             if (!snapshotsByProductId.TryAdd(snapshot.ProductId, snapshot))
                 throw new OrderBusinessException("库存服务返回了重复商品");
             if (string.IsNullOrWhiteSpace(snapshot.ProductName))
                 throw new OrderBusinessException($"商品 {snapshot.ProductId} 缺少名称");
-            if (snapshot.SupplierId <= 0)
+            if (string.IsNullOrWhiteSpace(snapshot.SupplierId))
                 throw new OrderBusinessException($"商品 {snapshot.ProductId} 缺少有效供应商");
             if (snapshot.UnitPrice <= 0 || snapshot.UnitPrice > MaxOrderAmount)
                 throw new OrderBusinessException($"商品 {snapshot.ProductId} 的价格无效");
@@ -508,6 +573,7 @@ public sealed class OrderService : IOrderService
             EnsureAmountFitsDatabase(subTotal);
             details.Add(new BizOrderDetail
             {
+                OrderDetailId = GroupBIds.NewId(),
                 ProductId = item.ProductId,
                 ProductName = snapshot.ProductName.Trim(),
                 Quantity = item.Quantity,
@@ -521,16 +587,16 @@ public sealed class OrderService : IOrderService
     }
 
     private async Task<MktCouponUsage?> GetCouponAsync(
-        int? couponRecordId,
-        int customerId,
+        string? couponRecordId,
+        string customerId,
         decimal goodsAmount,
         IDbTransaction transaction)
     {
-        if (!couponRecordId.HasValue)
+        if (couponRecordId == null)
             return null;
 
         return await _couponRepo.GetUsableCouponForUpdateAsync(
-                couponRecordId.Value,
+                couponRecordId,
                 customerId,
                 goodsAmount,
                 transaction)
@@ -538,20 +604,20 @@ public sealed class OrderService : IOrderService
     }
 
     private async Task<int> GetPointsMultiplierAsync(
-        int? memberLevelId,
+        string? memberLevelId,
         IDbTransaction transaction)
     {
-        if (!memberLevelId.HasValue)
+        if (memberLevelId == null)
             return 1;
 
         var level = await _pointRepo.GetLevelByIdAsync(
-            memberLevelId.Value,
+            memberLevelId,
             transaction);
         return Math.Max(1, level?.PointsMultiplier ?? 1);
     }
 
     private async Task<LockedOrderContext> GetLockedOrderContextAsync(
-        int orderId,
+        string orderId,
         IDbTransaction transaction)
     {
         var initialOrder = await _orderRepo.GetByIdAsync(orderId, transaction)
@@ -577,8 +643,8 @@ public sealed class OrderService : IOrderService
 
     private static void NormalizeOrderQuery(OrderQueryRequest request)
     {
-        if (request.CustomerId <= 0)
-            throw new OrderBusinessException("消费者ID必须大于0");
+        if (request.CustomerId != null && !GroupBIds.IsValid(request.CustomerId))
+            throw new OrderBusinessException("消费者ID格式不正确");
         if (request.Status.HasValue &&
             !Enum.IsDefined(request.Status.Value))
         {
@@ -647,8 +713,8 @@ public sealed class OrderService : IOrderService
             .GroupBy(status => status.SupplierId)
             .ToDictionary(group => group.Key, group => group.First());
         return details
-            .GroupBy(detail => detail.SupplierId ?? 0)
-            .OrderBy(group => group.Key)
+            .GroupBy(detail => detail.SupplierId ?? string.Empty)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
             .Select(group => new OrderSupplierGroupViewModel
             {
                 SupplierId = group.Key,
@@ -681,8 +747,8 @@ public sealed class OrderService : IOrderService
         IEnumerable<BizOrderDetail> details)
     {
         return details
-            .GroupBy(detail => detail.SupplierId!.Value)
-            .OrderBy(group => group.Key)
+            .GroupBy(detail => detail.SupplierId!)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
             .Select(group => new SupplierOrderGroupResult
             {
                 SupplierId = group.Key,

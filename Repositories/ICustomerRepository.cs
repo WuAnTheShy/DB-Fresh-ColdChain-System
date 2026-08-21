@@ -7,19 +7,23 @@ public interface ICustomerRepository
 {
     Task<bool> PhoneExistsAsync(
         string phone,
-        int? excludeCustomerId = null,
+        string? excludeCustomerId = null,
         IDbTransaction? transaction = null);
 
-    Task<int> CreateCustomerAsync(
+    Task<string> CreateCustomerAsync(
         CrmCustomer customer,
         IDbTransaction? transaction = null);
 
     Task<CrmCustomer?> GetByIdAsync(
-        int customerId,
+        string customerId,
+        IDbTransaction? transaction = null);
+
+    Task<CrmCustomer?> GetByPhoneAsync(
+        string phone,
         IDbTransaction? transaction = null);
 
     Task<CrmCustomer?> GetByIdForUpdateAsync(
-        int customerId,
+        string customerId,
         IDbTransaction transaction);
 
     Task<List<CustomerAccount>> FindCustomerAccountsAsync(
@@ -30,8 +34,8 @@ public interface ICustomerRepository
         IDbTransaction? transaction = null);
 
     Task<bool> UpdateBindingAsync(
-        int customerId,
-        int? boundPromoterId,
+        string customerId,
+        string? boundPromoterId,
         DateTime? bindExpireTime,
         int? growthValue = null,
         IDbTransaction? transaction = null);
@@ -45,35 +49,35 @@ public interface ICustomerRepository
         IDbTransaction? transaction = null);
 
     Task UpdatePointsAsync(
-        int customerId,
+        string customerId,
         int newPoints,
         IDbTransaction? transaction = null);
 
     Task UpdateTotalSpentAsync(
-        int customerId,
+        string customerId,
         decimal addAmount,
         IDbTransaction? transaction = null);
 
     Task<bool> TrySubtractTotalSpentAsync(
-        int customerId,
+        string customerId,
         decimal amount,
         IDbTransaction transaction);
 
     Task UpdateMemberLevelAsync(
-        int customerId,
-        int memberLevelId,
+        string customerId,
+        string memberLevelId,
         IDbTransaction? transaction = null);
 
     Task<List<CrmUserAddress>> GetAddressesAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null);
 
     Task<CrmUserAddress?> GetAddressAsync(
-        int customerId,
-        int addressId,
+        string customerId,
+        string addressId,
         IDbTransaction? transaction = null);
 
-    Task<int> CreateAddressAsync(
+    Task<string> CreateAddressAsync(
         CrmUserAddress address,
         IDbTransaction? transaction = null);
 
@@ -82,16 +86,16 @@ public interface ICustomerRepository
         IDbTransaction? transaction = null);
 
     Task<bool> DeleteAddressAsync(
-        int customerId,
-        int addressId,
+        string customerId,
+        string addressId,
         IDbTransaction? transaction = null);
 
     Task ClearDefaultAddressesAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null);
 
     Task<bool> SetDefaultAddressAsync(
-        int customerId,
-        int addressId,
+        string customerId,
+        string addressId,
         IDbTransaction? transaction = null);
 }

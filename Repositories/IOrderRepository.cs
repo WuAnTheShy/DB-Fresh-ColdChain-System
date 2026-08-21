@@ -5,12 +5,12 @@ namespace FreshColdChain.Repositories;
 
 public interface IOrderRepository
 {
-    Task<int> CreateOrderAsync(BizOrder order, IDbTransaction? transaction = null);
+    Task<string> CreateOrderAsync(BizOrder order, IDbTransaction? transaction = null);
 
-    Task<BizOrder?> GetByIdAsync(int orderId, IDbTransaction? transaction = null);
+    Task<BizOrder?> GetByIdAsync(string orderId, IDbTransaction? transaction = null);
 
     Task<BizOrder?> GetByIdForUpdateAsync(
-        int orderId,
+        string orderId,
         IDbTransaction transaction);
 
     Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
@@ -27,21 +27,21 @@ public interface IOrderRepository
         IDbTransaction? transaction = null);
 
     Task<OrderDetailHeader?> GetDetailHeaderAsync(
-        int orderId,
+        string orderId,
         IDbTransaction? transaction = null);
 
     Task<List<BizOrderDetail>> GetDetailsAsync(
-        int orderId,
+        string orderId,
         IDbTransaction? transaction = null);
 
     Task<bool> TryUpdateStatusAsync(
-        int orderId,
+        string orderId,
         OrderStatus expectedStatus,
         OrderStatus targetStatus,
         IDbTransaction transaction);
 
     Task<bool> TryUpdateCommissionSettlementAsync(
-        int orderId,
+        string orderId,
         decimal? commBaseAmount,
         decimal? commBonusAmount,
         DateTime? commSettlementDate,

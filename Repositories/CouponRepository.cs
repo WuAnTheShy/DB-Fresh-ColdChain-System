@@ -13,7 +13,7 @@ public class CouponRepository : BaseRepository, ICouponRepository
 
     /// <summary>查询用户可用优惠券列表</summary>
     public async Task<List<MktCouponRecord>> GetUserCouponsAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, async connection =>
@@ -28,7 +28,7 @@ public class CouponRepository : BaseRepository, ICouponRepository
 
     /// <summary>查询优惠券模板详情</summary>
     public async Task<MktCoupon?> GetCouponTemplateAsync(
-        int couponId,
+        string couponId,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, connection =>
@@ -40,7 +40,7 @@ public class CouponRepository : BaseRepository, ICouponRepository
 
     /// <summary>锁定券模板，保证领券检查期间库存和状态不漂移</summary>
     public async Task<MktCoupon?> GetCouponTemplateForUpdateAsync(
-        int couponId,
+        string couponId,
         IDbTransaction transaction)
     {
         return await WithConnectionAsync(transaction, connection =>
@@ -54,7 +54,7 @@ public class CouponRepository : BaseRepository, ICouponRepository
 
     /// <summary>查询当前有效、尚有库存的券模板，并标记消费者是否已领取</summary>
     public async Task<List<ClaimableCouponItem>> GetClaimableCouponsAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, async connection =>
@@ -81,7 +81,7 @@ public class CouponRepository : BaseRepository, ICouponRepository
 
     /// <summary>查询消费者已领取、未使用且仍在有效期内的优惠券</summary>
     public async Task<List<AvailableCouponItem>> GetAvailableCouponsAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, async connection =>
@@ -105,8 +105,8 @@ public class CouponRepository : BaseRepository, ICouponRepository
     }
 
     public async Task<bool> HasCustomerClaimedCouponAsync(
-        int customerId,
-        int couponId,
+        string customerId,
+        string couponId,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, async connection =>
@@ -120,38 +120,31 @@ public class CouponRepository : BaseRepository, ICouponRepository
         });
     }
 
-    public async Task<int> CreateCouponRecordAsync(
-        int customerId,
-        int couponId,
-        IDbTransaction transaction)
+    public async Task<string> CreateCouponRecordAsync(
+        string recordId,
+        string customerId,
+        string couponId,
+        IDbTransaction? transaction = null)
     {
         const string sql = @"
             INSERT INTO Mkt_CouponRecords (
-                CouponId, CustomerId, Status, CreatedAt)
-            VALUES (:CouponId, :CustomerId, 0, SYSDATE)
-            RETURNING RecordId INTO :RecordId";
-
-        var parameters = new DynamicParameters(new
-        {
-            CustomerId = customerId,
-            CouponId = couponId
-        });
-        parameters.Add(
-            "RecordId",
-            dbType: DbType.Int32,
-            direction: ParameterDirection.Output);
+                RecordId, CouponId, CustomerId, Status, CreatedAt)
+            VALUES (:RecordId, :CouponId, :CustomerId, 0, SYSDATE)";
 
         return await WithConnectionAsync(transaction, async connection =>
         {
-            await connection.ExecuteAsync(sql, parameters, transaction);
-            return parameters.Get<int>("RecordId");
+            await connection.ExecuteAsync(
+                sql,
+                new { RecordId = recordId, CustomerId = customerId, CouponId = couponId },
+                transaction);
+            return recordId;
         });
     }
 
     /// <summary>锁定并读取本次订单可用的用户券</summary>
     public async Task<MktCouponUsage?> GetUsableCouponForUpdateAsync(
-        int recordId,
-        int customerId,
+        string recordId,
+        string customerId,
         decimal orderAmount,
         IDbTransaction transaction)
     {
@@ -179,9 +172,9 @@ public class CouponRepository : BaseRepository, ICouponRepository
 
     /// <summary>以条件更新方式原子核销优惠券</summary>
     public async Task<bool> TryUseCouponAsync(
-        int recordId,
-        int customerId,
-        int orderId,
+        string recordId,
+        string customerId,
+        string orderId,
         IDbTransaction transaction)
     {
         return await WithConnectionAsync(transaction, async connection =>
@@ -205,8 +198,8 @@ public class CouponRepository : BaseRepository, ICouponRepository
 
     /// <summary>取消订单时归还该订单核销的用户券</summary>
     public async Task<int> RestoreCouponForCancelledOrderAsync(
-        int orderId,
-        int customerId,
+        string orderId,
+        string customerId,
         IDbTransaction transaction)
     {
         return await WithConnectionAsync(transaction, connection =>
@@ -221,7 +214,7 @@ public class CouponRepository : BaseRepository, ICouponRepository
     }
 
     /// <summary>减少券模板剩余数量(防超发)</summary>
-    public async Task<bool> DecrementCouponStockAsync(int couponId, IDbTransaction? transaction = null)
+    public async Task<bool> DecrementCouponStockAsync(string couponId, IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, async connection =>
         {

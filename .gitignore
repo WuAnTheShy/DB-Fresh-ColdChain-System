@@ -431,3 +431,4 @@ FodyWeavers.xsd
 .DS_Store
 tmp/
 temp/
+.idea

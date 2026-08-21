@@ -1,4 +1,5 @@
 using FreshColdChain.Interfaces;
+using FreshColdChain.Models;
 using FreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,7 +21,7 @@ public sealed class CouponController : Controller
         _logger = logger;
     }
 
-    public async Task<IActionResult> Index(int customerId = 1)
+    public async Task<IActionResult> Index(string customerId = GroupBDemoIds.Customer)
     {
         var model = await _couponService.GetCouponCenterAsync(customerId);
         return model == null ? NotFound() : View(model);
@@ -28,7 +29,7 @@ public sealed class CouponController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Claim(int customerId, int couponId)
+    public async Task<IActionResult> Claim(string customerId, string couponId)
     {
         try
         {

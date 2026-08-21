@@ -13,7 +13,7 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
 
     public async Task<bool> PhoneExistsAsync(
         string phone,
-        int? excludeCustomerId = null,
+        string? excludeCustomerId = null,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, async connection =>
@@ -28,33 +28,26 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
         });
     }
 
-    public async Task<int> CreateCustomerAsync(
+    public async Task<string> CreateCustomerAsync(
         CrmCustomer customer,
         IDbTransaction? transaction = null)
     {
         const string sql = @"
             INSERT INTO Crm_Customers (
-                CustomerName, Phone, Email, PasswordHash, OpenId, PromoterId,
+                CustomerId, CustomerName, Phone, Email, PasswordHash, OpenId, PromoterId,
                 MemberLevelId, TotalSpent, Points, GrowthValue, BindExpireTime, CreatedAt)
             VALUES (
-                :CustomerName, :Phone, :Email, :PasswordHash, :OpenId, :PromoterId,
-                :MemberLevelId, 0, 0, :GrowthValue, :BindExpireTime, SYSDATE)
-            RETURNING CustomerId INTO :CustomerId";
-
-        var parameters = new DynamicParameters(customer);
-        parameters.Add(
-            "CustomerId",
-            dbType: DbType.Int32,
-            direction: ParameterDirection.Output);
+                :CustomerId, :CustomerName, :Phone, :Email, :PasswordHash, :OpenId, :PromoterId,
+                :MemberLevelId, 0, 0, :GrowthValue, :BindExpireTime, SYSDATE)";
 
         return await WithConnectionAsync(transaction, async connection =>
         {
-            await connection.ExecuteAsync(sql, parameters, transaction);
-            return parameters.Get<int>("CustomerId");
+            await connection.ExecuteAsync(sql, customer, transaction);
+            return customer.CustomerId;
         });
     }
 
-    public async Task<CrmCustomer?> GetByIdAsync(int customerId, IDbTransaction? transaction = null)
+    public async Task<CrmCustomer?> GetByIdAsync(string customerId, IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, connection =>
             connection.QueryFirstOrDefaultAsync<CrmCustomer>(
@@ -63,9 +56,20 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
                 transaction));
     }
 
+    public async Task<CrmCustomer?> GetByPhoneAsync(
+        string phone,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, connection =>
+            connection.QueryFirstOrDefaultAsync<CrmCustomer>(
+                "SELECT * FROM Crm_Customers WHERE Phone = :Phone",
+                new { Phone = phone },
+                transaction));
+    }
+
     /// <summary>锁定消费者行，防止并发订单覆盖积分余额</summary>
     public async Task<CrmCustomer?> GetByIdForUpdateAsync(
-        int customerId,
+        string customerId,
         IDbTransaction transaction)
     {
         return await WithConnectionAsync(transaction, connection =>
@@ -84,18 +88,18 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
     {
         return await WithConnectionAsync(transaction, async connection =>
             (await connection.QueryAsync<CustomerAccount>(
-                @"SELECT TO_CHAR(CustomerId) AS CustomerID,
+                @"SELECT CustomerId AS CustomerID,
                          OpenId,
                          Phone,
                          Points AS PointsBalance,
                          GrowthValue,
-                         TO_CHAR(PromoterId) AS BoundPromoterID,
+                         PromoterId AS BoundPromoterID,
                          BindExpireTime
                   FROM Crm_Customers
-                  WHERE (:CustomerId IS NULL OR TO_CHAR(CustomerId) = :CustomerId)
+                  WHERE (:CustomerId IS NULL OR CustomerId = :CustomerId)
                     AND (:OpenId IS NULL OR OpenId = :OpenId)
                     AND (:Phone IS NULL OR Phone = :Phone)
-                    AND (:BoundPromoterId IS NULL OR TO_CHAR(PromoterId) = :BoundPromoterId)",
+                    AND (:BoundPromoterId IS NULL OR PromoterId = :BoundPromoterId)",
                 new
                 {
                     CustomerId = customerId,
@@ -107,8 +111,8 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
     }
 
     public async Task<bool> UpdateBindingAsync(
-        int customerId,
-        int? boundPromoterId,
+        string customerId,
+        string? boundPromoterId,
         DateTime? bindExpireTime,
         int? growthValue = null,
         IDbTransaction? transaction = null)
@@ -167,7 +171,7 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
         });
     }
 
-    public async Task UpdatePointsAsync(int customerId, int newPoints, IDbTransaction? transaction = null)
+    public async Task UpdatePointsAsync(string customerId, int newPoints, IDbTransaction? transaction = null)
     {
         await WithConnectionAsync(transaction, async connection =>
         {
@@ -178,7 +182,7 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
         });
     }
 
-    public async Task UpdateTotalSpentAsync(int customerId, decimal addAmount, IDbTransaction? transaction = null)
+    public async Task UpdateTotalSpentAsync(string customerId, decimal addAmount, IDbTransaction? transaction = null)
     {
         await WithConnectionAsync(transaction, async connection =>
         {
@@ -192,7 +196,7 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
     }
 
     public async Task<bool> TrySubtractTotalSpentAsync(
-        int customerId,
+        string customerId,
         decimal amount,
         IDbTransaction transaction)
     {
@@ -209,8 +213,8 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
     }
 
     public async Task UpdateMemberLevelAsync(
-        int customerId,
-        int memberLevelId,
+        string customerId,
+        string memberLevelId,
         IDbTransaction? transaction = null)
     {
         await WithConnectionAsync(transaction, async connection =>
@@ -225,7 +229,7 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
     }
 
     public async Task<List<CrmUserAddress>> GetAddressesAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, async connection =>
@@ -238,8 +242,8 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
     }
 
     public async Task<CrmUserAddress?> GetAddressAsync(
-        int customerId,
-        int addressId,
+        string customerId,
+        string addressId,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, connection =>
@@ -250,29 +254,22 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
                 transaction));
     }
 
-    public async Task<int> CreateAddressAsync(
+    public async Task<string> CreateAddressAsync(
         CrmUserAddress address,
         IDbTransaction? transaction = null)
     {
         const string sql = @"
             INSERT INTO Crm_UserAddresses (
-                CustomerId, ReceiverName, Phone, Province, City, District,
+                AddressId, CustomerId, ReceiverName, Phone, Province, City, District,
                 DetailAddress, IsDefault, CreatedAt)
             VALUES (
-                :CustomerId, :ReceiverName, :Phone, :Province, :City, :District,
-                :DetailAddress, :IsDefault, SYSDATE)
-            RETURNING AddressId INTO :AddressId";
-
-        var parameters = new DynamicParameters(address);
-        parameters.Add(
-            "AddressId",
-            dbType: DbType.Int32,
-            direction: ParameterDirection.Output);
+                :AddressId, :CustomerId, :ReceiverName, :Phone, :Province, :City, :District,
+                :DetailAddress, :IsDefault, SYSDATE)";
 
         return await WithConnectionAsync(transaction, async connection =>
         {
-            await connection.ExecuteAsync(sql, parameters, transaction);
-            return parameters.Get<int>("AddressId");
+            await connection.ExecuteAsync(sql, address, transaction);
+            return address.AddressId;
         });
     }
 
@@ -299,8 +296,8 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
     }
 
     public async Task<bool> DeleteAddressAsync(
-        int customerId,
-        int addressId,
+        string customerId,
+        string addressId,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, async connection =>
@@ -315,7 +312,7 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
     }
 
     public async Task ClearDefaultAddressesAsync(
-        int customerId,
+        string customerId,
         IDbTransaction? transaction = null)
     {
         await WithConnectionAsync(transaction, async connection =>
@@ -330,8 +327,8 @@ public class CustomerRepository : BaseRepository, ICustomerRepository
     }
 
     public async Task<bool> SetDefaultAddressAsync(
-        int customerId,
-        int addressId,
+        string customerId,
+        string addressId,
         IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, async connection =>

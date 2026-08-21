@@ -85,9 +85,9 @@ public sealed class OrderController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Detail(int id)
+    public async Task<IActionResult> Detail(string id)
     {
-        if (id <= 0)
+        if (!GroupBIds.IsValid(id))
             return BadRequest();
 
         try
@@ -106,7 +106,7 @@ public sealed class OrderController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Transition(
-        int id,
+        string id,
         OrderStatus targetStatus,
         CancellationToken cancellationToken)
     {
@@ -138,7 +138,7 @@ public sealed class OrderController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Cancel(
-        int id,
+        string id,
         CancellationToken cancellationToken)
     {
         try

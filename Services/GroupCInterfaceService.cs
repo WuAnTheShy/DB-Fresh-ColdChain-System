@@ -298,7 +298,7 @@ public sealed class GroupBDailyMaintenanceService
                     return;
 
                 var promoterId = lockedOrder.PromoterId?.ToString() ?? string.Empty;
-                if (lockedOrder.OrderStatus == (int)OrderStatus.Paid)
+                if (lockedOrder.OrderStatus == OrderStatusCodes.Paid)
                 {
                     var commission = await _groupCInterface.CommissionSettlementAsync(
                         new CommissionSettlementInput
@@ -345,7 +345,7 @@ public sealed class GroupBDailyMaintenanceService
                             cancellationToken);
                     }
                 }
-                else if (lockedOrder.OrderStatus == (int)OrderStatus.Shipped)
+                else if (lockedOrder.OrderStatus == OrderStatusCodes.Shipped)
                 {
                     if (!string.IsNullOrWhiteSpace(promoterId))
                     {
@@ -363,7 +363,7 @@ public sealed class GroupBDailyMaintenanceService
 
                 if (!await _orderRepository.TryUpdateStatusAsync(
                     lockedOrder.OrderId,
-                    (OrderStatus)lockedOrder.OrderStatus,
+                    OrderStatusCodes.Parse(lockedOrder.OrderStatus),
                     OrderStatus.Completed,
                     transaction))
                 {

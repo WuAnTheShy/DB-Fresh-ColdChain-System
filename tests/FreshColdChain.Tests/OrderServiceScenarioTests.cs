@@ -40,22 +40,22 @@ internal static class OrderServiceScenarioTests
         var context = TestContext.Create();
         context.CouponRepository.UsableCoupon = new MktCouponUsage
         {
-            RecordId = 7,
-            CouponId = 3,
+            RecordId = TestIds.Record,
+            CouponId = TestIds.Coupon,
             CouponName = "满100减30",
             DiscountAmount = 30m
         };
 
         var result = await context.Service.CreateOrderAsync(new CreateOrderRequest
         {
-            CustomerId = 1,
-            AddressId = 11,
-            CouponRecordId = 7,
+            CustomerId = TestIds.Customer,
+            AddressId = TestIds.Address1,
+            CouponRecordId = TestIds.Record,
             Items =
             [
-                new() { ProductId = 1, Quantity = 1 },
-                new() { ProductId = 1, Quantity = 1 },
-                new() { ProductId = 2, Quantity = 1 }
+                new() { ProductId = "P1", Quantity = 1 },
+                new() { ProductId = "P1", Quantity = 1 },
+                new() { ProductId = "P2", Quantity = 1 }
             ]
         });
 
@@ -64,7 +64,7 @@ internal static class OrderServiceScenarioTests
         AssertEx.Equal(1, context.OrderRepository.Orders.Count);
         AssertEx.Equal(2, context.OrderRepository.Details.Count);
         AssertEx.Equal(2, context.InventoryService.LastItems.Count);
-        AssertEx.Equal(2, context.InventoryService.LastItems.Single(item => item.ProductId == 1).Quantity);
+        AssertEx.Equal(2, context.InventoryService.LastItems.Single(item => item.ProductId == "P1").Quantity);
         AssertEx.Equal(180m, result.GoodsAmount);
         AssertEx.Equal(30m, result.DiscountAmount);
         AssertEx.Equal(150m, result.FinalAmount);
@@ -96,7 +96,7 @@ internal static class OrderServiceScenarioTests
         var context = TestContext.Create();
         context.CouponRepository.UsableCoupon = null;
         var request = CreateBasicRequest();
-        request.CouponRecordId = 99;
+        request.CouponRecordId = "missing-record";
 
         await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
             context.Service.CreateOrderAsync(request));
@@ -109,14 +109,14 @@ internal static class OrderServiceScenarioTests
         var context = TestContext.Create();
         context.CouponRepository.UsableCoupon = new MktCouponUsage
         {
-            RecordId = 7,
-            CouponId = 3,
+            RecordId = TestIds.Record,
+            CouponId = TestIds.Coupon,
             CouponName = "满100减20",
             DiscountAmount = 20m
         };
         context.PointRepository.ThrowOnInsert = true;
         var request = CreateBasicRequest();
-        request.CouponRecordId = 7;
+        request.CouponRecordId = TestIds.Record;
 
         await AssertEx.ThrowsAsync<InvalidOperationException>(() =>
             context.Service.CreateOrderAsync(request));
@@ -128,9 +128,9 @@ internal static class OrderServiceScenarioTests
     {
         return new CreateOrderRequest
         {
-            CustomerId = 1,
-            AddressId = 11,
-            Items = [new() { ProductId = 1, Quantity = 2 }]
+            CustomerId = TestIds.Customer,
+            AddressId = TestIds.Address1,
+            Items = [new() { ProductId = "P1", Quantity = 2 }]
         };
     }
 
@@ -174,6 +174,23 @@ internal static class AssertEx
         catch (TException)
         {
             return;
+        }
+
+        throw new InvalidOperationException(
+            $"断言失败：期望抛出 {typeof(TException).Name}");
+    }
+
+    public static async Task<TException> ThrowsAndReturnAsync<TException>(
+        Func<Task> operation)
+        where TException : Exception
+    {
+        try
+        {
+            await operation();
+        }
+        catch (TException exception)
+        {
+            return exception;
         }
 
         throw new InvalidOperationException(

@@ -1,6 +1,6 @@
 # GroupB 跨组接口契约
 
-更新日期：2026-07-27
+更新日期：2026-08-08
 
 ## 1. 通用事务规则
 
@@ -43,11 +43,31 @@ Task ReleaseAsync(
 
 | 商品ID | 商品 | 供应商ID | 单价 | 模拟可用库存 |
 | --- | --- | --- | --- | --- |
-| 1 | 车厘子 | 1 | 50.00 | 100 |
-| 2 | 三文鱼 | 2 | 80.00 | 50 |
-| 3 | 有机蔬菜 | 1 | 20.00 | 200 |
+| P1 | 车厘子 | SUP1 | 50.00 | 100 |
+| P2 | 三文鱼 | SUP2 | 80.00 | 50 |
+| P3 | 有机蔬菜 | SUP1 | 20.00 | 200 |
 
 `DummyInventoryService` 只校验数量并返回确定性快照，不持久化库存变化。
+`ProductId`、`SupplierId` 和 `PromoterId` 均使用字符串，兼容各组的 GUID 主键。
+
+### 2.4 商品目录与可信商品批量查询
+
+接口：`Interfaces/IExternalCatalogServices.cs` 中的 `IGroupAProductCatalogService`。
+
+```csharp
+Task<GroupAProductSearchResult> SearchSellableProductsAsync(
+    GroupAProductSearchRequest request,
+    CancellationToken cancellationToken = default);
+
+Task<IReadOnlyList<GroupATrustedProduct>> GetTrustedProductsAsync(
+    IReadOnlyList<string> productIds,
+    CancellationToken cancellationToken = default);
+```
+
+- B 组先从 C 组取得团长合作供应商集合，再传给 A 组查询可售商品。
+- `SupplierId` 只在后端协作和下单校验中使用；消费者商品 DTO 已用 `JsonIgnore` 禁止输出该字段。
+- 结算和下单必须重新批量读取实际价格、库存、上下架状态和供应商，不能信任购物车缓存。
+- 本仓库只冻结契约，不实现 A 组查询，也不读取 A 组表。
 
 ## 3. B 组调用 A 组：运费与物流履约
 
@@ -65,8 +85,8 @@ Task CreateShipmentAsync(
     CancellationToken cancellationToken = default);
 
 Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
-    int orderId,
-    IReadOnlyList<int> supplierIds,
+    string orderId,
+    IReadOnlyList<string> supplierIds,
     CancellationToken cancellationToken = default);
 ```
 
@@ -112,26 +132,53 @@ Task RegisterCompletedOrderAsync(
 - C 组失败时订单保持已发货，完整事务回滚。
 - `origin/dev-groupC` 当前尚无佣金接口，现阶段使用 `DummyCommissionService`。
 
+### 4.1 团长目录与合作范围
+
+接口：`Interfaces/IExternalCatalogServices.cs` 中的 `IGroupCPromoterCatalogService`。
+
+```csharp
+Task<GroupCPromoterSearchResult> SearchAvailablePromotersAsync(
+    GroupCPromoterSearchRequest request,
+    CancellationToken cancellationToken = default);
+
+Task<GroupCPromoterSummary?> GetPromoterAsync(
+    string promoterId,
+    CancellationToken cancellationToken = default);
+
+Task<IReadOnlyList<string>> GetCooperatingSupplierIdsAsync(
+    string promoterId,
+    CancellationToken cancellationToken = default);
+
+Task<IReadOnlyList<GroupCPromoterProductValidation>> ValidatePromoterProductsAsync(
+    string promoterId,
+    IReadOnlyList<GroupCPromoterProductCandidate> products,
+    CancellationToken cancellationToken = default);
+```
+
+- C 组维护独立的团长—供应商合作关系，不要求修改 `Crm_Promoters` 字段。
+- 消费者端只接收团长和商品信息，不接收供应商编号或合作关系。
+- B 组下单前使用 A 组可信商品快照，再由 C 组批量校验每件商品是否允许该团长带货。
+- 本仓库不创建 C 组合作关系表，也不实现 C 组查询。
+
 ## 5. C 组调用 B 组：退款积分扣回
 
 接口：`IOrderService.DeductPointsForRefundAsync`
 
 ```csharp
 Task DeductPointsForRefundAsync(
-    int customerId,
-    int orderId,
-    int pointsToDeduct);
+    string customerId,
+    string orderId,
+    int pointsToDeduct,
+    CancellationToken cancellationToken = default);
 ```
 
 当前行为：
 
-- 参数必须为正数。
-- 消费者记录会在事务内锁定。
-- 实际扣减不超过当前积分余额。
-- 积分余额与 `REFUND_DEDUCT` 流水在同一事务提交。
+- 消费者和订单 ID 必须为非空、最长 36 位字符串，且订单必须属于指定消费者。
+- 订单和消费者记录会在同一事务内按固定顺序锁定。
+- 同一订单只允许生成一条 `REFUND_DEDUCT` 流水；订单已经是“已退款”时重复调用直接成功返回。
+- 实际扣减不超过当前积分余额、调用方请求值及订单原始奖励积分三者中的最小值。
+- 已支付且尚未发货的订单会通过 A 组契约释放预留库存；已发货或已完成订单不会回补库存。
+- 积分余额、流水、库存释放和订单“已退款”状态在同一事务提交或回滚。
 
-阶段 5 还需补充：
-
-- 按 `orderId` 幂等校验，避免重复退款重复扣分。
-- B 组调用 C 组佣金撤销接口并统一处理失败回滚。
-- 完整退款状态 5→6 和支付退款结果协同。
+阶段 5 仍需由 C 组完成佣金撤销和支付渠道退款，并在调用本接口前保证财务退款结果可信。
