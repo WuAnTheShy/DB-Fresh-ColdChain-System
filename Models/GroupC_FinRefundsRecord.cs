@@ -11,6 +11,9 @@ namespace FreshColdChain.Models
         public string? LiabilityType { get; set; } = "Customer";      // 责任归属: Supplier / Platform / Customer / Logistics
         public DateTime ApplyTime { get; set; }                      // 申请时间
         public string? Remark { get; set; } = string.Empty;           // 备注
+        public string Status { get; set; } = "Pending";              // 审核状态: Pending(待审核) / Approved(已通过) / Rejected(已驳回)
+        public DateTime? AuditTime { get; set; }                     // 审核时间
+        public string? AuditorId { get; set; }                       // 审核人
     }
 }
 

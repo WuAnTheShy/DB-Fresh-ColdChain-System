@@ -43,6 +43,21 @@ namespace FreshColdChain.Services
                     ownTransaction = true;
                     transaction = _uow.Transaction;
                 }
+                else if (_uow.Transaction == null)
+                {
+                    //外部事务（B组传入）：挂载到工作单元，使C组仓储复用事务所在的连接，
+                    //避免"C组自建连接 + B组事务"导致的连接/事务不匹配异常
+                    _uow.AttachExternalTransaction(transaction);
+                }
+                //无团长的普通订单不产生佣金，直接返回成功（0佣金），不阻塞B组订单完成
+                if (string.IsNullOrEmpty(commissionOrderRequest.promoterID))
+                {
+                    if (ownTransaction)
+                        await _uow.CommitAsync();
+                    _commissionResult.IsSuccess = true;
+                    _commissionResult.CommSettlementDate = DateTime.Now;
+                    return _commissionResult;
+                }
                 var _promoterInfo = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(commissionOrderRequest.promoterID, transaction);
                 if (_promoterInfo == null)
                 {
@@ -64,32 +79,8 @@ namespace FreshColdChain.Services
 
                 _commissionResult.CommBaseAmount = _promoterInfo.BaseCommissionRate * commissionOrderRequest.finalAmount;
 
-                if ((_oldTotalSales < 1000 && _newTotalSales >= 1000) ||
-                    (_oldTotalSales < 2000 && _newTotalSales >= 2000))
-                {
-                    _commissionResult.CommBonusAmount = 50;
-                }
-                else if ((_oldTotalSales < 3000 && _newTotalSales >= 3000) ||
-                         (_oldTotalSales < 4000 && _newTotalSales >= 4000) ||
-                         (_oldTotalSales < 6000 && _newTotalSales >= 6000) ||
-                         (_oldTotalSales < 7000 && _newTotalSales >= 7000))
-                {
-                    _commissionResult.CommBonusAmount = 150;
-                }
-                else if ((_oldTotalSales < 8000 && _newTotalSales >= 8000) ||
-                         (_oldTotalSales < 9000 && _newTotalSales >= 9000))
-                {
-                    _commissionResult.CommBonusAmount = 450;
-                }
-                else if ((_oldTotalSales < 5000 && _newTotalSales >= 5000) ||
-                         (_oldTotalSales < 10000 && _newTotalSales >= 10000))
-                {
-                    _commissionResult.CommBonusAmount = 750;
-                }
-                else
-                {
-                    _commissionResult.CommBonusAmount = 0;
-                }
+                //阶梯奖励：累计销售额每跨过一档即发放对应奖励，一单跨多档时全部叠加到该单奖励佣金
+                _commissionResult.CommBonusAmount = GroupC_CommissionBonusPolicy.CalculateCrossedBonus(_oldTotalSales, _newTotalSales);
 
                 var totalCommission = _commissionResult.CommBaseAmount + _commissionResult.CommBonusAmount;
 
@@ -158,8 +149,8 @@ namespace FreshColdChain.Services
             }
 
         }
-        //过退款期激活佣金
-        public async Task<Result> ActivatePromoterMoney(ActivateCommissionOrderRequest request, 
+        //过退款期激活佣金（二段结算：待结算余额 → 可提现余额）
+        public async Task<Result> ActivatePromoterMoney(ActivateCommissionOrderRequest request,
             IDbTransaction? transaction = null, CancellationToken cancellationToken = default)
         {
             var _result = new Result();
@@ -172,29 +163,64 @@ namespace FreshColdChain.Services
                     ownTransaction = true;
                     transaction = _uow.Transaction;
                 }
-                var _promoterInfo = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(request.promoterID, transaction);
+                else if (_uow.Transaction == null)
+                {
+                    //外部事务：挂载到工作单元，使C组仓储复用事务所在的连接
+                    _uow.AttachExternalTransaction(transaction);
+                }
+                if (string.IsNullOrEmpty(request.orderID))
+                {
+                    throw new Exception("订单编号为空");
+                }
+
+                //先查佣金记录并校验状态，再动账（顺序不能反，否则重复调用/退款后调用会错误加钱）
+                var record = await _icommissionRecordRepository.GetByOrderIdAsync(request.orderID, transaction);
+                if (record == null)
+                {
+                    throw new Exception("该订单无佣金记录，无法激活");
+                }
+                if (record.Status == "Settled")
+                {
+                    //幂等：已激活过直接返回成功，不重复动账
+                    if (ownTransaction)
+                        await _uow.CommitAsync();
+                    _result.IsSuccess = true;
+                    return _result;
+                }
+                if (record.Status != "Pending")
+                {
+                    throw new Exception($"佣金记录状态为 {record.Status}，不允许激活");
+                }
+
+                var _promoterInfo = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(record.PromoterId, transaction);
                 if (_promoterInfo == null)
                 {
-
                     throw new Exception("团长信息不存在");
                 }
 
-                var totalCommission = request.commBaseAmount + request.commBonusAmount;
+                //激活金额以佣金记录为准（不信任调用方传入的金额）：
+                //发生过部分退款时，按订单金额留存比例计算剩余有效佣金
+                //（注：部分退款且跨阶梯回滚的极端场景下，与退款时按档位撤销的金额可能存在微小差异，
+                //  如需分毫不差需另增"已回滚佣金"字段，当前按比例口径与记录自洽）
+                var refundRatio = record.FinalAmount > 0
+                    ? record.RefundedAmount / record.FinalAmount
+                    : 0m;
+                var totalCommission = record.TotalCommission * (1 - refundRatio);
+
                 var _oldPromoterPendingBalance = _promoterInfo.PendingBalance;
                 var _oldPromoterCurrentBalance = _promoterInfo.CurrentBalance;
 
-                await _ipromoterRepository.GroupC_UpdatePromoterPendingBalanceAsync(request.promoterID, -totalCommission, transaction);
-                await _ipromoterRepository.GroupC_UpdatePromoterCurrentBalanceAsync(request.promoterID, totalCommission, transaction);
+                //乐观锁：仅当状态仍为 Pending 时才置为 Settled，防止与退款/其他结算任务并发导致重复动账
+                if (!await _icommissionRecordRepository.TryUpdateStatusAsync(record.RecordId, "Pending", "Settled", transaction))
+                {
+                    throw new Exception("佣金记录状态已变化，激活失败请重试");
+                }
+
+                await _ipromoterRepository.GroupC_UpdatePromoterPendingBalanceAsync(record.PromoterId, -totalCommission, transaction);
+                await _ipromoterRepository.GroupC_UpdatePromoterCurrentBalanceAsync(record.PromoterId, totalCommission, transaction);
 
                 var _newPromoterPendingBalance = _oldPromoterPendingBalance - totalCommission;
                 var _newPromoterCurrentBalance = _oldPromoterCurrentBalance + totalCommission;
-
-
-                var record = await _icommissionRecordRepository.GetByOrderIdAsync(request.orderID, transaction);
-                if (record != null && record.Status == "Pending")
-                {
-                    await _icommissionRecordRepository.UpdateStatusAsync(record.RecordId, "Settled", transaction);
-                }
 
                 var _tableLog = new GroupC_LogAuditrails();
                 _tableLog.ActionType = "Update";
@@ -220,7 +246,7 @@ namespace FreshColdChain.Services
                 _tableLog.OperatorType = "Platform";
                 _tableLog.OperatorId = "\\";
                 _tableLog.OldValue = JsonConvert.SerializeObject(new { Status = "Pending" });
-                _tableLog.NewValue = JsonConvert.SerializeObject(new { PendingBalance = "Settled" });
+                _tableLog.NewValue = JsonConvert.SerializeObject(new { Status = "Settled" });
                 await _logManager.WriteTableChangeLog(_tableLog);
                 // 所有业务操作成功，提交事务
                 if (ownTransaction)

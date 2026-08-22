@@ -11,11 +11,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 
-// ========== Dapper »ù´¡ÉèÊ© ==========
+// ========== Dapper åŸºç¡€è®¾æ–½ ==========
 builder.Services.AddScoped<IDbConnectionFactory, OracleDbConnectionFactory>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-// ========== Repository ×¢²á ==========
-//A×é
+// ========== Repository æ³¨å†Œ ==========
+//Aç»„
 builder.Services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
 builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
 builder.Services.AddScoped<ISupplierPriceRepository, SupplierPriceRepository>();
@@ -24,17 +24,17 @@ builder.Services.AddScoped<IStockSummaryRepository, StockSummaryRepository>();
 builder.Services.AddScoped<IStockBatchRepository, StockBatchRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IPriceRuleRepository, PriceRuleRepository>();
-// A×éÀäÁ´×¨Êô²Ö´¢
+// Aç»„å†·é“¾ä¸“å±ä»“å‚¨
 builder.Services.AddScoped<ILogFreightTemplateRepository, LogFreightTemplateRepository>();
 builder.Services.AddScoped<ILogExpressDeliveryRepository, LogExpressDeliveryRepository>();
 builder.Services.AddScoped<ILogFulfillmentBatchItemRepository, LogFulfillmentBatchItemRepository>();
-// B×é
+// Bç»„
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 builder.Services.AddScoped<ICouponRepository, CouponRepository>();
 builder.Services.AddScoped<IPointRepository, PointRepository>();
 builder.Services.AddScoped<IPromoterRepository, PromoterRepository>();
-//C×é
+//Cç»„
 builder.Services.AddScoped<IRefundRepository, RefundRepository>();
 builder.Services.AddScoped<ICommissionRepository, CommissionRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
@@ -43,14 +43,14 @@ builder.Services.AddScoped<ISysAdminRepository, SysAdminRepository>();
 builder.Services.AddScoped<ITableLogRepository, TableLogRepository>();
 builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
 builder.Services.AddScoped<IPromoterSupplierRepository, PromoterSupplierRepository>();
-// ========== Service ×¢²á ==========
-//A×é
+// ========== Service æ³¨å†Œ ==========
+//Aç»„
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
-// A×éÀäÁ´ÔË·Ñ±¨¼ÛÓëÅú´Î¼¶¿É×·Ëİ·¢»õ·şÎñ¡£
+// Aç»„å†·é“¾è¿è´¹æŠ¥ä»·ä¸æ‰¹æ¬¡çº§å¯è¿½æº¯å‘è´§æœåŠ¡ã€‚
 builder.Services.AddScoped<IColdChainLogisticsService, ColdChainLogisticsService>();
 builder.Services.AddScoped<IPricingService, PricingService>();
-//B×é
+//Bç»„
 builder.Services.AddScoped<IOrderTransactionManager, OracleOrderTransactionManager>();
 builder.Services.AddScoped<IPasswordHasher<CrmCustomer>, PasswordHasher<CrmCustomer>>();
 builder.Services.AddScoped<IInventoryService, DummyInventoryService>();
@@ -58,7 +58,7 @@ builder.Services.AddScoped<ILogisticsService, DummyLogisticsService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<ICouponService, CouponService>();
-//C×é
+//Cç»„
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<WithdrawalService>();
 builder.Services.AddScoped<PromoterService>();
@@ -68,11 +68,15 @@ builder.Services.AddScoped<ICommissionService, CommissionService> ();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPromoterService, PromoterService>();
 builder.Services.AddScoped<PromoterPortalDataProvider>();
-//builder.Services.AddScoped<IRefundService, RefundService>();
+builder.Services.AddScoped<IRefundService, RefundService>();
+//ä½£é‡‘äºŒæ®µç»“ç®—å®šæ—¶ä»»åŠ¡ï¼šæ¯å°æ—¶æ‰«æè¿‡14å¤©é€€æ¬¾æœŸçš„ä½£é‡‘è®°å½•å¹¶æ¿€æ´»
+builder.Services.AddHostedService<GroupC_CommissionSettlementWorker>();
 // ========== MVC ==========
 builder.Services.AddControllersWithViews();
+//Bç»„ API ç»Ÿä¸€å¼‚å¸¸è¿‡æ»¤å™¨ï¼ˆ[ServiceFilter] è¦æ±‚å…ˆæ³¨å†Œåˆ° DIï¼‰
+builder.Services.AddScoped<FreshColdChain.Controllers.Api.GroupBApiExceptionFilter>();
 builder.Services.AddDistributedMemoryCache();
-// ======== Controller Ò³Ãæ»á»° ======== 
+// ======== Controller é¡µé¢ä¼šè¯ ======== 
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromMinutes(30);

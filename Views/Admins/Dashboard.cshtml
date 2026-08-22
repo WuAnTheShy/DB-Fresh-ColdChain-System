@@ -79,10 +79,10 @@
         <div class="content-card h-100">
             <div class="content-card-header">
                 <h5>退款管理</h5>
-                <button class="btn btn-sm btn-secondary" disabled>待开发</button>
+                <a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary">进入</a>
             </div>
             <div class="content-card-body">
-                <p class="text-muted small mb-0">退款申请审核、佣金/积分回滚。</p>
+                <p class="text-muted small mb-0">退款申请审核、佣金/积分回滚。当前待审核：@(ViewBag.PendingRefundCount ?? 0) 笔</p>
             </div>
         </div>
     </div>

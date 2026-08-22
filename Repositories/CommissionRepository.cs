@@ -16,7 +16,6 @@ namespace FreshColdChain.Repositories
 
         public async Task<string> InsertAsync(CommissionRecord record, IDbTransaction? transaction = null)
         {
-            record.RecordId = "COM_" + Guid.NewGuid().ToString("N");
             var sql = @"
             INSERT INTO FIN_PROCOMRECORDS (
                 RECORDID, PROMOTERID, ORDERID, FINALAMOUNT,
@@ -36,9 +35,26 @@ namespace FreshColdChain.Repositories
             var sql = @"UPDATE FIN_PROCOMRECORDS SET STATUS = :NewStatus WHERE RECORDID = :RecordId";
             return await _uow.Connection.ExecuteAsync(sql, new { RecordId = recordId, NewStatus = newStatus }, transaction) > 0;
         }
+
+        /// <summary>带旧状态条件的原子状态更新（乐观锁），仅当当前状态为 expectedStatus 时才更新</summary>
+        public async Task<bool> TryUpdateStatusAsync(string recordId, string expectedStatus, string newStatus, IDbTransaction? transaction = null)
+        {
+            var sql = @"UPDATE FIN_PROCOMRECORDS SET STATUS = :NewStatus
+                        WHERE RECORDID = :RecordId AND STATUS = :ExpectedStatus";
+            return await _uow.Connection.ExecuteAsync(sql, new { RecordId = recordId, ExpectedStatus = expectedStatus, NewStatus = newStatus }, transaction) > 0;
+        }
+
+        /// <summary>查询已过退款期（到达预计结算时间）仍未结算的佣金记录</summary>
+        public async Task<List<CommissionRecord>> GetDueSettlementsAsync(DateTime now, IDbTransaction? transaction = null)
+        {
+            var sql = @"SELECT * FROM FIN_PROCOMRECORDS
+                        WHERE STATUS = 'Pending' AND EXPECTEDSETTLEDATE <= :Now";
+            var result = await _uow.Connection.QueryAsync<CommissionRecord>(sql, new { Now = now }, transaction);
+            return result.ToList();
+        }
         public async Task<bool> UpdateRefundedAmountAsync(string recordId, decimal deltaAmount, IDbTransaction? transaction = null)
         {
-            var sql = @"UPDATE FIN_PROCOMRECORDS SET REFUNDEDAMOUNT -= :DeltaAmount WHERE RECORDID = :RecordId";
+            var sql = @"UPDATE FIN_PROCOMRECORDS SET REFUNDEDAMOUNT = REFUNDEDAMOUNT + :DeltaAmount WHERE RECORDID = :RecordId";
             return await _uow.Connection.ExecuteAsync(sql, new { RecordId = recordId, DeltaAmount = deltaAmount }, transaction) > 0;
         }
         public async Task<CommissionRecord?> GetByOrderIdAsync(string orderId, IDbTransaction? transaction = null)

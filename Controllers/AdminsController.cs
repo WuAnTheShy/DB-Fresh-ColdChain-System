@@ -1,4 +1,5 @@
-﻿using FreshColdChain.Models.DTOs;
+﻿using FreshColdChain.Interfaces;
+using FreshColdChain.Models.DTOs;
 using FreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,11 +10,13 @@ namespace FreshColdChain.Controllers
         private readonly PromoterService _promoterService;
         private readonly SystemAdminService _systemAdminService;
         private readonly WithdrawalService _withdrawalService;
-        public AdminsController(PromoterService promoterService, SystemAdminService systemAdminService, WithdrawalService withdrawalService)
+        private readonly IRefundService _refundService;
+        public AdminsController(PromoterService promoterService, SystemAdminService systemAdminService, WithdrawalService withdrawalService, IRefundService refundService)
         {
             _promoterService = promoterService;
             _systemAdminService = systemAdminService;
             _withdrawalService = withdrawalService;
+            _refundService = refundService;
         }
 
         public async Task<IActionResult> PendingPromoters()
@@ -31,6 +34,9 @@ namespace FreshColdChain.Controllers
 
             var pendingWithdrawals = await _withdrawalService.GetPendingWithdrawalsAsync();
             ViewBag.PendingWithdrawalCount = pendingWithdrawals.Count;
+
+            var pendingRefunds = await _refundService.GetPendingRefundsAsync();
+            ViewBag.PendingRefundCount = pendingRefunds.Count;
             return View();
         }
         // 团长审核通过
@@ -113,6 +119,42 @@ namespace FreshColdChain.Controllers
             });
             TempData[result.IsSuccess ? "SuccessMsg" : "ErrorMsg"] = result.ErrorMessage;
             return RedirectToAction(nameof(PendingWithdrawals));
+        }
+
+        // 退款审核列表
+        public async Task<IActionResult> PendingRefunds()
+        {
+            var list = await _refundService.GetPendingRefundsAsync();
+            return View(list);
+        }
+
+        // 退款审核通过：执行退款资金操作（佣金/积分回滚、订单状态变更）
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ApproveRefund(string refundId)
+        {
+            var adminId = HttpContext.Session.GetString("AdminName") ?? "Admin";
+            var result = await _refundService.AuditRefund(refundId, true, adminId);
+            TempData[result.IsSuccess ? "SuccessMsg" : "ErrorMsg"] =
+                result.IsSuccess ? "退款已通过，资金回滚已执行" : result.ErrorMessage;
+            return RedirectToAction(nameof(PendingRefunds));
+        }
+
+        // 退款审核驳回（需要输入原因）
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RejectRefund(string refundId, string rejectReason)
+        {
+            if (string.IsNullOrWhiteSpace(rejectReason))
+            {
+                TempData["ErrorMsg"] = "请填写驳回原因";
+                return RedirectToAction(nameof(PendingRefunds));
+            }
+            var adminId = HttpContext.Session.GetString("AdminName") ?? "Admin";
+            var result = await _refundService.AuditRefund(refundId, false, adminId, rejectReason);
+            TempData[result.IsSuccess ? "SuccessMsg" : "ErrorMsg"] =
+                result.IsSuccess ? "退款申请已驳回" : result.ErrorMessage;
+            return RedirectToAction(nameof(PendingRefunds));
         }
     }
 }
