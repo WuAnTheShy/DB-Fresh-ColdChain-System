@@ -1,4 +1,7 @@
-namespace FreshColdChain.Models.CrossGroup;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+
+namespace FreshColdChain.Models;
 
 // ========== A 组库存模块契约模型 ==========
 
@@ -72,4 +75,54 @@ public class CommissionOrderRequest
     public string? PromoterId { get; init; }
     public decimal CommissionBaseAmount { get; init; }
     public DateTime CompletedAt { get; init; }
+}
+
+// ========== A 组商品目录模块契约模型（与 B 组 IGroupAProductCatalogService 契约逐字对齐）==========
+
+/// <summary>B 组调用 A 组商品目录时使用的查询条件</summary>
+public class GroupAProductSearchRequest
+{
+    public IReadOnlyList<string> SupplierIds { get; init; } = new List<string>();
+    public string? Keyword { get; init; }
+    public string? Category { get; init; }
+
+    [Range(1, int.MaxValue)]
+    public int Page { get; init; } = 1;
+
+    [Range(1, 50)]
+    public int PageSize { get; init; } = 20;
+}
+
+/// <summary>A 组返回给 B 组后端的消费者可售商品</summary>
+public class GroupAConsumerProduct
+{
+    public string ProductId { get; init; } = string.Empty;
+    public string ProductName { get; init; } = string.Empty;
+    public string? ImageUrl { get; init; }
+    public decimal SalePrice { get; init; }
+    public bool IsInStock { get; init; }
+
+    // 仅供 B 组后端校验合作范围，禁止序列化给消费者前端
+    [JsonIgnore]
+    public string SupplierId { get; init; } = string.Empty;
+}
+
+/// <summary>可售商品分页结果</summary>
+public class GroupAProductSearchResult
+{
+    public IReadOnlyList<GroupAConsumerProduct> Items { get; init; } = new List<GroupAConsumerProduct>();
+    public int TotalCount { get; init; }
+    public int Page { get; init; }
+    public int PageSize { get; init; }
+}
+
+/// <summary>结算和下单前由 A 组提供的可信商品信息</summary>
+public class GroupATrustedProduct
+{
+    public string ProductId { get; init; } = string.Empty;
+    public string ProductName { get; init; } = string.Empty;
+    public string SupplierId { get; init; } = string.Empty;
+    public decimal SalePrice { get; init; }
+    public int AvailableStock { get; init; }
+    public bool IsOnSale { get; init; }
 }

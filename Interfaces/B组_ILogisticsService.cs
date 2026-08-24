@@ -1,5 +1,5 @@
 using System.Data;
-using FreshColdChain.Models.CrossGroup;
+using FreshColdChain.Models;
 
 namespace FreshColdChain.Interfaces;
 

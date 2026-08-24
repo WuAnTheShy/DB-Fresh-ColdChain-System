@@ -38,6 +38,7 @@ builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IInventoryService, InventoryServiceAdapter>();
 builder.Services.AddScoped<ILogisticsService, LogisticsServiceAdapter>();
 builder.Services.AddScoped<ICommissionService, DummyCommissionService>();
+builder.Services.AddScoped<IGroupAProductCatalogService, ProductCatalogServiceAdapter>();
 
 // ========== MVC ==========
 builder.Services.AddControllersWithViews();

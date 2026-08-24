@@ -1,7 +1,6 @@
 using System.Data;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
-using FreshColdChain.Models.CrossGroup;
 using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services;
