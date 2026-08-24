@@ -9,14 +9,15 @@
 </head>
 <body>
 @{
-    // 蓝条导航栏和品牌名始终保留；菜单链接只在平台管理页面显示：
-    // 首页、供应商登录页、供应商登录后的页面只显示品牌蓝条，不显示菜单
+    // 蓝条导航栏和品牌名始终保留；
+    // 已登录的供应商始终显示完整导航菜单（冷链物流/运费模板等）；
+    // 未登录时仅平台管理页面显示菜单，首页与登录页只显示品牌蓝条
     var supplierLoggedIn = Context.Session.GetString("SupplierId") != null;
     var currentController = ViewContext.RouteData.Values["controller"] as string;
     var currentAction = ViewContext.RouteData.Values["action"] as string;
-    var showMenu = !supplierLoggedIn
-        && !(currentController == "SuppliersHome" && currentAction == "Index")
-        && !(currentController == "Suppliers" && currentAction == "Login");
+    var showMenu = supplierLoggedIn
+        || (!(currentController == "SuppliersHome" && currentAction == "Index")
+            && !(currentController == "Suppliers" && currentAction == "Login"));
 }
     <header>
         <nav class="navbar navbar-expand-sm navbar-dark bg-primary mb-3">

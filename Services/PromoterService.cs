@@ -147,6 +147,12 @@ namespace FreshColdChain.Services
             }
         }
 
+        // 查询全部团长（管理端启禁用列表用）
+        public async Task<IEnumerable<GroupC_CrmPromoter>> GetAllPromotersAsync()
+        {
+            return await _ipromoterRepository.GroupC_GetAllPromotersAsync();
+        }
+
         // 团长登录验证
         public GroupC_PromoterLoginResult LoginPromoter(string loginAccount, string password)
         {

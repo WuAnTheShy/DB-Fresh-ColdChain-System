@@ -23,8 +23,16 @@
             <div class="card-body">
                 <h3 class="card-title">🏭</h3>
                 <h5>供应商入口</h5>
-                <p class="text-muted">供应商登录，维护自己产品的供货价</p>
-                <a class="btn btn-primary" asp-controller="Suppliers" asp-action="Login">供应商登录</a>
+                @if (!string.IsNullOrEmpty(Context.Session.GetString("SupplierId")))
+                {
+                    <p class="text-muted">已登录：@Context.Session.GetString("SupplierName")</p>
+                    <a class="btn btn-success" asp-controller="Suppliers" asp-action="MyQuotes">进入报价管理</a>
+                }
+                else
+                {
+                    <p class="text-muted">供应商登录，维护自己产品的供货价</p>
+                    <a class="btn btn-primary" asp-controller="Suppliers" asp-action="Login">供应商登录</a>
+                }
             </div>
         </div>
     </div>

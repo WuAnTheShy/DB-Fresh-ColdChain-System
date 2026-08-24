@@ -186,6 +186,12 @@ namespace FreshColdChain.Services
             return await _irefundRepository.GetByOrderIdAsync(orderId);
         }
 
+        public async Task<List<FinRefund>> SearchRefundsAsync(DateTime? startTime, DateTime? endTime,
+            string? orderId, string? status) //管理端组合查询退款记录
+        {
+            return await _irefundRepository.SearchAsync(startTime, endTime, orderId, status);
+        }
+
         //加载订单与佣金记录，并做退款准入校验（状态机 + 已结算拦截 + 14天退款期）
         private async Task<RefundContext> LoadOrderContextAsync(string orderId, IDbTransaction? transaction)
         {

@@ -61,6 +61,28 @@ namespace FreshColdChain.Repositories
             return count > 0;
         }
 
+        // 组合查询退款记录（管理端查询页用，结果上限 500 条）
+        public async Task<List<FinRefund>> SearchAsync(DateTime? startTime, DateTime? endTime,
+            string? orderId, string? status, IDbTransaction? transaction = null)
+        {
+            const string sql = @"
+            SELECT * FROM FIN_REFUND
+            WHERE (:StartTime IS NULL OR APPLYTIME >= :StartTime)
+              AND (:EndTime IS NULL OR APPLYTIME < :EndTime)
+              AND (:OrderId IS NULL OR ORDERID = :OrderId)
+              AND (:Status IS NULL OR STATUS = :Status)
+            ORDER BY APPLYTIME DESC
+            FETCH FIRST 500 ROWS ONLY";
+            var result = await _uow.Connection.QueryAsync<FinRefund>(sql, new
+            {
+                StartTime = startTime,
+                EndTime = endTime,
+                OrderId = string.IsNullOrWhiteSpace(orderId) ? null : orderId.Trim(),
+                Status = string.IsNullOrWhiteSpace(status) ? null : status
+            }, transaction);
+            return result.ToList();
+        }
+
         /// <summary>带旧状态条件的审核状态更新（乐观锁）；Oracle 中 || NULL 等价于拼接空串，审核意见可空</summary>
         public async Task<bool> TryUpdateStatusAsync(string refundId, string expectedStatus, string newStatus,
             string? auditorId, string? auditRemark, IDbTransaction? transaction = null)

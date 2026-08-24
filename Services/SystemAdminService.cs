@@ -11,16 +11,16 @@ namespace FreshColdChain.Services
 {
     public class SystemAdminService
     {
-        // Repository²ã¾ä±ú
-        // ÊÂÎñºËĞÄ¾ä±ú
+        // Repositoryå±‚å¥æŸ„
+        // äº‹åŠ¡æ ¸å¿ƒå¥æŸ„
         private readonly IUnitOfWork _uow;
-        // Êı¾İ¿â·ÃÎÊ¾ä±ú
+        // æ•°æ®åº“è®¿é—®å¥æŸ„
         private readonly ISysAdminRepository _iSysAdminRepository;
         private readonly IPromoterRepository _ipromoterRepository;
-        // Interface²ã¾ä±ú£¨ĞŞÕı×Ö¶ÎÃû£¬Óë¹¹Ôìº¯ÊıÒ»ÖÂ£©
+        // Interfaceå±‚å¥æŸ„ï¼ˆä¿®æ­£å­—æ®µåï¼Œä¸æ„é€ å‡½æ•°ä¸€è‡´ï¼‰
         private readonly ITableLogService _logManager;
 
-        // ¹¹Ôìº¯Êı
+        // æ„é€ å‡½æ•°
         public SystemAdminService(IUnitOfWork uow, ISysAdminRepository iSysAdminRepository, IPromoterRepository ipromoterRepositor,ITableLogService logManager)
         {
             _uow = uow;
@@ -28,7 +28,7 @@ namespace FreshColdChain.Services
             _ipromoterRepository = ipromoterRepositor;
             _logManager = logManager;
         }
-        //¹ÜÀíÔ±×¢²á
+        //ç®¡ç†å‘˜æ³¨å†Œ
         public async Task<Result> RegisterAdmin(GroupC_AdminRegisterInfo registerInfo,
             IDbTransaction? transaction = null, CancellationToken cancellationToken = default)
         {
@@ -45,13 +45,13 @@ namespace FreshColdChain.Services
 
                 if (registerInfo == null || string.IsNullOrWhiteSpace(registerInfo.LoginAccount))
                 {
-                    throw new Exception("ÊäÈë×¢²áĞÅÏ¢²»ÄÜÎª¿Õ");
+                    throw new Exception("è¾“å…¥æ³¨å†Œä¿¡æ¯ä¸èƒ½ä¸ºç©º");
                 }
 
                 bool exists = await _iSysAdminRepository.ExistsUsernameAsync(registerInfo.LoginAccount, transaction);
                 if (exists)
                 {
-                    throw new Exception("¸ÃÓÃ»§ÃûÒÑ´æÔÚ£¬ÇëÖØĞÂÊäÈë");
+                    throw new Exception("è¯¥ç”¨æˆ·åå·²å­˜åœ¨ï¼Œè¯·é‡æ–°è¾“å…¥");
                 }
 
                 string hashedPassword = HashPassword(registerInfo.LoginPassword);
@@ -71,7 +71,7 @@ namespace FreshColdChain.Services
                 var saveresult = await _iSysAdminRepository.SaveUserAsync(admin,true,transaction);
                 if (!saveresult)
                 {
-                    throw new Exception("ÏµÍ³Òì³££ºÌí¼Ó¹ÜÀíÔ±ĞÅÏ¢Ê§°Ü£¬ÇëÉÔºóÔÙÊÔ");
+                    throw new Exception("ç³»ç»Ÿå¼‚å¸¸ï¼šæ·»åŠ ç®¡ç†å‘˜ä¿¡æ¯å¤±è´¥ï¼Œè¯·ç¨åå†è¯•");
                 }
 
                 var log = new GroupC_LogAuditrails
@@ -92,7 +92,7 @@ namespace FreshColdChain.Services
                         CreateTime = admin.CreateTime})
                 };
                 await _logManager.WriteTableChangeLog(log);
-                // ËùÓĞÒµÎñ²Ù×÷³É¹¦£¬Ìá½»ÊÂÎñ
+                // æ‰€æœ‰ä¸šåŠ¡æ“ä½œæˆåŠŸï¼Œæäº¤äº‹åŠ¡
                 if (ownTransaction)
                     await _uow.CommitAsync();
                 result.IsSuccess = true;
@@ -103,29 +103,90 @@ namespace FreshColdChain.Services
                 if (ownTransaction & _uow.Connection.State == ConnectionState.Open)
                     await _uow.RollbackAsync();
                 result.IsSuccess = false;
-                result.ErrorMessage = $"ÏµÍ³´íÎó£º{ex.Message}";
+                result.ErrorMessage = $"ç³»ç»Ÿé”™è¯¯ï¼š{ex.Message}";
                 return result;
             }
         }
-        //¹ÜÀíÔ±µÇÂ¼
+        //ç®¡ç†å‘˜å¯ç”¨/ç¦ç”¨å›¢é•¿è´¦å·ï¼ˆä»… Enable <-> Disable äº’è½¬ï¼›Pending éœ€èµ°æ³¨å†Œå®¡æ ¸æµç¨‹ï¼‰
+        public async Task<Result> SetPromoterStatus(string adminId, string promoterId, string targetStatus,
+            IDbTransaction? transaction = null, CancellationToken cancellationToken = default)
+        {
+            var result = new Result();
+            bool ownTransaction = false;
+            try
+            {
+                if (transaction == null)
+                {
+                    await _uow.BeginAsync();
+                    ownTransaction = true;
+                    transaction = _uow.Transaction;
+                }
+                if (targetStatus is not ("Enable" or "Disable"))
+                {
+                    throw new Exception("éæ³•çš„ç›®æ ‡çŠ¶æ€");
+                }
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, transaction);
+                if (promoter == null)
+                {
+                    throw new Exception("å›¢é•¿ä¸å­˜åœ¨");
+                }
+                if (promoter.Status == "Pending")
+                {
+                    throw new Exception("å¾…å®¡æ ¸çš„å›¢é•¿è¯·å…ˆåˆ°æ³¨å†Œå®¡æ ¸ä¸­å¤„ç†");
+                }
+                if (promoter.Status == targetStatus)
+                {
+                    throw new Exception("è¯¥å›¢é•¿å·²å¤„äºç›®æ ‡çŠ¶æ€ï¼Œæ— éœ€å˜æ›´");
+                }
+
+                var oldStatus = promoter.Status;
+                await _ipromoterRepository.GroupC_UpdatePromoterStatusAsync(promoterId, targetStatus, transaction);
+
+                var log = new GroupC_LogAuditrails
+                {
+                    TableName = "CRM_PROMOTERS",
+                    ActionType = "Update",
+                    OperatorType = "Admin",
+                    OperatorId = adminId,
+                    OldValue = JsonConvert.SerializeObject(new { Status = oldStatus }),
+                    NewValue = JsonConvert.SerializeObject(new { Status = targetStatus })
+                };
+                await _logManager.WriteTableChangeLog(log);
+
+                if (ownTransaction)
+                    await _uow.CommitAsync();
+                result.IsSuccess = true;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                if (ownTransaction && _uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                result.IsSuccess = false;
+                result.ErrorMessage = $"ç³»ç»Ÿé”™è¯¯ï¼š{ex.Message}";
+                return result;
+            }
+        }
+
+        //ç®¡ç†å‘˜ç™»å½•
         public GroupC_AdminLoginResult LoginAdmin(string loginAccount, string password)
         {
             if (string.IsNullOrWhiteSpace(loginAccount) || string.IsNullOrWhiteSpace(password))
-                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "ÕËºÅ»òÃÜÂë²»ÄÜÎª¿Õ" };
+                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "è´¦å·æˆ–å¯†ç ä¸èƒ½ä¸ºç©º" };
 
-            // ÕâÀïÓÃÁËÍ¬²½²éÑ¯£¬ÒòÎªµÇÂ¼²»ĞèÒªÊÂÎñÇÒ¿ìËÙ
+            // è¿™é‡Œç”¨äº†åŒæ­¥æŸ¥è¯¢ï¼Œå› ä¸ºç™»å½•ä¸éœ€è¦äº‹åŠ¡ä¸”å¿«é€Ÿ
             var admin = _iSysAdminRepository.GetUserByName(loginAccount);
             if (admin == null)
-                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "ÕËºÅ²»´æÔÚ" };
+                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "è´¦å·ä¸å­˜åœ¨" };
 
             string hashedInput = HashPassword(password);
             if (admin.PasswordHash != hashedInput)
-                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "ÃÜÂë´íÎó" };
+                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "å¯†ç é”™è¯¯" };
 
             if (admin.Status == "Pending")
-                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "ÕËºÅÉĞÎ´ÉóºËÍ¨¹ı" };
+                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "è´¦å·å°šæœªå®¡æ ¸é€šè¿‡" };
             if (admin.Status == "Disable")
-                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "ÕËºÅÒÑ±»½ûÓÃ" };
+                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "è´¦å·å·²è¢«ç¦ç”¨" };
 
             return new GroupC_AdminLoginResult
             {
@@ -142,8 +203,8 @@ namespace FreshColdChain.Services
             var hash = sha256.ComputeHash(bytes);
             return Convert.ToBase64String(hash);
         }
-        //¹ÜÀíÔ±¹¦ÄÜ£ºÉóºËÍÅ³¤×¢²áĞÅÏ¢
-        /// ÉóºËÍ¨¹ıÍÅ³¤ÉêÇë
+        //ç®¡ç†å‘˜åŠŸèƒ½ï¼šå®¡æ ¸å›¢é•¿æ³¨å†Œä¿¡æ¯
+        /// å®¡æ ¸é€šè¿‡å›¢é•¿ç”³è¯·
         public async Task<Result> ApprovePromoterAsync(string promoterId, string adminId)
         {
             var result = new Result();
@@ -151,26 +212,26 @@ namespace FreshColdChain.Services
             try
             {
                 if (string.IsNullOrWhiteSpace(promoterId))
-                    throw new Exception("ÍÅ³¤ID²»ÄÜÎª¿Õ");
-                //¼ì²éÍÅ³¤ÊÇ·ñ´æÔÚÇÒ×´Ì¬Îª´ıÉóºË×´Ì¬
+                    throw new Exception("å›¢é•¿IDä¸èƒ½ä¸ºç©º");
+                //æ£€æŸ¥å›¢é•¿æ˜¯å¦å­˜åœ¨ä¸”çŠ¶æ€ä¸ºå¾…å®¡æ ¸çŠ¶æ€
                 var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, _uow.Transaction);
                 if (promoter == null)
                 {
-                    throw new Exception("¸ÃÍÅ³¤²»´æÔÚ");
+                    throw new Exception("è¯¥å›¢é•¿ä¸å­˜åœ¨");
                 }
                 if (promoter.Status != "Pending")
                 {
-                    throw new Exception("¸ÃÍÅ³¤ÕËºÅÎŞĞèÉóºË»òÒÑÉóºË");
+                    throw new Exception("è¯¥å›¢é•¿è´¦å·æ— éœ€å®¡æ ¸æˆ–å·²å®¡æ ¸");
                 }
 
-                //¸üĞÂ×´Ì¬ÎªEnable
+                //æ›´æ–°çŠ¶æ€ä¸ºEnable
                 bool updated = await _ipromoterRepository.GroupC_UpdatePromoterStatusAsync(promoterId, "Enable", _uow.Transaction);
                 if (!updated)
                 {
-                    throw new Exception("¸üĞÂ×´Ì¬Ê§°Ü");
+                    throw new Exception("æ›´æ–°çŠ¶æ€å¤±è´¥");
                 }
 
-                //¼ÇÂ¼ÈÕÖ¾
+                //è®°å½•æ—¥å¿—
                 var log = new GroupC_LogAuditrails
                 {
                     TableName = "CRM_PROMOTERS",
@@ -191,12 +252,12 @@ namespace FreshColdChain.Services
                 if (_uow.Connection.State == ConnectionState.Open)
                     await _uow.RollbackAsync();
                 result.IsSuccess = false;
-                result.ErrorMessage = $"ÏµÍ³´íÎó£º{ex.Message}";
+                result.ErrorMessage = $"ç³»ç»Ÿé”™è¯¯ï¼š{ex.Message}";
                 return result;
             }
         }
 
-        // ÉóºË¾Ü¾øÍÅ³¤ÉêÇë
+        // å®¡æ ¸æ‹’ç»å›¢é•¿ç”³è¯·
         public async Task<Result> RejectPromoterAsync(string promoterId, string adminId)
         {
             var result = new Result();
@@ -204,22 +265,22 @@ namespace FreshColdChain.Services
             try
             {
                 if (string.IsNullOrWhiteSpace(promoterId))
-                    throw new Exception("ÍÅ³¤ID²»ÄÜÎª¿Õ");
+                    throw new Exception("å›¢é•¿IDä¸èƒ½ä¸ºç©º");
                 var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, _uow.Transaction);
                 if (promoter == null)
                 {
-                    throw new Exception("¸ÃÍÅ³¤²»´æÔÚ");
+                    throw new Exception("è¯¥å›¢é•¿ä¸å­˜åœ¨");
                 }
                 if (promoter.Status != "Pending")
                 {
-                    throw new Exception("¸ÃÍÅ³¤ÕËºÅÎŞĞèÉóºË»òÒÑÉóºË");
+                    throw new Exception("è¯¥å›¢é•¿è´¦å·æ— éœ€å®¡æ ¸æˆ–å·²å®¡æ ¸");
                 }
 
-                // ¾Ü¾ø£º×´Ì¬¸ÄÎª Disable£¨»òÄãÒ²¿ÉÑ¡ÔñÉ¾³ı£¬µ«±£Áô¼ÇÂ¼¸ü°²È«£©
+                // æ‹’ç»ï¼šçŠ¶æ€æ”¹ä¸º Disableï¼ˆæˆ–ä½ ä¹Ÿå¯é€‰æ‹©åˆ é™¤ï¼Œä½†ä¿ç•™è®°å½•æ›´å®‰å…¨ï¼‰
                 bool updated = await _ipromoterRepository.GroupC_UpdatePromoterStatusAsync(promoterId, "Disable", _uow.Transaction);
                 if (!updated)
                 {
-                    throw new Exception("¸üĞÂ×´Ì¬Ê§°Ü");
+                    throw new Exception("æ›´æ–°çŠ¶æ€å¤±è´¥");
                 }
 
                 var log = new GroupC_LogAuditrails
@@ -242,7 +303,7 @@ namespace FreshColdChain.Services
                 if (_uow.Connection.State == ConnectionState.Open)
                     await _uow.RollbackAsync();
                 result.IsSuccess = false;
-                result.ErrorMessage = $"ÏµÍ³´íÎó£º{ex.Message}";
+                result.ErrorMessage = $"ç³»ç»Ÿé”™è¯¯ï¼š{ex.Message}";
                 return result;
             }
         }

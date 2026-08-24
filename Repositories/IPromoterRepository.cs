@@ -10,6 +10,7 @@ namespace FreshColdChain.Repositories
         Task<GroupC_CrmPromoter?> GroupC_FindPromoterRecordAsync(string? promoterId, IDbTransaction? transaction = null);           //查找团长信息
         GroupC_CrmPromoter? GroupC_FindPromoterRecord(string? promoterId, IDbTransaction? transaction = null);                      //同步查找团长信息
         Task<IEnumerable<GroupC_CrmPromoter>> GroupC_GetPromotersByStatusAsync(string status);  //查找指定状态下团长的信息
+        Task<IEnumerable<GroupC_CrmPromoter>> GroupC_GetAllPromotersAsync();                    //查找全部团长（管理端启禁用列表用）
         Task GroupC_UpdatePromoterTotalSalesAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null);     //修改团长累计销售额
         Task GroupC_UpdatePromoterPendingBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null); //修改团长待结算余额
         Task<bool> GroupC_UpdatePromoterStatusAsync(string promoterId, string newStatus, IDbTransaction? transaction = null);       //修改团长账号状态

@@ -121,7 +121,14 @@ namespace FreshColdChain.Services
                 _result.ErrorMessage = $"系统错误：{ex.Message}";
                 return _result;
             }
-           
+
+        }
+
+        //组合查询支付流水（管理端查询页用）
+        public async Task<List<GroupC_FinPaymentRecord>> SearchPaymentsAsync(DateTime? startTime, DateTime? endTime,
+            string? orderId, string? status)
+        {
+            return await _ipaymentRepository.SearchAsync(startTime, endTime, orderId, status);
         }
     }
 

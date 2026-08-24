@@ -1,0 +1,89 @@
+@model List<FreshColdChain.Models.DTOs.SupplierDto>
+@{
+    ViewData["Title"] = "供应商管理";
+}
+<partial name="_Alerts" />
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5>🏭 供应商列表</h5>
+        <a asp-controller="Suppliers" asp-action="Create" class="btn btn-sm btn-primary">+ 新增供应商</a>
+    </div>
+    <div class="content-card-body p-0">
+        @if (!Model.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>暂无供应商</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>供应商</th>
+                            <th>登录账号</th>
+                            <th>联系电话</th>
+                            <th>信用等级</th>
+                            <th>资质到期日</th>
+                            <th>供货产品数</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            var (badge, text) = item.Status switch
+                            {
+                                "Active" => ("text-bg-success", "正常"),
+                                "Disabled" => ("text-bg-secondary", "已禁用"),
+                                "Rejected" => ("text-bg-danger", "已驳回"),
+                                _ => ("text-bg-warning", "待审核")
+                            };
+                            <tr>
+                                <td>
+                                    @item.SupplierName
+                                    <div class="small text-muted"><code>@item.SupplierID</code></div>
+                                </td>
+                                <td class="small">@item.LoginAccount</td>
+                                <td class="small">@item.ContactPhone</td>
+                                <td>@item.CreditLevel</td>
+                                <td class="small text-muted">@item.ExpiryDate?.ToString("yyyy-MM-dd")</td>
+                                <td>@item.ProductCount</td>
+                                <td><span class="badge @badge">@text</span></td>
+                                <td>
+                                    @if (item.Status == "Active")
+                                    {
+                                        <form asp-action="SetSupplierStatus" method="post" style="display:inline-block;"
+                                              onsubmit="return confirm('确认禁用该供应商？禁用后其无法登录门户。');">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                                            <input type="hidden" name="targetStatus" value="Disabled" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">禁用</button>
+                                        </form>
+                                    }
+                                    else if (item.Status is "Disabled" or "Rejected")
+                                    {
+                                        <form asp-action="SetSupplierStatus" method="post" style="display:inline-block;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                                            <input type="hidden" name="targetStatus" value="Active" />
+                                            <button type="submit" class="btn btn-sm btn-outline-success">重新启用</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <a asp-action="PendingSuppliers" class="btn btn-sm btn-outline-primary">去审核</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

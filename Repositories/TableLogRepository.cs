@@ -53,5 +53,39 @@ namespace FreshColdChain.Repositories
             await connection.OpenAsync(cancellationToken);
             await connection.ExecuteAsync(sql, logData);
         }
+
+        // 组合查询操作日志（管理端查询页用，结果上限 500 条）
+        public async Task<List<GroupC_LogAuditrails>> SearchAsync(DateTime? startTime, DateTime? endTime,
+            string? tableName, string? actionType, string? operatorId)
+        {
+            const string sql = @"
+                SELECT * FROM LOG_AUDITTRAILS
+                WHERE (:StartTime IS NULL OR OPTIME >= :StartTime)
+                  AND (:EndTime IS NULL OR OPTIME < :EndTime)
+                  AND (:TableName IS NULL OR TABLENAME = :TableName)
+                  AND (:ActionType IS NULL OR ACTIONTYPE = :ActionType)
+                  AND (:OperatorId IS NULL OR OPERATORID = :OperatorId)
+                ORDER BY OPTIME DESC
+                FETCH FIRST 500 ROWS ONLY";
+            await using var connection = CreateConnection();
+            var result = await connection.QueryAsync<GroupC_LogAuditrails>(sql, new
+            {
+                StartTime = startTime,
+                EndTime = endTime,
+                TableName = string.IsNullOrWhiteSpace(tableName) ? null : tableName,
+                ActionType = string.IsNullOrWhiteSpace(actionType) ? null : actionType,
+                OperatorId = string.IsNullOrWhiteSpace(operatorId) ? null : operatorId.Trim()
+            });
+            return result.ToList();
+        }
+
+        // 查询日志中出现过的全部表名（筛选下拉用）
+        public async Task<List<string>> GetDistinctTableNamesAsync()
+        {
+            const string sql = "SELECT DISTINCT TABLENAME FROM LOG_AUDITTRAILS ORDER BY TABLENAME";
+            await using var connection = CreateConnection();
+            var result = await connection.QueryAsync<string>(sql);
+            return result.ToList();
+        }
     }
 }

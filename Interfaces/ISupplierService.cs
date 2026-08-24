@@ -43,4 +43,15 @@ public interface ISupplierService
     /// 验证供应商登录密码
     /// </summary>
     Task<ApiResponse<bool>> VerifySupplierPasswordAsync(string loginAccount, string password);
+
+    // ========== 管理端（管理员角色管理用）==========
+
+    /// <summary>全部供应商列表（含状态），供管理员启禁用管理</summary>
+    Task<ApiResponse<List<SupplierDto>>> GetAllSuppliersAsync();
+
+    /// <summary>按状态查询供应商（如 Pending 待审核列表）</summary>
+    Task<ApiResponse<List<SupplierDto>>> GetSuppliersByStatusAsync(string status);
+
+    /// <summary>变更供应商状态（Active/Pending/Disabled/Rejected），含状态流转校验</summary>
+    Task<ApiResponse> SetSupplierStatusAsync(string supplierId, string targetStatus);
 }

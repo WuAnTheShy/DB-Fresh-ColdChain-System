@@ -82,6 +82,10 @@ namespace FreshColdChain.Controllers
                 if (loginResult.IsSuccess == true)  //登录成功
                 {
                     HttpContext.Session.SetString("SupplierName", username);
+                    // 同步建立供应商门户会话（SuppliersController 以 SupplierId 判断登录态），
+                    // 避免进入供应商首页后还需二次登录
+                    if (!string.IsNullOrEmpty(loginResult.SuppierId))
+                        HttpContext.Session.SetString("SupplierId", loginResult.SuppierId);
                     return RedirectToAction("Index", "SuppliersHome");
                 }
                 ModelState.AddModelError("", loginResult.Message);

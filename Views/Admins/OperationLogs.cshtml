@@ -1,0 +1,265 @@
+@model FreshColdChain.Models.DTOs.GroupC_LogQueryViewModel
+@{
+    ViewData["Title"] = "操作日志";
+}
+
+<style>
+    /* 未选择日期时隐藏浏览器原生的"年/月/日"占位文本（Chromium 系） */
+    input.js-date:not(.has-value)::-webkit-datetime-edit {
+        color: transparent;
+    }
+    input.js-date:not(.has-value)::-webkit-calendar-picker-indicator {
+        opacity: 0.45;
+    }
+    /* 变更对比表中的字段值列 */
+    .diff-value {
+        word-break: break-all;
+        white-space: pre-wrap;
+        font-family: Consolas, monospace;
+        font-size: 0.85rem;
+    }
+</style>
+
+<partial name="_Alerts" />
+
+<!-- 查询条件 -->
+<div class="content-card mb-3">
+    <div class="content-card-header">
+        <h5>🔍 查询条件</h5>
+        <span class="text-muted small">结束日期含当天；最多显示最近 500 条</span>
+    </div>
+    <div class="content-card-body">
+        <form asp-action="OperationLogs" method="get" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">开始日期</label>
+                <input type="date" class="form-control js-date" name="startDate"
+                       value="@Model.StartDate?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">结束日期</label>
+                <input type="date" class="form-control js-date" name="endDate"
+                       value="@Model.EndDate?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">操作表</label>
+                <select class="form-select" name="tableName">
+                    <option value="">全部</option>
+                    @foreach (var table in Model.TableNames)
+                    {
+                        <option value="@table" selected="@(Model.TableName == table)">@table</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">操作类型</label>
+                <select class="form-select" name="actionType">
+                    <option value="">全部</option>
+                    <option value="Create" selected="@(Model.ActionType == "Create")">新增</option>
+                    <option value="Update" selected="@(Model.ActionType == "Update")">修改</option>
+                    <option value="Delete" selected="@(Model.ActionType == "Delete")">删除</option>
+                    <option value="Copy" selected="@(Model.ActionType == "Copy")">复制</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">操作者ID</label>
+                <input type="text" class="form-control" name="operatorId" value="@Model.OperatorId"
+                       placeholder="精确匹配" />
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">查询</button>
+                <a asp-action="OperationLogs" class="btn btn-outline-secondary">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 日志列表 -->
+<div class="content-card">
+    <div class="content-card-header">
+        <h5>📋 操作日志（LOG_AUDITTRAILS）</h5>
+        <span class="text-muted small">共 @Model.Logs.Count 条</span>
+    </div>
+    <div class="content-card-body p-0">
+        @if (!Model.Logs.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>没有符合条件的操作日志</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>操作时间</th>
+                            <th>操作表</th>
+                            <th>记录编号</th>
+                            <th>操作类型</th>
+                            <th>操作者</th>
+                            <th>变更内容</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Logs)
+                        {
+                            var (badge, text) = item.ActionType switch
+                            {
+                                "Create" => ("text-bg-success", "新增"),
+                                "Update" => ("text-bg-primary", "修改"),
+                                "Delete" => ("text-bg-danger", "删除"),
+                                "Copy" => ("text-bg-info", "复制"),
+                                _ => ("text-bg-secondary", item.ActionType)
+                            };
+                            <tr>
+                                <td class="small text-muted">@item.OpTime?.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                <td><code class="small">@item.TableName</code></td>
+                                <td><code class="small">@item.RecordId</code></td>
+                                <td><span class="badge @badge">@text</span></td>
+                                <td class="small">
+                                    @item.OperatorType
+                                    @if (!string.IsNullOrEmpty(item.OperatorId) && item.OperatorId != "\\")
+                                    {
+                                        <span class="text-muted">(#@item.OperatorId)</span>
+                                    }
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary js-view-diff"
+                                            data-table="@item.TableName"
+                                            data-action="@item.ActionType"
+                                            data-old="@item.OldValue"
+                                            data-new="@item.NewValue">
+                                        查看
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- 变更内容对比模态框 -->
+<div class="modal fade" id="diffModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="diffModalTitle">变更内容</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="diffModalBody"></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // 未选择日期时隐藏原生占位文本
+        (function () {
+            document.querySelectorAll('input.js-date').forEach(function (input) {
+                var sync = function () {
+                    input.classList.toggle('has-value', !!input.value);
+                };
+                input.addEventListener('input', sync);
+                input.addEventListener('change', sync);
+                sync();
+            });
+        })();
+
+        // 变更内容字段级对比
+        (function () {
+            var modalEl = document.getElementById('diffModal');
+            var modalTitle = document.getElementById('diffModalTitle');
+            var modalBody = document.getElementById('diffModalBody');
+            var modal = new bootstrap.Modal(modalEl);
+
+            function tryParseJson(text) {
+                if (!text || !text.trim()) return null;
+                try {
+                    var value = JSON.parse(text);
+                    return (value && typeof value === 'object') ? value : null;
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function formatValue(value) {
+                if (value === undefined) return '';
+                if (value === null) return 'null';
+                if (typeof value === 'object') return JSON.stringify(value);
+                return String(value);
+            }
+
+            function escapeHtml(text) {
+                var div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            // 渲染字段级对比表：变更高亮黄色，新增字段绿色，删除字段红色
+            function renderDiff(oldObj, newObj) {
+                var keys = [];
+                [oldObj, newObj].forEach(function (obj) {
+                    if (!obj) return;
+                    Object.keys(obj).forEach(function (key) {
+                        if (keys.indexOf(key) === -1) keys.push(key);
+                    });
+                });
+
+                var html = '<table class="table table-bordered align-middle mb-0">'
+                    + '<thead class="table-light"><tr>'
+                    + '<th style="width:22%">字段</th><th style="width:39%">旧值</th><th style="width:39%">新值</th>'
+                    + '</tr></thead><tbody>';
+
+                keys.forEach(function (key) {
+                    var hasOld = oldObj && Object.prototype.hasOwnProperty.call(oldObj, key);
+                    var hasNew = newObj && Object.prototype.hasOwnProperty.call(newObj, key);
+                    var oldText = hasOld ? formatValue(oldObj[key]) : '';
+                    var newText = hasNew ? formatValue(newObj[key]) : '';
+
+                    var rowClass = '';
+                    if (!hasOld) rowClass = 'table-success';        // 新增字段
+                    else if (!hasNew) rowClass = 'table-danger';    // 删除字段
+                    else if (oldText !== newText) rowClass = 'table-warning'; // 值变更
+
+                    html += '<tr class="' + rowClass + '">'
+                        + '<td><code>' + escapeHtml(key) + '</code></td>'
+                        + '<td class="diff-value">' + escapeHtml(oldText) + '</td>'
+                        + '<td class="diff-value">' + escapeHtml(newText) + '</td>'
+                        + '</tr>';
+                });
+
+                return html + '</tbody></table>';
+            }
+
+            // 降级：非 JSON 内容按原文格式化展示
+            function renderRaw(oldText, newText) {
+                var html = '';
+                if (oldText) {
+                    html += '<h6 class="text-muted">旧值</h6><pre class="bg-body-tertiary rounded p-3 small">'
+                        + escapeHtml(oldText) + '</pre>';
+                }
+                if (newText) {
+                    html += '<h6 class="text-muted">新值</h6><pre class="bg-body-tertiary rounded p-3 small">'
+                        + escapeHtml(newText) + '</pre>';
+                }
+                return html || '<p class="text-muted mb-0">无变更内容</p>';
+            }
+
+            document.querySelectorAll('.js-view-diff').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    modalTitle.textContent = btn.dataset.table + ' · ' + btn.dataset.action;
+                    var oldObj = tryParseJson(btn.dataset.old);
+                    var newObj = tryParseJson(btn.dataset.new);
+                    modalBody.innerHTML = (oldObj || newObj)
+                        ? renderDiff(oldObj, newObj)
+                        : renderRaw(btn.dataset.old, btn.dataset.new);
+                    modal.show();
+                });
+            });
+        })();
+    </script>
+}

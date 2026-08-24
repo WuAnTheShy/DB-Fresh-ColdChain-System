@@ -67,6 +67,32 @@ namespace FreshColdChain.Repositories
             return _uow.Connection.QueryFirstOrDefault<GroupC_CrmPromoter>(sql, new { PromoterId = promoterId }, transaction);
         }
 
+        //查找全部团长（管理端启禁用列表用）
+        public async Task<IEnumerable<GroupC_CrmPromoter>> GroupC_GetAllPromotersAsync()
+        {
+            string sql = @"
+                SELECT
+                    PROMOTERID as PromoterId,
+                    PROMOTERNAME as PromoterName,
+                    PHONE as Phone,
+                    INVITECODE as InviteCode,
+                    BASECOMMISSIONRATE as BaseCommissionRate,
+                    CURRENTBALANCE as CurrentBalance,
+                    PENDINGBALANCE as PendingBalance,
+                    TOTALSALES as TotalSales,
+                    TOTALORDERCOUNT as TotalOrderCount,
+                    STATUS as Status,
+                    REGISTERTIME as RegisterTime,
+                    LASTSETTLEMENTTIME as LastSettlementTime,
+                    REMARK as Remark,
+                    LOGINACCOUNT as LoginAccount,
+                    LOGINPASSWORD as LoginPassword
+                FROM CRM_PROMOTERS
+                ORDER BY REGISTERTIME DESC";
+
+            return await _uow.Connection.QueryAsync<GroupC_CrmPromoter>(sql);
+        }
+
         public async Task GroupC_UpdatePromoterTotalSalesAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null)
         {
             string sql = @"

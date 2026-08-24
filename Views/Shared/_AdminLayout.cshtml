@@ -18,22 +18,28 @@
                     <div class="brand-sub">生鲜冷链团购</div>
                 </div>
             </div>
+            @{
+                var adminAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+                var isRoleModule = new[] { "RoleManagement", "PendingPromoters", "PendingSuppliers", "ManagePromoters", "ManageSuppliers", "AddPromoter" }.Contains(adminAction);
+                var isFinanceModule = new[] { "FinanceManagement", "PendingWithdrawals", "PendingRefunds", "PaymentRecords" }.Contains(adminAction);
+                var isLogModule = adminAction == "OperationLogs";
+            }
             <nav class="sidebar-nav">
-                <a asp-controller="Admins" asp-action="DashBoard"
-                   class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "DashBoard" ? "active" : "")">
+                <a asp-controller="Admins" asp-action="Dashboard"
+                   class="nav-link @(adminAction == "Dashboard" ? "active" : "")">
                     <span class="nav-icon">⌂</span> 工作台
                 </a>
-                <a asp-controller="Admins" asp-action="PendingPromoters"
-                   class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "PendingPromoters" ? "active" : "")">
-                    <span class="nav-icon">👤</span> 审核团长
+                <a asp-controller="Admins" asp-action="RoleManagement"
+                   class="nav-link @(isRoleModule ? "active" : "")">
+                    <span class="nav-icon">👥</span> 角色管理
                 </a>
-                <a asp-controller="Admins" asp-action="PendingWithdrawals"
-                   class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "PendingWithdrawals" ? "active" : "")">
-                    <span class="nav-icon">↓</span> 审核提现
+                <a asp-controller="Admins" asp-action="FinanceManagement"
+                   class="nav-link @(isFinanceModule ? "active" : "")">
+                    <span class="nav-icon">💰</span> 财务管理
                 </a>
-                <a asp-controller="Admins" asp-action="AuditLog"
-                   class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "AuditLog" ? "active" : "")">
-                    <span class="nav-icon">📋</span> 审计日志
+                <a asp-controller="Admins" asp-action="OperationLogs"
+                   class="nav-link @(isLogModule ? "active" : "")">
+                    <span class="nav-icon">📋</span> 日志管理
                 </a>
             </nav>
             <div class="sidebar-footer">

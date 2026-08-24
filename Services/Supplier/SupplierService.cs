@@ -230,6 +230,14 @@ public class SupplierService : ISupplierService
             if (!string.Equals(supplier.LoginPassword, inputHash, StringComparison.OrdinalIgnoreCase))
                 return ApiResponse<SupplierDto>.Fail("密码错误");
 
+            // 状态拦截：待审核/已禁用/被驳回的供应商不允许登录
+            if (supplier.Status == "Pending")
+                return ApiResponse<SupplierDto>.Fail("入驻申请正在审核中，请耐心等待");
+            if (supplier.Status == "Rejected")
+                return ApiResponse<SupplierDto>.Fail("入驻申请已被驳回，请联系平台管理员");
+            if (supplier.Status != "Active")
+                return ApiResponse<SupplierDto>.Fail("账号已被禁用，请联系平台管理员");
+
             return ApiResponse<SupplierDto>.Success(MapToDto(supplier), "登录成功");
         }
         catch (Exception ex)
@@ -286,12 +294,66 @@ public class SupplierService : ISupplierService
         return ApiResponse<bool>.Success(valid, valid ? "验证通过" : "密码错误");
     }
 
+    // ========== 管理端（管理员角色管理用）==========
+
+    /// <summary>全部供应商列表（含状态），供管理员启禁用管理</summary>
+    public async Task<ApiResponse<List<SupplierDto>>> GetAllSuppliersAsync()
+    {
+        var all = await _repo.GetAllAsync();
+        return ApiResponse<List<SupplierDto>>.Success(all.Select(MapToDto).ToList());
+    }
+
+    /// <summary>按状态查询供应商（如 Pending 待审核列表）</summary>
+    public async Task<ApiResponse<List<SupplierDto>>> GetSuppliersByStatusAsync(string status)
+    {
+        var all = await _repo.GetAllAsync();
+        var list = all.Where(s => s.Status == status).Select(MapToDto).ToList();
+        return ApiResponse<List<SupplierDto>>.Success(list);
+    }
+
+    /// <summary>变更供应商状态，含状态流转校验（Active/Pending/Disabled/Rejected）</summary>
+    public async Task<ApiResponse> SetSupplierStatusAsync(string supplierId, string targetStatus)
+    {
+        var allowedTargets = new[] { "Active", "Pending", "Disabled", "Rejected" };
+        if (!allowedTargets.Contains(targetStatus))
+            return ApiResponse.Fail("非法的目标状态");
+
+        try
+        {
+            var supplier = await _repo.GetByIdAsync(supplierId);
+            if (supplier == null)
+                return ApiResponse.Fail("供应商不存在", 404);
+            if (supplier.Status == targetStatus)
+                return ApiResponse.Fail("供应商已处于该状态，无需变更");
+
+            // 状态流转约束：待审核只能 通过(Active)/驳回(Rejected)；已禁用/已驳回只能重新启用(Active)；正常只能禁用
+            var allowed = supplier.Status switch
+            {
+                "Pending" => new[] { "Active", "Rejected" },
+                "Active" => new[] { "Disabled" },
+                "Disabled" or "Rejected" => new[] { "Active" },
+                _ => Array.Empty<string>()
+            };
+            if (!allowed.Contains(targetStatus))
+                return ApiResponse.Fail($"不允许从 {supplier.Status} 变更为 {targetStatus}");
+
+            supplier.Status = targetStatus;
+            _repo.Update(supplier);
+            return ApiResponse.Success("状态已更新");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse.Fail($"状态更新失败：{ex.Message}");
+        }
+    }
+
     private static SupplierDto MapToDto(InvSupplier s) => new()
     {
         SupplierID = s.SupplierID, SupplierName = s.SupplierName,
         LicenseNo = s.LicenseNo, ExpiryDate = s.ExpiryDate,
         CreditLevel = s.CreditLevel, ContactPhone = s.ContactPhone,
         LoginAccount = s.LoginAccount,
+        Status = s.Status,
         // SQL 聚合查出来的产品数优先（列表页）；否则用已加载的 Products（详情页）
         ProductCount = s.ProductCount > 0 ? s.ProductCount : (s.Products?.Count ?? 0)
     };

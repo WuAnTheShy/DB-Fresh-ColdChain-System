@@ -24,5 +24,9 @@ namespace FreshColdChain.Repositories
         //带旧状态条件的审核状态更新（乐观锁），同时记录审核人/审核时间/审核意见
         Task<bool> TryUpdateStatusAsync(string refundId, string expectedStatus, string newStatus,
             string? auditorId, string? auditRemark, IDbTransaction? transaction = null);
+
+        //组合查询退款记录：时间区间 [startTime, endTime) + 订单号 + 审核状态，按申请时间倒序
+        Task<List<FinRefund>> SearchAsync(DateTime? startTime, DateTime? endTime,
+            string? orderId, string? status, IDbTransaction? transaction = null);
     }
 }

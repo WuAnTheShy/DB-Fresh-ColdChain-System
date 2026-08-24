@@ -94,7 +94,7 @@ public class SuppliersController : Controller
     public IActionResult Logout()
     {
         HttpContext.Session.Clear();
-        return RedirectToAction(nameof(Login));
+        return RedirectToAction("Index", "Home");
     }
 
     [HttpGet]
