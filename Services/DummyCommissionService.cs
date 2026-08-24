@@ -1,6 +1,7 @@
 using System.Data;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
+using FreshColdChain.Models.CrossGroup_C;
 
 namespace FreshColdChain.Services;
 
@@ -9,7 +10,7 @@ namespace FreshColdChain.Services;
 /// </summary>
 public sealed class DummyCommissionService : ICommissionService
 {
-    public Task RegisterCompletedOrderAsync(
+    public Task<CommissionResult> RegisterCompletedOrderAsync(
         CommissionOrderRequest request,
         IDbTransaction transaction,
         CancellationToken cancellationToken = default)
@@ -17,6 +18,20 @@ public sealed class DummyCommissionService : ICommissionService
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(transaction);
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.CompletedTask;
+        return Task.FromResult(new CommissionResult
+        {
+            IsSuccess = true,
+            CommSettlementDate = DateTime.Now
+        });
+    }
+
+    public Task<Result> ActivatePromoterMoney(
+        ActivateCommissionOrderRequest request,
+        IDbTransaction? transaction = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new Result { IsSuccess = true });
     }
 }

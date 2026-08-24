@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/DB-Fresh-ColdChain-System.csproj",
+                "${workspaceFolder}/FreshColdChain.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary;ForceNoAlign"
             ],
@@ -19,7 +19,7 @@
             "type": "process",
             "args": [
                 "publish",
-                "${workspaceFolder}/DB-Fresh-ColdChain-System.csproj",
+                "${workspaceFolder}/FreshColdChain.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary;ForceNoAlign"
             ],
@@ -33,7 +33,7 @@
                 "watch",
                 "run",
                 "--project",
-                "${workspaceFolder}/DB-Fresh-ColdChain-System.csproj"
+                "${workspaceFolder}/FreshColdChain.csproj"
             ],
             "problemMatcher": "$msCompile"
         }
