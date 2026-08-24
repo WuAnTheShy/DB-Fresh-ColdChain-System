@@ -1,0 +1,64 @@
+﻿@model List<GroupC_CrmPromoter>
+@{
+    ViewData["Title"] = "待审核团长";
+}
+
+    <partial name="_Alerts" />
+
+    <div class="content-card">
+        <div class="content-card-header">
+            <h5>👤 待激活团长账号</h5>
+            <span class="text-muted small">共 @Model.Count 条待审核</span>
+        </div>
+        <div class="content-card-body p-0">
+            @if (!Model.Any())
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">🎉</div>
+                    <p>暂无待审核的团长，一切正常！</p>
+                    <a asp-controller="Admins" asp-action="DashBoard" class="btn btn-sm btn-outline-primary">返回工作台</a>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>团长编号</th>
+                                <th>团长名称</th>
+                                <th>登录账号</th>
+                                <th>联系方式</th>
+                                <th>注册时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model)
+                            {
+                                <tr>
+                                    <td><code class="small">@item.PromoterId</code></td>
+                                    <td><strong>@item.PromoterName</strong></td>
+                                    <td>@item.LoginAccount</td>
+                                    <td>@item.Phone</td>
+                                    <td class="small text-muted">@item.RegisterTime.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>
+                                        <form asp-action="ApprovePromoter" method="post" style="display:inline-block;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="promoterId" value="@item.PromoterId" />
+                                            <button type="submit" class="btn btn-sm btn-success">✓ 通过</button>
+                                        </form>
+                                        <form asp-action="RejectPromoter" method="post" style="display:inline-block;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="promoterId" value="@item.PromoterId" />
+                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要拒绝该团长注册吗？');">✗ 拒绝</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>

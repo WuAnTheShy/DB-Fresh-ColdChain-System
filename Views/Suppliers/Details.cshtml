@@ -1,0 +1,42 @@
+@model SupplierDto
+@{ ViewData["Title"] = $"供应商 — {Model.SupplierName}"; }
+<h3>@Model.SupplierName</h3>
+<table class="table table-bordered w-50">
+    <tr><th style="width:120px">编号</th><td>@Model.SupplierID</td></tr>
+    <tr><th>名称</th><td>@Model.SupplierName</td></tr>
+    <tr><th>资质号</th><td>@Model.LicenseNo</td></tr>
+    <tr><th>到期时间</th><td>@Model.ExpiryDate?.ToString("yyyy-MM-dd")</td></tr>
+    <tr><th>信用等级</th><td>@Model.CreditLevel</td></tr>
+    <tr><th>电话</th><td>@Model.ContactPhone</td></tr>
+    <tr><th>已报价产品数</th><td>@Model.ProductCount</td></tr>
+</table>
+<a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model.SupplierID">编辑</a>
+<a class="btn btn-outline-secondary" asp-action="Index">返回</a>
+
+@{
+    var quotes = ViewBag.Quotes as List<SupplierProductQuoteDto> ?? new();
+}
+<h4 class="mt-4">供货产品与报价</h4>
+<p class="text-muted small mb-2">供货价由供应商自行维护（供应商入口登录），平台只读；入库时自动带出该报价作为进价。</p>
+@if (quotes.Any())
+{
+    <table class="table table-sm table-striped w-75">
+        <thead><tr><th>产品</th><th>当前供货价</th><th>供应商声明保质期</th><th>更新时间</th></tr></thead>
+        <tbody>
+        @foreach (var q in quotes)
+        {
+            var effectiveShelf = q.ShelfLifeHours ?? q.ProductExpiryHours;
+            <tr>
+                <td>@q.ProductName</td>
+                <td>@(q.SupplyPrice.HasValue ? $"¥{q.SupplyPrice:F2}" : "未报价")</td>
+                <td>@(effectiveShelf.HasValue ? $"{effectiveShelf} 小时（{effectiveShelf / 24.0:0.#} 天）" : "未设置")</td>
+                <td>@(q.UpdateTime?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+else
+{
+    <p class="text-muted">该供应商暂无供货产品。</p>
+}

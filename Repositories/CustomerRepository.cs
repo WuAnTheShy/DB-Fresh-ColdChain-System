@@ -7,7 +7,7 @@ namespace FreshColdChain.Repositories;
 /// <summary>
 /// 消费者数据访问层 - Crm_Customers, Crm_UserAddresses
 /// </summary>
-public class CustomerRepository : BaseRepository, ICustomerRepository
+public class CustomerRepository : B_BaseRepository, ICustomerRepository
 {
     public CustomerRepository(IConfiguration configuration) : base(configuration) { }
 

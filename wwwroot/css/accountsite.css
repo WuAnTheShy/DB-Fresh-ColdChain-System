@@ -1,0 +1,40 @@
+﻿.bg {
+    background: linear-gradient(135deg, #f7e6f0 0%, #efebe9 100%);
+    border-bottom: 0;
+    box-shadow: 0 4px 12px rgba(48, 63, 159, 0.3);
+}
+
+.selection1 {
+    background: #f8f8ff;
+    border-radius: 0.75rem;
+    padding: 2rem;
+    margin-top: 2rem;
+    transition: transform 0.25s ease, box-shadow 0.25s ease; /* 平滑过渡 */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+
+.selection2 {
+    background: linear-gradient(135deg, #1b5e20 0%, #4caf50 100%);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    margin-top: 2rem;
+}
+
+.button1 {
+    background: #009688;
+}
+
+.button2 {
+    background: #004d40;
+}
+
+.button1, .button2 {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+    .button1:hover, .button2:hover {
+        background: #386641;
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    }

@@ -7,7 +7,7 @@ namespace FreshColdChain.Repositories;
 /// <summary>
 /// 优惠券数据访问层 - Mkt_Coupons, Mkt_CouponRecords
 /// </summary>
-public class CouponRepository : BaseRepository, ICouponRepository
+public class CouponRepository : B_BaseRepository, ICouponRepository
 {
     public CouponRepository(IConfiguration configuration) : base(configuration) { }
 

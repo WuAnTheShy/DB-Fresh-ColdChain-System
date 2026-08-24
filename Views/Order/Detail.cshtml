@@ -87,6 +87,18 @@
             </div>
         }
 
+        @if (order.OrderStatus is OrderStatusCodes.Paid or OrderStatusCodes.Shipped
+            or OrderStatusCodes.Completed or OrderStatusCodes.Refunding)
+        {
+            <div class="card shadow-sm mb-4">
+                <div class="card-body d-flex flex-wrap align-items-center gap-2">
+                    <span class="text-muted me-2">售后服务</span>
+                    <a asp-controller="Refund" asp-action="Apply" asp-route-orderId="@order.OrderId"
+                       class="btn btn-outline-danger">申请退款</a>
+                </div>
+            </div>
+        }
+
         <div class="row g-4 mb-4">
             <div class="col-lg-7">
                 <div class="card shadow-sm h-100">

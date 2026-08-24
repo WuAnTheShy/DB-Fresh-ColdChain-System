@@ -1,0 +1,183 @@
+@model PromoterPerformanceViewModel
+@{
+    ViewData["Title"] = "业绩概览";
+}
+
+<div class="page-hero page-hero-purple">
+    <div>
+        <div class="hero-greeting">@Model.PromoterName 的业绩</div>
+        <div class="hero-meta">
+            <span class="level-badge">@Model.LevelName</span>
+            <span class="text-white-50">· 基础佣金 @Model.CurrentTierRate%</span>
+            <span class="text-white-50">· 累计 @Model.TotalOrderCount 笔订单</span>
+        </div>
+    </div>
+    <div class="hero-stat-pill">
+        <div class="pill-label">累计有效销售额</div>
+        <div class="pill-value">¥@Model.TotalSales.ToString("N2")</div>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card sales">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-purple-subtle text-purple">📈</span>
+            <span class="stat-label">累计有效销售额</span>
+        </div>
+        <div class="stat-value">@Model.TotalSales.ToString("N2")</div>
+        <div class="stat-sub">本月有效订单 @Model.TotalOrderCount 笔</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-success-subtle text-success">%</span>
+            <span class="stat-label">当前佣金比例</span>
+        </div>
+        <div class="stat-value">@Model.CurrentTierRate<span style="font-size:16px">%</span></div>
+        <div class="stat-sub">按累计销售额阶梯计算</div>
+    </div>
+    <div class="stat-card pending">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-warning-subtle text-warning">⏳</span>
+            <span class="stat-label">待结算佣金</span>
+        </div>
+        <div class="stat-value text-warning">@Model.PendingBalance.ToString("N2")</div>
+        <div class="stat-sub">退款保护期内</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-success-subtle text-success">¥</span>
+            <span class="stat-label">可提现余额</span>
+        </div>
+        <div class="stat-value text-success">@Model.CurrentBalance.ToString("N2")</div>
+        <div class="stat-sub">已过退款期</div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <!-- 等级阶梯可视化 -->
+        <div class="content-card">
+            <div class="content-card-header"><h5>等级阶梯</h5></div>
+            <div class="content-card-body">
+                <div class="tier-ladder">
+                    @foreach (var step in Model.TierSteps)
+                    {
+                        <div class="tier-step @(step.IsCurrent ? "current" : "") @(step.IsAchieved ? "achieved" : "")">
+                            <div class="tier-step-marker">
+                                @if (step.IsAchieved)
+                                {
+                                    <span>✓</span>
+                                }
+                                else
+                                {
+                                    <span>@step.Rate%</span>
+                                }
+                            </div>
+                            <div class="tier-step-body">
+                                <div class="tier-step-name">@step.LevelName @(step.IsCurrent ? "（当前）" : "")</div>
+                                <div class="tier-step-range text-muted small">@step.SalesRange · 佣金 @step.Rate%</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- 佣金阶梯表 -->
+        <div class="content-card">
+            <div class="content-card-header"><h5>佣金比例阶梯说明</h5></div>
+            <div class="content-card-body p-0">
+                <table class="table mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>累计有效销售额</th>
+                            <th>等级名称</th>
+                            <th>基础佣金</th>
+                            <th>里程碑奖励</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var step in Model.TierSteps)
+                        {
+                            <tr class="@(step.IsCurrent ? "table-success" : "")">
+                                <td>@step.SalesRange</td>
+                                <td>@(step.IsCurrent ? "★ " : "")@step.LevelName</td>
+                                <td><strong>@step.Rate%</strong></td>
+                                <td class="text-muted small">
+                                    @(step.Threshold > 0 ? $"首次达 ¥{step.Threshold:N0}" : "—")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <!-- 晋升进度 -->
+        <div class="content-card">
+            <div class="content-card-header"><h5>晋升进度</h5></div>
+            <div class="content-card-body">
+                @if (Model.IsMaxTier)
+                {
+                    <div class="alert alert-success mb-0">
+                        🎉 已达最高等级「钻石团长」，享受 <strong>8%</strong> 基础佣金！
+                    </div>
+                }
+                else
+                {
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="level-badge-lg">@Model.LevelName</span>
+                        <span class="text-muted small">→ @Model.NextTierRate%</span>
+                    </div>
+                    <div class="tier-progress-wrap mb-3">
+                        <div class="tier-bar">
+                            <div class="tier-bar-fill" style="width:@Model.TierProgressPercent.ToString("F1")%"></div>
+                        </div>
+                        <div class="tier-labels">
+                            <span>¥@Model.TotalSales.ToString("N0")</span>
+                            <span>¥@Model.NextTierThreshold.ToString("N0")</span>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        还需 <strong>¥@((Model.NextTierThreshold - Model.TotalSales).ToString("N2"))</strong>
+                        有效销售额，佣金比例将从 <strong>@Model.CurrentTierRate%</strong> 升至 <strong>@Model.NextTierRate%</strong>。
+                    </p>
+                }
+            </div>
+        </div>
+
+        <!-- 里程碑奖励 -->
+        <div class="content-card">
+            <div class="content-card-header"><h5>里程碑奖励</h5></div>
+            <div class="content-card-body">
+                <p class="text-muted small">累计销售额<strong>首次</strong>跨越里程碑时，一次性发放额外奖励佣金。</p>
+                <div class="milestone-list">
+                    @foreach (var m in Model.Milestones)
+                    {
+                        <div class="milestone-item @(m.IsAchieved ? "achieved" : "")">
+                            <div class="milestone-icon">@(m.IsAchieved ? "✓" : "○")</div>
+                            <div class="milestone-body">
+                                <div class="milestone-label">@m.Label</div>
+                                <div class="milestone-bonus text-success">+¥@m.BonusAmount.ToString("N2") 奖励佣金</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <div class="content-card-header"><h5>结算说明</h5></div>
+            <div class="content-card-body">
+                <ul class="text-muted small mb-0 ps-3">
+                    <li>订单签收后生成佣金，计入待结算余额</li>
+                    <li>签收后 14 天退款期内为保护期</li>
+                    <li>保护期结束后自动转入可提现余额</li>
+                    <li>每月 1 日累计销售额按结算周期重置</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,6 +1,7 @@
 using System.Data;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
+using FreshColdChain.Models.CrossGroup_C;
 using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services;
@@ -285,12 +286,10 @@ public sealed class OrderService : IOrderService
                 await _commissionService.RegisterCompletedOrderAsync(
                     new CommissionOrderRequest
                     {
-                        OrderId = context.Order.OrderId,
-                        OrderNo = context.Order.OrderNo,
-                        CustomerId = context.Customer.CustomerId,
-                        PromoterId = context.Customer.PromoterId,
-                        CommissionBaseAmount = context.Order.FinalAmount,
-                        CompletedAt = DateTime.Now
+                        orderID = context.Order.OrderId,
+                        promoterID = context.Customer.PromoterId,
+                        finalAmount = context.Order.FinalAmount,
+                        goodsAmount = context.Order.TotalAmount
                     },
                     transaction,
                     cancellationToken);
@@ -406,8 +405,8 @@ public sealed class OrderService : IOrderService
             throw new OrderBusinessException("消费者ID格式不正确");
         if (!GroupBIds.IsValid(orderId))
             throw new OrderBusinessException("订单ID格式不正确");
-        if (pointsToDeduct <= 0)
-            throw new OrderBusinessException("扣回积分必须大于0");
+        if (pointsToDeduct < 0)
+            throw new OrderBusinessException("扣回积分不能为负数");
 
         await _transactionManager.ExecuteAsync(async transaction =>
         {
@@ -430,11 +429,13 @@ public sealed class OrderService : IOrderService
                 throw new OrderBusinessException("订单状态无效，无法完成退款");
             }
 
-            if (await _pointRepo.HasPointLogAsync(
-                customerId,
-                orderId,
-                "REFUND_DEDUCT",
-                transaction))
+            // 订单处于"退款中"说明此前发生过部分退款，允许继续整单退款并扣回剩余积分
+            if (currentStatus != OrderStatus.Refunding &&
+                await _pointRepo.HasPointLogAsync(
+                    customerId,
+                    orderId,
+                    "REFUND_DEDUCT",
+                    transaction))
             {
                 throw new OrderBusinessException("退款积分流水已存在但订单状态不一致");
             }
@@ -479,6 +480,75 @@ public sealed class OrderService : IOrderService
                 currentStatus,
                 OrderStatus.Refunded,
                 transaction))
+            {
+                throw new OrderBusinessException("订单状态已变化，请刷新后重试");
+            }
+        });
+    }
+
+    /// 部分退款时按比例扣回积分并将订单置为"退款中" - 供 C 组调用。
+    /// </summary>
+    public async Task DeductPointsForPartialRefundAsync(
+        string customerId,
+        string orderId,
+        int pointsToDeduct,
+        CancellationToken cancellationToken = default)
+    {
+        if (!GroupBIds.IsValid(customerId))
+            throw new OrderBusinessException("消费者ID格式不正确");
+        if (!GroupBIds.IsValid(orderId))
+            throw new OrderBusinessException("订单ID格式不正确");
+        if (pointsToDeduct < 0)
+            throw new OrderBusinessException("扣回积分不能为负数");
+
+        await _transactionManager.ExecuteAsync(async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var context = await GetLockedOrderContextAsync(orderId, transaction);
+            if (context.Customer.CustomerId != customerId)
+                throw new OrderBusinessException("订单不属于指定消费者");
+
+            var currentStatus = OrderStatusCodes.Parse(context.Order.OrderStatus);
+            if (currentStatus is OrderStatus.PendingPayment or OrderStatus.Cancelled
+                or OrderStatus.Refunded)
+                throw new OrderBusinessException("当前订单状态不允许部分退款");
+            if (currentStatus == OrderStatus.Paid)
+                throw new OrderBusinessException("未发货订单请使用整单退款");
+            if (currentStatus is not (
+                OrderStatus.Shipped or
+                OrderStatus.Completed or
+                OrderStatus.Refunding))
+            {
+                throw new OrderBusinessException("订单状态无效，无法部分退款");
+            }
+
+            var actualDeduction = Math.Min(
+                context.Customer.Points,
+                pointsToDeduct);
+            if (actualDeduction > 0)
+            {
+                var newPoints = context.Customer.Points - actualDeduction;
+                await _customerRepo.UpdatePointsAsync(
+                    customerId,
+                    newPoints,
+                    transaction);
+                await _pointRepo.InsertLogAsync(new CrmPointLog
+                {
+                    PointLogId = GroupBIds.NewId(),
+                    CustomerId = customerId,
+                    ChangeAmount = -actualDeduction,
+                    BalanceAfter = newPoints,
+                    ChangeType = "REFUND_DEDUCT",
+                    OrderId = orderId
+                }, transaction);
+            }
+
+            if (currentStatus != OrderStatus.Refunding &&
+                !await _orderRepo.TryUpdateStatusAsync(
+                    orderId,
+                    currentStatus,
+                    OrderStatus.Refunding,
+                    transaction))
             {
                 throw new OrderBusinessException("订单状态已变化，请刷新后重试");
             }

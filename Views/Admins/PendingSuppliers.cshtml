@@ -1,0 +1,94 @@
+@model List<FreshColdChain.Models.DTOs.SupplierDto>
+@{
+    ViewData["Title"] = "供应商注册审核";
+}
+<partial name="_Alerts" />
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5>📋 待审核供应商</h5>
+        <span class="text-muted small">共 @Model.Count 家 · 驳回需填写原因</span>
+    </div>
+    <div class="content-card-body p-0">
+        @if (!Model.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>暂无待审核的供应商入驻申请</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>供应商编号</th>
+                            <th>名称</th>
+                            <th>营业执照号</th>
+                            <th>资质到期日</th>
+                            <th>信用等级</th>
+                            <th>联系电话</th>
+                            <th>登录账号</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td><code class="small">@item.SupplierID</code></td>
+                                <td>@item.SupplierName</td>
+                                <td class="small">@item.LicenseNo</td>
+                                <td class="small text-muted">@item.ExpiryDate?.ToString("yyyy-MM-dd")</td>
+                                <td>@item.CreditLevel</td>
+                                <td class="small">@item.ContactPhone</td>
+                                <td class="small">@item.LoginAccount</td>
+                                <td>
+                                    <form asp-action="ApproveSupplier" method="post" style="display:inline-block;"
+                                          onsubmit="return confirm('确认通过该供应商的入驻申请？');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                                        <button type="submit" class="btn btn-sm btn-success">通过</button>
+                                    </form>
+                                    <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal-@item.SupplierID">
+                                        驳回
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- 每个供应商一个专属驳回模态框 -->
+@foreach (var item in Model)
+{
+    <div class="modal fade" id="rejectModal-@item.SupplierID" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">驳回入驻申请 - @item.SupplierName</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form asp-action="RejectSupplier" method="post">
+                    <div class="modal-body">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                        <div class="mb-3">
+                            <label class="form-label">驳回原因</label>
+                            <textarea name="rejectReason" class="form-control" rows="3" placeholder="请填写驳回原因..." required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-danger">确认驳回</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}

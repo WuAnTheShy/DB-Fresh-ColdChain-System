@@ -1,0 +1,177 @@
+@model PromoterProfileViewModel
+@{
+    ViewData["Title"] = "个人资料";
+    var p = Model.Promoter;
+    var commissionRateDisplay = p.BaseCommissionRate < 1 ? p.BaseCommissionRate * 100 : p.BaseCommissionRate;
+}
+
+<div class="profile-header-card">
+    <div class="profile-avatar">@p.PromoterName.FirstOrDefault('团')</div>
+    <div class="profile-header-info">
+        <div class="profile-name">@p.PromoterName</div>
+        <div class="profile-meta">
+            <span class="level-badge-lg">@Model.LevelName</span>
+            <span class="badge bg-@Model.StatusBadgeClass">@Model.StatusLabel</span>
+            <span class="text-muted small">ID: @p.PromoterId</span>
+        </div>
+    </div>
+    <div class="profile-header-balance">
+        <div class="pill-label">资产合计</div>
+        <div class="pill-value text-success">¥@Model.TotalAsset.ToString("N2")</div>
+    </div>
+</div>
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-success-subtle text-success">¥</span>
+            <span class="stat-label">可提现</span>
+        </div>
+        <div class="stat-value text-success">@p.CurrentBalance.ToString("N2")</div>
+    </div>
+    <div class="stat-card pending">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-warning-subtle text-warning">⏳</span>
+            <span class="stat-label">待结算</span>
+        </div>
+        <div class="stat-value text-warning">@p.PendingBalance.ToString("N2")</div>
+    </div>
+    <div class="stat-card frozen">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-info-subtle text-info">🔒</span>
+            <span class="stat-label">冻结中</span>
+        </div>
+        <div class="stat-value text-info">@p.FrozenAmount.ToString("N2")</div>
+    </div>
+    <div class="stat-card sales">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-purple-subtle text-purple">📈</span>
+            <span class="stat-label">累计销售额</span>
+        </div>
+        <div class="stat-value">@p.TotalSales.ToString("N2")</div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="content-card">
+            <div class="content-card-header"><h5>基本信息</h5></div>
+            <div class="content-card-body">
+                <div class="info-row">
+                    <span class="info-label">团长编号</span>
+                    <span class="info-value">
+                        <code id="promoterId">@p.PromoterId</code>
+                        <button type="button" class="btn btn-link btn-sm p-0 ms-1 copy-btn" data-copy="@p.PromoterId">复制</button>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">姓名</span>
+                    <span class="info-value">@p.PromoterName</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">联系电话</span>
+                    <span class="info-value">
+                        @p.Phone
+                        <button type="button" class="btn btn-link btn-sm p-0 ms-1 copy-btn" data-copy="@p.Phone">复制</button>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">注册时间</span>
+                    <span class="info-value">@p.RegisterTime.ToString("yyyy-MM-dd HH:mm")</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">最近结算</span>
+                    <span class="info-value">@(p.LastSettlementTime?.ToString("yyyy-MM-dd") ?? "暂无")</span>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(p.Remark))
+                {
+                    <div class="info-row">
+                        <span class="info-label">备注</span>
+                        <span class="info-value">@p.Remark</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="content-card">
+            <div class="content-card-header"><h5>佣金与业绩</h5></div>
+            <div class="content-card-body">
+                <div class="info-row">
+                    <span class="info-label">当前等级</span>
+                    <span class="info-value"><span class="level-badge-lg">@Model.LevelName</span></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">阶梯佣金比例</span>
+                    <span class="info-value"><strong>@Model.CurrentTierRate%</strong></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">平台设定比例</span>
+                    <span class="info-value">@commissionRateDisplay%</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">累计有效销售额</span>
+                    <span class="info-value">¥@p.TotalSales.ToString("N2")</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">有效订单数</span>
+                    <span class="info-value">@p.TotalOrderCount 笔</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="content-card">
+            <div class="content-card-header"><h5>推广邀请码</h5></div>
+            <div class="content-card-body text-center">
+                <p class="text-muted small">分享给用户，用户下单后将绑定为您的团员</p>
+                <div class="invite-code-box mb-3" id="inviteCode">@p.InviteCode</div>
+                <button type="button" class="btn btn-success w-100" onclick="copyText('@p.InviteCode', '邀请码')">
+                    复制邀请码
+                </button>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <div class="content-card-header"><h5>快捷入口</h5></div>
+            <div class="content-card-body d-grid gap-2">
+                <a asp-action="Dashboard" class="btn btn-outline-primary">返回工作台</a>
+                <a asp-action="Performance" class="btn btn-outline-secondary">查看业绩等级</a>
+                <a asp-action="Commissions" class="btn btn-outline-secondary">佣金明细</a>
+                <a asp-action="Withdrawals" class="btn btn-outline-success">提现管理</a>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <div class="content-card-header"><h5>账号安全</h5></div>
+            <div class="content-card-body">
+                <div class="info-row">
+                    <span class="info-label">登录账号</span>
+                    <span class="info-value">@(string.IsNullOrWhiteSpace(p.LoginAccount) ? "—" : p.LoginAccount)</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">账号状态</span>
+                    <span class="info-value"><span class="badge bg-@Model.StatusBadgeClass">@Model.StatusLabel</span></span>
+                </div>
+                <p class="text-muted small mb-0 mt-2">如需修改密码或账号信息，请联系平台管理员。</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function copyText(text, label) {
+            navigator.clipboard.writeText(text).then(function () {
+                alert(label + '已复制：' + text);
+            }).catch(function () {
+                prompt('请手动复制：', text);
+            });
+        }
+        document.querySelectorAll('.copy-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                copyText(btn.dataset.copy, '内容');
+            });
+        });
+    </script>
+}

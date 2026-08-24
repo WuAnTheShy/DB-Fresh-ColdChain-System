@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - 团长工作台</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/promoter-portal.css" asp-append-version="true" />
+</head>
+<body class="promoter-portal">
+    @{
+        var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+    }
+    <div class="portal-wrapper">
+        <aside class="portal-sidebar">
+            <div class="sidebar-brand">
+                <span class="brand-icon">团</span>
+                <div>
+                    <div class="brand-title">团长工作台</div>
+                    <div class="brand-sub">生鲜冷链团购</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a asp-controller="Promoters" asp-action="Dashboard"
+                   class="nav-link @(currentAction == "Dashboard" ? "active" : "")">
+                    <span class="nav-icon">⌂</span> 工作台
+                </a>
+                <a asp-controller="Promoters" asp-action="Performance"
+                   class="nav-link @(currentAction == "Performance" ? "active" : "")">
+                    <span class="nav-icon">★</span> 业绩概览
+                </a>
+                <a asp-controller="Promoters" asp-action="Commissions"
+                   class="nav-link @(currentAction == "Commissions" ? "active" : "")">
+                    <span class="nav-icon">¥</span> 佣金明细
+                </a>
+                <a asp-controller="Promoters" asp-action="Withdrawals"
+                   class="nav-link @(currentAction == "Withdrawals" ? "active" : "")">
+                    <span class="nav-icon">↓</span> 提现管理
+                </a>
+                <a asp-controller="Promoters" asp-action="Profile"
+                   class="nav-link @(currentAction == "Profile" ? "active" : "")">
+                    <span class="nav-icon">☺</span> 个人资料
+                </a>
+                <a asp-controller="Promoters" asp-action="BindSupplier"
+                   class="nav-link @(currentAction == "BindSupplier" ? "active" : "")">
+                    <span class="nav-icon">🔗</span> 供应商绑定
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                @await Component.InvokeAsync("PromoterSidebar")
+            </div>
+        </aside>
+        <main class="portal-main">
+            <header class="portal-header d-flex align-items-center justify-content-between">
+                <h1 class="page-title mb-0">@ViewData["Title"]</h1>
+                <span class="header-date text-muted small">@DateTime.Now.ToString("yyyy年MM月dd日 dddd")</span>
+            </header>
+            <div class="portal-content">
+                @RenderBody()
+            </div>
+        </main>
+    </div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

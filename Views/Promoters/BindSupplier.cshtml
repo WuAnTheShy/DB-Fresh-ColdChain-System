@@ -1,0 +1,81 @@
+﻿@model FreshColdChain.Models.ViewModels.SupplierSearchViewModel
+@{
+    ViewData["Title"] = "供应商绑定";
+}
+
+<partial name="_Alerts" />
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5>🔗 供应商绑定</h5>
+    </div>
+    <div class="content-card-body">
+        <p class="text-muted small">输入供应商名称或编号搜索，搜索后可直接点击“绑定”建立合作关系。</p>
+
+        <!-- 搜索表单 -->
+        <form asp-action="SearchSupplier" method="post" class="row g-3 mb-4">
+            <div class="col-md-8">
+                <input type="text" name="keyword" class="form-control" placeholder="输入供应商 ID 或名称搜索..." value="@Model.Keyword" />
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">搜索</button>
+            </div>
+        </form>
+
+        <!-- 搜索结果 -->
+        @if (Model.Suppliers != null && Model.Suppliers.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>供应商ID</th>
+                            <th>供应商名称</th>
+                            <th>联系电话</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var sup in Model.Suppliers)
+                        {
+                            var isBound = Model.BoundSupplierIds.Contains(sup.SupplierID);
+                            <tr>
+                                <td><code class="small">@sup.SupplierID</code></td>
+                                <td>@sup.SupplierName</td>
+                                <td>@sup.ContactPhone</td>
+                                <td>
+                                    @if (isBound)
+                                    {
+                                        <span class="badge bg-success">已绑定</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">未绑定</span>
+                                    }
+                                </td>
+                                <td>
+                                    <form asp-action="ToggleRelation" method="post" style="display:inline;">
+                                        <input type="hidden" name="supplierId" value="@sup.SupplierID" />
+                                        <input type="hidden" name="action" value="@(isBound ? "unbind" : "bind")" />
+                                        <button type="submit" class="btn btn-sm @(isBound ? "btn-outline-danger" : "btn-success")">
+                                            @(isBound ? "解绑" : "绑定")
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(Model.Keyword))
+        {
+            <div class="alert alert-info">未找到符合条件的供应商，请尝试修改关键词。</div>
+        }
+        else
+        {
+            <div class="text-center text-muted py-4">请在搜索框输入关键字后点击搜索</div>
+        }
+    </div>
+</div>

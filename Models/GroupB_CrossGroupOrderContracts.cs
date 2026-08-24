@@ -49,15 +49,3 @@ public sealed class SupplierFulfillmentStatus
     public string? TrackingNo { get; init; }
 }
 
-/// <summary>
-/// C 组在订单完成时计算预计佣金所需的可信快照。
-/// </summary>
-public sealed class CommissionOrderRequest
-{
-    public string OrderId { get; init; } = string.Empty;
-    public string OrderNo { get; init; } = string.Empty;
-    public string CustomerId { get; init; } = string.Empty;
-    public string? PromoterId { get; init; }
-    public decimal CommissionBaseAmount { get; init; }
-    public DateTime CompletedAt { get; init; }
-}

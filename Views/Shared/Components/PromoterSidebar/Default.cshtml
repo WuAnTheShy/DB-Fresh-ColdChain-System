@@ -1,0 +1,9 @@
+@model FreshColdChain.ViewComponents.PromoterSidebarModel
+
+<div class="sidebar-balance">
+    <div class="balance-label">可提现余额</div>
+    <div class="balance-value">¥@Model.CurrentBalance.ToString("N2")</div>
+    <div class="balance-level">@Model.LevelName</div>
+</div>
+<div class="user-chip">@Model.PromoterName</div>
+<a asp-controller="Account" asp-action="Login" asp-route-role="团长" class="btn btn-outline-light btn-sm w-100 mt-2">退出登录</a>

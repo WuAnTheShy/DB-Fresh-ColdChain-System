@@ -7,7 +7,7 @@ namespace FreshColdChain.Repositories;
 /// <summary>
 /// 积分与会员数据访问层 - Crm_PointLogs, Crm_MemberLevels
 /// </summary>
-public class PointRepository : BaseRepository, IPointRepository
+public class PointRepository : B_BaseRepository, IPointRepository
 {
     public PointRepository(IConfiguration configuration) : base(configuration) { }
 

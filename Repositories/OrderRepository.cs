@@ -7,7 +7,7 @@ namespace FreshColdChain.Repositories;
 /// <summary>
 /// 订单数据访问层 - 只负责 Biz_Orders 和 Biz_OrderDetails 的 CRUD
 /// </summary>
-public class OrderRepository : BaseRepository, IOrderRepository
+public class OrderRepository : B_BaseRepository, IOrderRepository
 {
     public OrderRepository(IConfiguration configuration) : base(configuration) { }
 
