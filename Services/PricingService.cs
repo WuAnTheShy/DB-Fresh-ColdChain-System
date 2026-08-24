@@ -3,6 +3,7 @@ using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
+using Microsoft.Extensions.Logging;
 
 namespace FreshColdChain.Services;
 
@@ -25,6 +26,7 @@ public class PricingService : IPricingService
     private readonly IProductRepository _productRepo;
     private readonly IStockBatchRepository _batchRepo;
     private readonly IUnitOfWork _uow;
+    private readonly ILogger<PricingService> _logger;
 
     /// <summary>
     /// DB 存储的 TriggerType → 代码内部 TriggerType 映射。
@@ -55,12 +57,14 @@ public class PricingService : IPricingService
         IPriceRuleRepository ruleRepo,
         IProductRepository productRepo,
         IStockBatchRepository batchRepo,
-        IUnitOfWork uow)
+        IUnitOfWork uow,
+        ILogger<PricingService> logger)
     {
         _ruleRepo = ruleRepo;
         _productRepo = productRepo;
         _batchRepo = batchRepo;
         _uow = uow;
+        _logger = logger;
     }
 
     // ==================== 价格计算（核心算法） ====================
@@ -304,7 +308,8 @@ public class PricingService : IPricingService
         catch (Exception ex)
         {
             await _uow.RollbackAsync();
-            return ApiResponse<PriceRuleDto>.Fail($"规则创建失败：{ex.Message}");
+            _logger.LogError(ex, "规则创建失败 ProductID={ProductID} TriggerType={TriggerType}", dto.ProductID, dto.TriggerType);
+            return ApiResponse<PriceRuleDto>.Fail("规则创建失败，请稍后重试");
         }
     }
 
@@ -344,7 +349,8 @@ public class PricingService : IPricingService
         catch (Exception ex)
         {
             await _uow.RollbackAsync();
-            return ApiResponse<PriceRuleDto>.Fail($"规则更新失败：{ex.Message}");
+            _logger.LogError(ex, "规则更新失败 RuleID={RuleID}", ruleId);
+            return ApiResponse<PriceRuleDto>.Fail("规则更新失败，请稍后重试");
         }
     }
 
@@ -374,7 +380,8 @@ public class PricingService : IPricingService
         catch (Exception ex)
         {
             await _uow.RollbackAsync();
-            return ApiResponse.Fail($"规则删除失败：{ex.Message}");
+            _logger.LogError(ex, "规则删除失败 RuleID={RuleID}", ruleId);
+            return ApiResponse.Fail("规则删除失败，请稍后重试");
         }
     }
 

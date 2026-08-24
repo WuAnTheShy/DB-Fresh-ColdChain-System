@@ -4,6 +4,7 @@ using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
+using Microsoft.Extensions.Logging;
 
 namespace FreshColdChain.Services.Supplier;
 
@@ -12,12 +13,14 @@ public class SupplierService : ISupplierService
     private readonly ISupplierRepository _repo;
     private readonly ISupplierPriceRepository _priceRepo;
     private readonly IProductRepository _productRepo;
+    private readonly ILogger<SupplierService> _logger;
 
-    public SupplierService(ISupplierRepository repo, ISupplierPriceRepository priceRepo, IProductRepository productRepo)
+    public SupplierService(ISupplierRepository repo, ISupplierPriceRepository priceRepo, IProductRepository productRepo, ILogger<SupplierService> logger)
     {
         _repo = repo;
         _priceRepo = priceRepo;
         _productRepo = productRepo;
+        _logger = logger;
     }
 
     public async Task<ApiResponse<PagedResult<SupplierDto>>> GetSuppliersAsync(int pageIndex, int pageSize)
@@ -53,7 +56,8 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            return ApiResponse<SupplierDto>.Fail($"供应商创建失败：{ex.Message}");
+            _logger.LogError(ex, "供应商创建失败 SupplierName={SupplierName}", dto.SupplierName);
+            return ApiResponse<SupplierDto>.Fail("供应商创建失败，请稍后重试");
         }
     }
 
@@ -72,7 +76,8 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            return ApiResponse<SupplierDto>.Fail($"供应商更新失败：{ex.Message}");
+            _logger.LogError(ex, "供应商更新失败 SupplierID={SupplierID}", id);
+            return ApiResponse<SupplierDto>.Fail("供应商更新失败，请稍后重试");
         }
     }
 
@@ -92,7 +97,8 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            return ApiResponse.Fail($"供应商删除失败：{ex.Message}");
+            _logger.LogError(ex, "供应商删除失败 SupplierID={SupplierID}", id);
+            return ApiResponse.Fail("供应商删除失败，请稍后重试");
         }
     }
 
@@ -125,7 +131,8 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            return ApiResponse<List<SupplierProductQuoteDto>>.Fail($"查询供货价失败：{ex.Message}");
+            _logger.LogError(ex, "查询供货价失败 SupplierID={SupplierID}", supplierId);
+            return ApiResponse<List<SupplierProductQuoteDto>>.Fail("查询供货价失败，请稍后重试");
         }
     }
 
@@ -158,7 +165,8 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            return ApiResponse<List<SupplierProductQuoteDto>>.Fail($"查询报价面板失败：{ex.Message}");
+            _logger.LogError(ex, "查询报价面板失败 SupplierID={SupplierID}", supplierId);
+            return ApiResponse<List<SupplierProductQuoteDto>>.Fail("查询报价面板失败，请稍后重试");
         }
     }
 
@@ -204,7 +212,8 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            return ApiResponse.Fail($"设置供货价失败：{ex.Message}");
+            _logger.LogError(ex, "设置供货价失败 SupplierID={SupplierID} ProductID={ProductID}", supplierId, productId);
+            return ApiResponse.Fail("设置供货价失败，请稍后重试");
         }
     }
 
@@ -234,7 +243,8 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            return ApiResponse<SupplierDto>.Fail($"登录失败：{ex.Message}");
+            _logger.LogError(ex, "供应商登录失败 LoginAccount={LoginAccount}", loginAccount);
+            return ApiResponse<SupplierDto>.Fail("登录失败，请稍后重试");
         }
     }
 

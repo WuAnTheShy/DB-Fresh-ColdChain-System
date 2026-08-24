@@ -2,6 +2,7 @@ using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
+using Microsoft.Extensions.Logging;
 
 namespace FreshColdChain.Services;
 
@@ -13,6 +14,7 @@ public class ProductInventoryService : IProductInventoryService
     private readonly ICategoryRepository _categoryRepo;
     private readonly ISupplierPriceRepository _supplierPriceRepo;
     private readonly IUnitOfWork _uow;
+    private readonly ILogger<ProductInventoryService> _logger;
 
     public ProductInventoryService(
         IProductRepository productRepo,
@@ -20,7 +22,8 @@ public class ProductInventoryService : IProductInventoryService
         IStockBatchRepository batchRepo,
         ICategoryRepository categoryRepo,
         ISupplierPriceRepository supplierPriceRepo,
-        IUnitOfWork uow)
+        IUnitOfWork uow,
+        ILogger<ProductInventoryService> logger)
     {
         _productRepo = productRepo;
         _stockRepo = stockRepo;
@@ -28,6 +31,7 @@ public class ProductInventoryService : IProductInventoryService
         _categoryRepo = categoryRepo;
         _supplierPriceRepo = supplierPriceRepo;
         _uow = uow;
+        _logger = logger;
     }
 
     // ========== 产品 ==========
@@ -81,7 +85,8 @@ public class ProductInventoryService : IProductInventoryService
         catch (Exception ex)
         {
             await _uow.RollbackAsync();
-            return ApiResponse<ProductDto>.Fail($"产品创建失败：{ex.Message}");
+            _logger.LogError(ex, "产品创建失败 ProductName={ProductName}", dto.ProductName);
+            return ApiResponse<ProductDto>.Fail("产品创建失败，请稍后重试");
         }
     }
 
@@ -190,7 +195,8 @@ public class ProductInventoryService : IProductInventoryService
         }
         catch (Exception ex)
         {
-            return ApiResponse<List<SupplierQuoteOptionDto>>.Fail($"查询入库供应商失败：{ex.Message}");
+            _logger.LogError(ex, "查询入库供应商失败 ProductID={ProductID}", productId);
+            return ApiResponse<List<SupplierQuoteOptionDto>>.Fail("查询入库供应商失败，请稍后重试");
         }
     }
 
@@ -270,7 +276,8 @@ public class ProductInventoryService : IProductInventoryService
         catch (Exception ex)
         {
             await _uow.RollbackAsync();
-            return ApiResponse.Fail($"入库失败：{ex.Message}");
+            _logger.LogError(ex, "入库失败 ProductID={ProductID} Quantity={Quantity} SupplierID={SupplierID}", dto.ProductID, dto.Quantity, supplierId);
+            return ApiResponse.Fail("入库失败，请稍后重试");
         }
     }
 
@@ -330,7 +337,8 @@ public class ProductInventoryService : IProductInventoryService
         catch (Exception ex)
         {
             await _uow.RollbackAsync();
-            return ApiResponse.Fail($"出库失败：{ex.Message}");
+            _logger.LogError(ex, "出库失败 ProductID={ProductID} Quantity={Quantity}", dto.ProductID, dto.Quantity);
+            return ApiResponse.Fail("出库失败，请稍后重试");
         }
     }
 
@@ -415,7 +423,8 @@ public class ProductInventoryService : IProductInventoryService
         catch (Exception ex)
         {
             await _uow.RollbackAsync();
-            return ApiResponse<StockBatchDto>.Fail($"批次创建失败：{ex.Message}");
+            _logger.LogError(ex, "批次创建失败 ProductID={ProductID} BatchNo={BatchNo}", dto.ProductID, dto.BatchNo);
+            return ApiResponse<StockBatchDto>.Fail("批次创建失败，请稍后重试");
         }
     }
 
