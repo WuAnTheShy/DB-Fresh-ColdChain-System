@@ -11,6 +11,7 @@ namespace FreshColdChain.Services
     public class PromoterPortalDataProvider
     {
         private readonly IPromoterRepository? _promoterRepository;
+        private readonly IWithdrawalRepository? _withdrawalRepository;
         private readonly ICommissionRepository _icommissionRepository;
         private static readonly Dictionary<string, GroupC_CrmPromoter> DemoPromoters = new();
         private static readonly Dictionary<string, List<PromoterWithdrawalRecordViewModel>> DemoWithdrawals = new();
@@ -22,9 +23,10 @@ namespace FreshColdChain.Services
             [5000m] = 150m
         };
 
-        public PromoterPortalDataProvider(IPromoterRepository? promoterRepository, ICommissionRepository icommissionRepository)
+        public PromoterPortalDataProvider(IPromoterRepository? promoterRepository, IWithdrawalRepository? withdrawalRepository, ICommissionRepository icommissionRepository)
         {
             _promoterRepository = promoterRepository;
+            _withdrawalRepository = withdrawalRepository;
             _icommissionRepository = icommissionRepository;
         }
 
@@ -97,6 +99,19 @@ namespace FreshColdChain.Services
 
         public List<PromoterWithdrawalRecordViewModel> GetWithdrawals(string promoterId)
         {
+            if (_withdrawalRepository != null)
+            {
+                try
+                {
+                    var dbRecords = _withdrawalRepository.GroupC_GetWithdrawalRecordsByPromoterAsync(promoterId).GetAwaiter().GetResult();
+                    if (dbRecords.Any())
+                        return dbRecords.Select(MapWithdrawalRecord).ToList();
+                }
+                catch
+                {
+                    // 数据库不可用时使用演示数据
+                }
+            }
             if (DemoWithdrawals.TryGetValue(promoterId, out var records))
                 return records.OrderByDescending(x => x.ApplyTime).ToList();
             return BuildDemoWithdrawalRecords(promoterId);
@@ -348,6 +363,36 @@ namespace FreshColdChain.Services
                 RejectReason = "收款账户信息与实名不一致"
             }
         ];
+
+        // 数据库提现记录 -> 视图模型映射
+        private static PromoterWithdrawalRecordViewModel MapWithdrawalRecord(GroupC_FinWithdrawalRecord r) => new()
+        {
+            WithdrawalId = r.WithdrawalId,
+            ApplyAmount = r.ApplyAmount,
+            AccountInfo = r.AccountInfo,
+            ApplyTime = r.ApplyTime,
+            AuditStatus = r.AuditStatus,
+            AuditStatusLabel = r.AuditStatus switch
+            {
+                "Pending" => "待审核",
+                "Approved" => "已通过",
+                "Rejected" => "已驳回",
+                "Paid" => "已打款",
+                "Cancelled" => "已取消",
+                _ => r.AuditStatus
+            },
+            AuditStatusBadgeClass = r.AuditStatus switch
+            {
+                "Pending" => "warning",
+                "Approved" => "info",
+                "Rejected" => "danger",
+                "Paid" => "success",
+                "Cancelled" => "secondary",
+                _ => "secondary"
+            },
+            RejectReason = r.RejectReason ?? string.Empty,
+            TransferTime = r.TransferTime
+        };
 
 
 

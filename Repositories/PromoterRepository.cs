@@ -29,6 +29,7 @@ namespace FreshColdChain.Repositories
                     BASECOMMISSIONRATE as BaseCommissionRate,
                     CURRENTBALANCE as CurrentBalance,
                     PENDINGBALANCE as PendingBalance,
+                    NVL(FROZENAMOUNT, 0) as FrozenAmount,
                     TOTALSALES as TotalSales,
                     TOTALORDERCOUNT as TotalOrderCount,
                     STATUS as Status,
@@ -53,6 +54,7 @@ namespace FreshColdChain.Repositories
                     BASECOMMISSIONRATE as BaseCommissionRate,
                     CURRENTBALANCE as CurrentBalance,
                     PENDINGBALANCE as PendingBalance,
+                    NVL(FROZENAMOUNT, 0) as FrozenAmount,
                     TOTALSALES as TotalSales,
                     TOTALORDERCOUNT as TotalOrderCount,
                     STATUS as Status,
@@ -79,6 +81,7 @@ namespace FreshColdChain.Repositories
                     BASECOMMISSIONRATE as BaseCommissionRate,
                     CURRENTBALANCE as CurrentBalance,
                     PENDINGBALANCE as PendingBalance,
+                    NVL(FROZENAMOUNT, 0) as FrozenAmount,
                     TOTALSALES as TotalSales,
                     TOTALORDERCOUNT as TotalOrderCount,
                     STATUS as Status,
@@ -149,7 +152,7 @@ namespace FreshColdChain.Repositories
         {
             string sql = @"
                 UPDATE CRM_PROMOTERS
-                SET CURRENTBALANCE = CURRENTBALANCE + :DeltaAmount
+                SET CURRENTBALANCE = NVL(CURRENTBALANCE, 0) + :DeltaAmount
                 WHERE PROMOTERID = :PromoterId";
 
             await _uow.Connection.ExecuteAsync(sql, new
@@ -181,6 +184,7 @@ namespace FreshColdChain.Repositories
                     BASECOMMISSIONRATE as BaseCommissionRate,
                     CURRENTBALANCE as CurrentBalance,
                     PENDINGBALANCE as PendingBalance,
+                    NVL(FROZENAMOUNT, 0) as FrozenAmount,
                     TOTALSALES as TotalSales,
                     TOTALORDERCOUNT as TotalOrderCount,
                     STATUS as Status,

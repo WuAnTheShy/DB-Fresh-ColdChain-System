@@ -14,7 +14,7 @@ namespace FreshColdChain.Repositories
             _uow = uow;
         }
 
-        // 检查团长是否有正在审核中的提现申请（Pending 或 Approved）
+        // 检查团长是否有正在审核中的提现申请（仅 Pending；Approved 表示已打款完成，不阻止再次提现）
         public async Task<bool> GroupC_HasPendingWithdrawalAsync(
             string promoterId,
             IDbTransaction? transaction = null,
@@ -24,7 +24,7 @@ namespace FreshColdChain.Repositories
                 SELECT COUNT(1) 
                 FROM FIN_WITHDRAWALRECORDS 
                 WHERE PROMOTERID = :PromoterId 
-                AND AUDITSTATUS IN ('Pending', 'Approved')";
+                AND AUDITSTATUS = 'Pending'";
 
             int count = await _uow.Connection.ExecuteScalarAsync<int>(
                 sql,
@@ -127,6 +127,35 @@ namespace FreshColdChain.Repositories
                 transaction);
         }
 
+        // 按团长查询全部提现记录（按申请时间倒序，团长端提现记录列表用）
+        public async Task<List<GroupC_FinWithdrawalRecord>> GroupC_GetWithdrawalRecordsByPromoterAsync(
+            string promoterId,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
+        {
+            string sql = @"
+                SELECT 
+                    WITHDRAWALID as WithdrawalId,
+                    PROMOTERID as PromoterId,
+                    APPLYAMOUNT as ApplyAmount,
+                    ACCOUNTINFO as AccountInfo,
+                    APPLYTIME as ApplyTime,
+                    AUDITSTATUS as AuditStatus,
+                    AUDITORUSERID as AuditorUserId,
+                    AUDITTIME as AuditTime,
+                    REJECTREASON as RejectReason,
+                    TRANSFERTIME as TransferTime
+                FROM FIN_WITHDRAWALRECORDS
+                WHERE PROMOTERID = :PromoterId
+                ORDER BY APPLYTIME DESC";
+
+            var result = await _uow.Connection.QueryAsync<GroupC_FinWithdrawalRecord>(
+                sql,
+                new { PromoterId = promoterId },
+                transaction);
+            return result.ToList();
+        }
+
         // 更新团长的冻结金额（增加或减少）
         public async Task GroupC_UpdatePromoterFrozenAmountAsync(
             string promoterId,
@@ -136,7 +165,7 @@ namespace FreshColdChain.Repositories
         {
             string sql = @"
                 UPDATE CRM_PROMOTERS
-                SET FROZENAMOUNT = FROZENAMOUNT + :Delta
+                SET FROZENAMOUNT = NVL(FROZENAMOUNT, 0) + :Delta
                 WHERE PROMOTERID = :PromoterId";
 
             await _uow.Connection.ExecuteAsync(sql, new { PromoterId = promoterId, Delta = delta }, transaction);

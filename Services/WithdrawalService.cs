@@ -50,11 +50,11 @@ namespace FreshColdChain.Services
                     throw new Exception("团长不存在");
                 }
 
-                // 2. 防重检验：是否有正在审核的申请（Pending 或 Approved）
+                // 2. 防重检验：是否已有正在审核的申请（Pending；Approved 表示已打款完成，允许再次提现）
                 var exists = await _iwithdrawalRepository.GroupC_HasPendingWithdrawalAsync(request.PromoterId, _uow.Transaction);
                 if (exists)
                 {
-                    throw new Exception("该团长已有正在审核或已通过的提现申请，请等待完成");
+                    throw new Exception("该团长已有正在审核的提现申请，请等待完成");
                 }
 
                 // 3. 余额充足校验
