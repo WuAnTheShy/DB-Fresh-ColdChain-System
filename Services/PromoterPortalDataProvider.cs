@@ -103,13 +103,13 @@ namespace FreshColdChain.Services
             {
                 try
                 {
+                    // 数据库可用时一律返回真实记录（无记录则返回空列表，由视图展示空状态）
                     var dbRecords = _withdrawalRepository.GroupC_GetWithdrawalRecordsByPromoterAsync(promoterId).GetAwaiter().GetResult();
-                    if (dbRecords.Any())
-                        return dbRecords.Select(MapWithdrawalRecord).ToList();
+                    return dbRecords.Select(MapWithdrawalRecord).ToList();
                 }
                 catch
                 {
-                    // 数据库不可用时使用演示数据
+                    // 仅数据库不可用时才回退演示数据，便于前端联调
                 }
             }
             if (DemoWithdrawals.TryGetValue(promoterId, out var records))
