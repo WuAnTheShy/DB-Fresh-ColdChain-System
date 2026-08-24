@@ -5,16 +5,18 @@ using FreshColdChain.Models;
 namespace FreshColdChain.Services;
 
 /// <summary>
-/// C 组佣金模块的 Mock 实现 — C 组完成前使用
+/// C 组正式适配前使用的佣金 Dummy，不访问 C 组数据表。
 /// </summary>
-public class DummyCommissionService : ICommissionService
+public sealed class DummyCommissionService : ICommissionService
 {
     public Task RegisterCompletedOrderAsync(
         CommissionOrderRequest request,
         IDbTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        // Mock：永远成功，不写 C 组表
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(transaction);
+        cancellationToken.ThrowIfCancellationRequested();
         return Task.CompletedTask;
     }
 }

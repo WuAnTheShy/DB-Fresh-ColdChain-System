@@ -1,170 +1,76 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Reflection;
-using Dapper;
-using FreshColdChain.Models;
+using System.Data;
+using Oracle.ManagedDataAccess.Client;
 
 namespace FreshColdChain.Repositories;
 
 /// <summary>
-/// 通用仓储实现（Dapper 版本）
-/// 支持 int 和 VARCHAR2(36) 两种主键类型
+/// 数据库连接基类 - 所有 Repository 继承此类获得 Oracle 连接
+/// 你学过的事务 BEGIN/COMMIT/ROLLBACK 在这里用 C# 实现
 /// </summary>
-public class BaseRepository<T> : IBaseRepository<T> where T : class
+public abstract class BaseRepository
 {
-    protected readonly IUnitOfWork _uow;
+    private readonly string _connectionString;
 
-    private readonly string _tableName;
-    private readonly string _keyColumn;
-    private readonly PropertyInfo _keyProp;
-    private readonly bool _isGuidPk; // VARCHAR2(36) 主键
-    private readonly List<MappedColumn> _columns;
-    private readonly List<MappedColumn> _allColumns;
-
-    private record MappedColumn(string PropName, string ColName, PropertyInfo Property);
-
-    public BaseRepository(IUnitOfWork uow)
+    protected BaseRepository(IConfiguration configuration)
     {
-        _uow = uow;
-        var type = typeof(T);
-
-        var tableAttr = type.GetCustomAttribute<TableAttribute>();
-        _tableName = tableAttr != null ? tableAttr.Name : type.Name;
-
-        var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.CanWrite)
-            .Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)
-            .ToList();
-
-        var keyProp = props.FirstOrDefault(p => p.GetCustomAttribute<KeyAttribute>() != null)
-                      ?? props.FirstOrDefault(p => p.Name is "Id" or "SupplierID" or "ProductID" or "CategoryID" or "StockID" or "BatchID" or "RuleID");
-
-        if (keyProp == null)
-            throw new InvalidOperationException($"实体 {type.Name} 未找到主键属性");
-
-        _keyProp = keyProp;
-        _keyColumn = GetColumnName(keyProp);
-        _isGuidPk = keyProp.PropertyType == typeof(string);
-
-        _allColumns = props.Select(p => new MappedColumn(p.Name, GetColumnName(p), p)).ToList();
-        _columns = _allColumns.Where(c => c.PropName != _keyProp.Name).ToList();
-    }
-
-    // ==================== 读 ====================
-
-    public virtual async Task<T?> GetByIdAsync(int id)
-    {
-        var sql = $"SELECT * FROM {_tableName} WHERE {_keyColumn} = :Id";
-        return await _uow.Connection.QuerySingleOrDefaultAsync<T>(sql, new { Id = id }, _uow.Transaction);
-    }
-
-    /// <summary>VARCHAR2 主键版本</summary>
-    public virtual async Task<T?> GetByIdAsync(string id)
-    {
-        var sql = $"SELECT * FROM {_tableName} WHERE {_keyColumn} = :Id";
-        return await _uow.Connection.QuerySingleOrDefaultAsync<T>(sql, new { Id = id }, _uow.Transaction);
-    }
-
-    public virtual async Task<List<T>> GetAllAsync()
-    {
-        var sql = $"SELECT * FROM {_tableName} ORDER BY {_keyColumn}";
-        return (await _uow.Connection.QueryAsync<T>(sql, transaction: _uow.Transaction)).ToList();
-    }
-
-    public virtual async Task<List<T>> GetPagedAsync(int pageIndex, int pageSize)
-    {
-        var sql = $"""
-            SELECT * FROM {_tableName}
-            ORDER BY {_keyColumn}
-            OFFSET :Skip ROWS FETCH NEXT :Take ROWS ONLY
-            """;
-        return (await _uow.Connection.QueryAsync<T>(sql, new
+        // 生产和开发环境均应通过 Secret 或环境变量注入连接字符串。
+        var connectionString = configuration.GetConnectionString("OracleConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
         {
-            Skip = (pageIndex - 1) * pageSize,
-            Take = pageSize
-        }, _uow.Transaction)).ToList();
-    }
-
-    public virtual async Task<int> CountAsync()
-    {
-        var sql = $"SELECT COUNT(*) FROM {_tableName}";
-        return await _uow.Connection.ExecuteScalarAsync<int>(sql, transaction: _uow.Transaction);
-    }
-
-    public virtual async Task<bool> AnyAsync()
-    {
-        var sql = $"SELECT COUNT(*) FROM {_tableName} WHERE ROWNUM = 1";
-        var count = await _uow.Connection.ExecuteScalarAsync<int>(sql, transaction: _uow.Transaction);
-        return count > 0;
-    }
-
-    // ==================== 写 ====================
-
-    public virtual async Task<T> AddAsync(T entity)
-    {
-        if (_isGuidPk)
-        {
-            // VARCHAR2(36) 主键：应用层生成 GUID
-            var pkValue = _keyProp.GetValue(entity)?.ToString();
-            if (string.IsNullOrWhiteSpace(pkValue))
-                _keyProp.SetValue(entity, Guid.NewGuid().ToString());
-
-            // INSERT 包含主键列
-            var allColNames = _allColumns.Select(c => c.ColName);
-            var allParamNames = _allColumns.Select(c => $":{c.PropName}");
-            var sql = $"INSERT INTO {_tableName} ({string.Join(", ", allColNames)}) VALUES ({string.Join(", ", allParamNames)})";
-
-            var dp = new Dictionary<string, object?>();
-            foreach (var col in _allColumns)
-                dp.Add(col.PropName, col.Property.GetValue(entity));
-
-            await _uow.Connection.ExecuteAsync(sql, dp, _uow.Transaction);
-        }
-        else
-        {
-            // int 自增主键：INSERT 不含主键，RETURNING
-            var colNames = _columns.Select(c => c.ColName).ToList();
-            var paramNames = _columns.Select(c => $":{c.PropName}").ToList();
-            var sql = $"INSERT INTO {_tableName} ({string.Join(", ", colNames)}) VALUES ({string.Join(", ", paramNames)}) RETURNING {_keyColumn} INTO :OutId";
-
-            var dp = new DynamicParameters();
-            foreach (var col in _columns)
-                dp.Add(col.PropName, col.Property.GetValue(entity));
-            dp.Add("OutId", dbType: System.Data.DbType.Int32, direction: System.Data.ParameterDirection.Output);
-
-            await _uow.Connection.ExecuteAsync(sql, dp, _uow.Transaction);
-            _keyProp.SetValue(entity, dp.Get<int>("OutId"));
+            throw new InvalidOperationException(
+                "未配置 OracleConnection；请设置环境变量 ConnectionStrings__OracleConnection");
         }
 
-        return entity;
+        _connectionString = connectionString;
     }
 
-    public virtual void Update(T entity)
+    /// <summary>
+    /// 创建新的数据库连接（每次调用都是新连接）
+    /// </summary>
+    protected IDbConnection CreateConnection()
     {
-        var setClauses = _columns.Select(c => $"{c.ColName} = :{c.PropName}");
-        var sql = $"UPDATE {_tableName} SET {string.Join(", ", setClauses)} WHERE {_keyColumn} = :PkVal";
-
-        var dp = new Dictionary<string, object?>();
-        foreach (var col in _columns)
-            dp.Add(col.PropName, col.Property.GetValue(entity));
-        dp.Add("PkVal", _keyProp.GetValue(entity));
-
-        _uow.Connection.Execute(sql, dp, _uow.Transaction);
+        return new OracleConnection(_connectionString);
     }
 
-    public virtual void Delete(T entity)
+    /// <summary>
+    /// 在指定事务所属连接上执行数据库操作。
+    /// 未传入事务时，由仓储自行创建、打开并释放连接。
+    /// </summary>
+    protected async Task<TResult> WithConnectionAsync<TResult>(
+        IDbTransaction? transaction,
+        Func<IDbConnection, Task<TResult>> operation)
     {
-        var sql = $"DELETE FROM {_tableName} WHERE {_keyColumn} = :Id";
-        _uow.Connection.Execute(sql, new { Id = _keyProp.GetValue(entity) }, _uow.Transaction);
+        ArgumentNullException.ThrowIfNull(operation);
+
+        if (transaction != null)
+        {
+            var transactionConnection = transaction.Connection
+                ?? throw new InvalidOperationException("事务已结束或未关联数据库连接");
+
+            if (transactionConnection.State != ConnectionState.Open)
+                throw new InvalidOperationException("事务关联的数据库连接未打开");
+
+            return await operation(transactionConnection);
+        }
+
+        using var connection = CreateConnection();
+        if (connection.State != ConnectionState.Open)
+            connection.Open();
+
+        return await operation(connection);
     }
 
-    public virtual Task SaveChangesAsync() => Task.CompletedTask;
-
-    // ==================== 工具 ====================
-
-    private static string GetColumnName(PropertyInfo prop)
+    /// <summary>
+    /// 在指定事务所属连接上执行无返回值的数据库操作。
+    /// </summary>
+    protected async Task WithConnectionAsync(
+        IDbTransaction? transaction,
+        Func<IDbConnection, Task> operation)
     {
-        var colAttr = prop.GetCustomAttribute<ColumnAttribute>();
-        return colAttr != null ? colAttr.Name : prop.Name;
+        await WithConnectionAsync(transaction, async connection =>
+        {
+            await operation(connection);
+            return true;
+        });
     }
 }

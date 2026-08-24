@@ -1,70 +1,60 @@
 using FreshColdChain.Interfaces;
-using FreshColdChain.Services;
-using FreshColdChain.Services.Supplier;
+using FreshColdChain.Models;
 using FreshColdChain.Repositories;
-using Oracle.ManagedDataAccess.Client;
+using FreshColdChain.Services;
+using Microsoft.AspNetCore.Identity;
+using System.Text.Json.Serialization;
 
-var builder = WebApplication.CreateBuilder(args);
+namespace FreshColdChain;
 
-// Oracle 参数按名称绑定（避免 ORA-00911）
-OracleConfiguration.BindByName = true;
-
-// ========== Dapper 基础设施 ==========
-builder.Services.AddScoped<IDbConnectionFactory, OracleDbConnectionFactory>();
-builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-
-// ========== Repository 注册 ==========
-builder.Services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
-builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
-builder.Services.AddScoped<ISupplierPriceRepository, SupplierPriceRepository>();
-builder.Services.AddScoped<IProductRepository, ProductRepository>();
-builder.Services.AddScoped<IStockSummaryRepository, StockSummaryRepository>();
-builder.Services.AddScoped<IStockBatchRepository, StockBatchRepository>();
-builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
-builder.Services.AddScoped<IPriceRuleRepository, PriceRuleRepository>();
-// A组冷链专属仓储
-builder.Services.AddScoped<ILogFreightTemplateRepository, LogFreightTemplateRepository>();
-builder.Services.AddScoped<ILogExpressDeliveryRepository, LogExpressDeliveryRepository>();
-builder.Services.AddScoped<ILogFulfillmentBatchItemRepository, LogFulfillmentBatchItemRepository>();
-
-// ========== Service 注册 ==========
-builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
-// A组冷链运费报价与批次级可追溯发货服务。
-builder.Services.AddScoped<IColdChainLogisticsService, ColdChainLogisticsService>();
-builder.Services.AddScoped<IPricingService, PricingService>();
-builder.Services.AddScoped<ISupplierService, SupplierService>();
-
-// ========== B 组跨组接口适配器 ==========
-builder.Services.AddScoped<IInventoryService, InventoryServiceAdapter>();
-builder.Services.AddScoped<ILogisticsService, LogisticsServiceAdapter>();
-builder.Services.AddScoped<ICommissionService, DummyCommissionService>();
-builder.Services.AddScoped<IGroupAProductCatalogService, ProductCatalogServiceAdapter>();
-
-// ========== MVC ==========
-builder.Services.AddControllersWithViews();
-
-// 供应商登录态（供应商门户：登录后维护自己的供货价）
-builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession(options =>
+public class Program
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
-});
+    public static void Main(string[] args)
+    {
+        var builder = WebApplication.CreateBuilder(args);
 
-var app = builder.Build();
+        builder.Services.AddControllersWithViews()
+            .AddJsonOptions(options =>
+                options.JsonSerializerOptions.Converters.Add(
+                    new JsonStringEnumConverter(allowIntegerValues: false)));
+        builder.Services.AddScoped<Controllers.Api.GroupBApiExceptionFilter>();
 
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
+        builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+        builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+        builder.Services.AddScoped<ICouponRepository, CouponRepository>();
+        builder.Services.AddScoped<IPointRepository, PointRepository>();
+        builder.Services.AddScoped<IPromoterRepository, PromoterRepository>();
+
+        builder.Services.AddScoped<IOrderTransactionManager, OracleOrderTransactionManager>();
+        builder.Services.AddScoped<IPasswordHasher<CrmCustomer>, PasswordHasher<CrmCustomer>>();
+        builder.Services.AddScoped<IInventoryService, DummyInventoryService>();
+        builder.Services.AddScoped<ILogisticsService, DummyLogisticsService>();
+        builder.Services.AddScoped<ICommissionService, DummyCommissionService>();
+        builder.Services.AddScoped<IGroupCInterface, GroupCInterfaceService>();
+        builder.Services.AddScoped<GroupBDailyMaintenanceService>();
+        builder.Services.AddHostedService<GroupBDailyCheckHostedService>();
+        builder.Services.AddScoped<IOrderService, OrderService>();
+        builder.Services.AddScoped<ICustomerService, CustomerService>();
+        builder.Services.AddScoped<ICouponService, CouponService>();
+
+        var app = builder.Build();
+
+        if (!app.Environment.IsDevelopment())
+        {
+            app.UseExceptionHandler("/Home/Error");
+            app.UseHsts();
+        }
+
+        app.UseHttpsRedirection();
+        app.UseStaticFiles();
+        app.UseRouting();
+
+        app.UseAuthorization();
+
+        app.MapControllerRoute(
+            name: "default",
+            pattern: "{controller=Home}/{action=Index}/{id?}");
+
+        app.Run();
+    }
 }
-
-app.UseStaticFiles();
-app.UseRouting();
-app.UseSession();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
-
-app.Run();
