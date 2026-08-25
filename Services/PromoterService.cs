@@ -20,13 +20,15 @@ namespace FreshColdChain.Services
         // Interface层句柄（修正字段名，与构造函数一致）
         private readonly ITableLogService _logManager;
         private readonly IPromoterSupplierRepository _ipsRepository;
+        private readonly IPCRRepository _pcrRepository;
         // 构造函数
-        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository)
+        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPCRRepository pcrRepository)
         {
             _uow = uow;
             _ipromoterRepository = ipromoterRepository;
             _logManager = logManager;
             _ipsRepository = ipsRepository;
+            _pcrRepository = pcrRepository;
         }
 
 
@@ -300,6 +302,87 @@ namespace FreshColdChain.Services
                 await _uow.RollbackAsync();
                 throw;
             }
+        }
+
+        //============================团长-消费者绑定服务===================================
+        public async Task<Result> BindCustomerToPromoterAsync(
+            string customerId,
+            string promoterId,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
+        {
+            var bindResult = new Result();
+            bool ownTransaction = false;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(customerId) || string.IsNullOrWhiteSpace(promoterId))
+                {
+                    bindResult.ErrorMessage = "消费者ID和团长ID不能为空";
+                    return bindResult;
+                }
+
+                customerId = customerId.Trim();
+                promoterId = promoterId.Trim();
+
+                if (transaction == null)
+                {
+                    await _uow.BeginAsync();
+                    ownTransaction = true;
+                    transaction = _uow.Transaction;
+                }
+                else if (_uow.Transaction == null)
+                {
+                    _uow.AttachExternalTransaction(transaction);
+                }
+
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, transaction);
+                if (promoter == null)
+                {
+                    throw new Exception("团长不存在");
+                }
+
+                var exists = await _pcrRepository.ExistsRelationAsync(customerId, promoterId, transaction);
+                if (exists)
+                {
+                    if (ownTransaction)
+                        await _uow.CommitAsync();
+                    bindResult.IsSuccess = true;
+                    return bindResult;
+                }
+
+                var inserted = await _pcrRepository.InsertRelationAsync(customerId, promoterId, transaction);
+                if (!inserted)
+                {
+                    throw new Exception("插入绑定记录失败");
+                }
+
+                if (ownTransaction)
+                    await _uow.CommitAsync();
+                bindResult.IsSuccess = true;
+                return bindResult;
+            }
+            catch (Exception ex)
+            {
+                if (ownTransaction && _uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                bindResult.IsSuccess = false;
+                bindResult.ErrorMessage = $"系统错误：{ex.Message}";
+                return bindResult;
+            }
+        }
+
+        public async Task<List<string>> GetBoundPromoterIdsAsync(string customerId)
+        {
+            if (string.IsNullOrWhiteSpace(customerId))
+                return new List<string>();
+            return await _pcrRepository.GetPromoterIdsByCustomerAsync(customerId.Trim(), _uow.Transaction);
+        }
+
+        public async Task<List<GroupC_CrmPCRelation>> GetBoundCustomersByPromoterAsync(string promoterId)
+        {
+            if (string.IsNullOrWhiteSpace(promoterId))
+                return new List<GroupC_CrmPCRelation>();
+            return await _pcrRepository.GetRelationsByPromoterAsync(promoterId.Trim(), _uow.Transaction);
         }
 
 

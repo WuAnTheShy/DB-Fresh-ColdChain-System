@@ -185,6 +185,28 @@ namespace FreshColdChain.Controllers
             // 操作完成后，重新跳转回绑定页（如果需要保留搜索结果，可以带上 keyword）
             return RedirectToAction("BindSupplier");
         }
+
+        /// <summary>
+        /// 查看绑定了当前团长的消费者（实时读取 CRM_PCR）
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> BoundConsumers()
+        {
+            var redirect = EnsureLoggedIn();
+            if (redirect != null) return redirect;
+
+            var promoterId = GetPromoterId()!;
+            var promoterName = HttpContext.Session.GetString(SessionPromoterNameKey) ?? string.Empty;
+            var items = await _promoterService.GetBoundCustomersByPromoterAsync(promoterId);
+
+            return View(new PromoterBoundConsumersViewModel
+            {
+                PromoterId = promoterId,
+                PromoterName = promoterName,
+                TotalCount = items.Count,
+                Items = items
+            });
+        }
     }
 
 

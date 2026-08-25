@@ -118,6 +118,14 @@ namespace FreshColdChain.Models.ViewModels
         public DateTime? TransferTime { get; set; }
     }
 
+    public class PromoterBoundConsumersViewModel
+    {
+        public string PromoterId { get; set; } = string.Empty;
+        public string PromoterName { get; set; } = string.Empty;
+        public int TotalCount { get; set; }
+        public List<GroupC_CrmPCRelation> Items { get; set; } = new();
+    }
+
     public class PromoterProfileViewModel
     {
         public GroupC_CrmPromoter Promoter { get; set; } = new();

@@ -1,0 +1,89 @@
+@model PromoterBoundConsumersViewModel
+@{
+    ViewData["Title"] = "我的消费者";
+}
+
+<partial name="_Alerts" />
+
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-success-subtle text-success">👥</span>
+            <span class="stat-label">已绑定消费者</span>
+        </div>
+        <div class="stat-value text-success">@Model.TotalCount</div>
+        <div class="stat-sub">来自 CRM_PCR 实时查询</div>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="content-card-header flex-wrap gap-2">
+        <h5>绑定记录</h5>
+        <a asp-action="BoundConsumers" class="btn btn-sm btn-outline-primary">刷新</a>
+    </div>
+    <div class="content-card-body p-0">
+        @if (!Model.Items.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">👥</div>
+                <p>暂时还没有消费者绑定你</p>
+                <p class="text-muted small mb-0">消费者在消费者中心搜索并绑定团长后，记录会即时出现在这里。</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>消费者 ID</th>
+                            <th>姓名</th>
+                            <th>联系电话</th>
+                            <th>团长 ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td><code class="small">@item.CustomerId</code></td>
+                                <td>
+                                    @if (string.IsNullOrWhiteSpace(item.CustomerName))
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                    else
+                                    {
+                                        @item.CustomerName
+                                    }
+                                </td>
+                                <td>
+                                    @if (string.IsNullOrWhiteSpace(item.Phone))
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                    else
+                                    {
+                                        @item.Phone
+                                    }
+                                </td>
+                                <td><code class="small">@item.PromoterId</code></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="content-card-header"><h5>说明</h5></div>
+    <div class="content-card-body">
+        <p class="text-muted small mb-0">
+            本页直接读取团长-消费者绑定表 <code>CRM_PCR</code>（消费者 ID + 团长 ID）。
+            每次打开或点击「刷新」都会重新查库，因此可以看到最新绑定情况。
+            若消费者资料表中有对应账号，会一并显示姓名和电话。
+        </p>
+    </div>
+</div>
