@@ -24,3 +24,27 @@ public class SupplierProductEntryDto
     /// <summary>保质期（小时），优先取供应商声明值，否则取商品典型值</summary>
     public int? ExpiryHours { get; set; }
 }
+
+/// <summary>
+/// 团长已入团商品详情：在 SupplierProductEntryDto 基础上附带团长定价，
+/// 供“商品上架”页已上架区、团长工作台速览使用。
+/// </summary>
+public class PromoterProductEntryDetailDto
+{
+    public string SupplierID { get; set; } = string.Empty;
+    public string SupplierName { get; set; } = string.Empty;
+    public string ProductID { get; set; } = string.Empty;
+    public string ProductName { get; set; } = string.Empty;
+
+    /// <summary>商品计量单位（如：斤 / 盒 / 箱）</summary>
+    public string? Unit { get; set; }
+
+    /// <summary>该供应商对该商品的供货价</summary>
+    public decimal SupplyPrice { get; set; }
+
+    /// <summary>商品默认售价（参考）</summary>
+    public decimal DefaultPrice { get; set; }
+
+    /// <summary>团长定价（null 表示未定价，展示时默认取推荐价）</summary>
+    public decimal? PromoterPrice { get; set; }
+}

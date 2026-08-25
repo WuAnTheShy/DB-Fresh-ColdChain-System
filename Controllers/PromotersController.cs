@@ -27,11 +27,17 @@ namespace FreshColdChain.Controllers
             _withdrawalService = withdrawalService;
         }
 
-        public IActionResult Dashboard()
+        public async Task<IActionResult> Dashboard()
         {
             var redirect = EnsureLoggedIn();
             if (redirect != null) return redirect;
-            return View(_dataProvider.BuildDashboard(GetPromoterId()!));
+            var promoterId = GetPromoterId()!;
+            var vm = _dataProvider.BuildDashboard(promoterId);
+
+            // 左下角速览：已上架商品 + 团内消费者
+            vm.ListedProducts = await _promoterService.GetProductEntryDetailsAsync(promoterId);
+            vm.BoundCustomers = await _promoterService.GetBoundCustomersByPromoterAsync(promoterId);
+            return View(vm);
         }
 
 
@@ -141,6 +147,9 @@ namespace FreshColdChain.Controllers
             var listed = await _promoterService.GetActiveProductEntriesAsync(promoterId);
             model.ListedKeys = listed.Select(x => $"{x.ProductId}|{x.SupplierId}").ToHashSet();
             model.ListedPrices = listed.ToDictionary(x => $"{x.ProductId}|{x.SupplierId}", x => x.PromoterPrice);
+
+            // 3. 已上架商品详情（商品/供应商名称 + 报价/推荐价 + 团长定价）
+            model.ListedProducts = await _promoterService.GetProductEntryDetailsAsync(promoterId);
 
             return View(model);
         }

@@ -1,3 +1,4 @@
+using FreshColdChain.Models.DTOs;
 using System.Data;
 
 namespace FreshColdChain.Repositories;
@@ -19,6 +20,9 @@ public interface IPromoterProductRepository
 
     /// <summary>更新已入团（商品，供应商）组合的团长定价（仅限 Active 记录）</summary>
     Task<bool> UpdateEntryPriceAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, IDbTransaction? transaction = null);
+
+    /// <summary>查询团长已入团商品详情（含商品名、供应商名、报价、推荐价、团长定价）</summary>
+    Task<List<PromoterProductEntryDetailDto>> GetActiveEntriesDetailAsync(string promoterId, IDbTransaction? transaction = null);
 
     /// <summary>查询团长当前所有已入团的（商品，供应商，团长定价）组合</summary>
     Task<List<(string ProductId, string SupplierId, decimal? PromoterPrice)>> GetActiveEntriesByPromoterAsync(string promoterId, IDbTransaction? transaction = null);

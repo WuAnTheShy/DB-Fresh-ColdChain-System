@@ -197,6 +197,75 @@
                 </div>
             </div>
         }
+
+        <!-- 快速查看：已上架商品 + 团内消费者（左下角） -->
+        <div class="content-card">
+            <div class="content-card-header">
+                <h5>⚡ 快速查看</h5>
+            </div>
+            <div class="content-card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="border rounded p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold">📦 已上架商品</span>
+                                <span class="badge bg-success">@Model.ListedProducts.Count</span>
+                            </div>
+                            @if (Model.ListedProducts.Any())
+                            {
+                                <ul class="list-unstyled small mb-2">
+                                    @foreach (var lp in Model.ListedProducts.Take(5))
+                                    {
+                                        <li class="d-flex justify-content-between border-bottom py-1">
+                                            <span>@lp.ProductName <span class="text-muted">· @lp.SupplierName</span></span>
+                                            <span class="text-success fw-bold">￥@((lp.PromoterPrice ?? lp.DefaultPrice).ToString("F2"))</span>
+                                        </li>
+                                    }
+                                </ul>
+                                @if (Model.ListedProducts.Count > 5)
+                                {
+                                    <div class="text-muted small mb-2">… 共 @Model.ListedProducts.Count 件商品</div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="text-muted small mb-2">暂无上架商品</div>
+                            }
+                            <a asp-action="ProductListing" class="btn btn-sm btn-outline-success w-100">去商品上架</a>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold">👥 团内消费者</span>
+                                <span class="badge bg-primary">@Model.BoundCustomers.Count</span>
+                            </div>
+                            @if (Model.BoundCustomers.Any())
+                            {
+                                <ul class="list-unstyled small mb-2">
+                                    @foreach (var c in Model.BoundCustomers.Take(5))
+                                    {
+                                        <li class="d-flex justify-content-between border-bottom py-1">
+                                            <span>@c.CustomerName</span>
+                                            <span class="text-muted">@c.Phone</span>
+                                        </li>
+                                    }
+                                </ul>
+                                @if (Model.BoundCustomers.Count > 5)
+                                {
+                                    <div class="text-muted small mb-2">… 共 @Model.BoundCustomers.Count 人</div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="text-muted small mb-2">暂无绑定消费者</div>
+                            }
+                            <a asp-action="BoundConsumers" class="btn btn-sm btn-outline-primary w-100">查看团内消费者</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- 右栏 -->

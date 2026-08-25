@@ -20,4 +20,7 @@ public class ProductListingViewModel
 
     /// <summary>当前团长已入团组合的团长定价，键格式：“商品ID|供应商ID”（未定价时为 null）</summary>
     public Dictionary<string, decimal?> ListedPrices { get; set; } = new();
+
+    /// <summary>当前团长已入团商品详情列表（已上架商品展示区，含商品名/供应商名/报价/推荐价/团长定价）</summary>
+    public List<PromoterProductEntryDetailDto> ListedProducts { get; set; } = new();
 }

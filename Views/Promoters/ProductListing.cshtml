@@ -5,6 +5,54 @@
 
 <partial name="_Alerts" />
 
+<!-- 已上架商品一览 -->
+<div class="content-card mb-4">
+    <div class="content-card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">✅ 已上架商品</h5>
+        <span class="badge bg-success">@Model.ListedProducts.Count</span>
+    </div>
+    <div class="content-card-body p-0">
+        @if (Model.ListedProducts.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>商品</th>
+                            <th>供应商</th>
+                            <th class="text-center">报价</th>
+                            <th class="text-center">推荐价</th>
+                            <th class="text-center">团长定价</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model.ListedProducts)
+                        {
+                            <tr>
+                                <td>
+                                    @p.ProductName
+                                    @if (!string.IsNullOrEmpty(p.Unit))
+                                    {
+                                        <span class="text-muted small">（@p.Unit）</span>
+                                    }
+                                </td>
+                                <td>@p.SupplierName</td>
+                                <td class="text-center">￥@p.SupplyPrice.ToString("F2")</td>
+                                <td class="text-center">￥@p.DefaultPrice.ToString("F2")</td>
+                                <td class="text-center">￥@((p.PromoterPrice ?? p.DefaultPrice).ToString("F2"))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-center text-muted py-4">尚未上架任何商品，请在下方搜索（供应商或商品）并点击“入团”。</div>
+        }
+    </div>
+</div>
+
 <div class="content-card">
     <div class="content-card-header">
         <h5>📦 商品上架</h5>

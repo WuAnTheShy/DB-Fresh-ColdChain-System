@@ -342,6 +342,12 @@ namespace FreshColdChain.Services
             }
         }
 
+        /// <summary>查询团长已入团商品详情列表（含商品名、供应商名、报价、推荐价、团长定价）</summary>
+        public async Task<List<PromoterProductEntryDetailDto>> GetProductEntryDetailsAsync(string promoterId)
+        {
+            return await _iproductRepository.GetActiveEntriesDetailAsync(promoterId, _uow.Transaction);
+        }
+
         /// <summary>查询团长当前所有已入团的（商品，供应商，团长定价）组合</summary>
         public async Task<List<(string ProductId, string SupplierId, decimal? PromoterPrice)>> GetActiveProductEntriesAsync(string promoterId)
         {

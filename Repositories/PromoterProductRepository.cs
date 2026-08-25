@@ -1,4 +1,5 @@
 using Dapper;
+using FreshColdChain.Models.DTOs;
 using System.Data;
 
 namespace FreshColdChain.Repositories;
@@ -54,6 +55,25 @@ public class PromoterProductRepository : IPromoterProductRepository
             new { PromoterId = promoterId, ProductId = productId, SupplierId = supplierId, PromoterPrice = promoterPrice },
             transaction);
         return rows > 0;
+    }
+
+    public async Task<List<PromoterProductEntryDetailDto>> GetActiveEntriesDetailAsync(string promoterId, IDbTransaction? transaction = null)
+    {
+        // 表/列名以共享库（COLDCHAIN）实际结构为准：INV_SUPPLIERPRICES、DEFAULTPRICE、SUPPLYPRICE
+        const string sql = @"
+            SELECT E.PRODUCTID, E.SUPPLIERID, E.PROMOTERPRICE,
+                   P.PRODUCTNAME, P.UNIT, P.DEFAULTPRICE,
+                   S.SUPPLIERNAME,
+                   SP.SUPPLYPRICE
+            FROM CRM_PRODUCT_ENTRIES E
+            JOIN INV_PRODUCTS P ON P.PRODUCTID = E.PRODUCTID
+            JOIN INV_SUPPLIERS S ON S.SUPPLIERID = E.SUPPLIERID
+            LEFT JOIN INV_SUPPLIERPRICES SP ON SP.SUPPLIERID = E.SUPPLIERID AND SP.PRODUCTID = E.PRODUCTID
+            WHERE E.PROMOTERID = :PromoterId AND E.STATUS = 'Active'
+            ORDER BY E.CREATETIME DESC, E.PRODUCTID";
+        var result = await _uow.Connection.QueryAsync<PromoterProductEntryDetailDto>(sql,
+            new { PromoterId = promoterId }, transaction);
+        return result.ToList();
     }
 
     public async Task<List<(string ProductId, string SupplierId, decimal? PromoterPrice)>> GetActiveEntriesByPromoterAsync(string promoterId, IDbTransaction? transaction = null)

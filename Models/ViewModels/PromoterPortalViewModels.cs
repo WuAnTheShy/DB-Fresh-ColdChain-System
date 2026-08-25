@@ -1,3 +1,5 @@
+using FreshColdChain.Models.DTOs;
+
 namespace FreshColdChain.Models.ViewModels
 {
     public class PromoterDashboardViewModel
@@ -6,6 +8,12 @@ namespace FreshColdChain.Models.ViewModels
         public List<PromoterCommissionItemViewModel> RecentCommissions { get; set; } = new();
         public List<PromoterWithdrawalRecordViewModel> RecentWithdrawals { get; set; } = new();
         public bool HasPendingWithdrawal { get; set; }
+
+        /// <summary>已上架商品速览（工作台左下角）</summary>
+        public List<PromoterProductEntryDetailDto> ListedProducts { get; set; } = new();
+
+        /// <summary>团内消费者速览（工作台左下角）</summary>
+        public List<GroupC_CrmPCRelation> BoundCustomers { get; set; } = new();
 
         public string LevelName { get; set; } = string.Empty;
         public decimal CurrentTierRate { get; set; }
