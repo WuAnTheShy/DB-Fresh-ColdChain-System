@@ -75,7 +75,7 @@ namespace FreshColdChain.Services
 
         public PromoterCommissionsViewModel BuildCommissions(string promoterId, string? statusFilter = null)
         {
-            var promoter = _promoterRepository.GroupC_FindPromoterRecord(promoterId);
+            var promoter = _promoterRepository?.GroupC_FindPromoterRecord(promoterId);
             if (promoter == null)
                 return new PromoterCommissionsViewModel(); // 为空则返回空页面
             var all = GetCommissions(promoterId);

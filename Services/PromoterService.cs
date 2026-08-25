@@ -20,15 +20,19 @@ namespace FreshColdChain.Services
         // Interface层句柄（修正字段名，与构造函数一致）
         private readonly ITableLogService _logManager;
         private readonly IPromoterSupplierRepository _ipsRepository;
-        private readonly IPCRRepository _pcrRepository;
+        // 商品入团表（CRM_PRODUCT_ENTRIES）仓库
+        private readonly IPromoterProductRepository _iproductRepository;
+		private readonly IPCRRepository _pcrRepository;
+		
         // 构造函数
-        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPCRRepository pcrRepository)
+        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPromoterProductRepository iproductRepository,IPCRRepository pcrRepository)
         {
             _uow = uow;
             _ipromoterRepository = ipromoterRepository;
             _logManager = logManager;
             _ipsRepository = ipsRepository;
-            _pcrRepository = pcrRepository;
+            _iproductRepository = iproductRepository;
+			_pcrRepository = pcrRepository;
         }
 
 
@@ -58,7 +62,8 @@ namespace FreshColdChain.Services
         CancellationToken cancellationToken = default)
         {
             var promoterinfo = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, _uow.Transaction);
-
+            if (promoterinfo == null)
+                return null;
 
             return new GroupC_PromoterBasicInfoDto
             {
@@ -304,7 +309,95 @@ namespace FreshColdChain.Services
             }
         }
 
-        //============================团长-消费者绑定服务===================================
+        //============================团长-商品入团服务（商品入团表 CRM_PRODUCT_ENTRIES）===================================
+        // 说明：入团商品 =（团长，商品，供应商）三元组。团长与商品为多对多，
+        //       同一商品可由不同供应商供货，故以“商品+供应商”组合为绑定单位。
+
+        /// <summary>
+        /// 更新已入团（商品，供应商）组合的团长定价。
+        /// 校验规则同入团：|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2；未填写则默认取推荐价。
+        /// </summary>
+        public async Task<bool> UpdateEntryPriceAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, decimal supplyPrice, decimal defaultPrice)
+        {
+            var price = promoterPrice ?? defaultPrice;
+            var allowedDiff = Math.Abs(defaultPrice - supplyPrice) / 2m;
+            var actualDiff = Math.Abs(price - defaultPrice);
+            if (allowedDiff == 0 ? actualDiff != 0 : actualDiff >= allowedDiff)
+            {
+                throw new InvalidOperationException(
+                    $"定价超出允许范围：|团长价({price:F2}) - 推荐价({defaultPrice:F2})| 必须小于 |推荐价 - 报价| / 2 = {allowedDiff:F2}");
+            }
+
+            await _uow.BeginAsync();
+            try
+            {
+                var result = await _iproductRepository.UpdateEntryPriceAsync(promoterId, productId, supplierId, price, _uow.Transaction);
+                await _uow.CommitAsync();
+                return result;
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>查询团长当前所有已入团的（商品，供应商，团长定价）组合</summary>
+        public async Task<List<(string ProductId, string SupplierId, decimal? PromoterPrice)>> GetActiveProductEntriesAsync(string promoterId)
+        {
+            return await _iproductRepository.GetActiveEntriesByPromoterAsync(promoterId, _uow.Transaction);
+        }
+
+        /// <summary>
+        /// 将（商品，供应商）加入团长入团商品（重复加入则自动恢复 Active）。
+        /// supplyPrice 为该供应商报价，defaultPrice 为商品推荐价。
+        /// promoterPrice 为团长定价：未填写（null）时默认取推荐价；
+        /// 填写时须满足定价规则 |团长价 - 推荐价| &lt; |推荐价 - 报价| / 2，否则抛异常。
+        /// </summary>
+        public async Task<bool> AddProductEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, decimal supplyPrice, decimal defaultPrice)
+        {
+            var price = promoterPrice ?? defaultPrice;
+
+            // 定价规则：|团长价 - 推荐价| < |推荐价 - 报价| / 2
+            var allowedDiff = Math.Abs(defaultPrice - supplyPrice) / 2m;
+            var actualDiff = Math.Abs(price - defaultPrice);
+            if (allowedDiff == 0 ? actualDiff != 0 : actualDiff >= allowedDiff)
+            {
+                throw new InvalidOperationException(
+                    $"定价超出允许范围：|团长价({price:F2}) - 推荐价({defaultPrice:F2})| 必须小于 |推荐价 - 报价| / 2 = {allowedDiff:F2}");
+            }
+
+            await _uow.BeginAsync();
+            try
+            {
+                var result = await _iproductRepository.AddOrUpdateEntryAsync(promoterId, productId, supplierId, price, "Active", _uow.Transaction);
+                await _uow.CommitAsync();
+                return result;
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>将（商品，供应商）从团长入团商品中移除（软删除）</summary>
+        public async Task<bool> RemoveProductEntryAsync(string promoterId, string productId, string supplierId)
+        {
+            await _uow.BeginAsync();
+            try
+            {
+                var result = await _iproductRepository.SoftDeleteEntryAsync(promoterId, productId, supplierId, _uow.Transaction);
+                await _uow.CommitAsync();
+                return result;
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+        }
+//============================团长-消费者绑定服务===================================
         public async Task<Result> BindCustomerToPromoterAsync(
             string customerId,
             string promoterId,
@@ -384,7 +477,6 @@ namespace FreshColdChain.Services
                 return new List<GroupC_CrmPCRelation>();
             return await _pcrRepository.GetRelationsByPromoterAsync(promoterId.Trim(), _uow.Transaction);
         }
-
 
         // ========== 私有辅助方法 ==========
         private string GenerateInviteCode()

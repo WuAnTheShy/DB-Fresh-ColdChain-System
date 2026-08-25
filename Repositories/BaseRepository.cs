@@ -165,6 +165,6 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
     private static string GetColumnName(PropertyInfo prop)
     {
         var colAttr = prop.GetCustomAttribute<ColumnAttribute>();
-        return colAttr != null ? colAttr.Name : prop.Name;
+        return colAttr?.Name ?? prop.Name;
     }
 }

@@ -1,6 +1,6 @@
 /* ===== 团长工作台 ===== */
 .promoter-portal {
-    background: #f0f4f8;
+    background: #CBE4EB;
     margin-bottom: 0;
 }
 
@@ -11,7 +11,7 @@
 
 .portal-sidebar {
     width: 240px;
-    background: linear-gradient(180deg, #1a3a5c 0%, #0f2744 100%);
+    background: #223B46;
     color: #fff;
     display: flex;
     flex-direction: column;
@@ -32,7 +32,7 @@
 .brand-icon {
     width: 40px;
     height: 40px;
-    background: #2ecc71;
+    background: #2B96C9;
     border-radius: 10px;
     display: flex;
     align-items: center;
@@ -65,8 +65,8 @@
     transition: background 0.15s, color 0.15s;
 }
 
-.sidebar-nav .nav-link:hover { background: rgba(255,255,255,0.1); color: #fff; }
-.sidebar-nav .nav-link.active { background: rgba(46,204,113,0.25); color: #2ecc71; font-weight: 600; }
+.sidebar-nav .nav-link:hover { background: rgba(172,236,247,0.18); color: #fff; }
+.sidebar-nav .nav-link.active { background: rgba(43,150,201,0.28); color: #2B96C9; font-weight: 600; }
 .nav-icon { width: 20px; text-align: center; font-size: 15px; }
 
 .sidebar-footer {
@@ -85,13 +85,13 @@
 
 .portal-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .portal-header { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 18px 28px; }
-.page-title { font-size: 20px; font-weight: 600; color: #1a202c; }
+.page-title { font-size: 20px; font-weight: 600; color: #223B46; }
 .portal-content { padding: 24px 28px; flex: 1; }
 .header-date { font-size: 13px; }
 
 /* ===== 工作台 Dashboard ===== */
 .dashboard-hero {
-    background: linear-gradient(135deg, #1a3a5c 0%, #2ecc71 100%);
+    background: #2E5870;
     border-radius: 14px;
     padding: 24px 28px;
     color: #fff;
@@ -127,8 +127,8 @@
 }
 
 .level-badge-lg {
-    background: #f0fff4;
-    color: #27ae60;
+    background: #ACECF7;
+    color: #2E5870;
     border-radius: 20px;
     padding: 4px 14px;
     font-size: 13px;
@@ -155,11 +155,11 @@
     flex-shrink: 0;
 }
 
-.bg-success-subtle { background: #d1fae5; }
-.bg-warning-subtle { background: #fef3c7; }
-.bg-info-subtle    { background: #dbeafe; }
-.bg-purple-subtle  { background: #ede9fe; }
-.text-purple       { color: #7c3aed; }
+.bg-success-subtle { background: #CBE4EB; }
+.bg-warning-subtle { background: #ACECF7; }
+.bg-info-subtle    { background: #ACECF7; }
+.bg-purple-subtle  { background: #CBE4EB; }
+.text-purple       { color: #2E5870; }
 
 .mini-stat-value {
     font-size: 22px;
@@ -197,14 +197,14 @@
     border-radius: 12px;
     padding: 20px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    border-left: 4px solid #2ecc71;
+    border-left: 4px solid #2B96C9;
 }
 
-.stat-card.pending { border-left-color: #f39c12; }
-.stat-card.frozen { border-left-color: #3498db; }
-.stat-card.sales { border-left-color: #9b59b6; }
+.stat-card.pending { border-left-color: #2E5870; }
+.stat-card.frozen { border-left-color: #ACECF7; }
+.stat-card.sales { border-left-color: #223B46; }
 .stat-label { font-size: 13px; color: #718096; margin-bottom: 6px; }
-.stat-value { font-size: 26px; font-weight: 700; color: #1a202c; line-height: 1.2; }
+.stat-value { font-size: 26px; font-weight: 700; color: #223B46; line-height: 1.2; }
 .stat-sub { font-size: 12px; color: #a0aec0; margin-top: 4px; }
 
 .content-card {
@@ -228,7 +228,7 @@
 
 .tier-progress-wrap { margin: 16px 0; }
 .tier-bar { height: 10px; background: #edf2f7; border-radius: 5px; overflow: hidden; }
-.tier-bar-fill { height: 100%; background: linear-gradient(90deg, #2ecc71, #27ae60); border-radius: 5px; }
+.tier-bar-fill { height: 100%; background: #2B96C9; border-radius: 5px; }
 .tier-labels { display: flex; justify-content: space-between; font-size: 12px; color: #718096; margin-top: 6px; }
 
 .filter-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -240,14 +240,14 @@
 .info-value { font-size: 14px; color: #2d3748; word-break: break-all; }
 
 .invite-code-box {
-    background: #f0fff4;
-    border: 1px dashed #2ecc71;
+    background: #CBE4EB;
+    border: 1px dashed #2B96C9;
     border-radius: 8px;
     padding: 12px 16px;
     font-size: 20px;
     font-weight: 700;
     letter-spacing: 3px;
-    color: #27ae60;
+    color: #2E5870;
     text-align: center;
 }
 
@@ -264,8 +264,8 @@
     flex-wrap: wrap;
 }
 
-.page-hero-purple { background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%); }
-.page-hero-green  { background: linear-gradient(135deg, #065f46 0%, #2ecc71 100%); }
+.page-hero-purple { background: #2E5870; }
+.page-hero-green  { background: #223B46; }
 
 .hero-stat-pill, .profile-header-balance {
     background: rgba(255,255,255,0.15);
@@ -287,7 +287,7 @@
 }
 
 .balance-label { font-size: 11px; opacity: 0.65; }
-.balance-value { font-size: 18px; font-weight: 700; color: #2ecc71; margin: 4px 0; }
+.balance-value { font-size: 18px; font-weight: 700; color: #2B96C9; margin: 4px 0; }
 .balance-level { font-size: 11px; opacity: 0.75; }
 
 /* 等级阶梯 */
@@ -314,8 +314,8 @@
     background: #e2e8f0;
 }
 
-.tier-step.achieved { border-left-color: #2ecc71; }
-.tier-step.current .tier-step-marker { background: #2ecc71; color: #fff; box-shadow: 0 0 0 4px rgba(46,204,113,0.25); }
+.tier-step.achieved { border-left-color: #2B96C9; }
+.tier-step.current .tier-step-marker { background: #2B96C9; color: #fff; box-shadow: 0 0 0 4px rgba(43,150,201,0.25); }
 
 .tier-step-marker {
     width: 36px;
@@ -333,7 +333,7 @@
     z-index: 1;
 }
 
-.tier-step.achieved .tier-step-marker { background: #d1fae5; color: #059669; }
+.tier-step.achieved .tier-step-marker { background: #ACECF7; color: #2E5870; }
 .tier-step-name { font-weight: 600; font-size: 14px; }
 
 /* 里程碑 */
@@ -349,9 +349,9 @@
     border: 1px solid #edf2f7;
 }
 
-.milestone-item.achieved { background: #f0fff4; border-color: #bbf7d0; }
+.milestone-item.achieved { background: #CBE4EB; border-color: #2B96C9; }
 .milestone-icon { font-size: 18px; width: 24px; text-align: center; color: #a0aec0; }
-.milestone-item.achieved .milestone-icon { color: #059669; }
+.milestone-item.achieved .milestone-icon { color: #2B96C9; }
 .milestone-label { font-size: 13px; font-weight: 500; }
 .milestone-bonus { font-size: 12px; }
 
@@ -377,14 +377,14 @@
     font-size: 12px;
     font-weight: 700;
     flex-shrink: 0;
-    color: #2ecc71;
+    color: #2E5870;
 }
 
 .quick-amounts { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* 个人资料头 */
 .profile-header-card {
-    background: linear-gradient(135deg, #1a3a5c 0%, #2ecc71 100%);
+    background: #223B46;
     border-radius: 14px;
     padding: 24px 28px;
     color: #fff;
@@ -423,7 +423,7 @@
 }
 
 /* ===== Bootstrap 5.2 text-bg-* 徽章工具类兼容补丁（本项目 Bootstrap 为 5.1，badge 默认白字无底，导致徽章不可见） ===== */
-.text-bg-primary   { color: #fff !important; background-color: #0d6efd !important; }
+.text-bg-primary   { color: #fff !important; background-color: #2E5870 !important; }
 .text-bg-secondary { color: #fff !important; background-color: #6c757d !important; }
 .text-bg-success   { color: #fff !important; background-color: #198754 !important; }
 .text-bg-danger    { color: #fff !important; background-color: #dc3545 !important; }
@@ -431,3 +431,11 @@
 .text-bg-info      { color: #000 !important; background-color: #0dcaf0 !important; }
 .text-bg-light     { color: #000 !important; background-color: #f8f9fa !important; }
 .text-bg-dark      { color: #fff !important; background-color: #212529 !important; }
+
+/* ===== 五色基调：Bootstrap 语义色映射（团长端统一） ===== */
+/* 成功/金额 → 淡蓝 #2B96C9；待审核/进行中 → 深蓝灰 #2E5870；冻结/信息 → 深青灰 #223B46；主色 → 深蓝灰 #2E5870 */
+.text-success { color: #2B96C9 !important; }
+.text-warning { color: #2E5870 !important; }
+.text-info    { color: #223B46 !important; }
+.text-primary { color: #2E5870 !important; }
+/* text-danger（退款/驳回）、text-muted（次要文字）保留 Bootstrap 语义色 */

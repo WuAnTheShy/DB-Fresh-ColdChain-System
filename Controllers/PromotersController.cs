@@ -107,74 +107,80 @@ namespace FreshColdChain.Controllers
         }
 
 
-        // ========= 新增：供应商绑定页 =========
+        // ========= 商品上架（原“供应商绑定”模块改造）：搜索供应商→其商品 / 搜索商品→跨供应商，入团/移除 =========
 
         /// <summary>
-        /// 展示供应商绑定/搜索页面
+        /// 商品上架页：关键词为供应商名称/ID → 返回该供应商提供的全部商品；
+        /// 关键词为商品名称 → 返回所有供货该商品的（供应商×商品）组合。
+        /// 无关键词时仅展示空搜索框（并附当前已入团商品数）。
         /// </summary>
         [HttpGet]
-        public IActionResult BindSupplier()
+        public async Task<IActionResult> ProductListing(string? keyword)
         {
-            // 初始化一个空的 ViewModel
-            var model = new SupplierSearchViewModel
+            var redirect = EnsureLoggedIn();
+            if (redirect != null) return redirect;
+            var promoterId = GetPromoterId()!;
+
+            var model = new ProductListingViewModel { Keyword = keyword ?? "" };
+
+            // 1. 有关键词才调用 A 组接口搜索（供应商×商品）条目
+            if (!string.IsNullOrWhiteSpace(keyword))
             {
-                Keyword = "",
-                Suppliers = new List<SupplierAccountDto>(),
-                BoundSupplierIds = new List<string>()
-            };
+                var response = await _supplierService.SearchSupplierProductEntriesAsync(keyword);
+                if (response.IsSuccess)
+                {
+                    model.Entries = response.Data ?? new List<SupplierProductEntryDto>();
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = "搜索失败：" + response.Message;
+                }
+            }
+
+            // 2. 获取当前团长已入团的（商品|供应商）组合及其团长定价，用于前端判断显示“入团”还是“移除”
+            var listed = await _promoterService.GetActiveProductEntriesAsync(promoterId);
+            model.ListedKeys = listed.Select(x => $"{x.ProductId}|{x.SupplierId}").ToHashSet();
+            model.ListedPrices = listed.ToDictionary(x => $"{x.ProductId}|{x.SupplierId}", x => x.PromoterPrice);
+
             return View(model);
         }
 
         /// <summary>
-        /// 搜索供应商 (调用 A 组接口)
+        /// 提交搜索（PRG 模式，重定向回 ProductListing 并携带关键词统一渲染）
         /// </summary>
         [HttpPost]
-        public async Task<IActionResult> SearchSupplier(string keyword)
+        public IActionResult SearchProducts(string keyword)
         {
-            var promoterId = HttpContext.Session.GetString("PromoterId");
-            var model = new SupplierSearchViewModel { Keyword = keyword };
-
-            // 1. 调用 A 组的接口搜索供应商
-            var response = await _supplierService.FindSupplierAccountAsync(
-                supplierName: keyword // 您也可以通过 supplierId 传参，这里用名称搜索
-            );
-
-            if (response.IsSuccess)
-            {
-                model.Suppliers = response.Data ?? new List<SupplierAccountDto>();
-            }
-            else
-            {
-                TempData["ErrorMessage"] = "搜索失败：" + response.Message;
-                model.Suppliers = new List<SupplierAccountDto>();
-            }
-
-            // 2. 获取当前团长已经绑定的供应商 ID 列表，用于前端判断显示“绑定”还是“解绑”
-            model.BoundSupplierIds = await _promoterService.GetActiveSupplierIdsAsync(promoterId);
-
-            return View("BindSupplier", model);
+            var redirect = EnsureLoggedIn();
+            if (redirect != null) return redirect;
+            return RedirectToAction("ProductListing", new { keyword });
         }
 
         /// <summary>
-        /// 绑定或解绑供应商
+        /// 将（商品，供应商）加入/移出团长入团商品（商品入团表 CRM_PRODUCT_ENTRIES）。
+        /// 入团时携带团长定价 price（留空则默认推荐价），以及该组合的报价 supplyPrice、推荐价 defaultPrice，
+        /// 由服务层校验定价规则：|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2。
         /// </summary>
         [HttpPost]
-        public async Task<IActionResult> ToggleRelation(string supplierId, string action)
+        public async Task<IActionResult> ToggleProductEntry(string productId, string supplierId, string action, string? keyword,
+            decimal? price, decimal supplyPrice, decimal defaultPrice)
         {
-            var promoterId = HttpContext.Session.GetString("PromoterId");
-            bool success = false;
+            var redirect = EnsureLoggedIn();
+            if (redirect != null) return redirect;
+            var promoterId = GetPromoterId()!;
 
+            bool success = false;
             try
             {
                 if (action == "bind")
                 {
-                    success = await _promoterService.AddRelationAsync(promoterId, supplierId);
-                    TempData["SuccessMessage"] = success ? "绑定成功！" : "绑定失败，请重试。";
+                    success = await _promoterService.AddProductEntryAsync(promoterId, productId, supplierId, price, supplyPrice, defaultPrice);
+                    TempData["SuccessMessage"] = success ? "商品已加入入团商品！" : "入团失败，请重试。";
                 }
                 else if (action == "unbind")
                 {
-                    success = await _promoterService.RemoveRelationAsync(promoterId, supplierId);
-                    TempData["SuccessMessage"] = success ? "已解绑！" : "解绑失败，请重试。";
+                    success = await _promoterService.RemoveProductEntryAsync(promoterId, productId, supplierId);
+                    TempData["SuccessMessage"] = success ? "已将该商品移出入团商品！" : "移除失败，请重试。";
                 }
             }
             catch (Exception ex)
@@ -182,13 +188,36 @@ namespace FreshColdChain.Controllers
                 TempData["ErrorMessage"] = "操作发生异常：" + ex.Message;
             }
 
-            // 操作完成后，重新跳转回绑定页（如果需要保留搜索结果，可以带上 keyword）
-            return RedirectToAction("BindSupplier");
+            // 操作完成后回商品上架页并保留上次关键词，便于继续操作
+            return RedirectToAction("ProductListing", new { keyword });
         }
 
         /// <summary>
-        /// 查看绑定了当前团长的消费者（实时读取 CRM_PCR）
+        /// 更新已入团（商品，供应商）组合的团长定价（仅已入团商品可定价）。
+        /// 定价规则由服务层校验：|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2，未填写则默认推荐价。
         /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> UpdateEntryPrice(string productId, string supplierId, string? keyword,
+            decimal? price, decimal supplyPrice, decimal defaultPrice)
+        {
+            var redirect = EnsureLoggedIn();
+            if (redirect != null) return redirect;
+            var promoterId = GetPromoterId()!;
+
+            try
+            {
+                var success = await _promoterService.UpdateEntryPriceAsync(promoterId, productId, supplierId, price, supplyPrice, defaultPrice);
+                TempData["SuccessMessage"] = success ? "团长定价已更新！" : "定价更新失败，请重试。";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = "定价保存失败：" + ex.Message;
+            }
+
+            return RedirectToAction("ProductListing", new { keyword });
+        }
+
+
         [HttpGet]
         public async Task<IActionResult> BoundConsumers()
         {
@@ -208,12 +237,6 @@ namespace FreshColdChain.Controllers
             });
         }
     }
-
-
-
-
-
-
-
 }
+
 

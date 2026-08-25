@@ -3,8 +3,8 @@
     public class SupplierLoginResult
     {
         public bool IsSuccess { get; set; }
-        public string Message { get; set; }
-        public string SuppierId { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string SuppierId { get; set; } = string.Empty;
     }
     public class CustomerLoginResult
     {

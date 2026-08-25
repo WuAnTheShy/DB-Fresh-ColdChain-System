@@ -294,6 +294,84 @@ public class SupplierService : ISupplierService
         return ApiResponse<bool>.Success(valid, valid ? "验证通过" : "密码错误");
     }
 
+    // ========== 商品上架搜索（C 组团长“商品上架”模块用）==========
+
+    /// <summary>
+    /// 搜索供应商提供的商品：按供应商（名称/ID）或商品名称（两种命中合并去重）。
+    /// 供应商的“可提供商品”由其报价记录（Inv_SupplierPrices）决定：报价即供货关系。
+    /// </summary>
+    public async Task<ApiResponse<List<SupplierProductEntryDto>>> SearchSupplierProductEntriesAsync(string? keyword)
+    {
+        try
+        {
+            var kw = keyword?.Trim();
+            if (string.IsNullOrEmpty(kw))
+                return ApiResponse<List<SupplierProductEntryDto>>.Success(new List<SupplierProductEntryDto>());
+
+            // 全量数据源（演示/中小规模可直接内存过滤，避免多次连库）
+            var products = (await _productRepo.GetAllAsync())
+                .Where(p => p.Status == "ACTIVE")
+                .ToList();
+            var productMap = products.ToDictionary(p => p.ProductID);
+
+            var suppliers = (await _repo.GetAllAsync())
+                .Where(s => s.Status == "Active")
+                .ToList();
+            var supplierMap = suppliers.ToDictionary(s => s.SupplierID);
+
+            var entries = new List<SupplierProductEntryDto>();
+            var seen = new HashSet<string>();
+
+            void CollectQuote(InvSupplierPrice q)
+            {
+                if (!productMap.TryGetValue(q.ProductID, out var p)) return;
+                if (!supplierMap.TryGetValue(q.SupplierID, out var s)) return;
+
+                var key = $"{q.SupplierID}|{q.ProductID}";
+                if (!seen.Add(key)) return; // 去重：同一（供应商，商品）只保留一次
+
+                entries.Add(new SupplierProductEntryDto
+                {
+                    SupplierID = s.SupplierID,
+                    SupplierName = s.SupplierName,
+                    ProductID = p.ProductID,
+                    ProductName = p.ProductName,
+                    Unit = p.Unit,
+                    SupplyPrice = q.SupplyPrice,
+                    DefaultPrice = p.DefaultPrice,
+                    ExpiryHours = q.ShelfLifeHours ?? p.ExpiryHours
+                });
+            }
+
+            // ① 按供应商命中：供应商名称包含关键词，或供应商ID精确匹配 → 该供应商提供的全部商品
+            var matchedSuppliers = suppliers
+                .Where(s => s.SupplierID.Equals(kw, StringComparison.OrdinalIgnoreCase)
+                            || s.SupplierName.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            foreach (var s in matchedSuppliers)
+            {
+                var quotes = await _priceRepo.GetQuotesBySupplierAsync(s.SupplierID);
+                foreach (var q in quotes) CollectQuote(q);
+            }
+
+            // ② 按商品命中：商品名称包含关键词 → 所有供货该商品的供应商
+            var matchedProducts = products
+                .Where(p => p.ProductName.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            foreach (var p in matchedProducts)
+            {
+                var quotes = await _priceRepo.GetQuotesByProductWithSupplierAsync(p.ProductID);
+                foreach (var q in quotes) CollectQuote(q);
+            }
+
+            return ApiResponse<List<SupplierProductEntryDto>>.Success(entries);
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<List<SupplierProductEntryDto>>.Fail($"商品搜索失败：{ex.Message}");
+        }
+    }
+
     // ========== 管理端（管理员角色管理用）==========
 
     /// <summary>全部供应商列表（含状态），供管理员启禁用管理</summary>
