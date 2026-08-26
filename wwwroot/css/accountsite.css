@@ -68,3 +68,25 @@ footer.footer .container {
 main {
     padding-bottom: 60px !important;
 }
+
+/* 返回按钮（返回首页 / 返回角色选择 / 返回登录） */
+.back-btn {
+    display: block;
+    width: 100%; /* 与登入/注册按钮同宽 */
+    text-align: center;
+    color: #fff;
+    font-size: 1.25rem; /* 与登入/注册按钮（btn-lg）字号一致 */
+    font-weight: 400;
+    background: #1E4553; /* 比“选择你的身份”背景（#2E5870）更暗一点的灰蓝色 */
+    border: none;
+    border-radius: 0.45rem;
+    padding: 0.65rem 1.2rem;
+    text-decoration: none;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.back-btn:hover {
+    background: #183B47;
+    color: #fff;
+    transform: translateY(-2px);
+}

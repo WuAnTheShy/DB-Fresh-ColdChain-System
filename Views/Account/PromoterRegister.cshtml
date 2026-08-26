@@ -16,7 +16,7 @@
                     @* 显示全局错误信息 *@
                     @if (!ViewData.ModelState.IsValid)
                     {
-                        <div class="alert alert-danger" role="alert">
+                        <div class="alert alert-danger" role="alert" data-auto-dismiss>
                             @Html.ValidationSummary(false, "", new { @class = "text-danger" })
                         </div>
                     }
@@ -55,8 +55,12 @@
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-lg button1 text-white">注 册</button>
                         </div>
-                    </form>
-                </div>
+                        </form>
+
+                        <div class="text-center mt-4">
+                        <a class="back-btn" asp-action="Login" asp-controller="Account" asp-route-role="@ViewBag.Role">返回登录</a>
+                        </div>
+                        </div>
             </div>
         </div>
     </div>

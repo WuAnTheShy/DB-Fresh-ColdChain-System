@@ -22,12 +22,18 @@
                             <th>供应商</th>
                             <th class="text-center">报价</th>
                             <th class="text-center">推荐价</th>
+                            <th class="text-center">定价范围</th>
                             <th class="text-center">团长定价</th>
+                            <th class="text-center">状态</th>
+                            <th class="text-center">操作</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var p in Model.ListedProducts)
                         {
+                            var priceDiff = Math.Abs(p.DefaultPrice - p.SupplyPrice) / 2m;
+                            var priceMin = p.DefaultPrice - priceDiff;
+                            var priceMax = p.DefaultPrice + priceDiff;
                             <tr>
                                 <td>
                                     @p.ProductName
@@ -39,7 +45,37 @@
                                 <td>@p.SupplierName</td>
                                 <td class="text-center">￥@p.SupplyPrice.ToString("F2")</td>
                                 <td class="text-center">￥@p.DefaultPrice.ToString("F2")</td>
-                                <td class="text-center">￥@((p.PromoterPrice ?? p.DefaultPrice).ToString("F2"))</td>
+                                <td class="text-center text-muted small">
+                                    ￥@priceMin.ToString("F2") ~ ￥@priceMax.ToString("F2")
+                                </td>
+                                <td>
+                                    <!-- 已上架：可设置/修改团长定价 -->
+                                    <form asp-action="UpdateEntryPrice" method="post" class="price-form d-flex align-items-center gap-1">
+                                        <input type="hidden" name="productId" value="@p.ProductID" />
+                                        <input type="hidden" name="supplierId" value="@p.SupplierID" />
+                                        <input type="hidden" name="keyword" value="@Model.Keyword" />
+                                        <input type="hidden" name="supplyPrice" value="@p.SupplyPrice" />
+                                        <input type="hidden" name="defaultPrice" value="@p.DefaultPrice" />
+                                        <input type="number" step="0.1" min="0.1" name="price"
+                                               class="form-control form-control-sm price-input"
+                                               style="width:110px;"
+                                               value="@(p.PromoterPrice.HasValue ? p.PromoterPrice.Value.ToString("F1") : p.DefaultPrice.ToString("F1"))"
+                                               placeholder="默认￥@p.DefaultPrice.ToString("F1")" />
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">保存</button>
+                                    </form>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-success">已入团</span>
+                                </td>
+                                <td class="text-center">
+                                    <form asp-action="ToggleProductEntry" method="post" style="display:inline;">
+                                        <input type="hidden" name="productId" value="@p.ProductID" />
+                                        <input type="hidden" name="supplierId" value="@p.SupplierID" />
+                                        <input type="hidden" name="keyword" value="@Model.Keyword" />
+                                        <input type="hidden" name="action" value="unbind" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">移除</button>
+                                    </form>
+                                </td>
                             </tr>
                         }
                     </tbody>

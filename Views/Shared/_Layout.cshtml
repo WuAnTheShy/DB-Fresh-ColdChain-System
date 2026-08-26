@@ -1,9 +1,14 @@
-﻿<!DOCTYPE html>
+﻿@{
+    // 账号相关页面（角色选择/登录/注册等）导航栏右侧不显示“你好，请登录”
+    var controllerName = (ViewContext.RouteData.Values["controller"] as string) ?? "";
+    var hideLoginEntry = controllerName.ToLowerInvariant() == "account";
+}
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - 生鲜冷链团购分销供应链系统</title>
+    <title>@ViewData["Title"] - 生鲜冷链团购平台</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/layoutsite.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/System.styles.css" asp-append-version="true" />
@@ -13,26 +18,44 @@
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm
      @("navbar-dark bg-gradient-custom")">
             <div class="container-fluid">
-                <!-- 左侧文字：加粗 + 白色 -->
-                <span class="navbar-brand fw-bold text-white">生鲜冷链团购分销供应链系统</span>
-
+                <a class="store-brand" href="/" aria-label="鲜邻团首页">
+                    <span class="brand-word">鲜邻团</span>
+                    <span class="brand-smile" aria-hidden="true"></span>
+                    <small>fresh</small>
+                </a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <!-- 左侧菜单：加粗 + 白色 -->
+                    <!-- 平台标语：特色字体，区分于普通菜单链接 -->
+                    <a class="platform-word">生鲜冷链供销平台</a>
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link fw-bold text-white" asp-area="" asp-controller="Home" asp-action="Index">主页</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link fw-bold text-white" asp-area="" asp-controller="Account" asp-action="RoleSelect">登录</a>
+                            <a class="nav-link fw-bold text-white" asp-area="" asp-controller="Home" asp-action="Index">    首页    </a>
                         </li>
                     </ul>
 
-                    <div id="clock" class="text-white small fw-bold align-self-center ms-2" style="font-size: 0.95rem; letter-spacing: 0.5px; padding: 0 15px;"></div>
+                    <div class="d-flex align-items-center right-nav" style="gap: 0; padding: 0 15px;">
+                        @if (!hideLoginEntry)
+                        {
+                            <span class="nav-sep"></span>
+                            <a class="admin-account" asp-area="" asp-controller="Account" asp-action="RoleSelect" title="后台登录">
+                                <span>
+                                    <small>你好，请登录</small>
+                                    <strong>商家门户</strong>
+                                </span>
+                            </a>
+                        }
+                        <span class="nav-sep @(hideLoginEntry ? "nav-sep-hidden" : "")"></span>
+                        <div id="clock" class="header-clock" title="当前时间">
+                            <span>
+                                <small id="clock-date"></small>
+                                <strong id="clock-time"></strong>
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </nav>
@@ -43,9 +66,13 @@
         </main>
     </div>
 
-    <footer class="border-top footer">
-        <div class="container text-center text-white">
-            &copy; @DateTime.Now.Year - 生鲜冷链团购分销供应链系统
+    <footer class="footer">
+        <!-- 深色品牌区（仿 B 组 footer-brand-row） -->
+        <div class="footer-brand-row">
+            <div class="footer-site">
+                <span class="footer-logo">鲜邻团<em>fresh</em></span>
+                <span class="footer-copy">&copy; @DateTime.Now.Year 生鲜冷链团购分销供应链系统</span>
+            </div>
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
@@ -57,17 +84,20 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         function updateClock() {
-            var el = document.getElementById('clock');
-            if (el) {
+            var elDate = document.getElementById('clock-date');
+            var elTime = document.getElementById('clock-time');
+            if (elDate && elTime) {
                 var now = new Date();
-                // 格式化：2026年08月19日 14:30:25
+                // 上行：星期 + 日期；下行：时分秒
+                var weekdays = ['日', '一', '二', '三', '四', '五', '六'];
                 var year = now.getFullYear();
                 var month = String(now.getMonth() + 1).padStart(2, '0');
                 var day = String(now.getDate()).padStart(2, '0');
                 var hours = String(now.getHours()).padStart(2, '0');
                 var minutes = String(now.getMinutes()).padStart(2, '0');
                 var seconds = String(now.getSeconds()).padStart(2, '0');
-                el.textContent = 'Now: ' + year + '年' + month + '月' + day + '日 ' + hours + ':' + minutes + ':' + seconds;
+                elDate.textContent = '星期' + weekdays[now.getDay()] + ' ' + year + '年' + month + '月' + day + '日';
+                elTime.textContent = hours + ':' + minutes + ':' + seconds;
             }
         }
         updateClock();

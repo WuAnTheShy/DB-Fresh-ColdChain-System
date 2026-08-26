@@ -15,7 +15,7 @@
 
                 @if (!ViewData.ModelState.IsValid)
                 {
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert" data-auto-dismiss>
                         @Html.ValidationSummary(false, "", new { @class = "text-danger" })
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
@@ -45,8 +45,12 @@
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-lg button1 text-white">注 册</button>
                     </div>
-                </form>
-            </div>
+                    </form>
+
+                    <div class="text-center mt-4">
+                    <a class="back-btn" asp-action="Login" asp-controller="Account" asp-route-role="@ViewBag.Role">返回登录</a>
+                    </div>
+                    </div>
         </div>
     </div>
 </div>

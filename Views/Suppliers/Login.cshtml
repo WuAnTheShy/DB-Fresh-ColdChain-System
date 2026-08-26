@@ -13,7 +13,7 @@
                     @Html.AntiForgeryToken()
                     @if (!ViewData.ModelState.IsValid)
                     {
-                        <div class="alert alert-danger">
+                        <div class="alert alert-danger" data-auto-dismiss>
                             @foreach (var err in ViewData.ModelState.Values.SelectMany(v => v.Errors))
                             {
                                 <div>@err.ErrorMessage</div>
