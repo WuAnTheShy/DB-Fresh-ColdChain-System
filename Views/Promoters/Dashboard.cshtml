@@ -284,7 +284,7 @@
                 @if (Model.IsMaxTier)
                 {
                     <div class="alert alert-success py-2 mb-0 small">
-                        🎉 已达最高等级，享受 8% 佣金比例
+                        🎉 已达最高等级「@Model.LevelName」，基础佣金比例 @Model.CurrentTierRate%
                     </div>
                 }
                 else
@@ -299,8 +299,9 @@
                         </div>
                     </div>
                     <p class="text-muted small mb-0">
-                        距 <strong>@Model.NextTierRate%</strong> 佣金还需
-                        <strong>¥@((Model.NextTierThreshold - p.TotalSales).ToString("N2"))</strong>
+                        晋升「<strong>@Model.NextTierName</strong>」还需
+                        <strong>¥@((Model.NextTierThreshold - p.TotalSales).ToString("N2"))</strong>，
+                        将获得 <strong>¥@Model.NextTierBonus.ToString("N0")</strong> 里程碑奖励
                     </p>
                 }
             </div>

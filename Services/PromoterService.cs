@@ -264,6 +264,61 @@ namespace FreshColdChain.Services
 
 
 
+        // 管理员更新团长基础佣金比例（单位与存储一致：小数，如 0.03 表示 3%）
+        public async Task<Result> UpdateCommissionRate(GroupC_UpdateCommisionRequest request)
+        {
+            await _uow.BeginAsync();
+            var _result = new Result();
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.PromoterId))
+                {
+                    throw new Exception("更新信息错误：团长编号不能为空");
+                }
+                if (request.BaseCommissionRate < 0 || request.BaseCommissionRate > 1)
+                {
+                    throw new Exception("佣金比例必须在 0 ~ 1 之间（如 0.03 表示 3%）");
+                }
+
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(request.PromoterId, _uow.Transaction);
+                if (promoter == null)
+                {
+                    throw new Exception("该团长不存在");
+                }
+
+                var dbResult = await _ipromoterRepository.GroupC_UpdatePromoterCommissionRateAsync(
+                    request.PromoterId, request.BaseCommissionRate, _uow.Transaction);
+                if (!dbResult)
+                {
+                    throw new Exception("更新佣金比例失败");
+                }
+
+                var log = new GroupC_LogAuditrails
+                {
+                    TableName = "CRM_PROMOTERS",
+                    ActionType = "Update",
+                    OperatorType = "Platform",
+                    OperatorId = "\\",
+                    OldValue = JsonConvert.SerializeObject(new { promoter.PromoterId, BaseCommissionRate = promoter.BaseCommissionRate }),
+                    NewValue = JsonConvert.SerializeObject(new { promoter.PromoterId, BaseCommissionRate = request.BaseCommissionRate })
+                };
+                await _logManager.WriteTableChangeLog(log);
+
+                await _uow.CommitAsync();
+                _result.IsSuccess = true;
+                return _result;
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                _result.IsSuccess = false;
+                _result.ErrorMessage = $"系统错误：{ex.Message}";
+                return _result;
+            }
+        }
+
+
         //============================团长-供应商合作服务===================================
         public async Task<List<string>> GetActiveSupplierIdsAsync(string promoterId)
         {

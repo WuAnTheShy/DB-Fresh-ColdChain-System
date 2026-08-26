@@ -392,6 +392,21 @@ namespace FreshColdChain.Services
                 _tableLog.NewValue = JsonConvert.SerializeObject(new { TotalSales = _newPromoterTotalSales });
                 await _logManager.WriteTableChangeLog(_tableLog);
 
+                //等级挂钩回滚：退款使累计销售额跌破档位导致等级下降时，佣金比例同步回退到对应档位（与结算跨档升级逻辑对称）
+                var _levelRate = GroupC_LevelCommissionPolicy.ResolveRate(_newPromoterTotalSales);
+                if (_promoterInfo.BaseCommissionRate != _levelRate)
+                {
+                    await _ipromoterRepository.GroupC_UpdatePromoterCommissionRateAsync(promoterID, _levelRate, transaction);
+                    _tableLog = new GroupC_LogAuditrails();
+                    _tableLog.ActionType = "Update";
+                    _tableLog.TableName = "CRM_PROMOTERS";
+                    _tableLog.OperatorType = "Platform";
+                    _tableLog.OperatorId = "\\";
+                    _tableLog.OldValue = JsonConvert.SerializeObject(new { BaseCommissionRate = _promoterInfo.BaseCommissionRate });
+                    _tableLog.NewValue = JsonConvert.SerializeObject(new { BaseCommissionRate = _levelRate });
+                    await _logManager.WriteTableChangeLog(_tableLog);
+                }
+
                 if (ownTransaction)
                     await _uow.CommitAsync();
                 _result.IsSuccess = true;

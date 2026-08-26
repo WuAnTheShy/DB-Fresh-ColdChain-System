@@ -133,6 +133,16 @@ namespace FreshColdChain.Repositories
             int rows = await _uow.Connection.ExecuteAsync(sql, new { PromoterId = promoterId, NewStatus = newStatus }, transaction);
             return rows > 0;
         }
+        public async Task<bool> GroupC_UpdatePromoterCommissionRateAsync(string promoterId, decimal rate, IDbTransaction? transaction = null)
+        {
+            string sql = @"
+                UPDATE CRM_PROMOTERS
+                SET BASECOMMISSIONRATE = :BaseCommissionRate
+                WHERE PROMOTERID = :PromoterId";
+
+            int rows = await _uow.Connection.ExecuteAsync(sql, new { PromoterId = promoterId, BaseCommissionRate = rate }, transaction);
+            return rows > 0;
+        }
         public async Task<IEnumerable<GroupC_CrmPromoter>> GroupC_GetPromotersByStatusAsync(string status)
         {
             string sql = "SELECT * FROM CRM_PROMOTERS WHERE STATUS = :Status";

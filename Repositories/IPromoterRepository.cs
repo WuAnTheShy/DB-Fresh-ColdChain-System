@@ -14,6 +14,7 @@ namespace FreshColdChain.Repositories
         Task GroupC_UpdatePromoterTotalSalesAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null);     //修改团长累计销售额
         Task GroupC_UpdatePromoterPendingBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null); //修改团长待结算余额
         Task<bool> GroupC_UpdatePromoterStatusAsync(string promoterId, string newStatus, IDbTransaction? transaction = null);       //修改团长账号状态
+        Task<bool> GroupC_UpdatePromoterCommissionRateAsync(string promoterId, decimal rate, IDbTransaction? transaction = null);   //修改团长基础佣金比例
         Task<decimal?> GroupC_FindPromoterPendingBalanceAsync(string? promoterId, IDbTransaction? transaction = null);              //查找团长待结算余额
         Task GroupC_UpdatePromoterCurrentBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null); //查找团长可提现余额
         Task<bool> GroupC_ExistsPromoterByLoginAccountAsync(string loginAccount, IDbTransaction? transaction = null);               //检查团长账号是否存在

@@ -77,6 +77,22 @@ namespace FreshColdChain.Services
                 _tableLog.NewValue = JsonConvert.SerializeObject(new { TotalSales = _newTotalSales });
                 await _logManager.WriteTableChangeLog(_tableLog);
 
+                //等级挂钩：累计销售额跨档导致等级变化时，同步更新佣金比例（等级越高比例越高）。
+                //本单仍按结算前的旧比例计佣，新比例从下一单开始生效；退款回滚时在 RefundRollbackMoney 内对称回退
+                var _levelRate = GroupC_LevelCommissionPolicy.ResolveRate(_newTotalSales);
+                if (_promoterInfo.BaseCommissionRate != _levelRate)
+                {
+                    await _ipromoterRepository.GroupC_UpdatePromoterCommissionRateAsync(commissionOrderRequest.promoterID, _levelRate, transaction);
+                    _tableLog = new GroupC_LogAuditrails();
+                    _tableLog.ActionType = "Update";
+                    _tableLog.TableName = "CRM_PROMOTERS";
+                    _tableLog.OperatorType = "Platform";
+                    _tableLog.OperatorId = "\\";
+                    _tableLog.OldValue = JsonConvert.SerializeObject(new { BaseCommissionRate = _promoterInfo.BaseCommissionRate });
+                    _tableLog.NewValue = JsonConvert.SerializeObject(new { BaseCommissionRate = _levelRate });
+                    await _logManager.WriteTableChangeLog(_tableLog);
+                }
+
                 _commissionResult.CommBaseAmount = _promoterInfo.BaseCommissionRate * commissionOrderRequest.finalAmount;
 
                 //阶梯奖励：累计销售额每跨过一档即发放对应奖励，一单跨多档时全部叠加到该单奖励佣金

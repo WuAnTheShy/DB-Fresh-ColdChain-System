@@ -33,7 +33,7 @@
             <span class="stat-label">当前佣金比例</span>
         </div>
         <div class="stat-value">@Model.CurrentTierRate<span style="font-size:16px">%</span></div>
-        <div class="stat-sub">按累计销售额阶梯计算</div>
+        <div class="stat-sub">平台设定基础佣金比例</div>
     </div>
     <div class="stat-card pending">
         <div class="stat-card-top">
@@ -70,12 +70,12 @@
                                 }
                                 else
                                 {
-                                    <span>@step.Rate%</span>
+                                    <span>@(step.Bonus > 0 ? $"+¥{step.Bonus:N0}" : "→")</span>
                                 }
                             </div>
                             <div class="tier-step-body">
                                 <div class="tier-step-name">@step.LevelName @(step.IsCurrent ? "（当前）" : "")</div>
-                                <div class="tier-step-range text-muted small">@step.SalesRange · 佣金 @step.Rate%</div>
+                                <div class="tier-step-range text-muted small">@step.SalesRange · 佣金 <strong class="text-primary">@(step.RatePercent.ToString("0.##"))%</strong> @(step.Bonus > 0 ? $"· 晋升奖励 +¥{step.Bonus:N0}" : "")</div>
                             </div>
                         </div>
                     }
@@ -85,14 +85,14 @@
 
         <!-- 佣金阶梯表 -->
         <div class="content-card">
-            <div class="content-card-header"><h5>佣金比例阶梯说明</h5></div>
+            <div class="content-card-header"><h5>等级晋升阶梯说明</h5></div>
             <div class="content-card-body p-0">
                 <table class="table mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
                             <th>累计有效销售额</th>
                             <th>等级名称</th>
-                            <th>基础佣金</th>
+                            <th>佣金比例</th>
                             <th>里程碑奖励</th>
                         </tr>
                     </thead>
@@ -102,9 +102,9 @@
                             <tr class="@(step.IsCurrent ? "table-success" : "")">
                                 <td>@step.SalesRange</td>
                                 <td>@(step.IsCurrent ? "★ " : "")@step.LevelName</td>
-                                <td><strong>@step.Rate%</strong></td>
+                                <td><strong>@(step.RatePercent.ToString("0.##"))%</strong></td>
                                 <td class="text-muted small">
-                                    @(step.Threshold > 0 ? $"首次达 ¥{step.Threshold:N0}" : "—")
+                                    @(step.Bonus > 0 ? $"¥{step.Bonus:N0}（首次达 ¥{step.Threshold:N0}）" : "—")
                                 </td>
                             </tr>
                         }
@@ -122,14 +122,14 @@
                 @if (Model.IsMaxTier)
                 {
                     <div class="alert alert-success mb-0">
-                        🎉 已达最高等级「钻石团长」，享受 <strong>8%</strong> 基础佣金！
+                        🎉 已达最高等级「@Model.LevelName」，基础佣金比例 <strong>@Model.CurrentTierRate%</strong>。
                     </div>
                 }
                 else
                 {
                     <div class="d-flex justify-content-between mb-2">
                         <span class="level-badge-lg">@Model.LevelName</span>
-                        <span class="text-muted small">→ @Model.NextTierRate%</span>
+                        <span class="text-muted small">→ @Model.NextTierName</span>
                     </div>
                     <div class="tier-progress-wrap mb-3">
                         <div class="tier-bar">
@@ -142,7 +142,8 @@
                     </div>
                     <p class="text-muted small mb-0">
                         还需 <strong>¥@((Model.NextTierThreshold - Model.TotalSales).ToString("N2"))</strong>
-                        有效销售额，佣金比例将从 <strong>@Model.CurrentTierRate%</strong> 升至 <strong>@Model.NextTierRate%</strong>。
+                        有效销售额晋升「<strong>@Model.NextTierName</strong>」，将获得
+                        <strong>¥@Model.NextTierBonus.ToString("N0")</strong> 里程碑奖励。
                     </p>
                 }
             </div>
