@@ -40,3 +40,37 @@ onMounted(loadAddresses)
     <div v-else class="store-empty"><MapPin :size="40" /><strong>还没有收货地址</strong><span>添加地址后即可安排冷链配送</span><button class="btn btn-buy" type="button" @click="openCreate"><Plus :size="17" />新增地址</button></div>
   </div>
 </template>
+
+<style scoped>
+.address-editor { margin-bottom: 15px; padding: 18px; border: 1px solid #b9cdc4; border-top: 3px solid var(--brand); background: #fff; }
+.address-editor > header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 15px; }
+.address-editor h2 { margin: 0; font-size: 16px; }
+.address-editor p { margin: 3px 0 0; color: var(--muted); font-size: 9px; }
+.address-editor header button { display: inline-flex; width: 34px; height: 34px; align-items: center; justify-content: center; border: 0; border-radius: 4px; background: transparent; color: #69746f; }
+.address-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; }
+.address-form .wide { grid-column: 1 / -1; }
+.address-form label { display: flex; flex-direction: column; gap: 6px; }
+.address-form label > span { color: #4d5953; font-size: 10px; font-weight: 700; }
+.address-default-check { display: flex !important; flex-direction: row !important; align-items: center; gap: 7px !important; color: #4f5c56; font-size: 10px; }
+.address-form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.consumer-address-list { display: flex; flex-direction: column; border: 1px solid var(--line); background: #fff; }
+.consumer-address-list article { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 100px; padding: 16px; border-bottom: 1px solid var(--line); }
+.consumer-address-list article:last-child { border-bottom: 0; }
+.consumer-address-list article.default { border-left: 3px solid var(--brand); padding-left: 13px; background: #f7faf8; }
+.address-pin { display: inline-flex; width: 42px; height: 42px; align-items: center; justify-content: center; border-radius: 50%; background: #e7f2ed; color: var(--brand); }
+.address-person { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.address-person > span { color: var(--muted); font-size: 10px; }
+.address-person small { display: inline-flex; align-items: center; gap: 3px; padding: 3px 6px; border-radius: 3px; background: var(--brand); color: #fff; font-size: 8px; }
+.consumer-address-list p { margin: 6px 0 0; color: #59665f; font-size: 11px; }
+.address-actions { display: flex; gap: 3px; }
+.address-actions button { display: inline-flex; width: 34px; height: 34px; align-items: center; justify-content: center; border: 0; border-radius: 4px; background: transparent; color: #69746f; }
+.address-actions .danger:hover { background: #fff0ef; color: var(--danger); }
+
+@media (max-width: 767.98px) {
+  .address-form { grid-template-columns: 1fr; }
+  .address-form .wide { grid-column: auto; }
+  .consumer-address-list article { grid-template-columns: 38px minmax(0, 1fr); }
+  .address-pin { width: 36px; height: 36px; }
+  .address-actions { grid-column: 2; justify-content: flex-end; }
+}
+</style>

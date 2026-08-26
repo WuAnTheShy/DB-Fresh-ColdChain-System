@@ -20,3 +20,12 @@ function setValue(value) {
     <button type="button" title="增加数量" :disabled="modelValue >= max" @click="setValue(modelValue + 1)"><Plus :size="15" /></button>
   </div>
 </template>
+
+<style scoped>
+.quantity-stepper { display: grid; width: 120px; height: 36px; grid-template-columns: 35px 1fr 35px; overflow: hidden; border: 1px solid #c8d0cc; border-radius: 5px; background: #fff; }
+.quantity-stepper button, .quantity-stepper input { min-width: 0; border: 0; background: transparent; text-align: center; }
+.quantity-stepper button { display: inline-flex; align-items: center; justify-content: center; background: #eef1ef; }
+.quantity-stepper button:disabled { opacity: .4; }
+.quantity-stepper input { width: 100%; outline: 0; appearance: textfield; }
+.quantity-stepper { border-color: #888c8c; border-radius: 8px; }
+</style>

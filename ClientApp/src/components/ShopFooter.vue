@@ -20,3 +20,24 @@ function backToTop() {
     <div class="footer-legal"><span>冷链社区团购示范商城</span><span>© 2026 鲜邻团</span></div>
   </footer>
 </template>
+
+<style scoped>
+.store-footer { margin-top: 18px; background: #232f3e; color: #ddd; }
+.back-to-top { width: 100%; min-height: 48px; border: 0; background: #37475a; color: #fff; font-size: 12px; }
+.back-to-top:hover { background: #485769; }
+.footer-links { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 55px; padding: 42px max(40px, 8vw); background: #232f3e; }
+.footer-links section { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.footer-links h2 { margin: 0 0 5px; color: #fff; font-size: 15px; }
+.footer-links a { color: #ddd; font-size: 12px; text-decoration: none; }
+.footer-links a:hover { color: #fff; text-decoration: underline; }
+.footer-brand-row { display: flex; min-height: 92px; align-items: center; justify-content: center; gap: 45px; border-top: 1px solid #3a4553; background: #232f3e; }
+.footer-brand { min-width: 112px; }
+.footer-brand-row > span { padding: 8px 13px; border: 1px solid #848a91; border-radius: 3px; color: #ccc; font-size: 11px; }
+.footer-legal { display: flex; min-height: 64px; align-items: center; justify-content: center; gap: 22px; background: #131a22; color: #aaa; font-size: 10px; }
+
+@media (max-width: 767.98px) {
+  .footer-links { grid-template-columns: repeat(2, 1fr); gap: 26px; padding: 30px 24px; }
+  .footer-brand-row { flex-direction: column; gap: 6px; padding: 18px; }
+  .footer-legal { padding-bottom: 58px; }
+}
+</style>

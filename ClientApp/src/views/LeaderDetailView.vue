@@ -53,3 +53,33 @@ if (!leader.value) router.replace('/search')
     </div>
   </div>
 </template>
+
+<style scoped>
+.leader-profile-band { position: relative; min-height: 300px; overflow: hidden; background: #17211d; }
+.leader-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .45; }
+.leader-cover-shade { position: absolute; inset: 0; background: rgba(18, 28, 23, .62); }
+.leader-profile-content { position: relative; z-index: 1; display: grid; min-height: 300px; grid-template-columns: 126px minmax(0, 1fr) auto; gap: 24px; align-items: center; color: #fff; }
+.leader-profile-avatar { width: 126px; height: 126px; border: 4px solid #fff; border-radius: 50%; object-fit: cover; }
+.leader-profile-copy { min-width: 0; }
+.verified-label { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 9px; color: #f2c45d; font-size: 11px; font-weight: 750; }
+.leader-profile-copy h1 { margin: 0 0 9px; font-size: 32px; font-weight: 800; }
+.leader-profile-copy p { max-width: 650px; margin: 0 0 13px; color: #e0e7e3; font-size: 13px; line-height: 1.65; }
+.leader-area { display: inline-flex; align-items: center; gap: 5px; color: #c9d4cf; font-size: 11px; }
+.leader-follow-button { min-width: 120px; }
+.leader-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-top: 0; background: #fff; }
+.leader-stat-row > div { display: flex; min-height: 76px; align-items: center; justify-content: center; gap: 9px; border-right: 1px solid var(--line); color: var(--brand); }
+.leader-stat-row > div:last-child { border-right: 0; }
+.leader-stat-row span { display: flex; flex-direction: column; }
+.leader-stat-row strong { color: var(--ink); font-size: 14px; }
+.leader-stat-row small { color: var(--muted); font-size: 9px; }
+
+@media (max-width: 767.98px) {
+  .leader-profile-content { min-height: 330px; grid-template-columns: 82px 1fr; gap: 15px; padding: 25px 0; }
+  .leader-profile-avatar { width: 82px; height: 82px; }
+  .leader-profile-copy h1 { font-size: 25px; }
+  .leader-profile-copy p { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+  .leader-follow-button { grid-column: 1 / -1; justify-self: start; }
+  .leader-stat-row > div { padding: 8px; text-align: center; }
+  .leader-stat-row > div > svg { display: none; }
+}
+</style>

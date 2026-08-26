@@ -30,3 +30,37 @@ onMounted(loadCoupons)
     </template>
   </div>
 </template>
+
+<style scoped>
+.coupon-section { margin-bottom: 15px; padding: 18px; border: 1px solid var(--line); background: #fff; }
+.consumer-coupon-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.consumer-coupon-card { display: grid; min-height: 132px; grid-template-columns: 116px minmax(0, 1fr) auto; align-items: center; overflow: hidden; border: 1px solid #d7dedb; border-left: 4px solid var(--amber); background: #fff; }
+.coupon-amount { display: flex; align-self: stretch; flex-direction: column; align-items: center; justify-content: center; border-right: 1px dashed #c7d0cc; background: #fff8e8; color: var(--danger); }
+.coupon-amount > div { display: flex; align-items: baseline; }
+.coupon-amount strong { font-size: 29px; }
+.coupon-amount span { color: #795d16; font-size: 9px; }
+.coupon-detail { min-width: 0; padding: 14px; }
+.coupon-type { color: var(--brand); font-size: 9px; font-weight: 750; }
+.coupon-detail h3 { margin: 5px 0; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.coupon-detail p, .coupon-detail small { display: block; margin: 0; color: var(--muted); font-size: 9px; }
+.consumer-coupon-card > button { min-width: 78px; margin-right: 13px; }
+.my-coupon-list > div { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); color: var(--brand); }
+.my-coupon-list span { display: flex; min-width: 0; flex-direction: column; }
+.my-coupon-list strong { color: var(--ink); font-size: 11px; }
+.my-coupon-list small { margin-top: 3px; color: var(--muted); font-size: 9px; }
+.my-coupon-list a { color: var(--brand); font-size: 10px; font-weight: 700; }
+
+@media (max-width: 1199.98px) {
+  .consumer-coupon-card { grid-template-columns: 100px minmax(0, 1fr); }
+  .consumer-coupon-card > button { grid-column: 1 / -1; margin: 0 10px 10px; }
+}
+
+@media (max-width: 991.98px) {
+  .consumer-coupon-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 767.98px) {
+  .consumer-coupon-card { grid-template-columns: 86px minmax(0, 1fr); }
+  .coupon-amount strong { font-size: 24px; }
+}
+</style>

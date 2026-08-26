@@ -49,3 +49,66 @@ function formatFeedTime(value) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.following-page { max-width: 980px; }
+.following-page-header > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 650;
+}
+.following-feed { position: relative; max-width: 860px; margin: 0 auto; }
+.following-feed-item {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  padding-bottom: 24px;
+}
+.following-feed-time {
+  position: relative;
+  min-height: 100%;
+  padding: 17px 23px 0 0;
+  color: #737a77;
+  font-size: 11px;
+  text-align: right;
+  white-space: nowrap;
+}
+.following-feed-time::before {
+  position: absolute;
+  top: 0;
+  right: 5px;
+  bottom: -24px;
+  width: 1px;
+  background: #d8dfdc;
+  content: "";
+}
+.following-feed-time::after {
+  position: absolute;
+  top: 20px;
+  right: 0;
+  width: 11px;
+  height: 11px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 0 1px #a9c8be;
+  content: "";
+}
+.following-feed-item:last-child .following-feed-time::before { bottom: calc(100% - 26px); }
+.following-feed-card { min-width: 0; }
+.following-feed-card .social-product-card { width: 100%; }
+.following-empty { border-radius: 12px; }
+.following-empty > svg { color: var(--brand); }
+
+@media (max-width: 767.98px) {
+  .following-page-header > span { align-self: flex-start; }
+  .following-feed-item { display: block; padding-bottom: 18px; }
+  .following-feed-time { min-height: 0; padding: 0 0 8px 16px; text-align: left; }
+  .following-feed-time::before { display: none; }
+  .following-feed-time::after { top: 3px; left: 0; width: 8px; height: 8px; border-width: 2px; }
+}
+</style>

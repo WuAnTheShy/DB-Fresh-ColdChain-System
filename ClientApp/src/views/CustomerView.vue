@@ -46,3 +46,42 @@ onMounted(loadProfile)
     </template>
   </div>
 </template>
+
+<style scoped>
+.profile-banner { display: flex; min-height: 142px; align-items: center; gap: 17px; padding: 23px; background: var(--header); color: #fff; }
+.profile-avatar { display: inline-flex; width: 72px; height: 72px; align-items: center; justify-content: center; border-radius: 50%; background: #2d4f40; color: #dcece5; }
+.profile-banner small { color: #aebbb5; }
+.profile-banner h1 { margin: 2px 0 5px; font-size: 25px; }
+.profile-banner p { display: flex; align-items: center; gap: 5px; margin: 0; color: #dfc272; font-size: 10px; }
+.profile-metrics { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-top: 0; background: #fff; }
+.profile-metrics > a, .profile-metrics > div { display: flex; min-width: 0; min-height: 82px; align-items: center; gap: 9px; padding: 13px; border-right: 1px solid var(--line); color: var(--brand); text-decoration: none; }
+.profile-metrics > *:last-child { border-right: 0; }
+.profile-metrics span { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+.profile-metrics strong { color: var(--ink); font-size: 12px; }
+.profile-metrics small { margin-top: 3px; overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.profile-content-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, .7fr); gap: 15px; margin-top: 16px; }
+.account-section { padding: 18px; border: 1px solid var(--line); background: #fff; }
+.account-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
+.account-section-head h2 { margin: 0; font-size: 16px; }
+.account-section-head p { margin: 3px 0 0; color: var(--muted); font-size: 9px; }
+.account-section-head a { color: var(--brand); font-size: 10px; font-weight: 700; text-decoration: none; }
+.account-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 13px; }
+.account-form label:first-child { grid-column: 1 / -1; }
+.account-form button { grid-column: 1 / -1; justify-self: end; }
+.account-form label { display: flex; flex-direction: column; gap: 6px; }
+.account-form label > span { color: #4d5953; font-size: 10px; font-weight: 700; }
+.profile-address-list { display: flex; flex-direction: column; }
+.profile-address-list > div { display: flex; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); color: var(--brand); }
+.profile-address-list span { display: flex; min-width: 0; flex-direction: column; }
+.profile-address-list strong { color: var(--ink); font-size: 10px; }
+.profile-address-list small { margin-top: 3px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+
+@media (max-width: 767.98px) {
+  .profile-metrics { grid-template-columns: repeat(2, 1fr); }
+  .profile-metrics > *:nth-child(2) { border-right: 0; }
+  .profile-metrics > *:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .account-form { grid-template-columns: 1fr; }
+  .account-form label:first-child { grid-column: auto; }
+  .account-form button { grid-column: auto; justify-self: stretch; }
+}
+</style>
