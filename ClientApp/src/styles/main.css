@@ -55,7 +55,6 @@ a:hover { color: #c7511f; }
 
 /* ---------- 共享品牌(AppHeader / ShopFooter 共用) ---------- */
 .store-brand { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 9px; color: #fff; text-decoration: none; position: relative; min-width: 112px; height: 48px; justify-content: center; padding: 5px 8px 8px; border: 1px solid transparent; border-radius: 2px; }
-.store-brand:hover { border-color: #fff; color: #fff; }
 .brand-word { position: relative; z-index: 1; color: #fff; font-size: 25px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
 .brand-smile { position: absolute; left: 27px; bottom: 8px; width: 56px; height: 14px; transform: rotate(-3deg); border-bottom: 3px solid #ff9900; border-radius: 0 0 55% 55%; }
 .brand-smile::after { position: absolute; right: -4px; bottom: -4px; width: 0; height: 0; transform: rotate(12deg); border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 7px solid #ff9900; content: ""; }
