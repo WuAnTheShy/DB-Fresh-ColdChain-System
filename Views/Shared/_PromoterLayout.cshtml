@@ -42,9 +42,13 @@
                    class="nav-link @(currentAction == "Profile" ? "active" : "")">
                     <span class="nav-icon">☺</span> 个人资料
                 </a>
-                <a asp-controller="Promoters" asp-action="BindSupplier"
-                   class="nav-link @(currentAction == "BindSupplier" ? "active" : "")">
-                    <span class="nav-icon">🔗</span> 供应商绑定
+                <a asp-controller="Promoters" asp-action="ProductListing"
+                   class="nav-link @(currentAction == "ProductListing" ? "active" : "")">
+                    <span class="nav-icon">📦</span> 商品上架
+                </a>
+                <a asp-controller="Promoters" asp-action="BoundConsumers"
+                   class="nav-link @(currentAction == "BoundConsumers" ? "active" : "")">
+                    <span class="nav-icon">👥</span> 我的消费者
                 </a>
             </nav>
             <div class="sidebar-footer">

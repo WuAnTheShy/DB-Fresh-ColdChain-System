@@ -264,6 +264,17 @@ namespace FreshColdChain.Controllers
             return View(addInfo);
         }
 
+        // 管理员更新团长基础佣金比例
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateCommissionRate(GroupC_UpdateCommisionRequest request)
+        {
+            var result = await _promoterService.UpdateCommissionRate(request);
+            TempData[result.IsSuccess ? "SuccessMessage" : "ErrorMessage"] =
+                result.IsSuccess ? "佣金比例已更新" : result.ErrorMessage;
+            return RedirectToAction(nameof(ManagePromoters));
+        }
+
         // 供应商注册审核列表（Pending 状态）
         public async Task<IActionResult> PendingSuppliers()
         {

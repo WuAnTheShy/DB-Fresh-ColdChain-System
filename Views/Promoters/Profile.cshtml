@@ -2,7 +2,6 @@
 @{
     ViewData["Title"] = "个人资料";
     var p = Model.Promoter;
-    var commissionRateDisplay = p.BaseCommissionRate < 1 ? p.BaseCommissionRate * 100 : p.BaseCommissionRate;
 }
 
 <div class="profile-header-card">
@@ -101,12 +100,8 @@
                     <span class="info-value"><span class="level-badge-lg">@Model.LevelName</span></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">阶梯佣金比例</span>
-                    <span class="info-value"><strong>@Model.CurrentTierRate%</strong></span>
-                </div>
-                <div class="info-row">
                     <span class="info-label">平台设定比例</span>
-                    <span class="info-value">@commissionRateDisplay%</span>
+                    <span class="info-value"><strong>@Model.CurrentTierRate%</strong></span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">累计有效销售额</span>

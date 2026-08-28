@@ -63,14 +63,14 @@
     <div class="container">
         @if (TempData["Success"] is string successMsg)
         {
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <div class="alert alert-success alert-dismissible fade show" role="alert" data-auto-dismiss>
                 @successMsg
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         }
         @if (TempData["Error"] is string errorMsg)
         {
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <div class="alert alert-danger alert-dismissible fade show" role="alert" data-auto-dismiss>
                 @errorMsg
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>

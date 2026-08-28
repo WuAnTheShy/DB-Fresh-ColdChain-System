@@ -75,7 +75,7 @@ namespace FreshColdChain.Services
 
         public PromoterCommissionsViewModel BuildCommissions(string promoterId, string? statusFilter = null)
         {
-            var promoter = _promoterRepository.GroupC_FindPromoterRecord(promoterId);
+            var promoter = _promoterRepository?.GroupC_FindPromoterRecord(promoterId);
             if (promoter == null)
                 return new PromoterCommissionsViewModel(); // 为空则返回空页面
             var all = GetCommissions(promoterId);
@@ -103,13 +103,13 @@ namespace FreshColdChain.Services
             {
                 try
                 {
+                    // 数据库可用时一律返回真实记录（无记录则返回空列表，由视图展示空状态）
                     var dbRecords = _withdrawalRepository.GroupC_GetWithdrawalRecordsByPromoterAsync(promoterId).GetAwaiter().GetResult();
-                    if (dbRecords.Any())
-                        return dbRecords.Select(MapWithdrawalRecord).ToList();
+                    return dbRecords.Select(MapWithdrawalRecord).ToList();
                 }
                 catch
                 {
-                    // 数据库不可用时使用演示数据
+                    // 仅数据库不可用时才回退演示数据，便于前端联调
                 }
             }
             if (DemoWithdrawals.TryGetValue(promoterId, out var records))
@@ -185,7 +185,7 @@ namespace FreshColdChain.Services
 
         public PromoterPerformanceViewModel BuildPerformance(GroupC_CrmPromoter promoter)
         {
-            var (currentRate, nextThreshold, nextRate, isMax) = ResolveTier(promoter.TotalSales);
+            var (nextName, nextThreshold, nextBonus, isMax) = ResolveNextTier(promoter.TotalSales);
             var progressPct = isMax ? 100.0
                 : nextThreshold > 0
                     ? Math.Min(100, (double)(promoter.TotalSales / nextThreshold * 100))
@@ -193,10 +193,10 @@ namespace FreshColdChain.Services
 
             var tierDefs = new[]
             {
-                ("青铜团长", "< ¥1,000", 3m, 0m),
-                ("白银团长", "¥1,000 ~ ¥3,000", 4m, 1000m),
-                ("黄金团长", "¥3,000 ~ ¥5,000", 5m, 3000m),
-                ("钻石团长", "> ¥5,000", 8m, 5000m)
+                ("青铜团长", "< ¥1,000", 0m, 0m),
+                ("白银团长", "¥1,000 ~ ¥3,000", 1000m, 50m),
+                ("黄金团长", "¥3,000 ~ ¥5,000", 3000m, 150m),
+                ("钻石团长", "> ¥5,000", 5000m, 750m)
             };
             var levelName = ResolveLevelName(promoter.TotalSales);
 
@@ -207,9 +207,11 @@ namespace FreshColdChain.Services
                 TotalSales = promoter.TotalSales,
                 TotalOrderCount = promoter.TotalOrderCount,
                 LevelName = levelName,
-                CurrentTierRate = currentRate,
+                // 当前佣金比例 = 基础佣金比例（结算时随等级跨档自动联动，等级越高比例越高）
+                CurrentTierRate = ResolveCommissionRatePercent(promoter.BaseCommissionRate),
                 NextTierThreshold = nextThreshold,
-                NextTierRate = nextRate,
+                NextTierName = nextName,
+                NextTierBonus = nextBonus,
                 IsMaxTier = isMax,
                 TierProgressPercent = progressPct,
                 PendingBalance = promoter.PendingBalance,
@@ -218,17 +220,12 @@ namespace FreshColdChain.Services
                 {
                     LevelName = t.Item1,
                     SalesRange = t.Item2,
-                    Rate = t.Item3,
-                    Threshold = t.Item4,
+                    Bonus = t.Item4,
+                    Threshold = t.Item3,
+                    // 各阶梯佣金比例与等级挂钩（GroupC_LevelCommissionPolicy 唯一来源），等级越高比例越高
+                    RatePercent = GroupC_LevelCommissionPolicy.ResolveRate(t.Item3) * 100,
                     IsCurrent = t.Item1 == levelName,
-                    IsAchieved = t.Item4 switch
-                    {
-                        0m => true,
-                        1000m => promoter.TotalSales >= 1000,
-                        3000m => promoter.TotalSales >= 3000,
-                        5000m => promoter.TotalSales >= 5000,
-                        _ => false
-                    }
+                    IsAchieved = promoter.TotalSales >= t.Item3
                 }).ToList(),
                 Milestones = MilestoneBonuses.Select(m => new PromoterMilestoneViewModel
                 {
@@ -277,7 +274,8 @@ namespace FreshColdChain.Services
                 LevelName = performance.LevelName,
                 CurrentTierRate = performance.CurrentTierRate,
                 NextTierThreshold = performance.NextTierThreshold,
-                NextTierRate = performance.NextTierRate,
+                NextTierName = performance.NextTierName,
+                NextTierBonus = performance.NextTierBonus,
                 IsMaxTier = performance.IsMaxTier,
                 TierProgressPercent = performance.TierProgressPercent,
                 PendingCommissionCount = commissions.Count(c => c.Status == "Pending"),
@@ -305,12 +303,17 @@ namespace FreshColdChain.Services
             _ => (status, "secondary")
         };
 
-        private static (decimal CurrentRate, decimal NextThreshold, decimal NextRate, bool IsMax) ResolveTier(decimal totalSales)
+        /// <summary>将平台设定的基础佣金比例换算为百分数（如 0.05 → 5）</summary>
+        private static decimal ResolveCommissionRatePercent(decimal baseRate) =>
+            baseRate < 1 ? baseRate * 100 : baseRate;
+
+        /// <summary>计算下一等级信息（里程碑奖励与 GroupC_CommissionBonusPolicy 跨档奖励一致）</summary>
+        private static (string NextName, decimal NextThreshold, decimal NextBonus, bool IsMax) ResolveNextTier(decimal totalSales)
         {
-            if (totalSales >= 5000) return (8m, 0, 8m, true);
-            if (totalSales >= 3000) return (5m, 5000, 8m, false);
-            if (totalSales >= 1000) return (4m, 3000, 5m, false);
-            return (3m, 1000, 4m, false);
+            if (totalSales >= 5000) return ("", 0, 0, true);
+            if (totalSales >= 3000) return ("钻石团长", 5000, 750m, false);
+            if (totalSales >= 1000) return ("黄金团长", 3000, 150m, false);
+            return ("白银团长", 1000, 50m, false);
         }
 
         private static string MapPlatformLabel(string platform) => platform switch

@@ -42,6 +42,7 @@ public interface IPromoterRepository
     Task GroupC_UpdatePromoterTotalSalesAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null);
     Task GroupC_UpdatePromoterPendingBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null);
     Task<bool> GroupC_UpdatePromoterStatusAsync(string promoterId, string newStatus, IDbTransaction? transaction = null);
+    Task<bool> GroupC_UpdatePromoterCommissionRateAsync(string promoterId, decimal rate, IDbTransaction? transaction = null);
     Task<decimal?> GroupC_FindPromoterPendingBalanceAsync(string? promoterId, IDbTransaction? transaction = null);
     Task GroupC_UpdatePromoterCurrentBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null);
     Task<bool> GroupC_ExistsPromoterByLoginAccountAsync(string loginAccount, IDbTransaction? transaction = null);

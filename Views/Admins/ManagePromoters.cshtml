@@ -57,6 +57,9 @@
                                 <td class="small text-muted">@item.RegisterTime.ToString("yyyy-MM-dd")</td>
                                 <td><span class="badge @badge">@text</span></td>
                                 <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary mb-1" data-bs-toggle="modal"
+                                            data-bs-target="#rateModal"
+                                            data-id="@item.PromoterId" data-name="@item.PromoterName" data-rate="@item.BaseCommissionRate">改比例</button>
                                     @if (item.Status == "Enable")
                                     {
                                         <form asp-action="SetPromoterStatus" method="post" style="display:inline-block;"
@@ -89,3 +92,45 @@
         }
     </div>
 </div>
+
+<!-- 修改佣金比例 Modal -->
+<div class="modal fade" id="rateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="UpdateCommissionRate" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="rateModalPromoterId" name="PromoterId" />
+                <div class="modal-header">
+                    <h6 class="modal-title">修改佣金比例</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-2">
+                        团长：<strong id="rateModalPromoterName"></strong>
+                        （当前 <span id="rateModalCurrent"></span>）
+                    </p>
+                    <label class="form-label">新基础佣金率（小数，如 0.03 表示 3%）</label>
+                    <input type="number" class="form-control" id="rateModalInput" name="BaseCommissionRate"
+                           step="0.001" min="0" max="1" required />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary btn-sm">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    var rateModalEl = document.getElementById('rateModal');
+    if (rateModalEl) {
+        rateModalEl.addEventListener('show.bs.modal', function (event) {
+            var btn = event.relatedTarget;
+            document.getElementById('rateModalPromoterId').value = btn.getAttribute('data-id');
+            document.getElementById('rateModalPromoterName').textContent = btn.getAttribute('data-name');
+            document.getElementById('rateModalCurrent').textContent = (parseFloat(btn.getAttribute('data-rate')) * 100).toFixed(2) + '%';
+            document.getElementById('rateModalInput').value = btn.getAttribute('data-rate');
+        });
+    }
+</script>

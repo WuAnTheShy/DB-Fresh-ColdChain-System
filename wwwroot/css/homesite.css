@@ -1,11 +1,11 @@
 ﻿.hero-section {
-    background: linear-gradient(135deg, #3f51b5 0%, #0097a7 100%);
+    background: rgba(46, 88, 112, 0.95);
     color: white;
     padding: 4rem 2rem;
     border-radius: 1rem;
     margin-bottom: 2rem;
     text-align: center;
-    box-shadow: 0 8px 24px rgba(13, 110, 253, 0.3);
+    box-shadow: 0 8px 24px rgba(46, 88, 112, 0.3);
 }
 
 .hero-section h1 {
@@ -15,71 +15,181 @@
 }
 
 .hero-section p {
+
     font-size: 1.2rem;
     opacity: 0.9;
     margin-bottom: 0;
 }
 
 .hero-section .btn-light {
-    margin-top: 1.5rem;
+    margin-top: 2.5rem;
     font-weight: 600;
     padding: 0.6rem 2rem;
 }
 
-/* 功能卡片区 - 借用团长Dashboard的 stat-card 风格 */
+/* 服务承诺条：位于欢迎横幅正下方（与 hero 同宽、四组聚拢居中、青色图标） */
+.promise-strip {
+    --strip-gap: 13rem; /* 组间距（竖线自动定位在两组正中，与 --strip-gap 联动） */
+    display: flex;
+    justify-content: center; /* 四组承诺聚拢，不贴两侧 */
+    align-items: center;
+    gap: var(--strip-gap);
+    flex-wrap: wrap;
+    margin: 1rem auto 2.5rem; /* 与 hero 拉开间距，整体下移 */
+    padding: 1.15rem 2rem;
+    background: rgba(235, 245, 245, 0.88); /* 几乎全透明 */
+    border: 1px solid rgba(0, 113, 133, 0.18);
+    border-radius: 1.1rem;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.promise-strip > div {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+/* 组与组之间的淡灰竖分隔线：高度与承诺条框高一致，位于两组字之间 */
+.promise-strip > div:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: -1.15rem; /* 从承诺条框顶延伸到框底，高度与框高一致 */
+    bottom: -1.15rem;
+    right: calc(var(--strip-gap) / -2); /* 落在两组字正中间 */
+    width: 0.8px;
+    background: rgba(41, 61, 81, 0.18); /* 淡灰 */
+}
+
+@media (max-width: 1199px) {
+    .promise-strip > div:not(:last-child)::after {
+        display: none; /* 较窄屏四项换行时隐藏竖线，避免悬空 */
+    }
+}
+
+.promise-strip svg {
+    width: 25px;
+    height: 25px;
+    color: #007185;
+}
+
+.promise-strip strong {
+    color: #33475b;
+    font-size: 1.12rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    white-space: nowrap;
+}
+
+/* 核心卖点卡片区 - 面向消费者的品牌主张（半透明玻璃卡 + 青色线框图标） */
+.feature-grid {
+    margin-top: 3.5rem; /* 卡片区整体下移，填补删除系统简介卡片的空白 */
+}
+
 .feature-card {
-    background: #caf0f8;
-    border-radius: 0.75rem;
-    padding: 1.5rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    border: 1px solid #f0f0f0;
+    background: rgba(255, 255, 255, 0.72); /* 半透明，透出页面背景 */
+    border: 1px solid rgba(0, 113, 133, 0.15);
+    border-radius: 1rem;
+    padding: 2rem 1.5rem 1.75rem;
+    box-shadow: 0 4px 18px rgba(0, 113, 133, 0.10);
     text-align: center;
-    transition: transform 0.2s, box-shadow 0.2s;
     height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
 }
 
 .feature-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    border-color: #0d6efd;
+    transform: translateY(-6px);
+    box-shadow: 0 14px 30px rgba(0, 113, 133, 0.18);
+    border-color: #007185;
+    background: rgba(255, 255, 255, 0.92);
 }
 
 .feature-icon {
-    font-size: 2.5rem;
-    display: block;
-    margin-bottom: 1rem;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: rgba(0, 113, 133, 0.08); /* 淡青色圆底 + 青色线框图标 */
+    color: #007185;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.2rem;
+    transition: transform 0.25s ease, background 0.25s ease;
+}
+
+.feature-icon svg {
+    width: 27px;
+    height: 27px;
+}
+
+.feature-card:hover .feature-icon {
+    background: rgba(0, 113, 133, 0.16);
+    transform: scale(1.06);
 }
 
 .feature-card h5 {
-    font-weight: 600;
-    margin-bottom: 0.5rem;
+    font-weight: 700;
+    color: #1a2b33;
+    margin-bottom: 0.6rem;
+    letter-spacing: 0.3px;
 }
 
 .feature-card p {
-    color: #6c757d;
+    color: #6b7a80;
+    font-size: 0.92rem;
+    margin-bottom: 1rem;
+    flex-grow: 1;
+}
+
+.feature-more {
+    color: #007185;
+    font-weight: 600;
     font-size: 0.9rem;
-    margin-bottom: 0;
+    text-decoration: none;
+}
+
+.feature-more:hover {
+    text-decoration: underline;
+    color: #0a5c6e;
 }
 
 /* 内容卡片 */
 .info-card {
-    background: #f8f9fa;
+    background: #CBE4EB;
     border-radius: 0.75rem;
     padding: 2rem;
     margin-top: 2rem;
-    border-left: 4px solid #0d6efd;
+    border-left: 4px solid #00533E;
+    border-right: 4px solid #00533E;
 }
 
 .bg {
-    background: linear-gradient(135deg, #f7e6f0 0%, #efebe9 100%);
+    /* 背景配图：生鲜蔬果实拍图 + 半透明遮罩（同色双层，非装饰渐变） */
+    background-image: linear-gradient(rgba(214, 236, 248, 0.2), rgba(214, 236, 248, 0.2)), url('/images/homepic.png');
+    background-size: 100% auto;
+    background-position: top center;
+    background-repeat: no-repeat;
+    background-color: #D6ECF8;
     border-bottom: 0;
-    box-shadow: 0 4px 12px rgba(48, 63, 159, 0.3);
+    box-shadow: 0 4px 12px rgba(34, 59, 70, 0.08);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    margin-bottom: 0 !important;
 }
 
 .selection {
-    background: #e3f2fd;
+    background: #ACECF7;
     border-radius: 0.75rem;
     padding: 2rem;
     margin-top: 2rem;
 }
+
+/* 页脚：样式见 layoutsite.css（服务承诺条 + 深色品牌区，仿 B 组消费者商城页脚） */
 

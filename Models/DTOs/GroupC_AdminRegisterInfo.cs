@@ -2,9 +2,9 @@
 {
     public class GroupC_AdminRegisterInfo
     {
-        public string RealName { get; set; }
-        public string LoginAccount { get; set; }
-        public string LoginPassword { get; set; }
-        public string Phone { get; set; }
+        public string RealName { get; set; } = string.Empty;
+        public string LoginAccount { get; set; } = string.Empty;
+        public string LoginPassword { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
     }
 }

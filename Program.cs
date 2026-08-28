@@ -42,7 +42,8 @@ builder.Services.AddScoped<ISysAdminRepository, SysAdminRepository>();
 builder.Services.AddScoped<ITableLogRepository, TableLogRepository>();
 builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
 builder.Services.AddScoped<IPromoterSupplierRepository, PromoterSupplierRepository>();
-
+builder.Services.AddScoped<IPromoterProductRepository, PromoterProductRepository>();
+builder.Services.AddScoped<IPCRRepository, PCRRepository>();
 // ========== Service 注册 ==========
 // A组
 builder.Services.AddScoped<ISupplierService, SupplierService>();

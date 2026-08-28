@@ -1,3 +1,5 @@
+using FreshColdChain.Models.DTOs;
+
 namespace FreshColdChain.Models.ViewModels
 {
     public class PromoterDashboardViewModel
@@ -7,10 +9,18 @@ namespace FreshColdChain.Models.ViewModels
         public List<PromoterWithdrawalRecordViewModel> RecentWithdrawals { get; set; } = new();
         public bool HasPendingWithdrawal { get; set; }
 
+        /// <summary>已上架商品速览（工作台左下角）</summary>
+        public List<PromoterProductEntryDetailDto> ListedProducts { get; set; } = new();
+
+        /// <summary>团内消费者速览（工作台左下角）</summary>
+        public List<GroupC_CrmPCRelation> BoundCustomers { get; set; } = new();
+
         public string LevelName { get; set; } = string.Empty;
+        /// <summary>当前佣金比例（百分数，= 平台设定的基础佣金比例）</summary>
         public decimal CurrentTierRate { get; set; }
         public decimal NextTierThreshold { get; set; }
-        public decimal NextTierRate { get; set; }
+        public string NextTierName { get; set; } = string.Empty;
+        public decimal NextTierBonus { get; set; }
         public bool IsMaxTier { get; set; }
         public double TierProgressPercent { get; set; }
 
@@ -27,9 +37,11 @@ namespace FreshColdChain.Models.ViewModels
         public decimal TotalSales { get; set; }
         public int TotalOrderCount { get; set; }
         public string LevelName { get; set; } = string.Empty;
+        /// <summary>当前佣金比例（百分数，= 平台设定的基础佣金比例）</summary>
         public decimal CurrentTierRate { get; set; }
         public decimal NextTierThreshold { get; set; }
-        public decimal NextTierRate { get; set; }
+        public string NextTierName { get; set; } = string.Empty;
+        public decimal NextTierBonus { get; set; }
         public bool IsMaxTier { get; set; }
         public double TierProgressPercent { get; set; }
         public decimal PendingBalance { get; set; }
@@ -42,8 +54,11 @@ namespace FreshColdChain.Models.ViewModels
     {
         public string LevelName { get; set; } = string.Empty;
         public string SalesRange { get; set; } = string.Empty;
-        public decimal Rate { get; set; }
+        /// <summary>达成该等级的里程碑奖励金额</summary>
+        public decimal Bonus { get; set; }
         public decimal Threshold { get; set; }
+        /// <summary>该等级对应的佣金比例（百分数，如 3 表示 3%）</summary>
+        public decimal RatePercent { get; set; }
         public bool IsCurrent { get; set; }
         public bool IsAchieved { get; set; }
     }
@@ -126,5 +141,12 @@ namespace FreshColdChain.Models.ViewModels
         public decimal TotalAsset { get; set; }
         public string StatusLabel { get; set; } = string.Empty;
         public string StatusBadgeClass { get; set; } = "secondary";
+    }
+    public class PromoterBoundConsumersViewModel
+    {
+        public string PromoterId { get; set; } = string.Empty;
+        public string PromoterName { get; set; } = string.Empty;
+        public int TotalCount { get; set; }
+        public List<GroupC_CrmPCRelation> Items { get; set; } = new();
     }
 }

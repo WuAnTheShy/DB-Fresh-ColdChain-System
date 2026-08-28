@@ -20,13 +20,19 @@ namespace FreshColdChain.Services
         // Interface层句柄（修正字段名，与构造函数一致）
         private readonly ITableLogService _logManager;
         private readonly IPromoterSupplierRepository _ipsRepository;
+        // 商品入团表（CRM_PRODUCT_ENTRIES）仓库
+        private readonly IPromoterProductRepository _iproductRepository;
+		private readonly IPCRRepository _pcrRepository;
+		
         // 构造函数
-        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository)
+        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPromoterProductRepository iproductRepository,IPCRRepository pcrRepository)
         {
             _uow = uow;
             _ipromoterRepository = ipromoterRepository;
             _logManager = logManager;
             _ipsRepository = ipsRepository;
+            _iproductRepository = iproductRepository;
+			_pcrRepository = pcrRepository;
         }
 
 
@@ -56,7 +62,8 @@ namespace FreshColdChain.Services
         CancellationToken cancellationToken = default)
         {
             var promoterinfo = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, _uow.Transaction);
-
+            if (promoterinfo == null)
+                return null;
 
             return new GroupC_PromoterBasicInfoDto
             {
@@ -257,6 +264,61 @@ namespace FreshColdChain.Services
 
 
 
+        // 管理员更新团长基础佣金比例（单位与存储一致：小数，如 0.03 表示 3%）
+        public async Task<Result> UpdateCommissionRate(GroupC_UpdateCommisionRequest request)
+        {
+            await _uow.BeginAsync();
+            var _result = new Result();
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.PromoterId))
+                {
+                    throw new Exception("更新信息错误：团长编号不能为空");
+                }
+                if (request.BaseCommissionRate < 0 || request.BaseCommissionRate > 1)
+                {
+                    throw new Exception("佣金比例必须在 0 ~ 1 之间（如 0.03 表示 3%）");
+                }
+
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(request.PromoterId, _uow.Transaction);
+                if (promoter == null)
+                {
+                    throw new Exception("该团长不存在");
+                }
+
+                var dbResult = await _ipromoterRepository.GroupC_UpdatePromoterCommissionRateAsync(
+                    request.PromoterId, request.BaseCommissionRate, _uow.Transaction);
+                if (!dbResult)
+                {
+                    throw new Exception("更新佣金比例失败");
+                }
+
+                var log = new GroupC_LogAuditrails
+                {
+                    TableName = "CRM_PROMOTERS",
+                    ActionType = "Update",
+                    OperatorType = "Platform",
+                    OperatorId = "\\",
+                    OldValue = JsonConvert.SerializeObject(new { promoter.PromoterId, BaseCommissionRate = promoter.BaseCommissionRate }),
+                    NewValue = JsonConvert.SerializeObject(new { promoter.PromoterId, BaseCommissionRate = request.BaseCommissionRate })
+                };
+                await _logManager.WriteTableChangeLog(log);
+
+                await _uow.CommitAsync();
+                _result.IsSuccess = true;
+                return _result;
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                _result.IsSuccess = false;
+                _result.ErrorMessage = $"系统错误：{ex.Message}";
+                return _result;
+            }
+        }
+
+
         //============================团长-供应商合作服务===================================
         public async Task<List<string>> GetActiveSupplierIdsAsync(string promoterId)
         {
@@ -302,6 +364,180 @@ namespace FreshColdChain.Services
             }
         }
 
+        //============================团长-商品入团服务（商品入团表 CRM_PRODUCT_ENTRIES）===================================
+        // 说明：入团商品 =（团长，商品，供应商）三元组。团长与商品为多对多，
+        //       同一商品可由不同供应商供货，故以“商品+供应商”组合为绑定单位。
+
+        /// <summary>
+        /// 更新已入团（商品，供应商）组合的团长定价。
+        /// 校验规则同入团：|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2；未填写则默认取推荐价。
+        /// </summary>
+        public async Task<bool> UpdateEntryPriceAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, decimal supplyPrice, decimal defaultPrice)
+        {
+            var price = promoterPrice ?? defaultPrice;
+            var allowedDiff = Math.Abs(defaultPrice - supplyPrice) / 2m;
+            var actualDiff = Math.Abs(price - defaultPrice);
+            if (allowedDiff == 0 ? actualDiff != 0 : actualDiff >= allowedDiff)
+            {
+                throw new InvalidOperationException(
+                    $"定价超出允许范围：|团长价({price:F2}) - 推荐价({defaultPrice:F2})| 必须小于 |推荐价 - 报价| / 2 = {allowedDiff:F2}");
+            }
+
+            await _uow.BeginAsync();
+            try
+            {
+                var result = await _iproductRepository.UpdateEntryPriceAsync(promoterId, productId, supplierId, price, _uow.Transaction);
+                await _uow.CommitAsync();
+                return result;
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>查询团长已入团商品详情列表（含商品名、供应商名、报价、推荐价、团长定价）</summary>
+        public async Task<List<PromoterProductEntryDetailDto>> GetProductEntryDetailsAsync(string promoterId)
+        {
+            return await _iproductRepository.GetActiveEntriesDetailAsync(promoterId, _uow.Transaction);
+        }
+
+        /// <summary>查询团长当前所有已入团的（商品，供应商，团长定价）组合</summary>
+        public async Task<List<(string ProductId, string SupplierId, decimal? PromoterPrice)>> GetActiveProductEntriesAsync(string promoterId)
+        {
+            return await _iproductRepository.GetActiveEntriesByPromoterAsync(promoterId, _uow.Transaction);
+        }
+
+        /// <summary>
+        /// 将（商品，供应商）加入团长入团商品（重复加入则自动恢复 Active）。
+        /// supplyPrice 为该供应商报价，defaultPrice 为商品推荐价。
+        /// promoterPrice 为团长定价：未填写（null）时默认取推荐价；
+        /// 填写时须满足定价规则 |团长价 - 推荐价| &lt; |推荐价 - 报价| / 2，否则抛异常。
+        /// </summary>
+        public async Task<bool> AddProductEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, decimal supplyPrice, decimal defaultPrice)
+        {
+            var price = promoterPrice ?? defaultPrice;
+
+            // 定价规则：|团长价 - 推荐价| < |推荐价 - 报价| / 2
+            var allowedDiff = Math.Abs(defaultPrice - supplyPrice) / 2m;
+            var actualDiff = Math.Abs(price - defaultPrice);
+            if (allowedDiff == 0 ? actualDiff != 0 : actualDiff >= allowedDiff)
+            {
+                throw new InvalidOperationException(
+                    $"定价超出允许范围：|团长价({price:F2}) - 推荐价({defaultPrice:F2})| 必须小于 |推荐价 - 报价| / 2 = {allowedDiff:F2}");
+            }
+
+            await _uow.BeginAsync();
+            try
+            {
+                var result = await _iproductRepository.AddOrUpdateEntryAsync(promoterId, productId, supplierId, price, "Active", _uow.Transaction);
+                await _uow.CommitAsync();
+                return result;
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>将（商品，供应商）从团长入团商品中移除（软删除）</summary>
+        public async Task<bool> RemoveProductEntryAsync(string promoterId, string productId, string supplierId)
+        {
+            await _uow.BeginAsync();
+            try
+            {
+                var result = await _iproductRepository.SoftDeleteEntryAsync(promoterId, productId, supplierId, _uow.Transaction);
+                await _uow.CommitAsync();
+                return result;
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+        }
+//============================团长-消费者绑定服务===================================
+        public async Task<Result> BindCustomerToPromoterAsync(
+            string customerId,
+            string promoterId,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
+        {
+            var bindResult = new Result();
+            bool ownTransaction = false;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(customerId) || string.IsNullOrWhiteSpace(promoterId))
+                {
+                    bindResult.ErrorMessage = "消费者ID和团长ID不能为空";
+                    return bindResult;
+                }
+
+                customerId = customerId.Trim();
+                promoterId = promoterId.Trim();
+
+                if (transaction == null)
+                {
+                    await _uow.BeginAsync();
+                    ownTransaction = true;
+                    transaction = _uow.Transaction;
+                }
+                else if (_uow.Transaction == null)
+                {
+                    _uow.AttachExternalTransaction(transaction);
+                }
+
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, transaction);
+                if (promoter == null)
+                {
+                    throw new Exception("团长不存在");
+                }
+
+                var exists = await _pcrRepository.ExistsRelationAsync(customerId, promoterId, transaction);
+                if (exists)
+                {
+                    if (ownTransaction)
+                        await _uow.CommitAsync();
+                    bindResult.IsSuccess = true;
+                    return bindResult;
+                }
+
+                var inserted = await _pcrRepository.InsertRelationAsync(customerId, promoterId, transaction);
+                if (!inserted)
+                {
+                    throw new Exception("插入绑定记录失败");
+                }
+
+                if (ownTransaction)
+                    await _uow.CommitAsync();
+                bindResult.IsSuccess = true;
+                return bindResult;
+            }
+            catch (Exception ex)
+            {
+                if (ownTransaction && _uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                bindResult.IsSuccess = false;
+                bindResult.ErrorMessage = $"系统错误：{ex.Message}";
+                return bindResult;
+            }
+        }
+
+        public async Task<List<string>> GetBoundPromoterIdsAsync(string customerId)
+        {
+            if (string.IsNullOrWhiteSpace(customerId))
+                return new List<string>();
+            return await _pcrRepository.GetPromoterIdsByCustomerAsync(customerId.Trim(), _uow.Transaction);
+        }
+
+        public async Task<List<GroupC_CrmPCRelation>> GetBoundCustomersByPromoterAsync(string promoterId)
+        {
+            if (string.IsNullOrWhiteSpace(promoterId))
+                return new List<GroupC_CrmPCRelation>();
+            return await _pcrRepository.GetRelationsByPromoterAsync(promoterId.Trim(), _uow.Transaction);
+        }
 
         // ========== 私有辅助方法 ==========
         private string GenerateInviteCode()
