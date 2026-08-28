@@ -20,3 +20,23 @@ const { lastOrder } = useShop()
     <div class="success-actions"><RouterLink class="btn btn-buy" :to="`/orders/${id}`"><PackageSearch :size="17" />查看订单</RouterLink><RouterLink class="btn btn-outline-secondary" to="/">继续逛逛</RouterLink></div>
   </div>
 </template>
+
+<style scoped>
+.order-success-page { display: flex; min-height: 610px; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.success-icon { color: var(--brand); }
+.order-success-page h1 { margin: 13px 0 6px; font-size: 27px; font-weight: 800; }
+.order-success-page > p { margin: 0 0 22px; color: var(--muted); }
+.success-order-card { display: grid; width: min(620px, 100%); grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); background: #fff; }
+.success-order-card > div { display: flex; min-height: 84px; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid var(--line); }
+.success-order-card > div:last-child { border-right: 0; }
+.success-order-card span { color: var(--muted); font-size: 9px; }
+.success-order-card strong { margin-top: 5px; font-size: 14px; }
+.success-leaders { display: flex; align-items: center; gap: 7px; margin-top: 15px; color: var(--brand); font-size: 11px; font-weight: 700; }
+.success-actions { display: flex; gap: 10px; margin-top: 22px; }
+
+@media (max-width: 767.98px) {
+  .success-order-card { grid-template-columns: 1fr; }
+  .success-order-card > div { min-height: 62px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .success-order-card > div:last-child { border-bottom: 0; }
+}
+</style>

@@ -68,3 +68,41 @@ onMounted(loadOrders)
     <div v-else class="store-empty"><ShoppingBag :size="40" /><strong>暂时没有符合条件的订单</strong><span>浏览商品并参加第一场生鲜团购</span><RouterLink class="btn btn-buy" to="/search">去逛全部商品</RouterLink></div>
   </div>
 </template>
+
+<style scoped>
+.order-search { display: grid; width: min(320px, 100%); height: 40px; grid-template-columns: 1fr 42px; overflow: hidden; border: 1px solid #cbd3cf; border-radius: 5px; background: #fff; }
+.order-search input, .order-search button { border: 0; outline: 0; background: transparent; }
+.order-search input { min-width: 0; padding: 0 11px; }
+.order-search button { display: inline-flex; align-items: center; justify-content: center; background: #eef1ef; }
+.order-tabs { display: flex; margin-bottom: 15px; overflow-x: auto; border-bottom: 1px solid #bec8c3; background: #fff; }
+.order-tabs button { min-width: 90px; min-height: 47px; padding: 0 14px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #58645e; font-size: 11px; font-weight: 700; }
+.order-tabs button.active { border-bottom-color: var(--brand); color: var(--brand); }
+.order-card-list { display: flex; flex-direction: column; gap: 12px; }
+.consumer-order-card { border: 1px solid var(--line); background: #fff; }
+.consumer-order-card > header { display: flex; min-height: 46px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--line); background: #f7f9f8; }
+.consumer-order-card > header > div { display: flex; flex-wrap: wrap; gap: 14px; color: var(--muted); font-size: 9px; }
+.consumer-order-card > header strong { color: #435049; }
+.order-card-body { display: grid; grid-template-columns: minmax(210px, 1.2fr) repeat(2, minmax(90px, .5fr)) auto; gap: 18px; align-items: center; padding: 17px; }
+.order-leader-identity { display: flex; align-items: center; gap: 10px; }
+.leader-order-avatar { display: inline-flex; width: 42px; height: 42px; flex: 0 0 42px; align-items: center; justify-content: center; border-radius: 50%; background: #dfeee7; color: var(--brand); font-weight: 800; }
+.order-leader-identity > div, .order-card-metric { display: flex; flex-direction: column; }
+.order-leader-identity small { display: flex; align-items: center; gap: 3px; margin-top: 3px; color: var(--brand); font-size: 9px; }
+.order-card-metric span { color: var(--muted); font-size: 9px; }
+.order-card-metric strong { margin-top: 4px; }
+.order-card-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.store-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 10px 0; }
+.store-pagination button { display: inline-flex; width: 36px; height: 36px; align-items: center; justify-content: center; border: 1px solid #cad2ce; border-radius: 4px; background: #fff; }
+.store-pagination span { color: var(--muted); font-size: 10px; }
+
+@media (max-width: 991.98px) {
+  .order-card-body { grid-template-columns: minmax(190px, 1fr) repeat(2, 90px); }
+  .order-card-actions { grid-column: 1 / -1; }
+}
+
+@media (max-width: 767.98px) {
+  .order-search { width: 100%; }
+  .order-card-body { grid-template-columns: 1fr 1fr; }
+  .order-leader-identity { grid-column: 1 / -1; }
+  .order-card-actions { justify-content: flex-start; }
+}
+</style>

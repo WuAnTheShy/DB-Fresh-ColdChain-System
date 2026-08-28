@@ -117,3 +117,57 @@ onMounted(loadAssets)
     <div v-else class="store-empty"><Truck :size="38" /><strong>没有需要结算的商品</strong><RouterLink class="btn btn-buy" to="/">返回商城</RouterLink></div>
   </div>
 </template>
+
+<style scoped>
+.checkout-title { margin: 0 0 18px; font-size: 25px; font-weight: 800; }
+.checkout-sections { display: flex; min-width: 0; flex-direction: column; gap: 14px; }
+.checkout-section { padding: 18px; border: 1px solid var(--line); background: #fff; }
+.checkout-section-title { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 15px; color: var(--brand); }
+.checkout-section-title > div { min-width: 0; flex: 1; }
+.checkout-section-title h2 { margin: 0; color: var(--ink); font-size: 15px; }
+.checkout-section-title p { margin: 3px 0 0; color: var(--muted); font-size: 9px; }
+.checkout-section-title > a { display: inline-flex; align-items: center; color: var(--brand); font-size: 10px; font-weight: 700; text-decoration: none; }
+.address-choice-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.address-choice-grid label { position: relative; display: grid; grid-template-columns: 1fr 18px; min-height: 80px; padding: 12px; border: 1px solid #ccd4d0; border-radius: 5px; cursor: pointer; }
+.address-choice-grid label.selected { border: 2px solid var(--brand); padding: 11px; background: #f3f8f6; }
+.address-choice-grid input { position: absolute; opacity: 0; }
+.address-choice-grid label > svg { display: none; color: var(--brand); }
+.address-choice-grid label.selected > svg { display: block; }
+.address-choice-grid span { display: flex; min-width: 0; flex-direction: column; }
+.address-choice-grid strong { font-size: 11px; }
+.address-choice-grid small { margin-top: 5px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.checkout-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.checkout-form-grid label { display: flex; flex-direction: column; gap: 6px; }
+.checkout-form-grid label > span { color: #4d5953; font-size: 10px; font-weight: 700; }
+.checkout-leader-group { margin-bottom: 10px; border: 1px solid var(--line); }
+.checkout-leader-group:last-child { margin-bottom: 0; }
+.checkout-leader-group > header { display: flex; min-height: 45px; align-items: center; gap: 6px; padding: 0 12px; background: #f3f8f6; }
+.checkout-leader-group > header img { width: 27px; height: 27px; border-radius: 50%; object-fit: cover; }
+.checkout-leader-group > header svg { color: var(--brand); }
+.checkout-leader-group > header span { margin-left: auto; color: var(--muted); font-size: 9px; }
+.checkout-item { display: grid; grid-template-columns: 54px minmax(130px, 1fr) 45px 76px; gap: 10px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); }
+.checkout-item > img { width: 54px; height: 54px; object-fit: cover; }
+.checkout-item > div { display: flex; min-width: 0; flex-direction: column; }
+.checkout-item > div strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.checkout-item > div span { margin-top: 4px; color: var(--muted); font-size: 9px; }
+.checkout-item > span, .checkout-item > strong { font-size: 10px; text-align: right; }
+.coupon-select { max-width: 420px; }
+.summary-total-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--line); }
+.summary-total-row strong { color: var(--danger); font-size: 23px; }
+.checkout-button { margin-top: 16px; }
+.checkout-summary { position: sticky; top: 130px; padding: 19px; border: 1px solid #cfd7d3; border-radius: 6px; background: #fff; box-shadow: 0 3px 10px rgba(23, 33, 29, .07); }
+.checkout-summary h2 { margin: 0 0 16px; font-size: 17px; }
+.checkout-summary dl { margin: 0; }
+.checkout-summary dl > div { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; font-size: 11px; }
+.checkout-summary dt { color: var(--muted); font-weight: 500; }
+.checkout-summary dd { margin: 0; }
+.checkout-summary > small { display: flex; align-items: flex-start; gap: 4px; margin-top: 11px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+
+@media (max-width: 767.98px) {
+  .address-choice-grid, .checkout-form-grid { grid-template-columns: 1fr; }
+  .checkout-item { grid-template-columns: 48px minmax(0, 1fr) 55px; }
+  .checkout-item > img { width: 48px; height: 48px; }
+  .checkout-item > span { grid-column: 2; }
+  .checkout-item > strong { grid-column: 3; grid-row: 1 / span 2; }
+}
+</style>

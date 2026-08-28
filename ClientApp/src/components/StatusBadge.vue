@@ -17,3 +17,7 @@ const statusMap = {
     {{ (statusMap[props.status] ?? ['未知'])[0] }}
   </span>
 </template>
+
+<style scoped>
+.status-badge { min-width: 58px; padding: 5px 7px; border-radius: 4px; font-size: 9px; }
+</style>
