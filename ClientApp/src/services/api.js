@@ -70,10 +70,6 @@ export const api = {
     method: 'POST',
   }),
   getCustomer: (customerId) => request(`/api/customers/${customerId}`),
-  createCustomer: (payload) => request('/api/customers', {
-    method: 'POST',
-    body: jsonBody(payload),
-  }),
   updateCustomer: (customerId, payload) => request(`/api/customers/${customerId}`, {
     method: 'PUT',
     body: jsonBody(payload),

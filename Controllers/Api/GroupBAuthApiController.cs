@@ -9,10 +9,6 @@ namespace FreshColdChain.Controllers.Api;
 [Route("api/auth/customer")]
 public sealed class GroupBAuthApiController : GroupBApiController
 {
-    private const string CustomerIdSessionKey = "CustomerId";
-    private const string CustomerNameSessionKey = "CustomerName";
-    private const string CustomerPhoneSessionKey = "CustomerPhone";
-
     [HttpPost("register")]
     public async Task<IActionResult> Register(
         CustomerCreateRequest request,

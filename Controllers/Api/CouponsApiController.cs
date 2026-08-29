@@ -30,12 +30,4 @@ public sealed class CouponsApiController(
         return NoContent();
     }
 
-    private IActionResult? AuthorizeCustomer(string customerId)
-    {
-        var signedInCustomerId = SignedInCustomerId;
-        if (string.IsNullOrWhiteSpace(signedInCustomerId)) return ApiUnauthorized();
-        return string.Equals(signedInCustomerId, customerId, StringComparison.Ordinal)
-            ? null
-            : ApiForbidden();
-    }
 }

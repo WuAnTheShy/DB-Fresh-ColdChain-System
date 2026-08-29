@@ -41,16 +41,6 @@ public sealed class CustomersApiController(
         });
     }
 
-    [HttpPost]
-    public async Task<IActionResult> Create(CustomerCreateRequest request)
-    {
-        var customerId = await customerService.CreateCustomerAsync(request);
-        return CreatedAtAction(
-            nameof(GetProfile),
-            new { customerId },
-            new { customerId });
-    }
-
     [HttpPut("{customerId}")]
     public async Task<IActionResult> UpdateProfile(
         string customerId,
@@ -151,12 +141,4 @@ public sealed class CustomersApiController(
         return NoContent();
     }
 
-    private IActionResult? AuthorizeCustomer(string customerId)
-    {
-        var signedInCustomerId = SignedInCustomerId;
-        if (string.IsNullOrWhiteSpace(signedInCustomerId)) return ApiUnauthorized();
-        return string.Equals(signedInCustomerId, customerId, StringComparison.Ordinal)
-            ? null
-            : ApiForbidden();
-    }
 }

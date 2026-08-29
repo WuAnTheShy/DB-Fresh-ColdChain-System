@@ -48,11 +48,9 @@ export function useCustomerContext() {
   }
 
   return {
-    customer: computed(() => customer.value),
     customerId: computed(() => customer.value?.customerId ?? ''),
     customerName: computed(() => customer.value?.customerName ?? ''),
     isAuthenticated: computed(() => Boolean(customer.value?.customerId)),
-    authReady: computed(() => authReady.value),
     setCustomer,
     clearCustomer,
     initializeAuth,
