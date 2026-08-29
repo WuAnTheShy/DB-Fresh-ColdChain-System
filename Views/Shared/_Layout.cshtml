@@ -1,4 +1,4 @@
-@{
+﻿@{
     // 账号相关页面（角色选择/登录/注册等）导航栏右侧不显示“你好，请登录”
     var controllerName = (ViewContext.RouteData.Values["controller"] as string) ?? "";
     var hideLoginEntry = controllerName.ToLowerInvariant() == "account";
@@ -11,7 +11,7 @@
     <title>@ViewData["Title"] - 生鲜冷链团购平台</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/layoutsite.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/System.styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/FreshColdChain.styles.css" asp-append-version="true" />
 </head>
 <body class="bg">
     <header>
