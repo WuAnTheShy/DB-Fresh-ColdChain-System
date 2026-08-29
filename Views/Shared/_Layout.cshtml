@@ -1,4 +1,4 @@
-﻿﻿@{
+﻿@{
     // 账号相关页面（角色选择/登录/注册等）导航栏右侧不显示“你好，请登录”
     var controllerName = (ViewContext.RouteData.Values["controller"] as string) ?? "";
     var hideLoginEntry = controllerName.ToLowerInvariant() == "account";

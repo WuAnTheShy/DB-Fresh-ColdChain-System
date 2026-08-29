@@ -1,4 +1,4 @@
-﻿.bg {
+.bg {
     /* 背景配图：生鲜蔬果实拍图 + 半透明遮罩（同色双层，非装饰渐变） */
     background-image: linear-gradient(rgba(203, 228, 235, 0.2), rgba(203, 228, 235, 0.2)), url('/images/homepic.png');
     background-size: 100% auto;
