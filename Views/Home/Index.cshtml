@@ -10,101 +10,46 @@
     <div class="hero-section">
         <h1>欢迎访问生鲜冷链系统</h1>
         <p>全链路团购分销供应链管理平台 · 高效 · 智能 · 可靠</p>
-        <a href="/app/" class="btn btn-light btn-lg">立即体验</a>
+        <a asp-controller="Account" asp-action="RoleSelect" class="btn btn-light btn-lg">登  录</a>
     </div>
 
-    <!-- 2. 服务承诺条：位于欢迎横幅正下方（青色图标 + 放大文字） -->
-    <div class="promise-strip">
-        <div>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
-                <path d="M12 2v20M4.6 7l14.8 10M19.4 7L4.6 17" />
-                <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
-            </svg>
-            <span><strong>全程冷链</strong></span>
-        </div>
-        <div>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 2l8 3v6c0 5-3.4 8.5-8 11-4.6-2.5-8-6-8-11V5l8-3z" />
-                <path d="M8.5 12.2l2.4 2.4 4.6-5" />
-            </svg>
-            <span><strong>品质严选</strong></span>
-        </div>
-        <div>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 7v5l3.4 2" />
-            </svg>
-            <span><strong>准时发货</strong></span>
-        </div>
-        <div>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M3 7h11v8H3z" />
-                <path d="M14 9.5h4l3 3v2.5h-7z" />
-                <circle cx="7.5" cy="16.5" r="1.6" />
-                <circle cx="17" cy="16.5" r="1.6" />
-            </svg>
-            <span><strong>送货上门</strong></span>
-        </div>
-    </div>
-
-    <!-- 3. 核心卖点卡片区（面向消费者的品牌主张） -->
-    <div class="row g-4 feature-grid">
+    <!-- 2. 核心功能卡片区 -->
+    <div class="row g-4">
         <div class="col-md-6 col-lg-3">
             <div class="feature-card">
-                <span class="feature-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="17.5" cy="6.5" r="2.5" />
-                        <path d="M3 18l5-7 3.5 4.5L15 10l6 8H3z" />
-                    </svg>
-                </span>
-                <h5>产地直采 新鲜直达</h5>
-                <p>源头基地当日采摘，48 小时全程冷链锁鲜，把清晨的鲜甜送到您的餐桌</p>
-                <a href="/app/" class="feature-more">立即逛逛 →</a>
+                <span class="feature-icon">🧊</span>
+                <h5>商品与库存</h5>
+                <p>供应商管理、批次 FEFO 先进先出、冷链仓储盘点</p>
             </div>
         </div>
         <div class="col-md-6 col-lg-3">
             <div class="feature-card">
-                <span class="feature-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="8.5" cy="8" r="3" />
-                        <path d="M3 20c.6-3.2 2.7-5 5.5-5s4.9 1.8 5.5 5" />
-                        <circle cx="16.5" cy="9.5" r="2.4" />
-                        <path d="M14.5 15.6c2.6.4 4.6 2 5.2 4.4" />
-                    </svg>
-                </span>
-                <h5>社区团购 邻里同享</h5>
-                <p>团长严选把关、邻里拼团更划算，一键参团，次日达社区自提点</p>
-                <a href="/app/" class="feature-more">查看团购 →</a>
+                <span class="feature-icon">👥</span>
+                <h5>团长分销</h5>
+                <p>团长入驻、阶梯佣金自动结算、业绩等级可视化</p>
             </div>
         </div>
         <div class="col-md-6 col-lg-3">
             <div class="feature-card">
-                <span class="feature-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M3 7h11v8H3z" />
-                        <path d="M14 9.5h4l3 3v2.5h-7z" />
-                        <circle cx="7.5" cy="16.5" r="1.6" />
-                        <circle cx="17" cy="16.5" r="1.6" />
-                    </svg>
-                </span>
-                <h5>智能配送 准时到家</h5>
-                <p>智能分拣加温控运输，实时追踪每一单，坏损必赔、迟到赔付</p>
-                <a href="/app/" class="feature-more">开始下单 →</a>
+                <span class="feature-icon">🛒</span>
+                <h5>C端交易</h5>
+                <p>购物车下单、优惠券核销、积分与成长体系</p>
             </div>
         </div>
         <div class="col-md-6 col-lg-3">
             <div class="feature-card">
-                <span class="feature-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M12 2.5l7.5 2.8v5.2c0 4.8-3.2 8.1-7.5 10.5-4.3-2.4-7.5-5.7-7.5-10.5V5.3L12 2.5z" />
-                        <path d="M8.6 12l2.4 2.4 4.4-5" />
-                    </svg>
-                </span>
-                <h5>品质保障 售后无忧</h5>
-                <p>每一份商品全程可溯，坏果包赔、极速退款，买得安心更放心</p>
-                <a href="/app/" class="feature-more">了解更多 →</a>
+                <span class="feature-icon">📊</span>
+                <h5>财务与风控</h5>
+                <p>支付流水、退款逆向结算、操作审计日志防篡改</p>
             </div>
         </div>
     </div>
 
+    <!-- 3. 系统亮点简介 -->
+    <div class="info-card">
+        <h5>🚀 生鲜冷链团购分销供应链系统</h5>
+        <p class="mb-0 text-muted">
+            本系统集成“供应商-商品-库存”供应链闭环、“团长-消费者”分销裂变、“订单-物流-财务”履约追踪，实现全链路的数字化管理。上方“立即进入系统”可前往角色选择， 体验各端业务流程。
+        </p>
+    </div>
 </div>

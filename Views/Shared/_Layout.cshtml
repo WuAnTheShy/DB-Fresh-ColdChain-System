@@ -18,44 +18,26 @@
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm
      @("navbar-dark bg-gradient-custom")">
             <div class="container-fluid">
-                <a class="store-brand" href="/" aria-label="鲜邻团首页">
-                    <span class="brand-word">鲜邻团</span>
-                    <span class="brand-smile" aria-hidden="true"></span>
-                    <small>fresh</small>
-                </a>
+                <!-- 左侧文字：加粗 + 深蓝 -->
+                <span class="navbar-brand fw-bold text-white">生鲜冷链团购分销供应链系统</span>
+
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <!-- 平台标语：特色字体，区分于普通菜单链接 -->
-                    <a class="platform-word">生鲜冷链供销平台</a>
+                    <!-- 左侧导航：加粗 + 深蓝 -->
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link fw-bold text-white" asp-area="" asp-controller="Home" asp-action="Index">    首页    </a>
+                            <a class="nav-link fw-bold text-white" asp-area="" asp-controller="Home" asp-action="Index">首页</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link fw-bold text-white" asp-area="" asp-controller="Account" asp-action="RoleSelect">登录</a>
                         </li>
                     </ul>
 
-                    <div class="d-flex align-items-center right-nav" style="gap: 0; padding: 0 15px;">
-                        @if (!hideLoginEntry)
-                        {
-                            <span class="nav-sep"></span>
-                            <a class="admin-account" asp-area="" asp-controller="Account" asp-action="RoleSelect" title="后台登录">
-                                <span>
-                                    <small>你好，请登录</small>
-                                    <strong>商家门户</strong>
-                                </span>
-                            </a>
-                        }
-                        <span class="nav-sep @(hideLoginEntry ? "nav-sep-hidden" : "")"></span>
-                        <div id="clock" class="header-clock" title="当前时间">
-                            <span>
-                                <small id="clock-date"></small>
-                                <strong id="clock-time"></strong>
-                            </span>
-                        </div>
-                    </div>
+                    <div id="clock" class="text-white small fw-bold align-self-center ms-2" style="font-size: 0.95rem; letter-spacing: 0.5px; padding: 0 15px;"></div>
                 </div>
             </div>
         </nav>
@@ -66,13 +48,9 @@
         </main>
     </div>
 
-    <footer class="footer">
-        <!-- 深色品牌区（仿 B 组 footer-brand-row） -->
-        <div class="footer-brand-row">
-            <div class="footer-site">
-                <span class="footer-logo">鲜邻团<em>fresh</em></span>
-                <span class="footer-copy">&copy; @DateTime.Now.Year 生鲜冷链团购分销供应链系统</span>
-            </div>
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; @DateTime.Now.Year - 生鲜冷链团购分销供应链系统
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
@@ -84,20 +62,16 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         function updateClock() {
-            var elDate = document.getElementById('clock-date');
-            var elTime = document.getElementById('clock-time');
-            if (elDate && elTime) {
+            var el = document.getElementById('clock');
+            if (el) {
                 var now = new Date();
-                // 上行：星期 + 日期；下行：时分秒
-                var weekdays = ['日', '一', '二', '三', '四', '五', '六'];
                 var year = now.getFullYear();
                 var month = String(now.getMonth() + 1).padStart(2, '0');
                 var day = String(now.getDate()).padStart(2, '0');
                 var hours = String(now.getHours()).padStart(2, '0');
                 var minutes = String(now.getMinutes()).padStart(2, '0');
                 var seconds = String(now.getSeconds()).padStart(2, '0');
-                elDate.textContent = '星期' + weekdays[now.getDay()] + ' ' + year + '年' + month + '月' + day + '日';
-                elTime.textContent = hours + ':' + minutes + ':' + seconds;
+                el.textContent = 'Now: ' + year + '年' + month + '月' + day + '日 ' + hours + ':' + minutes + ':' + seconds;
             }
         }
         updateClock();
