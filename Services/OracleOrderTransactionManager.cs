@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using FreshColdChain.Interfaces;
 using Oracle.ManagedDataAccess.Client;
 
@@ -13,8 +13,9 @@ public sealed class OracleOrderTransactionManager : IOrderTransactionManager
 
     public OracleOrderTransactionManager(IConfiguration configuration)
     {
-        _connectionString = configuration.GetConnectionString("OracleDb")
-            ?? throw new InvalidOperationException("未配置 OracleConnection 连接字符串");
+        _connectionString = configuration.GetConnectionString("OracleConnection")
+            ?? configuration.GetConnectionString("OracleDb")
+            ?? throw new InvalidOperationException("未配置 OracleConnection/OracleDb 连接字符串");
     }
 
     public async Task<TResult> ExecuteAsync<TResult>(

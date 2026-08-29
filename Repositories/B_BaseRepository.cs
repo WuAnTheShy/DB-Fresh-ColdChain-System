@@ -14,7 +14,7 @@ public abstract class B_BaseRepository
     protected B_BaseRepository(IConfiguration configuration)
     {
         // 生产和开发环境均应通过 Secret 或环境变量注入连接字符串。
-        var connectionString = configuration.GetConnectionString("OracleDb");
+        var connectionString = configuration.GetConnectionString("OracleConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(

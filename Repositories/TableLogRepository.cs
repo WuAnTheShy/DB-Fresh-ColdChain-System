@@ -11,8 +11,8 @@ namespace FreshColdChain.Repositories
 
         public TableLogRepository(IConfiguration config)
         {
-            _connectionString = config.GetConnectionString("OracleDb")
-                ?? throw new InvalidOperationException("未配置 OracleDb 连接字符串");
+            _connectionString = config.GetConnectionString("OracleConnection")
+                ?? throw new InvalidOperationException("未配置 OracleConnection 连接字符串");
         }
 
         // 创建独立数据库连接

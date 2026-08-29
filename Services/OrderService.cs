@@ -486,7 +486,6 @@ public sealed class OrderService : IOrderService
         });
     }
 
-    /// <summary>
     /// 部分退款时按比例扣回积分并将订单置为"退款中" - 供 C 组调用。
     /// </summary>
     public async Task DeductPointsForPartialRefundAsync(

@@ -91,3 +91,34 @@ public sealed class ActivatePromoterMoneyInput
     public double CommBaseAmount { get; init; }
     public double CommBonusAmount { get; init; }
 }
+
+public interface IGroupCInterface
+{
+    Task<CustomerAccount[]> FindCustomerAccountInfoAsync(string customerID, CancellationToken cancellationToken = default);
+
+    Task<CustomerAccount[]> FindCustomerAccountInfoByOpenIdAsync(string openID, CancellationToken cancellationToken = default);
+
+    Task<CustomerAccount[]> FindCustomerAccountInfoByPhoneAsync(string phone, CancellationToken cancellationToken = default);
+
+    Task<CustomerAccount[]> FindCustomerAccountInfoByBoundPromoterIdAsync(string boundPromoterID, CancellationToken cancellationToken = default);
+
+    Task<bool> WriteTableChangeLogAsync(TableChangeLogInput input, CancellationToken cancellationToken = default);
+
+    Task<bool> AuditOrderAsync(AuditOrderInput input, CancellationToken cancellationToken = default);
+
+    Task<CommissionInfo> CommissionSettlementAsync(CommissionSettlementInput input, CancellationToken cancellationToken = default);
+
+    Task PaymentRecordReactionAsync(PaymentRecordReactionInput input, CancellationToken cancellationToken = default);
+
+    Task<bool> RefundRollbackMoneyAsync(
+        RefundRollbackMoneyInput input,
+        IDbTransaction? transaction = null,
+        CancellationToken cancellationToken = default);
+
+    Task<PromBind> FindPromoterInfoAsync(string inviteCode, string promoterName, CancellationToken cancellationToken = default);
+
+    Task ActivatePromoterMoneyAsync(
+        ActivatePromoterMoneyInput input,
+        IDbTransaction? transaction = null,
+        CancellationToken cancellationToken = default);
+}

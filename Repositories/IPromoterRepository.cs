@@ -2,34 +2,51 @@
 using FreshColdChain.Models.DTOs;
 using System.Data;
 
-namespace FreshColdChain.Repositories
+namespace FreshColdChain.Repositories;
+
+public interface IPromoterRepository
 {
-    public interface IPromoterRepository
-    {
-        //需要事务：业务逻辑
-        Task<GroupC_CrmPromoter?> GroupC_FindPromoterRecordAsync(string? promoterId, IDbTransaction? transaction = null);           //查找团长信息
-        GroupC_CrmPromoter? GroupC_FindPromoterRecord(string? promoterId, IDbTransaction? transaction = null);                      //同步查找团长信息
-        Task<IEnumerable<GroupC_CrmPromoter>> GroupC_GetPromotersByStatusAsync(string status);  //查找指定状态下团长的信息
-        Task<IEnumerable<GroupC_CrmPromoter>> GroupC_GetAllPromotersAsync();                    //查找全部团长（管理端启禁用列表用）
-        Task GroupC_UpdatePromoterTotalSalesAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null);     //修改团长累计销售额
-        Task GroupC_UpdatePromoterPendingBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null); //修改团长待结算余额
-        Task<bool> GroupC_UpdatePromoterStatusAsync(string promoterId, string newStatus, IDbTransaction? transaction = null);       //修改团长账号状态
-        Task<bool> GroupC_UpdatePromoterCommissionRateAsync(string promoterId, decimal rate, IDbTransaction? transaction = null);   //修改团长基础佣金比例
-        Task<decimal?> GroupC_FindPromoterPendingBalanceAsync(string? promoterId, IDbTransaction? transaction = null);              //查找团长待结算余额
-        Task GroupC_UpdatePromoterCurrentBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null); //查找团长可提现余额
-        Task<bool> GroupC_ExistsPromoterByLoginAccountAsync(string loginAccount, IDbTransaction? transaction = null);               //检查团长账号是否存在
-        Task<bool> GroupC_InsertPromoterAsync(GroupC_CrmPromoter promoter, IDbTransaction? transaction = null);                     //新插入团长账号信息
-        //无需事务：登录账号时查找团长账号信息
-        GroupC_CrmPromoter? GroupC_FindPromoterByLoginAccount(string loginAccount);             //查找团长账号信息
+    // B组兼容接口
+    Task<CrmPromoter?> GetByIdAsync(int promoterId, IDbTransaction? transaction = null);
 
+    Task<CrmPromoter?> FindByInviteCodeAndNameAsync(
+        string inviteCode,
+        string promoterName,
+        IDbTransaction? transaction = null);
 
+    Task<bool> TryAddPendingCommissionAsync(
+        int promoterId,
+        decimal baseAmount,
+        decimal bonusAmount,
+        decimal salesAmount,
+        IDbTransaction? transaction = null);
 
-        // 查询可用团长列表（分页 + 关键词搜索）
-        Task<GroupC_PromoterListResult> GetAvailablePromotersAsync(string? keyword,int skip,int take,IDbTransaction? transaction = null);
+    Task<bool> TryActivatePendingCommissionAsync(
+        int promoterId,
+        decimal baseAmount,
+        decimal bonusAmount,
+        IDbTransaction? transaction = null);
 
+    Task<bool> TryRollbackCommissionAsync(
+        int promoterId,
+        decimal baseAmount,
+        decimal bonusAmount,
+        decimal salesAmount,
+        IDbTransaction? transaction = null);
 
-
-
-    }
+    // C组接口
+    Task<GroupC_CrmPromoter?> GroupC_FindPromoterRecordAsync(string? promoterId, IDbTransaction? transaction = null);
+    GroupC_CrmPromoter? GroupC_FindPromoterRecord(string? promoterId, IDbTransaction? transaction = null);
+    Task<IEnumerable<GroupC_CrmPromoter>> GroupC_GetPromotersByStatusAsync(string status);
+    Task<IEnumerable<GroupC_CrmPromoter>> GroupC_GetAllPromotersAsync();
+    Task GroupC_UpdatePromoterTotalSalesAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null);
+    Task GroupC_UpdatePromoterPendingBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null);
+    Task<bool> GroupC_UpdatePromoterStatusAsync(string promoterId, string newStatus, IDbTransaction? transaction = null);
+    Task<bool> GroupC_UpdatePromoterCommissionRateAsync(string promoterId, decimal rate, IDbTransaction? transaction = null);
+    Task<decimal?> GroupC_FindPromoterPendingBalanceAsync(string? promoterId, IDbTransaction? transaction = null);
+    Task GroupC_UpdatePromoterCurrentBalanceAsync(string? promoterId, decimal deltaAmount, IDbTransaction? transaction = null);
+    Task<bool> GroupC_ExistsPromoterByLoginAccountAsync(string loginAccount, IDbTransaction? transaction = null);
+    Task<bool> GroupC_InsertPromoterAsync(GroupC_CrmPromoter promoter, IDbTransaction? transaction = null);
+    GroupC_CrmPromoter? GroupC_FindPromoterByLoginAccount(string loginAccount);
+    Task<GroupC_PromoterListResult> GetAvailablePromotersAsync(string? keyword, int skip, int take, IDbTransaction? transaction = null);
 }
- 
