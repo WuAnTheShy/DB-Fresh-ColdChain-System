@@ -1,15 +1,18 @@
 <script setup>
 import { Heart, House, PackageSearch, ShoppingCart, UserRound } from '@lucide/vue'
 import { useShop } from '../state/shop'
+import { computed } from 'vue'
+import { useCustomerContext } from '../state/customer'
 
 const { cartCount } = useShop()
-const items = [
+const { isAuthenticated } = useCustomerContext()
+const items = computed(() => [
   { label: '首页', to: '/', icon: House },
   { label: '关注', to: '/following', icon: Heart },
   { label: '购物车', to: '/cart', icon: ShoppingCart, cart: true },
   { label: '订单', to: '/orders', icon: PackageSearch },
-  { label: '我的', to: '/profile', icon: UserRound },
-]
+  { label: isAuthenticated.value ? '我的' : '登录', to: isAuthenticated.value ? '/profile' : '/auth', icon: UserRound },
+])
 </script>
 
 <template>

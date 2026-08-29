@@ -134,8 +134,8 @@ internal static class OrderLifecycleScenarioTests
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(1, context.CommissionService.CompletedOrders.Count);
         var commission = context.CommissionService.CompletedOrders[0];
-        AssertEx.Equal("PROM9", commission.PromoterId);
-        AssertEx.Equal(130m, commission.CommissionBaseAmount);
+        AssertEx.Equal("PROM9", commission.promoterID);
+        AssertEx.Equal(130m, commission.finalAmount);
         AssertCommitted(context);
     }
 

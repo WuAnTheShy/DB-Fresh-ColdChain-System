@@ -1,13 +1,17 @@
 <script setup>
-import { MapPin, Menu, Search, ShoppingCart, X } from '@lucide/vue'
+import { LogOut, MapPin, Menu, Search, ShoppingCart, X } from '@lucide/vue'
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useShop } from '../state/shop'
+import { api } from '../services/api'
+import { useCustomerContext } from '../state/customer'
 
 const router = useRouter()
 const route = useRoute()
 const { categories, cartCount } = useShop()
+const { customerName, isAuthenticated, clearCustomer } = useCustomerContext()
 const keyword = ref(String(route.query.q ?? ''))
+const loggingOut = ref(false)
 
 watch(() => route.query.q, (value) => {
   keyword.value = String(value ?? '')
@@ -15,6 +19,17 @@ watch(() => route.query.q, (value) => {
 
 function search() {
   router.push({ path: '/search', query: keyword.value.trim() ? { q: keyword.value.trim() } : {} })
+}
+
+async function logout() {
+  loggingOut.value = true
+  try {
+    await api.logoutCustomer()
+    clearCustomer()
+    await router.push('/')
+  } finally {
+    loggingOut.value = false
+  }
 }
 </script>
 
@@ -49,9 +64,12 @@ function search() {
           </button>
         </form>
 
-        <RouterLink class="header-account d-none d-md-flex" to="/profile">
-          <span><small>你好，请登录</small><strong>账户与会员</strong></span>
-        </RouterLink>
+        <div class="header-account-area d-none d-md-flex">
+          <RouterLink class="header-account" :to="isAuthenticated ? '/profile' : '/auth'">
+            <span><small>{{ isAuthenticated ? `你好，${customerName}` : '你好，请登录' }}</small><strong>账户与会员</strong></span>
+          </RouterLink>
+          <button v-if="isAuthenticated" class="header-logout" type="button" :disabled="loggingOut" title="退出登录" aria-label="退出登录" @click="logout"><LogOut :size="17" /></button>
+        </div>
         <RouterLink class="header-account d-none d-lg-flex" to="/orders">
           <span><small>退换货</small><strong>与订单</strong></span>
         </RouterLink>
@@ -92,6 +110,8 @@ function search() {
           data-bs-dismiss="offcanvas">{{ category.name }}</RouterLink>
         <RouterLink to="/coupons" data-bs-dismiss="offcanvas">领券中心</RouterLink>
         <RouterLink to="/addresses" data-bs-dismiss="offcanvas">收货地址</RouterLink>
+        <RouterLink :to="isAuthenticated ? '/profile' : '/auth'" data-bs-dismiss="offcanvas">{{ isAuthenticated ? `${customerName}的账户` : '登录 / 注册' }}</RouterLink>
+        <button v-if="isAuthenticated" class="mobile-logout" type="button" data-bs-dismiss="offcanvas" :disabled="loggingOut" @click="logout"><LogOut :size="17" />退出登录</button>
       </div>
     </div>
   </header>
@@ -129,6 +149,11 @@ function search() {
   color: #fff;
   text-decoration: none;
 }
+
+.header-account-area { position: relative; align-items: center; }
+.header-account-area .header-account { padding-right: 31px; }
+.header-logout { position: absolute; right: 4px; display: inline-flex; width: 27px; height: 36px; align-items: center; justify-content: center; border: 0; background: transparent; color: #ddd; }
+.header-logout:hover { color: var(--amber); }
 
 .delivery-location {
   padding: 7px;
@@ -329,6 +354,8 @@ function search() {
   font-size: 11px;
   font-weight: 700;
 }
+
+.mobile-logout { display: flex; align-items: center; gap: 8px; padding: 12px 9px; border: 0; border-bottom: 1px solid #303b36; background: transparent; color: #e8edeb; text-align: left; }
 
 /* Amazon-inspired storefront refresh */
 .store-header {

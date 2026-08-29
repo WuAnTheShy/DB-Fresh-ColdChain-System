@@ -57,6 +57,18 @@ function jsonBody(value) {
 }
 
 export const api = {
+  getCurrentCustomer: () => request('/api/auth/customer/me'),
+  loginCustomer: (payload) => request('/api/auth/customer/login', {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
+  registerCustomer: (payload) => request('/api/auth/customer/register', {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
+  logoutCustomer: () => request('/api/auth/customer/logout', {
+    method: 'POST',
+  }),
   getCustomer: (customerId) => request(`/api/customers/${customerId}`),
   createCustomer: (payload) => request('/api/customers', {
     method: 'POST',
