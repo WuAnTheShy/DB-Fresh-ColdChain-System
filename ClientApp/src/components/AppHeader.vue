@@ -86,7 +86,6 @@ async function logout() {
         <RouterLink to="/search">
           <Menu :size="17" />全部分类
         </RouterLink>
-        <RouterLink to="/deals">今日特价</RouterLink>
         <RouterLink to="/following">我的关注</RouterLink>
         <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`">{{
           category.name }}</RouterLink>
@@ -104,7 +103,6 @@ async function logout() {
       </div>
       <div class="offcanvas-body">
         <p class="mobile-menu-label">商城导航</p>
-        <RouterLink to="/deals" data-bs-dismiss="offcanvas">今日特价</RouterLink>
         <RouterLink to="/following" data-bs-dismiss="offcanvas">我的关注</RouterLink>
         <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`"
           data-bs-dismiss="offcanvas">{{ category.name }}</RouterLink>

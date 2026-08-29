@@ -45,7 +45,7 @@ function formatFeedTime(value) {
       <Heart :size="42" />
       <strong>还没有关注团长</strong>
       <span>从商品卡片点击团长头像，进入详情后即可关注</span>
-      <RouterLink class="btn btn-buy" to="/deals">浏览今日特价</RouterLink>
+      <RouterLink class="btn btn-buy" to="/search">浏览全部商品</RouterLink>
     </div>
   </div>
 </template>
