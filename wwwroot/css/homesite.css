@@ -34,7 +34,7 @@
     justify-content: center; /* 四组承诺聚拢，不贴两侧 */
     align-items: center;
     gap: var(--strip-gap);
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* 保持单行：窗口缩放 / 浏览器缩放时不会突然换行错位 */
     margin: 1rem auto 2.5rem; /* 与 hero 拉开间距，整体下移 */
     padding: 1.15rem 2rem;
     background: rgba(235, 245, 245, 0.88); /* 几乎全透明 */
@@ -49,6 +49,7 @@
     display: flex;
     align-items: center;
     gap: 9px;
+    flex: none; /* 禁止被压缩，防止缩放时文字重叠 */
 }
 
 /* 组与组之间的淡灰竖分隔线：高度与承诺条框高一致，位于两组字之间 */
@@ -62,9 +63,31 @@
     background: rgba(41, 61, 81, 0.18); /* 淡灰 */
 }
 
-@media (max-width: 1199px) {
+/* 窗口/浏览器缩放时视口宽度变化，组间距分档平滑收缩（保持单行，竖线自动联动）；
+   断点与 Bootstrap 容器断点对齐，缩放比例越大间距越小，不会挤爆换行 */
+@media (max-width: 1399.98px) {
+    .promise-strip { --strip-gap: 9rem; }
+}
+
+@media (max-width: 1199.98px) {
+    .promise-strip { --strip-gap: 6rem; }
+}
+
+@media (max-width: 991.98px) {
+    .promise-strip { --strip-gap: 3rem; }
+}
+
+@media (max-width: 767.98px) {
+    .promise-strip {
+        flex-wrap: wrap; /* 超窄屏（移动端）才允许换行 */
+        --strip-gap: 2rem;
+    }
+}
+
+/* 竖线仅在单行时显示；≤767.98px 换行后隐藏，避免悬空 */
+@media (max-width: 767.98px) {
     .promise-strip > div:not(:last-child)::after {
-        display: none; /* 较窄屏四项换行时隐藏竖线，避免悬空 */
+        display: none;
     }
 }
 
@@ -172,8 +195,8 @@
 .bg {
     /* 背景配图：生鲜蔬果实拍图 + 半透明遮罩（同色双层，非装饰渐变） */
     background-image: linear-gradient(rgba(214, 236, 248, 0.2), rgba(214, 236, 248, 0.2)), url('/images/homepic.png');
-    background-size: 100% auto;
-    background-position: top center;
+    background-size: cover; /* 始终按比例铺满视口，任意缩放都不拉伸变形（多余部分裁切，底色 D6ECF8 兜底） */
+    background-position: center top;
     background-repeat: no-repeat;
     background-color: #D6ECF8;
     border-bottom: 0;
