@@ -1,5 +1,6 @@
 <script setup>
 import { Clock3, ShieldCheck, Snowflake, Truck } from '@lucide/vue'
+import ProductCard from '../components/ProductCard.vue'
 import { useShop } from '../state/shop'
 
 const { categories, products } = useShop()
@@ -44,6 +45,13 @@ const { categories, products } = useShop()
           <img :src="category.image" :alt="category.name" />
           <span><strong>{{ category.name }}</strong></span>
         </RouterLink>
+      </div>
+    </section>
+
+    <section class="home-section amazon-home-panel store-container" aria-labelledby="all-products-title">
+      <div class="section-title-row"><div><h2 id="all-products-title">今日推荐</h2></div></div>
+      <div class="product-grid">
+        <ProductCard v-for="product in products" :key="product.id" :product="product" />
       </div>
     </section>
 
@@ -96,11 +104,13 @@ const { categories, products } = useShop()
 .category-tile img { opacity: 1; }
 .category-tile > span { padding: 50px 15px 15px; background: linear-gradient(180deg, transparent, rgba(0,0,0,.72)); }
 .category-tile strong { font-size: 18px; }
+.amazon-home-panel .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 
 @media (max-width: 1199.98px) {
   .amazon-promo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .amazon-promo-card { min-height: 420px; }
   .category-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .amazon-home-panel .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 991.98px) {
@@ -119,5 +129,6 @@ const { categories, products } = useShop()
   .amazon-home-panel { margin-top: 10px; padding: 14px; }
   .category-grid { grid-template-columns: 1fr; gap: 9px; }
   .category-tile { height: 120px; }
+  .amazon-home-panel .product-grid { grid-template-columns: 1fr; }
 }
 </style>
