@@ -1,8 +1,8 @@
 .bg {
     /* 背景配图：生鲜蔬果实拍图 + 半透明遮罩（同色双层，非装饰渐变） */
     background-image: linear-gradient(rgba(203, 228, 235, 0.2), rgba(203, 228, 235, 0.2)), url('/images/homepic.png');
-    background-size: 100% auto;
-    background-position: top center;
+    background-size: cover; /* 与首页 homesite.css 一致：始终按比例铺满，不随缩放拉伸变形 */
+    background-position: center top;
     background-repeat: no-repeat;
     background-color: #CBE4EB;
     border-bottom: 0;
@@ -48,26 +48,8 @@
         box-shadow: 0 8px 20px rgba(0,0,0,0.2);
     }
 
-/* 页脚固定在视口底部：与导航栏同色的深色背景，文字浅色居中 */
-footer.footer {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    background: #223B46;
-    color: #ACECF7;
-    border-top-color: #2E5870;
-}
-
-footer.footer .container {
-    text-align: center;
-}
-
-/* 内容区底部留白，避免被固定页脚遮挡 */
-main {
-    padding-bottom: 60px !important;
-}
+/* 页脚：由 layoutsite.css 统一控制（文档流布局，margin-top:auto 贴底），
+   此处不再使用 position: fixed，避免大屏下遮挡页面内容且滚轮无法看到 */
 
 /* 返回按钮（返回首页 / 返回角色选择 / 返回登录） */
 .back-btn {
