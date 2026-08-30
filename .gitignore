@@ -37,3 +37,7 @@ tmp/
 temp/
 .idea
 FreshGroupSystem.csproj
+
+# Frontend dependencies
+ClientApp/node_modules/
+ClientApp/package-lock.json
