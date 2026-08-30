@@ -60,10 +60,9 @@ export const products = [
     category: 'fruit',
     spec: 'JJ级 · 2.5kg礼盒',
     price: 50,
-    originalPrice: 69.9,
     image: 'https://images.unsplash.com/photo-1528821128474-27f963b062bf?auto=format&fit=crop&w=800&q=88',
     storage: '冷藏',
-    leaderIds: [1, 3],
+    leaderId: 1,
     sold: 286,
     target: 300,
     stock: 100,
@@ -80,10 +79,9 @@ export const products = [
     category: 'seafood',
     spec: '去皮去刺 · 500g',
     price: 80,
-    originalPrice: 98,
     image: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=800&q=88',
     storage: '冷藏',
-    leaderIds: [2],
+    leaderId: 2,
     sold: 117,
     target: 150,
     stock: 50,
@@ -100,10 +98,9 @@ export const products = [
     category: 'vegetable',
     spec: '6种搭配 · 约2.5kg',
     price: 20,
-    originalPrice: 29.9,
     image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=88',
     storage: '冷藏',
-    leaderIds: [1, 3],
+    leaderId: 1,
     sold: 368,
     target: 400,
     stock: 200,
@@ -123,7 +120,11 @@ function normalizeProductId(id) {
 }
 
 const cart = reactive(Array.isArray(rawCart)
-  ? rawCart.map((item) => ({ ...item, productId: normalizeProductId(item.productId) }))
+  ? rawCart.map((item) => {
+      const productId = normalizeProductId(item.productId)
+      const product = products.find((entry) => entry.id === productId)
+      return { ...item, productId, leaderId: product?.leaderId ?? Number(item.leaderId) }
+    })
   : [])
 const rushCounts = reactive(Object.fromEntries(products.map((product) => [
   product.id,
@@ -175,12 +176,12 @@ function toggleLeaderFollow(leaderId) {
   return isLeaderFollowed(id)
 }
 
-function addToCart(productId, leaderId, quantity = 1) {
+function addToCart(productId, quantity = 1) {
   const product = productById(productId)
-  const leader = leaderById(leaderId)
-  if (!product || !leader || !product.leaderIds.includes(leader.id)) return false
+  const leader = leaderById(product?.leaderId)
+  if (!product || !leader) return false
 
-  const existing = cart.find((item) => item.productId === product.id && item.leaderId === leader.id)
+  const existing = cart.find((item) => item.productId === product.id)
   if (existing) {
     existing.quantity = Math.min(product.stock, existing.quantity + Number(quantity || 1))
   } else {
@@ -192,16 +193,16 @@ function addToCart(productId, leaderId, quantity = 1) {
   return true
 }
 
-function updateQuantity(productId, leaderId, quantity) {
-  const item = cart.find((entry) => entry.productId === normalizeProductId(productId) && entry.leaderId === Number(leaderId))
+function updateQuantity(productId, quantity) {
+  const item = cart.find((entry) => entry.productId === normalizeProductId(productId))
   const product = productById(productId)
   if (!item || !product) return
   item.quantity = Math.max(1, Math.min(product.stock, Number(quantity || 1)))
   persistCart()
 }
 
-function removeFromCart(productId, leaderId) {
-  const index = cart.findIndex((item) => item.productId === normalizeProductId(productId) && item.leaderId === Number(leaderId))
+function removeFromCart(productId) {
+  const index = cart.findIndex((item) => item.productId === normalizeProductId(productId))
   if (index >= 0) cart.splice(index, 1)
   persistCart()
 }

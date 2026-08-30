@@ -22,7 +22,7 @@ const timeline = computed(() => {
 function money(value) { return `¥${Number(value ?? 0).toFixed(2)}` }
 function date(value) { return value ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '-' }
 function productImage(id) { return productById(id)?.image }
-function fallbackLeader(id) { const product = productById(id); return product ? leaderById(product.leaderIds[0]) : null }
+function fallbackLeader(id) { const product = productById(id); return product ? leaderById(product.leaderId) : null }
 
 async function loadOrder() {
   loading.value = true; error.value = ''

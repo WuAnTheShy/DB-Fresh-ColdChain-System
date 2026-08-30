@@ -10,7 +10,7 @@ const { followedLeaderIds, leaderById, products } = useShop()
 const followedLeaders = computed(() => followedLeaderIds.value.map(leaderById).filter(Boolean))
 const feedItems = computed(() => followedLeaders.value
   .flatMap((leader) => products
-    .filter((product) => product.leaderIds.includes(leader.id))
+    .filter((product) => product.leaderId === leader.id)
     .map((product) => ({ leader, product, publishedAt: product.publishedAt })))
   .sort((left, right) => new Date(right.publishedAt) - new Date(left.publishedAt)))
 
@@ -37,7 +37,7 @@ function formatFeedTime(value) {
     <section v-if="feedItems.length" class="following-feed" aria-label="关注商品时间流">
       <article v-for="item in feedItems" :key="`${item.leader.id}-${item.product.id}`" class="following-feed-item">
         <div class="following-feed-time"><time :datetime="item.publishedAt">{{ formatFeedTime(item.publishedAt) }}</time></div>
-        <div class="following-feed-card"><ProductCard :product="item.product" :leader-id="item.leader.id" /></div>
+        <div class="following-feed-card"><ProductCard :product="item.product" /></div>
       </article>
     </section>
 

@@ -10,7 +10,7 @@ const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
 const { leaderById, products, isLeaderFollowed, toggleLeaderFollow } = useShop()
 const leader = computed(() => leaderById(props.id))
-const leaderProducts = computed(() => products.filter((product) => product.leaderIds.includes(Number(props.id))))
+const leaderProducts = computed(() => products.filter((product) => product.leaderId === Number(props.id)))
 const followed = computed(() => isLeaderFollowed(props.id))
 
 if (!leader.value) router.replace('/search')
@@ -48,7 +48,7 @@ if (!leader.value) router.replace('/search')
     <div class="store-container home-section">
       <div class="section-title-row"><div><h2>{{ leader.name }}团长正在带货</h2></div></div>
       <div class="product-grid">
-        <ProductCard v-for="product in leaderProducts" :key="product.id" :product="product" :leader-id="leader.id" />
+        <ProductCard v-for="product in leaderProducts" :key="product.id" :product="product" />
       </div>
     </div>
   </div>

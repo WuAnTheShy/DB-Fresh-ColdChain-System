@@ -14,7 +14,6 @@ const groups = computed(() => {
   })
   return [...map.values()]
 })
-const savings = computed(() => cartItems.value.reduce((sum, item) => sum + (item.product.originalPrice - item.product.price) * item.quantity, 0))
 </script>
 
 <template>
@@ -30,16 +29,16 @@ const savings = computed(() => cartItems.value.reduce((sum, item) => sum + (item
             <span>{{ group.leader.area }}</span>
           </header>
           <article v-for="item in group.items" :key="`${item.productId}-${item.leaderId}`" class="cart-item">
-            <RouterLink :to="`/products/${item.product.id}?leader=${item.leader.id}`"><img :src="item.product.image" :alt="item.product.name" /></RouterLink>
+            <RouterLink :to="`/products/${item.product.id}`"><img :src="item.product.image" :alt="item.product.name" /></RouterLink>
             <div class="cart-item-main">
-              <RouterLink :to="`/products/${item.product.id}?leader=${item.leader.id}`">{{ item.product.name }}</RouterLink>
+              <RouterLink :to="`/products/${item.product.id}`">{{ item.product.name }}</RouterLink>
               <span>{{ item.product.spec }} · {{ item.product.storage }}</span>
               <small><Truck :size="13" />{{ item.product.delivery }}</small>
             </div>
             <div class="cart-unit-price">¥{{ item.product.price.toFixed(2) }}</div>
-            <QuantityStepper :model-value="item.quantity" :max="item.product.stock" @update:model-value="updateQuantity(item.productId, item.leaderId, $event)" />
+            <QuantityStepper :model-value="item.quantity" :max="item.product.stock" @update:model-value="updateQuantity(item.productId, $event)" />
             <strong class="cart-line-total">¥{{ (item.product.price * item.quantity).toFixed(2) }}</strong>
-            <button class="cart-remove" type="button" title="移出购物车" @click="removeFromCart(item.productId, item.leaderId)"><Trash2 :size="18" /></button>
+            <button class="cart-remove" type="button" title="移出购物车" @click="removeFromCart(item.productId)"><Trash2 :size="18" /></button>
           </article>
           <footer><span>本团 {{ group.items.reduce((sum, item) => sum + item.quantity, 0) }} 件商品</span><strong>截团时间以各商品页面为准</strong></footer>
         </section>
@@ -47,10 +46,10 @@ const savings = computed(() => cartItems.value.reduce((sum, item) => sum + (item
 
       <aside class="cart-summary">
         <h2>订单汇总</h2>
-        <dl><div><dt>商品小计</dt><dd>¥{{ cartSubtotal.toFixed(2) }}</dd></div><div><dt>团购优惠</dt><dd class="saving">-¥{{ savings.toFixed(2) }}</dd></div><div><dt>预计运费</dt><dd>结算时计算</dd></div></dl>
+        <dl><div><dt>商品小计</dt><dd>¥{{ cartSubtotal.toFixed(2) }}</dd></div><div><dt>预计运费</dt><dd>结算时计算</dd></div></dl>
         <div class="summary-total-row"><span>预计合计</span><strong>¥{{ cartSubtotal.toFixed(2) }}</strong></div>
         <RouterLink class="btn btn-buy w-100 checkout-button" to="/checkout">去结算<ArrowRight :size="18" /></RouterLink>
-        <small><LockKeyhole :size="14" />价格、库存和优惠将在提交时由服务器确认</small>
+        <small><LockKeyhole :size="14" />价格和库存将在提交时由服务器确认</small>
       </aside>
     </div>
 
@@ -84,7 +83,6 @@ const savings = computed(() => cartItems.value.reduce((sum, item) => sum + (item
 .cart-summary dl > div { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; font-size: 11px; }
 .cart-summary dt { color: var(--muted); font-weight: 500; }
 .cart-summary dd { margin: 0; }
-.saving { color: var(--brand); }
 .summary-total-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--line); }
 .summary-total-row strong { color: var(--danger); font-size: 23px; }
 .checkout-button { margin-top: 16px; }

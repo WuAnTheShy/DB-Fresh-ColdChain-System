@@ -5,14 +5,13 @@ import { useShop } from '../state/shop'
 
 const props = defineProps({
   product: { type: Object, required: true },
-  leaderId: { type: Number, default: null },
 })
 
 const { categories, leaderById, productRushCount } = useShop()
-const activeLeader = computed(() => leaderById(props.leaderId ?? props.product.leaderIds[0]))
+const activeLeader = computed(() => leaderById(props.product.leaderId))
 const category = computed(() => categories.find((item) => item.slug === props.product.category))
 const rushCount = computed(() => productRushCount(props.product.id))
-const productLink = computed(() => `/products/${props.product.id}?leader=${activeLeader.value?.id ?? ''}`)
+const productLink = computed(() => `/products/${props.product.id}`)
 
 function displayPrice(value) {
   return Number(value).toFixed(2).replace(/\.00$/, '')
@@ -41,7 +40,7 @@ function displayPrice(value) {
         </div>
 
         <div class="social-product-price">
-          <span>¥</span><strong>{{ displayPrice(product.price) }}</strong><small>优惠后</small>
+          <span>¥</span><strong>{{ displayPrice(product.price) }}</strong>
         </div>
 
         <div class="product-card-media">
@@ -166,7 +165,6 @@ function displayPrice(value) {
 }
 .social-product-price > span { margin-right: 3px; font-size: 18px; font-weight: 500; transform: translateY(-4px); }
 .social-product-price strong { font-size: 34px; font-weight: 700; letter-spacing: -1px; }
-.social-product-price small { margin-left: 7px; font-size: 18px; font-weight: 500; letter-spacing: 0; transform: translateY(-5.5px); }
 .product-card-media {
   display: grid;
   overflow: hidden;

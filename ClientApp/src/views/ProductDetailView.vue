@@ -1,20 +1,17 @@
 <script setup>
 import { BadgeCheck, Check, ChevronRight, Clock3, MapPin, PackageCheck, ShieldCheck, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import QuantityStepper from '../components/QuantityStepper.vue'
 import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
 
 const props = defineProps({ id: { type: String, required: true } })
-const route = useRoute()
 const router = useRouter()
 const { products, productById, leaderById, recordProductEntry, addToCart } = useShop()
 const product = computed(() => productById(props.id))
-const requestedLeaderId = Number(route.query.leader)
-const activeLeaderId = ref(product.value?.leaderIds.includes(requestedLeaderId) ? requestedLeaderId : product.value?.leaderIds[0])
-const leader = computed(() => leaderById(activeLeaderId.value))
+const leader = computed(() => leaderById(product.value?.leaderId))
 const quantity = ref(1)
 const added = ref(false)
 const progress = computed(() => product.value ? Math.min(100, Math.round((product.value.sold / product.value.target) * 100)) : 0)
@@ -28,7 +25,7 @@ if (!product.value) router.replace('/search')
 
 function add() {
   if (!product.value || !leader.value) return
-  addToCart(product.value.id, leader.value.id, quantity.value)
+  addToCart(product.value.id, quantity.value)
   added.value = true
   window.setTimeout(() => { added.value = false }, 1400)
 }
@@ -58,12 +55,6 @@ function buyNow() {
           <div><span><strong>{{ leader.name }}团长</strong><BadgeCheck :size="16" /></span><small>{{ leader.title }} · {{ leader.area }}</small></div>
           <RouterLink :to="`/leaders/${leader.id}`">查看详情<ChevronRight :size="15" /></RouterLink>
         </div>
-        <div v-if="product.leaderIds.length > 1" class="leader-choice">
-          <span>选择带货团长</span>
-          <button v-for="leaderId in product.leaderIds" :key="leaderId" type="button" :class="{ active: activeLeaderId === leaderId }" @click="activeLeaderId = leaderId">
-            <img :src="leaderById(leaderId).avatar" alt="" />{{ leaderById(leaderId).name }}团长
-          </button>
-        </div>
         <dl class="product-facts">
           <div><dt>规格</dt><dd>{{ product.spec }}</dd></div>
           <div><dt>温控</dt><dd>{{ product.storage }}冷链</dd></div>
@@ -72,8 +63,7 @@ function buyNow() {
       </div>
 
       <aside class="buy-box">
-        <div class="buy-price"><span>¥</span><strong>{{ product.price.toFixed(2) }}</strong><del>¥{{ product.originalPrice.toFixed(2) }}</del></div>
-        <div class="discount-note">团购直降 ¥{{ (product.originalPrice - product.price).toFixed(2) }}</div>
+        <div class="buy-price"><span>¥</span><strong>{{ product.price.toFixed(2) }}</strong></div>
         <div class="delivery-promise"><Truck :size="19" /><div><strong>{{ product.delivery }}</strong><span>配送至 上海市浦东新区</span></div></div>
         <div class="stock-status"><Check :size="17" />有货，冷链备货中</div>
         <div class="group-status"><div><span>{{ product.cutoff }}</span><strong>{{ product.sold }} / {{ product.target }} 件</strong></div><div class="progress"><div class="progress-bar" :style="{ width: `${progress}%` }"></div></div></div>
@@ -122,11 +112,6 @@ function buyNow() {
 .detail-leader-panel svg { color: var(--brand); }
 .detail-leader-panel small { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .detail-leader-panel > a { display: inline-flex; align-items: center; color: var(--brand); font-size: 10px; font-weight: 700; text-decoration: none; }
-.leader-choice { margin-top: 14px; }
-.leader-choice > span { display: block; margin-bottom: 7px; color: var(--muted); font-size: 10px; font-weight: 700; }
-.leader-choice button { display: inline-flex; height: 34px; align-items: center; gap: 5px; margin: 0 6px 6px 0; padding: 0 8px; border: 1px solid #cad3ce; border-radius: 4px; background: #fff; font-size: 10px; }
-.leader-choice button.active { border-color: var(--brand); background: #edf6f2; color: var(--brand); font-weight: 700; }
-.leader-choice img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
 .product-facts { margin: 15px 0 0; }
 .product-facts > div { display: grid; grid-template-columns: 62px 1fr; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .product-facts dt { color: var(--muted); font-size: 10px; }
@@ -135,8 +120,7 @@ function buyNow() {
 .buy-price { display: flex; align-items: baseline; color: var(--danger); }
 .buy-price > span { font-size: 16px; }
 .buy-price strong { font-size: 30px; }
-.buy-price del { margin-left: 8px; color: #8c9691; font-size: 11px; }
-.discount-note { width: fit-content; margin: 6px 0 15px; padding: 3px 6px; background: #fce9e7; color: var(--danger); font-size: 9px; }
+.buy-price { margin-bottom: 15px; }
 .delivery-promise { display: flex; gap: 8px; margin-bottom: 12px; color: var(--brand); }
 .delivery-promise div { display: flex; min-width: 0; flex-direction: column; }
 .delivery-promise strong { color: var(--ink); font-size: 11px; }

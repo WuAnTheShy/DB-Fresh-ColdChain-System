@@ -9,17 +9,17 @@ const { categories, products } = useShop()
 <template>
   <div class="home-page">
     <section class="amazon-promo-grid" aria-label="今日精选">
-      <RouterLink class="amazon-promo-card promo-cherry" to="/products/1?leader=1">
+      <RouterLink class="amazon-promo-card promo-cherry" to="/products/1">
         <div class="promo-copy"><h1>产地冷链<br />车厘子礼盒</h1></div>
         <img :src="products[0].image" alt="车厘子礼盒" />
         <strong>点击选购</strong>
       </RouterLink>
-      <RouterLink class="amazon-promo-card promo-seafood" to="/products/2?leader=2">
+      <RouterLink class="amazon-promo-card promo-seafood" to="/products/2">
         <div class="promo-copy"><h2>冰鲜三文鱼<br />低温锁鲜</h2></div>
         <img :src="products[1].image" alt="冰鲜三文鱼" />
         <strong>点击选购</strong>
       </RouterLink>
-      <RouterLink class="amazon-promo-card promo-vegetable" to="/products/3?leader=1">
+      <RouterLink class="amazon-promo-card promo-vegetable" to="/products/3">
         <div class="promo-copy"><h2>有机蔬菜<br />新鲜搭配</h2></div>
         <img :src="products[2].image" alt="有机蔬菜组合" />
         <strong>点击选购</strong>
