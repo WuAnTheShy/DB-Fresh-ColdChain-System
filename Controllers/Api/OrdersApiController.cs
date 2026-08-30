@@ -13,6 +13,10 @@ public sealed class OrdersApiController(
     [HttpGet]
     public async Task<IActionResult> GetOrders([FromQuery] OrderQueryRequest request)
     {
+        var signedInCustomerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(signedInCustomerId)) return ApiUnauthorized();
+        request.CustomerId = signedInCustomerId;
+
         var result = await orderService.GetOrdersAsync(request);
         return Ok(new
         {
@@ -37,9 +41,14 @@ public sealed class OrdersApiController(
     [HttpGet("{orderId}")]
     public async Task<IActionResult> GetOrder(string orderId)
     {
+        var signedInCustomerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(signedInCustomerId)) return ApiUnauthorized();
+
         var detail = await orderService.GetOrderDetailAsync(orderId);
         if (detail?.Order == null)
             return ApiNotFound("订单不存在");
+        if (!string.Equals(detail.Order.CustomerId, signedInCustomerId, StringComparison.Ordinal))
+            return ApiForbidden();
 
         var order = detail.Order;
         return Ok(new
@@ -86,6 +95,11 @@ public sealed class OrdersApiController(
         CreateOrderRequest request,
         CancellationToken cancellationToken)
     {
+        var signedInCustomerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(signedInCustomerId)) return ApiUnauthorized();
+        if (!string.Equals(request.CustomerId, signedInCustomerId, StringComparison.Ordinal))
+            return ApiForbidden();
+
         var result = await orderService.CreateOrderAsync(
             request,
             cancellationToken);
@@ -110,6 +124,9 @@ public sealed class OrdersApiController(
         OrderTransitionRequest request,
         CancellationToken cancellationToken)
     {
+        var authorizationError = await AuthorizeOrderAsync(orderId);
+        if (authorizationError != null) return authorizationError;
+
         await orderService.TransitionOrderAsync(
             orderId,
             request.TargetStatus!.Value,
@@ -122,8 +139,23 @@ public sealed class OrdersApiController(
         string orderId,
         CancellationToken cancellationToken)
     {
+        var authorizationError = await AuthorizeOrderAsync(orderId);
+        if (authorizationError != null) return authorizationError;
+
         await orderService.CancelOrderAsync(orderId, cancellationToken);
         return NoContent();
+    }
+
+    private async Task<IActionResult?> AuthorizeOrderAsync(string orderId)
+    {
+        var signedInCustomerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(signedInCustomerId)) return ApiUnauthorized();
+
+        var detail = await orderService.GetOrderDetailAsync(orderId);
+        if (detail?.Order == null) return ApiNotFound("订单不存在");
+        return string.Equals(detail.Order.CustomerId, signedInCustomerId, StringComparison.Ordinal)
+            ? null
+            : ApiForbidden();
     }
 }
 

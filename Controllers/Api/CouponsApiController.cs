@@ -11,6 +11,9 @@ public sealed class CouponsApiController(
     [HttpGet]
     public async Task<IActionResult> GetCouponCenter(string customerId)
     {
+        var authorizationError = AuthorizeCustomer(customerId);
+        if (authorizationError != null) return authorizationError;
+
         var result = await couponService.GetCouponCenterAsync(customerId);
         return result == null
             ? ApiNotFound("消费者不存在")
@@ -20,7 +23,11 @@ public sealed class CouponsApiController(
     [HttpPost("{couponId}/claim")]
     public async Task<IActionResult> ClaimCoupon(string customerId, string couponId)
     {
+        var authorizationError = AuthorizeCustomer(customerId);
+        if (authorizationError != null) return authorizationError;
+
         await couponService.ClaimCouponAsync(customerId, couponId);
         return NoContent();
     }
+
 }

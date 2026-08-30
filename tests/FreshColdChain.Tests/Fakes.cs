@@ -2,6 +2,7 @@ using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
+using FreshColdChain.Models.CrossGroup_C;
 using FreshColdChain.Repositories;
 using FreshColdChain.Services;
 using Microsoft.AspNetCore.Identity;
@@ -1160,7 +1161,7 @@ internal sealed class FakeCommissionService : ICommissionService
     public Exception? ExceptionToThrow { get; set; }
     public List<CommissionOrderRequest> CompletedOrders { get; } = [];
 
-    public Task RegisterCompletedOrderAsync(
+    public Task<CommissionResult> RegisterCompletedOrderAsync(
         CommissionOrderRequest request,
         IDbTransaction transaction,
         CancellationToken cancellationToken = default)
@@ -1170,7 +1171,15 @@ internal sealed class FakeCommissionService : ICommissionService
 
         ((FakeOrderTransaction)transaction).Stage(
             () => CompletedOrders.Add(request));
-        return Task.CompletedTask;
+        return Task.FromResult(new CommissionResult { IsSuccess = true });
+    }
+
+    public Task<Result> ActivatePromoterMoney(
+        ActivateCommissionOrderRequest request,
+        IDbTransaction? transaction = null,
+        CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new Result { IsSuccess = true });
     }
 }
 

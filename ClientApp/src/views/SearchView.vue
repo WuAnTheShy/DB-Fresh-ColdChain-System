@@ -13,9 +13,8 @@ const sort = ref('default')
 
 const activeCategory = computed(() => String(route.params.slug ?? ''))
 const keyword = computed(() => String(route.query.q ?? '').trim())
-const todayDeals = computed(() => route.query.deal === 'today')
 const categoryName = computed(() => categories.find((item) => item.slug === activeCategory.value)?.name)
-const pageTitle = computed(() => categoryName.value || (keyword.value ? `“${keyword.value}”的搜索结果` : todayDeals.value ? '今日特价' : '全部在团商品'))
+const pageTitle = computed(() => categoryName.value || (keyword.value ? `“${keyword.value}”的搜索结果` : '全部在团商品'))
 
 const results = computed(() => {
   const list = products.filter((product) => {
@@ -37,7 +36,7 @@ watch(() => route.fullPath, () => {
 
 <template>
   <div class="store-container page-space">
-    <StoreBreadcrumb :items="[{ label: todayDeals ? '今日特价' : categoryName || (keyword ? `搜索：${keyword}` : '全部商品') }]" />
+    <StoreBreadcrumb :items="[{ label: categoryName || (keyword ? `搜索：${keyword}` : '全部商品') }]" />
     <div class="listing-header">
       <div><span class="title-icon"><SlidersHorizontal :size="22" /></span><div><h1>{{ pageTitle }}</h1></div></div>
       <span>共 {{ results.length }} 件商品</span>

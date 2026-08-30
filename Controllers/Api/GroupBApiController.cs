@@ -7,6 +7,40 @@ namespace FreshColdChain.Controllers.Api;
 [ServiceFilter(typeof(GroupBApiExceptionFilter))]
 public abstract class GroupBApiController : ControllerBase
 {
+    protected const string CustomerIdSessionKey = "CustomerId";
+    protected const string CustomerNameSessionKey = "CustomerName";
+    protected const string CustomerPhoneSessionKey = "CustomerPhone";
+
+    protected string? SignedInCustomerId =>
+        HttpContext.Session.GetString(CustomerIdSessionKey);
+
+    protected IActionResult? AuthorizeCustomer(string customerId)
+    {
+        var signedInCustomerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(signedInCustomerId)) return ApiUnauthorized();
+        return string.Equals(signedInCustomerId, customerId, StringComparison.Ordinal)
+            ? null
+            : ApiForbidden();
+    }
+
+    protected IActionResult ApiUnauthorized(string message = "请先登录消费者账号")
+    {
+        return Unauthorized(new
+        {
+            message,
+            traceId = HttpContext.TraceIdentifier
+        });
+    }
+
+    protected IActionResult ApiForbidden(string message = "无权访问其他消费者的数据")
+    {
+        return StatusCode(StatusCodes.Status403Forbidden, new
+        {
+            message,
+            traceId = HttpContext.TraceIdentifier
+        });
+    }
+
     protected IActionResult ApiNotFound(string message)
     {
         return NotFound(new

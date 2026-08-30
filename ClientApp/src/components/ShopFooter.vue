@@ -9,7 +9,7 @@ function backToTop() {
     <button class="back-to-top" type="button" @click="backToTop">返回顶部</button>
     <div class="footer-links store-container">
       <section><h2>了解我们</h2><RouterLink to="/profile">会员中心</RouterLink><RouterLink to="/following">我的关注</RouterLink><RouterLink to="/search">鲜邻严选</RouterLink><RouterLink to="/addresses">配送服务</RouterLink></section>
-      <section><h2>商城服务</h2><RouterLink to="/deals">今日特价</RouterLink><RouterLink to="/search">供应商入驻</RouterLink><RouterLink to="/orders">订单服务</RouterLink></section>
+      <section><h2>商城服务</h2><RouterLink to="/search">供应商入驻</RouterLink><RouterLink to="/orders">订单服务</RouterLink></section>
       <section><h2>支付与优惠</h2><RouterLink to="/coupons">优惠券中心</RouterLink><RouterLink to="/cart">购物车</RouterLink><RouterLink to="/orders">订单查询</RouterLink></section>
       <section><h2>让我们帮助你</h2><RouterLink to="/profile">你的账户</RouterLink><RouterLink to="/addresses">配送地址</RouterLink><RouterLink to="/orders">售后与退款</RouterLink></section>
     </div>
