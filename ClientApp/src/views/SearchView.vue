@@ -5,9 +5,11 @@ import { useRoute } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
+import { useCustomerContext } from '../state/customer'
 
 const route = useRoute()
 const { categories, products } = useShop()
+const { isAuthenticated } = useCustomerContext()
 const storage = ref('all')
 const sort = ref('default')
 
@@ -49,7 +51,7 @@ watch(() => route.fullPath, () => {
       </aside>
 
       <section class="listing-results">
-        <div class="sort-bar"><span>生鲜严选商品</span><label>排序<select v-model="sort"><option value="default">综合排序</option><option value="sold">销量</option><option value="priceAsc">价格从低到高</option><option value="priceDesc">价格从高到低</option></select></label></div>
+        <div class="sort-bar"><span>生鲜严选商品</span><label>排序<select v-model="sort"><option value="default">综合排序</option><option value="sold">销量</option><option v-if="isAuthenticated" value="priceAsc">价格从低到高</option><option v-if="isAuthenticated" value="priceDesc">价格从高到低</option></select></label></div>
         <div v-if="results.length" class="product-grid listing-product-grid"><ProductCard v-for="product in results" :key="product.id" :product="product" /></div>
         <div v-else class="store-empty"><SearchX :size="34" /><strong>没有找到符合条件的商品</strong><span>请清除筛选条件或尝试其他关键词</span><RouterLink class="btn btn-outline-secondary" to="/search">查看全部商品</RouterLink></div>
       </section>

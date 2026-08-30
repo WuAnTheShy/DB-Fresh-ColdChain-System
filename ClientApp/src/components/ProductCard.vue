@@ -2,12 +2,14 @@
 import { Flame } from '@lucide/vue'
 import { computed } from 'vue'
 import { useShop } from '../state/shop'
+import { useCustomerContext } from '../state/customer'
 
 const props = defineProps({
   product: { type: Object, required: true },
 })
 
 const { categories, leaderById, productRushCount } = useShop()
+const { isAuthenticated } = useCustomerContext()
 const activeLeader = computed(() => leaderById(props.product.leaderId))
 const category = computed(() => categories.find((item) => item.slug === props.product.category))
 const rushCount = computed(() => productRushCount(props.product.id))
@@ -42,9 +44,10 @@ function displayPrice(value) {
           <span class="product-published">今日更新</span>
         </div>
 
-        <div class="social-product-price">
+        <div v-if="isAuthenticated" class="social-product-price">
           <span>¥</span><strong>{{ displayPrice(product.price) }}</strong>
         </div>
+        <div v-else class="social-product-price-gated">关注团长后查看专属价格</div>
 
         <div class="product-card-media">
           <img :src="product.image" :alt="product.name" loading="lazy" />
@@ -215,6 +218,16 @@ function displayPrice(value) {
   font-size: 34px;
   font-weight: 700;
   letter-spacing: -1px;
+}
+
+.social-product-price-gated {
+  display: flex;
+  min-height: 45px;
+  align-items: center;
+  margin: 11px 0 13px;
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .product-card-media {

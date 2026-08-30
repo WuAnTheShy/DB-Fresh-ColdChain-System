@@ -25,7 +25,7 @@ const router = createRouter({
     { path: '/leaders/:id', name: 'leader-detail', component: LeaderDetailView, props: true },
     { path: '/following', name: 'following', component: FollowingView, meta: { requiresAuth: true } },
     { path: '/products/:id', name: 'product-detail', component: ProductDetailView, props: true },
-    { path: '/cart', name: 'cart', component: CartView },
+    { path: '/cart', name: 'cart', component: CartView, meta: { requiresAuth: true } },
     { path: '/checkout', name: 'checkout', component: CheckoutView, meta: { requiresAuth: true } },
     { path: '/order-success/:id', name: 'order-success', component: OrderSuccessView, props: true, meta: { requiresAuth: true } },
     { path: '/orders', name: 'orders', component: OrdersView, meta: { requiresAuth: true } },

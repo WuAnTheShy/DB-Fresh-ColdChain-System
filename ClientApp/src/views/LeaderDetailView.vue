@@ -1,19 +1,30 @@
 <script setup>
 import { BadgeCheck, Heart, MapPin, PackageCheck, UsersRound } from '@lucide/vue'
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
+import { useCustomerContext } from '../state/customer'
 
 const props = defineProps({ id: { type: String, required: true } })
+const route = useRoute()
 const router = useRouter()
 const { leaderById, products, isLeaderFollowed, toggleLeaderFollow } = useShop()
+const { isAuthenticated } = useCustomerContext()
 const leader = computed(() => leaderById(props.id))
 const leaderProducts = computed(() => products.filter((product) => product.leaderId === Number(props.id)))
 const followed = computed(() => isLeaderFollowed(props.id))
 
 if (!leader.value) router.replace('/search')
+
+function handleFollow() {
+  if (!isAuthenticated.value) {
+    router.push({ name: 'auth', query: { redirect: route.fullPath } })
+    return
+  }
+  toggleLeaderFollow(leader.value.id)
+}
 </script>
 
 <template>
@@ -33,8 +44,8 @@ if (!leader.value) router.replace('/search')
           <p>{{ leader.description }}</p>
           <span class="leader-area"><MapPin :size="16" />{{ leader.area }}</span>
         </div>
-        <button class="btn leader-follow-button" :class="followed ? 'btn-light' : 'btn-buy'" type="button" @click="toggleLeaderFollow(leader.id)">
-          <Heart :size="17" :fill="followed ? 'currentColor' : 'none'" />{{ followed ? '取消关注' : '关注团长' }}
+        <button class="btn leader-follow-button" :class="followed ? 'btn-light' : 'btn-buy'" type="button" @click="handleFollow">
+          <Heart :size="17" :fill="followed ? 'currentColor' : 'none'" />{{ !isAuthenticated ? '登录后关注' : followed ? '取消关注' : '关注团长' }}
         </button>
       </div>
     </section>
