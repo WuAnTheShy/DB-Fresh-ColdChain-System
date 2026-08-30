@@ -16,7 +16,7 @@ const success = ref('')
 const timeline = computed(() => {
   const status = detail.value?.order?.orderStatus
   const progress = { PENDING_PAYMENT: 0, PAID: 1, SHIPPED: 2, COMPLETED: 3 }[status] ?? 0
-  return [{ label: '订单已提交', done: true }, { label: '团长确认', done: progress >= 1 }, { label: '冷链配送', done: progress >= 2 }, { label: '订单完成', done: progress === 3 }]
+  return [{ label: '订单已提交', done: true }, { label: '商家备货', done: progress >= 1 }, { label: '冷链配送', done: progress >= 2 }, { label: '订单完成', done: progress === 3 }]
 })
 
 function money(value) { return `¥${Number(value ?? 0).toFixed(2)}` }
@@ -54,7 +54,7 @@ onMounted(loadOrder)
               <div><strong>{{ item.productName }}</strong><small v-if="fallbackLeader(item.productId)"><BadgeCheck :size="13" />{{ fallbackLeader(item.productId).name }}团长带货</small></div><span>{{ money(item.unitPrice) }} × {{ item.quantity }}</span><strong>{{ money(item.subTotal) }}</strong>
             </article>
           </section>
-          <section class="order-consumer-section delivery-section"><div class="consumer-section-title"><Truck :size="21" /><div><h2>冷链配送</h2></div></div><div class="delivery-status-row"><span class="delivery-icon"><Truck :size="20" /></span><div><strong>{{ ['SHIPPED', 'COMPLETED'].includes(detail.order.orderStatus) ? '商品已进入配送流程' : '团长正在确认团购与备货' }}</strong><small>确认后将在此展示最新配送状态</small></div></div></section>
+          <section class="order-consumer-section delivery-section"><div class="consumer-section-title"><Truck :size="21" /><div><h2>冷链配送</h2></div></div><div class="delivery-status-row"><span class="delivery-icon"><Truck :size="20" /></span><div><strong>{{ ['SHIPPED', 'COMPLETED'].includes(detail.order.orderStatus) ? '商品已进入配送流程' : '订单已进入备货流程' }}</strong><small>发货后将在此展示最新配送状态</small></div></div></section>
         </div>
         <aside>
           <section class="order-side-section"><div class="consumer-section-title"><MapPin :size="20" /><div><h2>收货信息</h2></div></div><dl><div><dt>收货人</dt><dd>{{ detail.order.receiverName }} {{ detail.order.receiverPhone }}</dd></div><div><dt>地址</dt><dd>{{ detail.order.shippingAddress }}</dd></div></dl></section>

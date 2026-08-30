@@ -49,8 +49,8 @@ function displayPrice(value) {
         </div>
 
         <div class="product-card-group-status">
-          <span><strong>{{ product.sold }}人跟团</strong> 正在进行</span>
-          <span>{{ product.cutoff }}</span>
+          <span><strong>{{ product.sold }}人已购买</strong></span>
+          <span>{{ product.delivery }}</span>
         </div>
       </div>
     </RouterLink>

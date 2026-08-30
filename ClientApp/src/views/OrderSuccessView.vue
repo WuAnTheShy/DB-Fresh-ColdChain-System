@@ -9,8 +9,8 @@ const { lastOrder } = useShop()
 <template>
   <div class="store-container order-success-page">
     <CheckCircle2 class="success-icon" :size="58" />
-    <h1>参团成功</h1>
-    <p>订单已提交，团长将按截团时间统一安排冷链履约。</p>
+    <h1>下单成功</h1>
+    <p>订单已提交并立即进入常规备货与冷链配送流程。</p>
     <div class="success-order-card">
       <div><span>订单号</span><strong>{{ lastOrder?.orderNo || `订单 #${id}` }}</strong></div>
       <div><span>实付金额</span><strong>¥{{ Number(lastOrder?.finalAmount ?? 0).toFixed(2) }}</strong></div>

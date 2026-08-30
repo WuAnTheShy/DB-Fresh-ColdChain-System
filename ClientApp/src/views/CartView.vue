@@ -40,7 +40,7 @@ const groups = computed(() => {
             <strong class="cart-line-total">¥{{ (item.product.price * item.quantity).toFixed(2) }}</strong>
             <button class="cart-remove" type="button" title="移出购物车" @click="removeFromCart(item.productId)"><Trash2 :size="18" /></button>
           </article>
-          <footer><span>本团 {{ group.items.reduce((sum, item) => sum + item.quantity, 0) }} 件商品</span><strong>截团时间以各商品页面为准</strong></footer>
+          <footer><span>共 {{ group.items.reduce((sum, item) => sum + item.quantity, 0) }} 件商品</span><strong>提交订单后立即进入备货流程</strong></footer>
         </section>
       </div>
 
@@ -53,7 +53,7 @@ const groups = computed(() => {
       </aside>
     </div>
 
-    <div v-else class="store-empty cart-empty"><ShoppingCart :size="42" /><strong>购物车还是空的</strong><span>浏览正在开团的生鲜商品</span><RouterLink class="btn btn-buy" to="/search">去逛全部商品</RouterLink></div>
+    <div v-else class="store-empty cart-empty"><ShoppingCart :size="42" /><strong>购物车还是空的</strong><span>浏览正在销售的生鲜商品</span><RouterLink class="btn btn-buy" to="/search">去逛全部商品</RouterLink></div>
   </div>
 </template>
 

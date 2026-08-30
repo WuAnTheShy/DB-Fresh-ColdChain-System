@@ -9,25 +9,25 @@ const { categories, products } = useShop()
 <template>
   <div class="home-page">
     <section class="amazon-promo-grid" aria-label="今日精选">
-      <RouterLink class="amazon-promo-card promo-cherry" to="/products/1">
-        <div class="promo-copy"><h1>产地冷链<br />车厘子礼盒</h1></div>
-        <img :src="products[0].image" alt="车厘子礼盒" />
+      <RouterLink class="amazon-promo-card promo-cherry" :to="`/products/${products[0].id}`">
+        <div class="promo-copy"><h1>产地冷链<br />阳光玫瑰葡萄</h1></div>
+        <img :src="products[0].image" alt="阳光玫瑰葡萄" />
         <strong>点击选购</strong>
       </RouterLink>
-      <RouterLink class="amazon-promo-card promo-seafood" to="/products/2">
+      <RouterLink class="amazon-promo-card promo-seafood" :to="`/products/${products[1].id}`">
         <div class="promo-copy"><h2>冰鲜三文鱼<br />低温锁鲜</h2></div>
         <img :src="products[1].image" alt="冰鲜三文鱼" />
         <strong>点击选购</strong>
       </RouterLink>
-      <RouterLink class="amazon-promo-card promo-vegetable" to="/products/3">
-        <div class="promo-copy"><h2>有机蔬菜<br />新鲜搭配</h2></div>
-        <img :src="products[2].image" alt="有机蔬菜组合" />
+      <RouterLink class="amazon-promo-card promo-vegetable" :to="`/products/${products[2].id}`">
+        <div class="promo-copy"><h2>水果甜玉米<br />新鲜到家</h2></div>
+        <img :src="products[2].image" alt="水果甜玉米" />
         <strong>点击选购</strong>
       </RouterLink>
       <RouterLink class="amazon-promo-card promo-delivery" to="/search">
         <div class="promo-copy"><h2>放心下单<br />新鲜到家</h2></div>
         <div class="delivery-visual"><Snowflake :size="76" /><Truck :size="122" /></div>
-        <strong>查看全部团购</strong>
+        <strong>查看全部商品</strong>
       </RouterLink>
     </section>
 

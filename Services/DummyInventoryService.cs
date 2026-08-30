@@ -13,9 +13,9 @@ public sealed class DummyInventoryService : IInventoryService
     private static readonly IReadOnlyDictionary<string, DummyProduct> Products =
         new Dictionary<string, DummyProduct>(StringComparer.Ordinal)
         {
-            ["P1"] = new("车厘子", "SUP1", 50m, 100),
-            ["P2"] = new("三文鱼", "SUP2", 80m, 50),
-            ["P3"] = new("有机蔬菜", "SUP1", 20m, 200)
+            ["PROD-3004"] = new("阳光玫瑰葡萄 2kg", "SUP-2002", 50m, 100),
+            ["PROD-3002"] = new("智利三文鱼中段 500g", "SUP-2002", 80m, 50),
+            ["PROD-3008"] = new("鲜食水果甜玉米 2.5kg", "SUP-2006", 20m, 200)
         };
 
     public Task<IReadOnlyList<InventoryProductSnapshot>> ReserveAsync(

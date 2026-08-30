@@ -14,7 +14,6 @@ const product = computed(() => productById(props.id))
 const leader = computed(() => leaderById(product.value?.leaderId))
 const quantity = ref(1)
 const added = ref(false)
-const progress = computed(() => product.value ? Math.min(100, Math.round((product.value.sold / product.value.target) * 100)) : 0)
 const related = computed(() => products.filter((item) => item.id !== String(props.id)))
 
 watch(() => props.id, (productId) => {
@@ -47,7 +46,7 @@ function buyNow() {
       </div>
 
       <div class="product-info-column">
-        <span class="detail-deal-label">团长带货 · 限时团购</span>
+        <span class="detail-deal-label">团长精选 · 冷链直送</span>
         <h1>{{ product.name }}</h1>
         <p class="detail-summary">{{ product.summary }}</p>
         <div class="detail-leader-panel">
@@ -66,24 +65,23 @@ function buyNow() {
         <div class="buy-price"><span>¥</span><strong>{{ product.price.toFixed(2) }}</strong></div>
         <div class="delivery-promise"><Truck :size="19" /><div><strong>{{ product.delivery }}</strong><span>配送至 上海市浦东新区</span></div></div>
         <div class="stock-status"><Check :size="17" />有货，冷链备货中</div>
-        <div class="group-status"><div><span>{{ product.cutoff }}</span><strong>{{ product.sold }} / {{ product.target }} 件</strong></div><div class="progress"><div class="progress-bar" :style="{ width: `${progress}%` }"></div></div></div>
         <label class="buy-quantity">数量<QuantityStepper v-model="quantity" :max="product.stock" /></label>
         <button class="btn btn-cart w-100" type="button" @click="add"><Check v-if="added" :size="18" /><ShoppingCart v-else :size="18" />{{ added ? '已加入购物车' : '加入购物车' }}</button>
-        <button class="btn btn-buy w-100" type="button" @click="buyNow">立即参团</button>
+        <button class="btn btn-buy w-100" type="button" @click="buyNow">立即购买</button>
         <small class="buy-box-guarantee"><ShieldCheck :size="15" />平台交易保障 · 团长身份已认证</small>
       </aside>
     </section>
 
     <section class="detail-info-band">
-      <div><PackageCheck :size="23" /><span><strong>团购说明</strong><small>达到成团条件后统一备货</small></span></div>
-      <div><Clock3 :size="23" /><span><strong>截团透明</strong><small>{{ product.cutoff }}</small></span></div>
+      <div><PackageCheck :size="23" /><span><strong>下单即备货</strong><small>支付成功后立即进入履约流程</small></span></div>
+      <div><Clock3 :size="23" /><span><strong>配送时效</strong><small>{{ product.delivery }}</small></span></div>
       <div><MapPin :size="23" /><span><strong>社区履约</strong><small>{{ leader.area }}</small></span></div>
       <div><Snowflake :size="23" /><span><strong>冷链到家</strong><small>温控方式：{{ product.storage }}</small></span></div>
     </section>
 
     <section class="product-description-section">
       <h2>商品详情</h2>
-      <div class="description-grid"><div><h3>商品亮点</h3><p>{{ product.summary }}</p></div><div><h3>收货提示</h3><p>收到商品后请及时检查外包装及温度状态，并按照商品标注方式冷藏保存。</p></div><div><h3>团购进度</h3><p>当前已团 {{ product.sold }} 件，目标 {{ product.target }} 件。进度变化以页面实时展示为准。</p></div></div>
+      <div class="description-grid"><div><h3>商品亮点</h3><p>{{ product.summary }}</p></div><div><h3>收货提示</h3><p>收到商品后请及时检查外包装及温度状态，并按照商品标注方式冷藏保存。</p></div><div><h3>配送说明</h3><p>订单支付成功后立即进入常规备货与冷链配送流程。</p></div></div>
     </section>
 
     <section class="home-section px-0">
@@ -126,10 +124,6 @@ function buyNow() {
 .delivery-promise strong { color: var(--ink); font-size: 11px; }
 .delivery-promise span { margin-top: 2px; color: var(--muted); font-size: 9px; }
 .stock-status { display: flex; align-items: center; gap: 5px; margin-bottom: 14px; color: var(--brand); font-size: 11px; font-weight: 700; }
-.group-status { padding: 10px; background: #fff8e9; }
-.group-status > div:first-child { display: flex; justify-content: space-between; gap: 8px; color: #785710; font-size: 9px; }
-.group-status .progress { height: 5px; margin-top: 7px; }
-.group-status .progress-bar { background: var(--amber); }
 .buy-quantity { display: flex; align-items: center; justify-content: space-between; margin: 15px 0; color: var(--muted); font-size: 10px; }
 .buy-box > .btn { margin-top: 8px; }
 .buy-box-guarantee { display: flex; align-items: center; gap: 4px; margin-top: 13px; color: var(--muted); font-size: 9px; }

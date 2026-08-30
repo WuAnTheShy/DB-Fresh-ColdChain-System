@@ -88,7 +88,7 @@ onMounted(loadAssets)
 
         <section class="checkout-section">
           <div class="checkout-section-title"><Truck :size="21" /><div><h2>配送安排</h2></div></div>
-          <div class="checkout-form-grid"><label><span>配送时间</span><select v-model="form.deliveryWindow" class="form-select"><option>明日 09:00-12:00</option><option>明日 14:00-18:00</option><option>后日 09:00-12:00</option></select></label><label><span>缺货处理</span><select v-model="form.substitution" class="form-select"><option value="refund">缺货商品直接退款</option><option value="contact">由团长联系确认</option><option value="replace">接受同价替代商品</option></select></label></div>
+          <div class="checkout-form-grid"><label><span>配送时间</span><select v-model="form.deliveryWindow" class="form-select"><option>明日 09:00-12:00</option><option>明日 14:00-18:00</option><option>后日 09:00-12:00</option></select></label><label><span>缺货处理</span><select v-model="form.substitution" class="form-select"><option value="refund">缺货商品直接退款</option><option value="contact">由商家联系确认</option><option value="replace">接受同价替代商品</option></select></label></div>
         </section>
 
         <section class="checkout-section">
@@ -110,7 +110,7 @@ onMounted(loadAssets)
         <dl><div><dt>商品金额</dt><dd>¥{{ cartSubtotal.toFixed(2) }}</dd></div><div><dt>优惠券</dt><dd>提交后确认</dd></div><div><dt>冷链运费</dt><dd>提交后确认</dd></div></dl>
         <div class="summary-total-row"><span>预计金额</span><strong>¥{{ cartSubtotal.toFixed(2) }}</strong></div>
         <button class="btn btn-buy w-100 checkout-button" type="submit" :disabled="saving || !form.addressId"><span v-if="saving" class="spinner-border spinner-border-sm"></span><template v-else>提交订单</template></button>
-        <small><ShieldCheck :size="14" />提交即表示确认团购规则和配送安排</small>
+        <small><ShieldCheck :size="14" />提交即表示确认订单信息和配送安排</small>
       </aside>
     </form>
 
