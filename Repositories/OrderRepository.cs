@@ -18,13 +18,13 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
     {
         var sql = @"
             INSERT INTO Biz_Orders (
-                OrderId, OrderNo, CustomerId, PromoterId, AddressId, ReceiverName, ReceiverPhone,
+                OrderId, OrderNo, CustomerId, CheckoutBatchId, PromoterId, AddressId, ReceiverName, ReceiverPhone,
                 ShippingAddress, TotalAmount, DiscountAmount, FreightAmount,
-                FinalAmount, PointsEarned, OrderStatus, CreatedAt)
+                FinalAmount, PointsEarned, OrderStatus, PaymentExpiresAt, CreatedAt)
             VALUES (
-                :OrderId, :OrderNo, :CustomerId, :PromoterId, :AddressId, :ReceiverName, :ReceiverPhone,
+                :OrderId, :OrderNo, :CustomerId, :CheckoutBatchId, :PromoterId, :AddressId, :ReceiverName, :ReceiverPhone,
                 :ShippingAddress, :TotalAmount, :DiscountAmount, :FreightAmount,
-                :FinalAmount, :PointsEarned, :OrderStatus, SYSDATE)";
+                :FinalAmount, :PointsEarned, :OrderStatus, :PaymentExpiresAt, SYSDATE)";
 
         return await WithConnectionAsync(transaction, async connection =>
         {
@@ -93,12 +93,15 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 $@"SELECT o.OrderId,
                           o.OrderNo,
                           o.CustomerId,
+                          o.CheckoutBatchId,
+                          o.PromoterId,
                           c.CustomerName,
                           o.FinalAmount,
                           o.OrderStatus,
                           COUNT(d.OrderDetailId) AS ItemCount,
                           COUNT(DISTINCT d.SupplierId) AS SupplierCount,
                           o.CreatedAt
+                          ,o.PaymentExpiresAt
                    FROM Biz_Orders o
                    JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
                    LEFT JOIN Biz_OrderDetails d ON d.OrderId = o.OrderId
@@ -106,10 +109,13 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                    GROUP BY o.OrderId,
                             o.OrderNo,
                             o.CustomerId,
+                            o.CheckoutBatchId,
+                            o.PromoterId,
                             c.CustomerName,
                             o.FinalAmount,
                             o.OrderStatus,
-                            o.CreatedAt
+                            o.CreatedAt,
+                            o.PaymentExpiresAt
                    ORDER BY o.CreatedAt DESC, o.OrderId DESC
                    OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY",
                 CreateOrderQueryParameters(request, offset),
@@ -125,6 +131,8 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 @"SELECT o.OrderId,
                          o.OrderNo,
                          o.CustomerId,
+                         o.CheckoutBatchId,
+                         o.PromoterId,
                          o.AddressId,
                          c.CustomerName,
                          o.ReceiverName,
@@ -136,6 +144,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                          o.FinalAmount,
                          o.PointsEarned,
                          o.OrderStatus,
+                         o.PaymentExpiresAt,
                          o.CreatedAt,
                          o.UpdatedAt
                   FROM Biz_Orders o

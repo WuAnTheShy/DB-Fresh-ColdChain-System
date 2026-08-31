@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.CrossGroup_C;
+using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
 using FreshColdChain.Services;
 using Microsoft.AspNetCore.Identity;
@@ -34,6 +35,7 @@ internal sealed class TestContext
         InventoryService = new FakeInventoryService();
         LogisticsService = new FakeLogisticsService();
         CommissionService = new FakeCommissionService();
+        PromoterService = new FakePromoterService();
         TransactionManager = new FakeTransactionManager();
         AuthenticationState = new CustomerAuthenticationStateService();
         Service = new OrderService(
@@ -44,7 +46,8 @@ internal sealed class TestContext
             InventoryService,
             LogisticsService,
             CommissionService,
-            TransactionManager);
+            TransactionManager,
+            PromoterService);
         CustomerService = new CustomerService(
             CustomerRepository,
             PointRepository,
@@ -64,6 +67,7 @@ internal sealed class TestContext
     public FakeInventoryService InventoryService { get; }
     public FakeLogisticsService LogisticsService { get; }
     public FakeCommissionService CommissionService { get; }
+    public FakePromoterService PromoterService { get; }
     public FakeTransactionManager TransactionManager { get; }
     public CustomerAuthenticationStateService AuthenticationState { get; }
     public OrderService Service { get; }
@@ -1144,6 +1148,7 @@ internal sealed class FakeLogisticsService : ILogisticsService
     public Exception? ShipmentExceptionToThrow { get; set; }
     public List<string> ShippedOrderIds { get; } = [];
     public FreightCalculationRequest? LastFreightRequest { get; private set; }
+    public List<FreightCalculationRequest> FreightRequests { get; } = [];
 
     public Task<decimal> CalculateFreightAsync(
         FreightCalculationRequest request,
@@ -1151,6 +1156,7 @@ internal sealed class FakeLogisticsService : ILogisticsService
         CancellationToken cancellationToken = default)
     {
         LastFreightRequest = request;
+        FreightRequests.Add(request);
         return Task.FromResult(FreightAmount);
     }
 
@@ -1209,6 +1215,51 @@ internal sealed class FakeCommissionService : ICommissionService
     {
         return Task.FromResult(new Result { IsSuccess = true });
     }
+}
+
+internal sealed class FakePromoterService : IPromoterService
+{
+    public List<string> BoundPromoterIds { get; } = ["promoter-1", "promoter-2"];
+
+    public Task<GroupC_PagedResult<GroupC_AvailablePromoterDto>> GetAvailablePromotersAsync(
+        GroupC_AvailablePromoterQuery query,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new GroupC_PagedResult<GroupC_AvailablePromoterDto>());
+
+    public Task<GroupC_PromoterBasicInfoDto?> GetPromoterBasicInfoAsync(
+        string promoterId,
+        CancellationToken cancellationToken = default) => Task.FromResult<GroupC_PromoterBasicInfoDto?>(null);
+
+    public Task<List<string>> GetActiveSupplierIdsAsync(string promoterId) => Task.FromResult(new List<string>());
+
+    public Task<Dictionary<string, bool>> ValidateSuppliersAsync(string promoterId, List<string> supplierIds) =>
+        Task.FromResult(supplierIds.ToDictionary(id => id, _ => true, StringComparer.Ordinal));
+
+    public Task<Result> BindCustomerToPromoterAsync(
+        string customerId,
+        string promoterId,
+        IDbTransaction? transaction = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!BoundPromoterIds.Contains(promoterId, StringComparer.Ordinal))
+            BoundPromoterIds.Add(promoterId);
+        return Task.FromResult(new Result { IsSuccess = true });
+    }
+
+    public Task<List<string>> GetBoundPromoterIdsAsync(string customerId) =>
+        Task.FromResult(BoundPromoterIds.ToList());
+
+    public Task<Result> UnbindCustomerFromPromoterAsync(
+        string customerId,
+        string promoterId,
+        CancellationToken cancellationToken = default)
+    {
+        BoundPromoterIds.Remove(promoterId);
+        return Task.FromResult(new Result { IsSuccess = true });
+    }
+
+    public Task<List<GroupC_CrmPCRelation>> GetBoundCustomersByPromoterAsync(string promoterId) =>
+        Task.FromResult(new List<GroupC_CrmPCRelation>());
 }
 
 internal sealed class FakeDbConnection : IDbConnection

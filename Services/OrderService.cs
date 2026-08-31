@@ -21,6 +21,7 @@ public sealed class OrderService : IOrderService
     private readonly ILogisticsService _logisticsService;
     private readonly ICommissionService _commissionService;
     private readonly IOrderTransactionManager _transactionManager;
+    private readonly IPromoterService? _promoterService;
 
     public OrderService(
         IOrderRepository orderRepo,
@@ -30,7 +31,8 @@ public sealed class OrderService : IOrderService
         IInventoryService inventoryService,
         ILogisticsService logisticsService,
         ICommissionService commissionService,
-        IOrderTransactionManager transactionManager)
+        IOrderTransactionManager transactionManager,
+        IPromoterService? promoterService = null)
     {
         _orderRepo = orderRepo;
         _customerRepo = customerRepo;
@@ -40,6 +42,187 @@ public sealed class OrderService : IOrderService
         _logisticsService = logisticsService;
         _commissionService = commissionService;
         _transactionManager = transactionManager;
+        _promoterService = promoterService;
+    }
+
+    /// <summary>
+    /// 将一次消费者结算按团长拆成多个待支付子订单。库存校验和全部子订单写入
+    /// 共用一个事务，任一商品缺货时整个批次回滚。
+    /// </summary>
+    public async Task<CreateCheckoutBatchResult> CreateCheckoutBatchAsync(
+        CreateOrderRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var batchItems = ValidateAndNormalizeBatchRequest(request);
+        if (_promoterService == null)
+            throw new OrderBusinessException("团长服务未配置，暂时无法结算");
+
+        var followedPromoterIds = (await _promoterService
+                .GetBoundPromoterIdsAsync(request.CustomerId))
+            .ToHashSet(StringComparer.Ordinal);
+        var missingFollow = batchItems
+            .Select(item => item.PromoterId)
+            .Distinct(StringComparer.Ordinal)
+            .FirstOrDefault(promoterId => !followedPromoterIds.Contains(promoterId));
+        if (missingFollow != null)
+            throw new OrderBusinessException("结算商品所属团长尚未关注，请刷新购物车后重试");
+
+        return await _transactionManager.ExecuteAsync(async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var customer = await _customerRepo.GetByIdForUpdateAsync(
+                    request.CustomerId,
+                    transaction)
+                ?? throw new OrderBusinessException("消费者不存在，无法创建结算批次");
+            var address = await _customerRepo.GetAddressAsync(
+                    request.CustomerId,
+                    request.AddressId,
+                    transaction)
+                ?? throw new OrderBusinessException("收货地址不存在或不属于当前消费者");
+
+            var reservationItems = batchItems.Select(item => new InventoryReservationItem
+            {
+                ProductId = item.ProductId,
+                Quantity = item.Quantity
+            }).ToList();
+            var snapshots = await _inventoryService.ReserveAsync(
+                reservationItems,
+                transaction,
+                cancellationToken);
+            var details = CreateTrustedDetails(reservationItems, snapshots);
+            var itemsByProductId = batchItems.ToDictionary(
+                item => item.ProductId,
+                StringComparer.Ordinal);
+            var goodsAmount = details.Sum(detail => detail.SubTotal);
+            EnsureAmountFitsDatabase(goodsAmount);
+
+            var coupon = await GetCouponAsync(
+                request.CouponRecordId,
+                request.CustomerId,
+                goodsAmount,
+                transaction);
+            var discountAmount = coupon == null
+                ? 0m
+                : Math.Min(coupon.DiscountAmount, goodsAmount);
+            var checkoutBatchId = GroupBIds.NewId();
+            var paymentExpiresAt = DateTime.Now.AddMinutes(15);
+            var groupedDetails = details
+                .GroupBy(detail => itemsByProductId[detail.ProductId].PromoterId)
+                .OrderBy(group => group.Key, StringComparer.Ordinal)
+                .ToList();
+
+            var remainingDiscount = discountAmount;
+            var orderResults = new List<CreateOrderResult>(groupedDetails.Count);
+            for (var index = 0; index < groupedDetails.Count; index++)
+            {
+                var group = groupedDetails[index];
+                var groupDetails = group.ToList();
+                var groupGoodsAmount = groupDetails.Sum(detail => detail.SubTotal);
+                var groupDiscount = index == groupedDetails.Count - 1
+                    ? remainingDiscount
+                    : Math.Min(
+                        remainingDiscount,
+                        Math.Round(
+                            discountAmount * groupGoodsAmount / goodsAmount,
+                            2,
+                            MidpointRounding.AwayFromZero));
+                remainingDiscount -= groupDiscount;
+
+                var freightAmount = await _logisticsService.CalculateFreightAsync(
+                    new FreightCalculationRequest
+                    {
+                        CustomerId = customer.CustomerId,
+                        Province = address.Province,
+                        City = address.City,
+                        District = address.District,
+                        GoodsAmount = groupGoodsAmount,
+                        Items = CreateFulfillmentItems(groupDetails)
+                    },
+                    transaction,
+                    cancellationToken);
+                EnsureAmountFitsDatabase(freightAmount);
+                var finalAmount = groupGoodsAmount - groupDiscount + freightAmount;
+                EnsureAmountFitsDatabase(finalAmount);
+
+                var order = new BizOrder
+                {
+                    OrderId = GroupBIds.NewId(),
+                    OrderNo = GenerateOrderNo(),
+                    CustomerId = request.CustomerId,
+                    CheckoutBatchId = checkoutBatchId,
+                    PromoterId = group.Key,
+                    AddressId = request.AddressId,
+                    ReceiverName = address.ReceiverName,
+                    ReceiverPhone = address.Phone,
+                    ShippingAddress = CreateShippingAddress(address),
+                    TotalAmount = groupGoodsAmount,
+                    DiscountAmount = groupDiscount,
+                    FreightAmount = freightAmount,
+                    FinalAmount = finalAmount,
+                    PointsEarned = 0,
+                    OrderStatus = OrderStatusCodes.PendingPayment,
+                    PaymentExpiresAt = paymentExpiresAt,
+                    CreatedAt = DateTime.Now
+                };
+
+                var orderId = await _orderRepo.CreateOrderAsync(order, transaction);
+                foreach (var detail in groupDetails)
+                    detail.OrderId = orderId;
+                await _orderRepo.InsertDetailsAsync(groupDetails, transaction);
+                orderResults.Add(new CreateOrderResult
+                {
+                    OrderId = orderId,
+                    OrderNo = order.OrderNo,
+                    GoodsAmount = groupGoodsAmount,
+                    DiscountAmount = groupDiscount,
+                    FreightAmount = freightAmount,
+                    FinalAmount = finalAmount,
+                    PointsEarned = 0,
+                    SupplierGroups = CreateSupplierGroups(groupDetails)
+                });
+            }
+
+            if (coupon != null)
+            {
+                var couponUsed = await _couponRepo.TryUseCouponAsync(
+                    coupon.RecordId,
+                    request.CustomerId,
+                    orderResults[0].OrderId,
+                    transaction);
+                if (!couponUsed)
+                    throw new OrderBusinessException("优惠券已被使用，请重新选择");
+            }
+
+            var snapshotsById = snapshots.ToDictionary(
+                snapshot => snapshot.ProductId,
+                StringComparer.Ordinal);
+            var priceChanges = batchItems
+                .Where(item => item.ClientUnitPrice.HasValue &&
+                    item.ClientUnitPrice.Value != snapshotsById[item.ProductId].UnitPrice)
+                .Select(item => new OrderPriceChangeResult
+                {
+                    ProductId = item.ProductId,
+                    ProductName = snapshotsById[item.ProductId].ProductName,
+                    PreviousPrice = item.ClientUnitPrice!.Value,
+                    LatestPrice = snapshotsById[item.ProductId].UnitPrice
+                })
+                .ToList();
+
+            return new CreateCheckoutBatchResult
+            {
+                CheckoutBatchId = checkoutBatchId,
+                PaymentExpiresAt = paymentExpiresAt,
+                GoodsAmount = orderResults.Sum(order => order.GoodsAmount),
+                DiscountAmount = orderResults.Sum(order => order.DiscountAmount),
+                FreightAmount = orderResults.Sum(order => order.FreightAmount),
+                FinalAmount = orderResults.Sum(order => order.FinalAmount),
+                Orders = orderResults,
+                PriceChanges = priceChanges
+            };
+        });
     }
 
     /// <summary>
@@ -567,6 +750,57 @@ public sealed class OrderService : IOrderService
         return await _pointRepo.GetLevelForSpentAsync(customer.TotalSpent);
     }
 
+    private static IReadOnlyList<BatchOrderItem> ValidateAndNormalizeBatchRequest(
+        CreateOrderRequest request)
+    {
+        if (!GroupBIds.IsValid(request.CustomerId))
+            throw new OrderBusinessException("消费者ID格式不正确");
+        if (!GroupBIds.IsValid(request.AddressId))
+            throw new OrderBusinessException("收货地址ID格式不正确");
+        if (request.CouponRecordId != null && !GroupBIds.IsValid(request.CouponRecordId))
+            throw new OrderBusinessException("优惠券记录ID格式不正确");
+        if (request.Items == null || request.Items.Count == 0)
+            throw new OrderBusinessException("结算批次至少需要一件商品");
+
+        var normalized = new Dictionary<string, BatchOrderItem>(StringComparer.Ordinal);
+        foreach (var item in request.Items)
+        {
+            var productId = item.ProductId?.Trim() ?? string.Empty;
+            var promoterId = item.PromoterId?.Trim() ?? string.Empty;
+            if (productId.Length is 0 or > 64)
+                throw new OrderBusinessException("商品ID不能为空且不能超过64个字符");
+            if (promoterId.Length is 0 or > 36)
+                throw new OrderBusinessException("团长ID不能为空且不能超过36个字符");
+            if (item.Quantity is <= 0 or > 9999)
+                throw new OrderBusinessException("商品数量必须在1到9999之间");
+
+            if (normalized.TryGetValue(productId, out var existing))
+            {
+                if (!string.Equals(existing.PromoterId, promoterId, StringComparison.Ordinal))
+                    throw new OrderBusinessException($"商品 {productId} 不能同时归属于多个团长");
+                if (existing.ClientUnitPrice != item.ClientUnitPrice)
+                    throw new OrderBusinessException($"商品 {productId} 的购物车价格数据不一致");
+                existing.Quantity = checked(existing.Quantity + item.Quantity);
+                if (existing.Quantity > 9999)
+                    throw new OrderBusinessException($"商品 {productId} 的合计数量不能超过9999");
+                continue;
+            }
+
+            normalized[productId] = new BatchOrderItem
+            {
+                ProductId = productId,
+                PromoterId = promoterId,
+                Quantity = item.Quantity,
+                ClientUnitPrice = item.ClientUnitPrice
+            };
+        }
+
+        return normalized.Values
+            .OrderBy(item => item.PromoterId, StringComparer.Ordinal)
+            .ThenBy(item => item.ProductId, StringComparer.Ordinal)
+            .ToList();
+    }
+
     private static IReadOnlyList<InventoryReservationItem> ValidateAndNormalizeRequest(
         CreateOrderRequest request)
     {
@@ -851,5 +1085,13 @@ public sealed class OrderService : IOrderService
         public required BizOrder Order { get; init; }
         public required CrmCustomer Customer { get; init; }
         public required List<BizOrderDetail> Details { get; init; }
+    }
+
+    private sealed class BatchOrderItem
+    {
+        public string ProductId { get; init; } = string.Empty;
+        public string PromoterId { get; init; } = string.Empty;
+        public int Quantity { get; set; }
+        public decimal? ClientUnitPrice { get; init; }
     }
 }

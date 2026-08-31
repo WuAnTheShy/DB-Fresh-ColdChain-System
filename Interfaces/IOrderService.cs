@@ -8,6 +8,10 @@ namespace FreshColdChain.Interfaces;
 /// </summary>
 public interface IOrderService
 {
+    Task<CreateCheckoutBatchResult> CreateCheckoutBatchAsync(
+        CreateOrderRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<CreateOrderResult> CreateOrderAsync(
         CreateOrderRequest request,
         CancellationToken cancellationToken = default);

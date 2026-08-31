@@ -31,6 +31,13 @@ public sealed class CreateOrderItemRequest
     [StringLength(64, ErrorMessage = "商品ID不能超过64个字符")]
     public string ProductId { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "团长ID不能为空")]
+    [StringLength(36, ErrorMessage = "团长ID不能超过36个字符")]
+    public string PromoterId { get; set; } = string.Empty;
+
+    [Range(typeof(decimal), "0.01", "99999999.99", ErrorMessage = "客户端商品价格无效")]
+    public decimal? ClientUnitPrice { get; set; }
+
     [Range(1, 9999, ErrorMessage = "商品数量必须在1到9999之间")]
     public int Quantity { get; set; } = 1;
 }

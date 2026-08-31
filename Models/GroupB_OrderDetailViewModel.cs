@@ -39,6 +39,8 @@ public sealed class OrderDetailHeader
     public string OrderId { get; init; } = string.Empty;
     public string OrderNo { get; init; } = string.Empty;
     public string CustomerId { get; init; } = string.Empty;
+    public string? CheckoutBatchId { get; init; }
+    public string? PromoterId { get; init; }
     public string AddressId { get; init; } = string.Empty;
     public string CustomerName { get; init; } = string.Empty;
     public string ReceiverName { get; init; } = string.Empty;
@@ -51,6 +53,7 @@ public sealed class OrderDetailHeader
     public int PointsEarned { get; init; }
     public string OrderStatus { get; init; } = OrderStatusCodes.PendingPayment;
     public DateTime CreatedAt { get; init; }
+    public DateTime? PaymentExpiresAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
 
     public BizOrder ToOrder()
@@ -60,6 +63,8 @@ public sealed class OrderDetailHeader
             OrderId = OrderId,
             OrderNo = OrderNo,
             CustomerId = CustomerId,
+            CheckoutBatchId = CheckoutBatchId,
+            PromoterId = PromoterId,
             AddressId = AddressId,
             ReceiverName = ReceiverName,
             ReceiverPhone = ReceiverPhone,
@@ -70,6 +75,7 @@ public sealed class OrderDetailHeader
             FinalAmount = FinalAmount,
             PointsEarned = PointsEarned,
             OrderStatus = OrderStatus,
+            PaymentExpiresAt = PaymentExpiresAt,
             CreatedAt = CreatedAt,
             UpdatedAt = UpdatedAt
         };

@@ -46,16 +46,29 @@ async function submit() {
   error.value = ''
   try {
     const merged = new Map()
-    selectedCartItems.value.forEach((item) => merged.set(item.productId, (merged.get(item.productId) ?? 0) + item.quantity))
+    selectedCartItems.value.forEach((item) => {
+      const existing = merged.get(item.productId)
+      merged.set(item.productId, existing
+        ? { ...existing, quantity: existing.quantity + item.quantity }
+        : {
+            productId: item.productId,
+            promoterId: item.leaderId,
+            quantity: item.quantity,
+            clientUnitPrice: item.product.price,
+          })
+    })
     const result = await api.createOrder({
       customerId: customerId.value,
       addressId: form.addressId,
       couponRecordId: form.couponRecordId || null,
-      items: [...merged].map(([productId, quantity]) => ({ productId, quantity })),
+      items: [...merged.values()],
     })
-    setLastOrder({ ...result, leaderGroups: groups.value.map((group) => ({ leaderId: group.leader.id, leaderName: group.leader.name })) })
+    setLastOrder({
+      ...result,
+      leaderGroups: groups.value.map((group) => ({ leaderId: group.leader.id, leaderName: group.leader.name })),
+    })
     removeCartItems(selectedCartItems.value.map((item) => item.productId))
-    router.push(`/order-success/${result.orderId}`)
+    router.push(`/order-success/${result.orders[0].orderId}`)
   } catch (requestError) {
     error.value = requestError.message
   } finally {

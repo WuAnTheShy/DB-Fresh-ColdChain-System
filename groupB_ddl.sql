@@ -124,6 +124,7 @@ CREATE TABLE Biz_Orders (
     OrderId         VARCHAR2(36)   PRIMARY KEY,
     OrderNo         VARCHAR2(50)   NOT NULL UNIQUE,
     CustomerId      VARCHAR2(36)   NOT NULL,
+    CheckoutBatchId VARCHAR2(36),                 -- 同一次结算按团长拆单的批次ID
     PromoterId      VARCHAR2(36),
     AddressId       VARCHAR2(36)   NOT NULL,
     ReceiverName    VARCHAR2(50)   NOT NULL,      -- 下单时收件人快照
@@ -138,6 +139,7 @@ CREATE TABLE Biz_Orders (
     CommSettlementDate DATE,
     PointsEarned    NUMBER         DEFAULT 0,
     OrderStatus     VARCHAR2(20)   DEFAULT 'PENDING_PAYMENT',
+    PaymentExpiresAt DATE,                         -- 模拟支付截止时间
     CreatedAt       DATE           DEFAULT SYSDATE,
     UpdatedAt       DATE,
     CONSTRAINT FK_Order_Customer FOREIGN KEY (CustomerId) REFERENCES Crm_Customers(CustomerId),
@@ -159,6 +161,9 @@ CREATE INDEX IX_Order_CustomerCreated
 
 CREATE INDEX IX_Order_StatusCreated
     ON Biz_Orders (OrderStatus, CreatedAt);
+
+CREATE INDEX IX_Order_CheckoutBatch
+    ON Biz_Orders (CheckoutBatchId, CustomerId);
 
 -- 8. Biz_OrderDetails - 订单明细
 CREATE TABLE Biz_OrderDetails (

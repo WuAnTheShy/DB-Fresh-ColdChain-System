@@ -25,6 +25,7 @@ public sealed class OrdersApiController(
             {
                 order.OrderId,
                 order.OrderNo,
+                order.CheckoutBatchId,
                 order.CustomerId,
                 order.CustomerName,
                 order.FinalAmount,
@@ -59,6 +60,7 @@ public sealed class OrdersApiController(
                 order.OrderId,
                 order.OrderNo,
                 order.CustomerId,
+                order.CheckoutBatchId,
                 order.PromoterId,
                 order.AddressId,
                 order.ReceiverName,
@@ -70,6 +72,7 @@ public sealed class OrdersApiController(
                 order.FinalAmount,
                 order.PointsEarned,
                 order.OrderStatus,
+                order.PaymentExpiresAt,
                 order.CreatedAt,
                 order.UpdatedAt
             },
@@ -100,22 +103,10 @@ public sealed class OrdersApiController(
         if (!string.Equals(request.CustomerId, signedInCustomerId, StringComparison.Ordinal))
             return ApiForbidden();
 
-        var result = await orderService.CreateOrderAsync(
+        var result = await orderService.CreateCheckoutBatchAsync(
             request,
             cancellationToken);
-        return CreatedAtAction(
-            nameof(GetOrder),
-            new { orderId = result.OrderId },
-            new
-            {
-                result.OrderId,
-                result.OrderNo,
-                result.GoodsAmount,
-                result.DiscountAmount,
-                result.FreightAmount,
-                result.FinalAmount,
-                result.PointsEarned
-            });
+        return StatusCode(StatusCodes.Status201Created, result);
     }
 
     [HttpPost("{orderId}/transition")]

@@ -10,6 +10,8 @@ internal static class OrderServiceScenarioTests
         var scenarios = new (string Name, Func<Task> Run)[]
         {
             ("正常下单提交订单、优惠券和双倍积分", SuccessfulOrderCommitsAsync),
+            ("结算批次按团长原子拆单并分别计算运费", CheckoutBatchSplitsByPromoterAsync),
+            ("批次任一商品缺货时不创建任何子订单", CheckoutBatchStockFailureRollsBackAsync),
             ("库存不足时回滚且不创建订单", InsufficientStockRollsBackAsync),
             ("优惠券无效时回滚且不创建订单", InvalidCouponRollsBackAsync),
             ("积分流水失败时回滚全部已暂存变更", PointLogFailureRollsBackEverythingAsync)
@@ -33,6 +35,57 @@ internal static class OrderServiceScenarioTests
 
         Console.WriteLine($"场景总数: {scenarios.Length}, 通过: {scenarios.Length - failed}, 失败: {failed}");
         return failed == 0 ? 0 : 1;
+    }
+
+    private static async Task CheckoutBatchSplitsByPromoterAsync()
+    {
+        var context = TestContext.Create();
+        context.LogisticsService.FreightAmount = 8m;
+        var startedAt = DateTime.Now;
+
+        var result = await context.Service.CreateCheckoutBatchAsync(new CreateOrderRequest
+        {
+            CustomerId = TestIds.Customer,
+            AddressId = TestIds.Address1,
+            Items =
+            [
+                new() { ProductId = "P1", PromoterId = "promoter-1", Quantity = 2, ClientUnitPrice = 48m },
+                new() { ProductId = "P2", PromoterId = "promoter-2", Quantity = 1, ClientUnitPrice = 80m }
+            ]
+        });
+
+        AssertEx.True(context.TransactionManager.LastTransaction?.Committed == true);
+        AssertEx.Equal(2, result.Orders.Count);
+        AssertEx.Equal(2, context.OrderRepository.Orders.Count);
+        AssertEx.Equal(2, context.LogisticsService.FreightRequests.Count);
+        AssertEx.Equal(180m, result.GoodsAmount);
+        AssertEx.Equal(16m, result.FreightAmount);
+        AssertEx.Equal(196m, result.FinalAmount);
+        AssertEx.Equal(1, result.PriceChanges.Count);
+        AssertEx.True(result.PaymentExpiresAt >= startedAt.AddMinutes(14));
+        AssertEx.True(context.OrderRepository.Orders.All(order => order.CheckoutBatchId == result.CheckoutBatchId));
+        AssertEx.True(context.OrderRepository.Orders.All(order => order.OrderStatus == OrderStatusCodes.PendingPayment));
+        AssertEx.Equal(2, context.OrderRepository.Orders.Select(order => order.PromoterId).Distinct().Count());
+    }
+
+    private static async Task CheckoutBatchStockFailureRollsBackAsync()
+    {
+        var context = TestContext.Create();
+        context.InventoryService.ExceptionToThrow = new OrderBusinessException("库存不足");
+
+        await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
+            context.Service.CreateCheckoutBatchAsync(new CreateOrderRequest
+            {
+                CustomerId = TestIds.Customer,
+                AddressId = TestIds.Address1,
+                Items =
+                [
+                    new() { ProductId = "P1", PromoterId = "promoter-1", Quantity = 1 },
+                    new() { ProductId = "P2", PromoterId = "promoter-2", Quantity = 1 }
+                ]
+            }));
+
+        AssertRolledBackWithoutAssets(context);
     }
 
     private static async Task SuccessfulOrderCommitsAsync()
