@@ -38,6 +38,21 @@ namespace FreshColdChain.Repositories
             return count > 0;
         }
 
+        public async Task<bool> DeleteRelationAsync(
+            string customerId,
+            string promoterId,
+            IDbTransaction? transaction = null)
+        {
+            const string sql = @"
+                DELETE FROM CRM_PCR
+                WHERE CONSUMERID = :CustomerId AND PROMOTERID = :PromoterId";
+            var rows = await _uow.Connection.ExecuteAsync(
+                sql,
+                new { CustomerId = customerId, PromoterId = promoterId },
+                transaction);
+            return rows > 0;
+        }
+
         public async Task<List<string>> GetPromoterIdsByCustomerAsync(string customerId, IDbTransaction? transaction = null)
         {
             const string sql = @"

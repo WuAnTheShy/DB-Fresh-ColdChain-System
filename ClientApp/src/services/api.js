@@ -97,6 +97,13 @@ export const api = {
   setDefaultAddress: (customerId, addressId) => request(`/api/customers/${customerId}/addresses/${addressId}/default`, {
     method: 'PUT',
   }),
+  getFollowingPromoters: (customerId) => request(`/api/customers/${customerId}/following`),
+  followPromoter: (customerId, promoterId) => request(`/api/customers/${customerId}/following/${encodeURIComponent(promoterId)}`, {
+    method: 'POST',
+  }),
+  unfollowPromoter: (customerId, promoterId) => request(`/api/customers/${customerId}/following/${encodeURIComponent(promoterId)}`, {
+    method: 'DELETE',
+  }),
   getCoupons: (customerId) => request(`/api/customers/${customerId}/coupons`),
   claimCoupon: (customerId, couponId) => request(`/api/customers/${customerId}/coupons/${couponId}/claim`, {
     method: 'POST',

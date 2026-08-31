@@ -9,6 +9,8 @@ namespace FreshColdChain.Repositories
 
         Task<bool> ExistsRelationAsync(string customerId, string promoterId, IDbTransaction? transaction = null);
 
+        Task<bool> DeleteRelationAsync(string customerId, string promoterId, IDbTransaction? transaction = null);
+
         Task<List<string>> GetPromoterIdsByCustomerAsync(string customerId, IDbTransaction? transaction = null);
 
         Task<List<GroupC_CrmPCRelation>> GetRelationsByPromoterAsync(string promoterId, IDbTransaction? transaction = null);

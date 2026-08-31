@@ -5,7 +5,7 @@ import ProductCard from '../components/ProductCard.vue'
 import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
 
-const { followedLeaderIds, leaderById, products } = useShop()
+const { followedLeaderIds, followingError, followingLoading, leaderById, products } = useShop()
 
 const followedLeaders = computed(() => followedLeaderIds.value.map(leaderById).filter(Boolean))
 const feedItems = computed(() => followedLeaders.value
@@ -34,14 +34,16 @@ function formatFeedTime(value) {
       <span v-if="followedLeaders.length"><UsersRound :size="16" />已关注 {{ followedLeaders.length }} 位团长</span>
     </div>
 
-    <section v-if="feedItems.length" class="following-feed" aria-label="关注商品时间流">
+    <div v-if="followingError" class="alert alert-danger" role="alert">{{ followingError }}</div>
+    <div v-if="followingLoading" class="store-loading"><span class="spinner-border text-success"></span><span>正在加载关注列表…</span></div>
+    <section v-else-if="feedItems.length" class="following-feed" aria-label="关注商品时间流">
       <article v-for="item in feedItems" :key="`${item.leader.id}-${item.product.id}`" class="following-feed-item">
         <div class="following-feed-time"><time :datetime="item.publishedAt">{{ formatFeedTime(item.publishedAt) }}</time></div>
         <div class="following-feed-card"><ProductCard :product="item.product" /></div>
       </article>
     </section>
 
-    <div v-else class="store-empty following-empty">
+    <div v-else-if="!followingError" class="store-empty following-empty">
       <Heart :size="42" />
       <strong>还没有关注团长</strong>
       <span>从商品卡片点击团长头像，进入详情后即可关注</span>

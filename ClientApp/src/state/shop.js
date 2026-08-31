@@ -1,4 +1,5 @@
 import { computed, reactive, ref } from 'vue'
+import { api } from '../services/api'
 import seasonalFruitImage from '../assets/categories/seasonal-fruit.jpg'
 import vegetableTofuImage from '../assets/categories/vegetable-tofu.jpg'
 import meatEggsImage from '../assets/categories/meat-eggs.jpg'
@@ -17,8 +18,8 @@ export const categories = [
 
 export const leaders = [
   {
-    id: 1,
-    name: '林晓晴',
+    id: 'PRO_2563c9557c564d86b015b90876c3d8f4',
+    name: '张三',
     title: '社区生鲜团长',
     area: '浦东新区 · 花木街道',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=240&q=85',
@@ -28,8 +29,8 @@ export const leaders = [
     following: 1280,
   },
   {
-    id: 2,
-    name: '陈海峰',
+    id: 'PRO_52d9f7b7cf2843a7b076732fb33374f0',
+    name: '长四',
     title: '海鲜冷链团长',
     area: '徐汇区 · 田林街道',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=240&q=85',
@@ -39,8 +40,8 @@ export const leaders = [
     following: 936,
   },
   {
-    id: 3,
-    name: '周婉宁',
+    id: 'PRO_9fb79e69831b4a50899999c0f438c734',
+    name: '宋张',
     title: '家庭餐桌团长',
     area: '闵行区 · 古美街道',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=240&q=85',
@@ -62,7 +63,7 @@ export const products = [
     price: 50,
     image: 'https://images.unsplash.com/photo-1528821128474-27f963b062bf?auto=format&fit=crop&w=800&q=88',
     storage: '冷藏',
-    leaderId: 1,
+    leaderId: 'PRO_2563c9557c564d86b015b90876c3d8f4',
     sold: 286,
     stock: 100,
     delivery: '明日 16:00 前送达',
@@ -79,7 +80,7 @@ export const products = [
     price: 80,
     image: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=800&q=88',
     storage: '冷藏',
-    leaderId: 2,
+    leaderId: 'PRO_52d9f7b7cf2843a7b076732fb33374f0',
     sold: 117,
     stock: 50,
     delivery: '后日 12:00 前送达',
@@ -96,7 +97,7 @@ export const products = [
     price: 20,
     image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=88',
     storage: '冷藏',
-    leaderId: 1,
+    leaderId: 'PRO_2563c9557c564d86b015b90876c3d8f4',
     sold: 368,
     stock: 200,
     delivery: '明日 12:00 前送达',
@@ -107,7 +108,6 @@ export const products = [
 
 const rawCart = JSON.parse(localStorage.getItem('freshMall.cart') ?? '[]')
 const rawRushCounts = JSON.parse(localStorage.getItem('freshMall.rushCounts') ?? '{}')
-const rawFollowedLeaderIds = JSON.parse(localStorage.getItem('freshMall.followedLeaderIds') ?? '[]')
 function normalizeProductId(id) {
   const value = String(id ?? '').trim()
   const legacyIds = { '1': 'PROD-3004', P1: 'PROD-3004', '2': 'PROD-3002', P2: 'PROD-3002', '3': 'PROD-3008', P3: 'PROD-3008' }
@@ -118,17 +118,18 @@ const cart = reactive(Array.isArray(rawCart)
   ? rawCart.map((item) => {
       const productId = normalizeProductId(item.productId)
       const product = products.find((entry) => entry.id === productId)
-      return { ...item, productId, leaderId: product?.leaderId ?? Number(item.leaderId) }
+      return { ...item, productId, leaderId: product?.leaderId ?? String(item.leaderId ?? '') }
     })
   : [])
 const rushCounts = reactive(Object.fromEntries(products.map((product) => [
   product.id,
   Math.max(product.sold, Number(rawRushCounts[product.id]) || product.sold),
 ])))
-const selectedLeaderId = ref(Number(sessionStorage.getItem('freshMall.leaderId')) || 1)
-const followedLeaderIds = ref(Array.isArray(rawFollowedLeaderIds)
-  ? [...new Set(rawFollowedLeaderIds.map(Number).filter((id) => leaders.some((leader) => leader.id === id)))]
-  : [])
+const selectedLeaderId = ref(sessionStorage.getItem('freshMall.leaderId') || leaders[0].id)
+const followedLeaderIds = ref([])
+const followingLoading = ref(false)
+const followingError = ref('')
+const followingLoadedCustomerId = ref('')
 const lastOrder = ref(JSON.parse(sessionStorage.getItem('freshMall.lastOrder') ?? 'null'))
 
 function persistCart() {
@@ -140,7 +141,7 @@ function productById(id) {
 }
 
 function leaderById(id) {
-  return leaders.find((leader) => leader.id === Number(id))
+  return leaders.find((leader) => leader.id === String(id ?? ''))
 }
 
 function productRushCount(productId) {
@@ -158,17 +159,47 @@ function recordProductEntry(productId) {
 }
 
 function isLeaderFollowed(leaderId) {
-  return followedLeaderIds.value.includes(Number(leaderId))
+  return followedLeaderIds.value.includes(String(leaderId ?? ''))
 }
 
-function toggleLeaderFollow(leaderId) {
-  const id = Number(leaderId)
-  if (!leaderById(id)) return false
-  const index = followedLeaderIds.value.indexOf(id)
-  if (index >= 0) followedLeaderIds.value.splice(index, 1)
-  else followedLeaderIds.value.push(id)
-  localStorage.setItem('freshMall.followedLeaderIds', JSON.stringify(followedLeaderIds.value))
-  return isLeaderFollowed(id)
+async function loadFollowedLeaders(customerId, force = false) {
+  const id = String(customerId ?? '')
+  if (!id) {
+    followedLeaderIds.value = []
+    followingLoadedCustomerId.value = ''
+    return
+  }
+  if (!force && followingLoadedCustomerId.value === id) return
+
+  followingLoading.value = true
+  followingError.value = ''
+  try {
+    const result = await api.getFollowingPromoters(id)
+    followedLeaderIds.value = [...new Set((result.promoterIds ?? [])
+      .map(String)
+      .filter((leaderId) => leaderById(leaderId)))]
+    followingLoadedCustomerId.value = id
+  } catch (error) {
+    followingError.value = error.message
+    throw error
+  } finally {
+    followingLoading.value = false
+  }
+}
+
+async function setLeaderFollowed(customerId, leaderId, shouldFollow) {
+  const id = String(leaderId ?? '')
+  if (!leaderById(id)) throw new Error('团长不存在')
+
+  if (shouldFollow) await api.followPromoter(customerId, id)
+  else await api.unfollowPromoter(customerId, id)
+
+  const nextIds = new Set(followedLeaderIds.value)
+  if (shouldFollow) nextIds.add(id)
+  else nextIds.delete(id)
+  followedLeaderIds.value = [...nextIds]
+  followingLoadedCustomerId.value = String(customerId)
+  return shouldFollow
 }
 
 function addToCart(productId, quantity = 1) {
@@ -229,13 +260,16 @@ export function useShop() {
     cartSubtotal: computed(() => cartItems.value.reduce((sum, item) => sum + item.product.price * item.quantity, 0)),
     selectedLeaderId,
     followedLeaderIds,
+    followingLoading,
+    followingError,
     lastOrder,
     productById,
     leaderById,
     productRushCount,
     recordProductEntry,
     isLeaderFollowed,
-    toggleLeaderFollow,
+    loadFollowedLeaders,
+    setLeaderFollowed,
     addToCart,
     updateQuantity,
     removeFromCart,

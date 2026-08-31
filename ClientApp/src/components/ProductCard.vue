@@ -8,12 +8,13 @@ const props = defineProps({
   product: { type: Object, required: true },
 })
 
-const { categories, leaderById, productRushCount } = useShop()
+const { categories, leaderById, productRushCount, isLeaderFollowed } = useShop()
 const { isAuthenticated } = useCustomerContext()
 const activeLeader = computed(() => leaderById(props.product.leaderId))
 const category = computed(() => categories.find((item) => item.slug === props.product.category))
 const rushCount = computed(() => productRushCount(props.product.id))
 const productLink = computed(() => `/products/${props.product.id}`)
+const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(props.product.leaderId))
 
 function displayPrice(value) {
   return Number(value).toFixed(2).replace(/\.00$/, '')
@@ -44,7 +45,7 @@ function displayPrice(value) {
           <span class="product-published">今日更新</span>
         </div>
 
-        <div v-if="isAuthenticated" class="social-product-price">
+        <div v-if="canViewPrice" class="social-product-price">
           <span>¥</span><strong>{{ displayPrice(product.price) }}</strong>
         </div>
         <div v-else class="social-product-price-gated">关注团长后查看专属价格</div>

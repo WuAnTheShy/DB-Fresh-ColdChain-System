@@ -11,7 +11,7 @@ import { useCustomerContext } from '../state/customer'
 const props = defineProps({ id: { type: String, required: true } })
 const route = useRoute()
 const router = useRouter()
-const { products, productById, leaderById, recordProductEntry, addToCart } = useShop()
+const { products, productById, leaderById, recordProductEntry, addToCart, isLeaderFollowed } = useShop()
 const { isAuthenticated } = useCustomerContext()
 const product = computed(() => productById(props.id))
 const leader = computed(() => leaderById(product.value?.leaderId))
@@ -19,6 +19,8 @@ const quantity = ref(1)
 const added = ref(false)
 const related = computed(() => products.filter((item) => item.id !== String(props.id)))
 const authLink = computed(() => ({ name: 'auth', query: { redirect: route.fullPath } }))
+const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(product.value?.leaderId))
+const followLink = computed(() => canViewPrice.value ? null : `/leaders/${leader.value?.id ?? ''}`)
 
 watch(() => props.id, (productId) => {
   if (productById(productId)) recordProductEntry(productId)
@@ -61,23 +63,23 @@ function buyNow() {
         <dl class="product-facts">
           <div><dt>规格</dt><dd>{{ product.spec }}</dd></div>
           <div><dt>温控</dt><dd>{{ product.storage }}冷链</dd></div>
-          <div v-if="isAuthenticated"><dt>库存</dt><dd>现货 {{ product.stock }} 件</dd></div>
+          <div v-if="canViewPrice"><dt>库存</dt><dd>现货 {{ product.stock }} 件</dd></div>
         </dl>
       </div>
 
       <aside class="buy-box">
-        <template v-if="isAuthenticated">
+        <template v-if="canViewPrice">
           <div class="buy-price"><span>¥</span><strong>{{ product.price.toFixed(2) }}</strong></div>
         </template>
-        <div v-else class="buy-gated-message"><LockKeyhole :size="20" /><strong>关注团长后查看专属价格</strong><span>登录后关注该团长，即可查看价格和购买商品</span></div>
+        <div v-else class="buy-gated-message"><LockKeyhole :size="20" /><strong>关注团长后查看专属价格</strong><span>{{ isAuthenticated ? '关注该团长后，即可立即查看价格和购买商品' : '登录后关注该团长，即可查看价格和购买商品' }}</span></div>
         <div class="delivery-promise"><Truck :size="19" /><div><strong>{{ product.delivery }}</strong><span>配送至 上海市浦东新区</span></div></div>
-        <template v-if="isAuthenticated">
+        <template v-if="canViewPrice">
           <div class="stock-status"><Check :size="17" />有货，冷链备货中</div>
           <label class="buy-quantity">数量<QuantityStepper v-model="quantity" :max="product.stock" /></label>
           <button class="btn btn-cart w-100" type="button" @click="add"><Check v-if="added" :size="18" /><ShoppingCart v-else :size="18" />{{ added ? '已加入购物车' : '加入购物车' }}</button>
           <button class="btn btn-buy w-100" type="button" @click="buyNow">立即购买</button>
         </template>
-        <RouterLink v-else class="btn btn-buy w-100 gated-login-button" :to="authLink">登录并关注团长</RouterLink>
+        <RouterLink v-else class="btn btn-buy w-100 gated-login-button" :to="isAuthenticated ? followLink : authLink">{{ isAuthenticated ? '前往关注团长' : '登录并关注团长' }}</RouterLink>
         <small class="buy-box-guarantee"><ShieldCheck :size="15" />平台交易保障 · 团长身份已认证</small>
       </aside>
     </section>
