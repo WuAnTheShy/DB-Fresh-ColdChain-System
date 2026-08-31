@@ -87,6 +87,29 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 transaction)).ToList());
     }
 
+    public async Task<List<BizOrder>> GetByCheckoutBatchForUpdateAsync(
+        string checkoutBatchId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<BizOrder>(
+                @"SELECT * FROM Biz_Orders WHERE CheckoutBatchId = :CheckoutBatchId
+                  ORDER BY OrderId FOR UPDATE",
+                new { CheckoutBatchId = checkoutBatchId }, transaction)).ToList());
+    }
+
+    public async Task<List<string>> GetExpiredPendingCheckoutBatchIdsAsync(
+        DateTime now,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<string>(
+                @"SELECT DISTINCT CheckoutBatchId FROM Biz_Orders
+                  WHERE CheckoutBatchId IS NOT NULL AND OrderStatus = 'PENDING_PAYMENT'
+                    AND PaymentExpiresAt <= :Now",
+                new { Now = now }, transaction)).ToList());
+    }
+
     public async Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
         DateTime threshold,
         IDbTransaction? transaction = null)

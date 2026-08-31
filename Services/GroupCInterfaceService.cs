@@ -485,3 +485,43 @@ public sealed class GroupBDailyCheckHostedService : BackgroundService
         }
     }
 }
+
+/// <summary>独立于每日巡检的短周期任务，确保超时结算批次及时释放库存。</summary>
+public sealed class GroupBCheckoutExpiryHostedService : BackgroundService
+{
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<GroupBCheckoutExpiryHostedService> _logger;
+
+    public GroupBCheckoutExpiryHostedService(
+        IServiceScopeFactory scopeFactory,
+        ILogger<GroupBCheckoutExpiryHostedService> logger)
+    {
+        _scopeFactory = scopeFactory;
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+        await ExpireAsync(stoppingToken);
+        while (await timer.WaitForNextTickAsync(stoppingToken))
+            await ExpireAsync(stoppingToken);
+    }
+
+    private async Task ExpireAsync(CancellationToken stoppingToken)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var orderService = scope.ServiceProvider.GetRequiredService<IOrderService>();
+            await orderService.ExpirePendingCheckoutBatchesAsync(stoppingToken);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "超时结算批次关闭任务执行失败");
+        }
+    }
+}

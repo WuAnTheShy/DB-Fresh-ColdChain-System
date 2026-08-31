@@ -26,6 +26,8 @@ public interface IOrderService
         CheckoutBatchPaymentRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<int> ExpirePendingCheckoutBatchesAsync(CancellationToken cancellationToken = default);
+
     Task<OrderListViewModel> GetOrdersAsync(OrderQueryRequest request);
 
     Task<OrderDetailViewModel?> GetOrderDetailAsync(string orderId);

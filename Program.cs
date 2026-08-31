@@ -64,6 +64,7 @@ builder.Services.AddScoped<ICouponService, CouponService>();
 builder.Services.AddScoped<IGroupCInterface, GroupCInterfaceService>();
 builder.Services.AddScoped<GroupBDailyMaintenanceService>();
 builder.Services.AddHostedService<GroupBDailyCheckHostedService>();
+builder.Services.AddHostedService<GroupBCheckoutExpiryHostedService>();
 
 // C组
 builder.Services.AddScoped<AccountService>();

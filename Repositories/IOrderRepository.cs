@@ -23,6 +23,14 @@ public interface IOrderRepository
         string customerId,
         IDbTransaction transaction);
 
+    Task<List<BizOrder>> GetByCheckoutBatchForUpdateAsync(
+        string checkoutBatchId,
+        IDbTransaction transaction);
+
+    Task<List<string>> GetExpiredPendingCheckoutBatchIdsAsync(
+        DateTime now,
+        IDbTransaction? transaction = null);
+
     Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
         DateTime threshold,
         IDbTransaction? transaction = null);

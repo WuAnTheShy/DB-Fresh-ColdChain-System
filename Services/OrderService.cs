@@ -238,6 +238,55 @@ public sealed class OrderService : IOrderService
         });
     }
 
+    /// <summary>后台主动关闭已超过15分钟未支付的整个结算批次，并释放库存、归还冻结积分。</summary>
+    public async Task<int> ExpirePendingCheckoutBatchesAsync(CancellationToken cancellationToken = default)
+    {
+        var batchIds = await _orderRepo.GetExpiredPendingCheckoutBatchIdsAsync(DateTime.Now);
+        var closed = 0;
+        foreach (var batchId in batchIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var expired = await _transactionManager.ExecuteAsync(async transaction =>
+            {
+                var orders = await _orderRepo.GetByCheckoutBatchForUpdateAsync(batchId, transaction);
+                if (orders.Count == 0 || orders.Any(order => order.OrderStatus != OrderStatusCodes.PendingPayment) ||
+                    orders.Min(order => order.PaymentExpiresAt) > DateTime.Now)
+                    return false;
+
+                var customerId = orders[0].CustomerId;
+                if (orders.Any(order => order.CustomerId != customerId))
+                    throw new OrderBusinessException("结算批次消费者数据不一致");
+                var customer = await _customerRepo.GetByIdForUpdateAsync(customerId, transaction)
+                    ?? throw new OrderBusinessException("消费者不存在");
+                foreach (var order in orders)
+                {
+                    if (!await _orderRepo.TryUpdateStatusAsync(order.OrderId, OrderStatus.PendingPayment, OrderStatus.Cancelled, transaction))
+                        throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
+                    await _inventoryService.ReleaseAsync(new FulfillmentOrderRequest
+                    {
+                        OrderId = order.OrderId,
+                        Items = CreateFulfillmentItems(await _orderRepo.GetDetailsAsync(order.OrderId, transaction))
+                    }, transaction, cancellationToken);
+                }
+                var pointsToRestore = orders.Sum(order => order.PointsUsed);
+                if (pointsToRestore > 0)
+                {
+                    var balance = checked(customer.Points + pointsToRestore);
+                    await _customerRepo.UpdatePointsAsync(customerId, balance, transaction);
+                    await _pointRepo.InsertLogAsync(new CrmPointLog
+                    {
+                        PointLogId = GroupBIds.NewId(), CustomerId = customerId,
+                        ChangeAmount = pointsToRestore, BalanceAfter = balance,
+                        ChangeType = "ORDER_REDEEM_RESTORE", OrderId = orders[0].OrderId
+                    }, transaction);
+                }
+                return true;
+            });
+            if (expired) closed++;
+        }
+        return closed;
+    }
+
     /// <summary>
     /// 将一次消费者结算按团长拆成多个待支付子订单。库存校验和全部子订单写入
     /// 共用一个事务，任一商品缺货时整个批次回滚。
