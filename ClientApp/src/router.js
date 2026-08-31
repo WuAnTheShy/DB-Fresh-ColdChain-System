@@ -14,11 +14,8 @@ import RefundApplyView from './views/RefundApplyView.vue'
 import CouponsView from './views/CouponsView.vue'
 import AddressesView from './views/AddressesView.vue'
 import CustomerView from './views/CustomerView.vue'
-<<<<<<< HEAD
 import MessagesView from './views/MessagesView.vue'
 import CheckoutBatchRefundView from './views/CheckoutBatchRefundView.vue'
-=======
->>>>>>> origin/dev-groupC
 import AuthView from './views/AuthView.vue'
 import { useCustomerContext } from './state/customer'
 
@@ -32,7 +29,6 @@ const router = createRouter({
     { path: '/leaders/:id', name: 'leader-detail', component: LeaderDetailView, props: true },
     { path: '/following', name: 'following', component: FollowingView, meta: { requiresAuth: true } },
     { path: '/products/:id', name: 'product-detail', component: ProductDetailView, props: true },
-<<<<<<< HEAD
     { path: '/cart', name: 'cart', component: CartView, meta: { requiresAuth: true } },
     { path: '/checkout', name: 'checkout', component: CheckoutView, meta: { requiresAuth: true } },
     { path: '/order-success/:id', name: 'order-success', component: OrderSuccessView, props: true, meta: { requiresAuth: true } },
@@ -45,16 +41,6 @@ const router = createRouter({
     { path: '/addresses', name: 'addresses', component: AddressesView, meta: { requiresAuth: true } },
     { path: '/profile', name: 'profile', component: CustomerView, meta: { requiresAuth: true } },
     { path: '/messages', name: 'messages', component: MessagesView, meta: { requiresAuth: true } },
-=======
-    { path: '/cart', name: 'cart', component: CartView },
-    { path: '/checkout', name: 'checkout', component: CheckoutView, meta: { requiresAuth: true } },
-    { path: '/order-success/:id', name: 'order-success', component: OrderSuccessView, props: true, meta: { requiresAuth: true } },
-    { path: '/orders', name: 'orders', component: OrdersView, meta: { requiresAuth: true } },
-    { path: '/orders/:id', name: 'order-detail', component: OrderDetailView, props: true, meta: { requiresAuth: true } },
-    { path: '/coupons', name: 'coupons', component: CouponsView, meta: { requiresAuth: true } },
-    { path: '/addresses', name: 'addresses', component: AddressesView, meta: { requiresAuth: true } },
-    { path: '/profile', name: 'profile', component: CustomerView, meta: { requiresAuth: true } },
->>>>>>> origin/dev-groupC
     { path: '/customer', redirect: '/profile' },
     { path: '/orders/new', redirect: '/checkout' },
     { path: '/:pathMatch(.*)*', redirect: '/' },
