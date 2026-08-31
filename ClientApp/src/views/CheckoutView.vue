@@ -15,12 +15,22 @@ const saving = ref(false)
 const error = ref('')
 const addresses = ref([])
 const coupons = ref([])
+const claimableCoupons = ref([])
 const pointsBalance = ref(0)
-const form = reactive({ addressId: '', couponRecordId: '', pointsToUse: 0 })
-const selectedCoupon = computed(() => coupons.value.find(item => String(item.recordId) === String(form.couponRecordId)))
+const form = reactive({ addressId: '', pointsToUse: 0 })
+const isSpecialCoupon = (coupon) => String(coupon?.couponType ?? '').toUpperCase() === 'SPECIAL'
+const eligibleCoupons = computed(() => [
+  ...coupons.value,
+  ...claimableCoupons.value.filter(item => !item.hasClaimed && item.remainingQuantity > 0),
+].filter(item => Number(item.minOrderAmount) <= selectedCartSubtotal.value))
+const bestCoupon = (special) => eligibleCoupons.value
+  .filter(item => isSpecialCoupon(item) === special)
+  .sort((left, right) => Number(right.discountAmount) - Number(left.discountAmount))[0]
+const automaticCoupons = computed(() => [bestCoupon(false), bestCoupon(true)].filter(Boolean))
+const couponDiscount = computed(() => automaticCoupons.value.reduce((sum, item) => sum + Number(item.discountAmount), 0))
 const maxPointsToUse = computed(() => Math.min(
   pointsBalance.value,
-  Math.floor(Math.max(0, selectedCartSubtotal.value - Number(selectedCoupon.value?.discountAmount ?? 0)) * 0.10) * 100,
+  Math.floor(Math.max(0, selectedCartSubtotal.value - couponDiscount.value) * 0.10) * 100,
 ))
 const pointsDiscount = computed(() => Number(form.pointsToUse || 0) / 100)
 function clampPoints() { form.pointsToUse = Math.floor(Math.min(Math.max(0, Number(form.pointsToUse || 0)), maxPointsToUse.value) / 100) * 100 }
@@ -43,6 +53,7 @@ async function loadAssets() {
   ])
   addresses.value = addressResult.status === 'fulfilled' ? addressResult.value.addresses : []
   coupons.value = couponResult.status === 'fulfilled' ? couponResult.value.availableCoupons : []
+  claimableCoupons.value = couponResult.status === 'fulfilled' ? couponResult.value.claimableCoupons : []
   pointsBalance.value = profileResult.status === 'fulfilled' ? Number(profileResult.value.customer.points ?? 0) : 0
   const defaultAddress = addresses.value.find((address) => address.isDefault === 1) ?? addresses.value[0]
   if (defaultAddress) form.addressId = String(defaultAddress.addressId)
@@ -70,7 +81,8 @@ async function submit() {
     const result = await api.createOrder({
       customerId: customerId.value,
       addressId: form.addressId,
-      couponRecordId: form.couponRecordId || null,
+      couponRecordId: null,
+      stackableCouponRecordId: null,
       pointsToUse: Number(form.pointsToUse || 0),
       items: [...merged.values()],
     })
@@ -135,15 +147,18 @@ onMounted(loadAssets)
         </section>
 
         <section class="checkout-section">
-          <div class="checkout-section-title"><TicketPercent :size="21" /><div><h2>优惠券</h2></div></div>
-          <select v-model="form.couponRecordId" class="form-select coupon-select"><option value="">不使用优惠券</option><option v-for="coupon in coupons" :key="coupon.recordId" :value="String(coupon.recordId)">{{ coupon.couponName }} · 减 ¥{{ coupon.discountAmount.toFixed(2) }}</option></select>
+          <div class="checkout-section-title"><TicketPercent :size="21" /><div><h2>优惠券</h2><p>下单时自动领取并使用优惠最大的普通券；特殊券可额外叠加一张</p></div></div>
+          <div v-if="automaticCoupons.length" class="automatic-coupons">
+            <div v-for="coupon in automaticCoupons" :key="coupon.recordId || coupon.couponId"><span>{{ isSpecialCoupon(coupon) ? '特殊叠加券' : '普通券' }}</span><strong>{{ coupon.couponName }}</strong><em>- ¥{{ Number(coupon.discountAmount).toFixed(2) }}</em></div>
+          </div>
+          <div v-else class="inline-empty">本次订单暂无符合条件的优惠券</div>
         </section>
       </div>
 
       <aside class="checkout-summary">
         <h2>付款明细</h2>
-        <dl><div><dt>商品金额</dt><dd>¥{{ selectedCartSubtotal.toFixed(2) }}</dd></div><div><dt>团长子订单</dt><dd>{{ groups.length }} 个</dd></div><div><dt>优惠券</dt><dd>提交后确认</dd></div><div><dt>积分抵扣</dt><dd>- ¥{{ pointsDiscount.toFixed(2) }}</dd></div><div><dt>冷链运费</dt><dd>按团长分别计算</dd></div></dl>
-        <div class="summary-total-row"><span>预计金额</span><strong>¥{{ Math.max(0, selectedCartSubtotal - pointsDiscount).toFixed(2) }}</strong></div>
+        <dl><div><dt>商品金额</dt><dd>¥{{ selectedCartSubtotal.toFixed(2) }}</dd></div><div><dt>团长子订单</dt><dd>{{ groups.length }} 个</dd></div><div><dt>自动优惠</dt><dd>- ¥{{ couponDiscount.toFixed(2) }}</dd></div><div><dt>积分抵扣</dt><dd>- ¥{{ pointsDiscount.toFixed(2) }}</dd></div><div><dt>冷链运费</dt><dd>按团长分别计算</dd></div></dl>
+        <div class="summary-total-row"><span>预计金额</span><strong>¥{{ Math.max(0, selectedCartSubtotal - couponDiscount - pointsDiscount).toFixed(2) }}</strong></div>
         <button class="btn btn-buy w-100 checkout-button" type="submit" :disabled="saving || !form.addressId"><span v-if="saving" class="spinner-border spinner-border-sm"></span><template v-else>提交订单</template></button>
         <small><ShieldCheck :size="14" />提交即表示确认订单信息和配送安排</small>
       </aside>
@@ -196,7 +211,7 @@ onMounted(loadAssets)
 .checkout-item > div strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .checkout-item > div span { margin-top: 4px; color: var(--muted); font-size: 9px; }
 .checkout-item > span, .checkout-item > strong { font-size: 10px; text-align: right; }
-.coupon-select { max-width: 420px; }
+.automatic-coupons { display: grid; gap: 8px; }.automatic-coupons > div { display: grid; grid-template-columns: 86px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 11px 13px; border: 1px solid #d6e5de; background: #f7faf8; }.automatic-coupons span { color: var(--brand); font-size: 9px; font-weight: 700; }.automatic-coupons strong { font-size: 11px; }.automatic-coupons em { color: var(--danger); font-size: 11px; font-style: normal; font-weight: 800; }
 .summary-total-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--line); }
 .summary-total-row strong { color: var(--danger); font-size: 23px; }
 .checkout-button { margin-top: 16px; }

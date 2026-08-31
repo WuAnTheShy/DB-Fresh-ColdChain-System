@@ -30,6 +30,16 @@ public sealed class CreateCheckoutBatchResult
     public decimal PointsDiscountAmount { get; init; }
     public IReadOnlyList<CreateOrderResult> Orders { get; init; } = [];
     public IReadOnlyList<OrderPriceChangeResult> PriceChanges { get; init; } = [];
+    public IReadOnlyList<AppliedCouponResult> AppliedCoupons { get; init; } = [];
+}
+
+public sealed class AppliedCouponResult
+{
+    public string RecordId { get; init; } = string.Empty;
+    public string CouponName { get; init; } = string.Empty;
+    public string CouponType { get; init; } = "NORMAL";
+    public decimal DiscountAmount { get; init; }
+    public bool WasAutoClaimed { get; init; }
 }
 
 public sealed class OrderPriceChangeResult

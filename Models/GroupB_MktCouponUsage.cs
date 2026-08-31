@@ -8,5 +8,6 @@ public sealed class MktCouponUsage
     public string RecordId { get; set; } = string.Empty;
     public string CouponId { get; set; } = string.Empty;
     public string CouponName { get; set; } = string.Empty;
+    public string? CouponType { get; set; }
     public decimal DiscountAmount { get; set; }
 }

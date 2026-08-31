@@ -840,6 +840,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
         }
     ];
     public List<MktCouponRecord> Records { get; } = [];
+    private Dictionary<string, MktCouponUsage> PendingUsages { get; } = [];
 
     public Task<List<MktCouponRecord>> GetUserCouponsAsync(
         string customerId,
@@ -880,6 +881,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
             {
                 CouponId = coupon.CouponId,
                 CouponName = coupon.CouponName,
+                CouponType = coupon.CouponType,
                 MinOrderAmount = coupon.MinOrderAmount,
                 DiscountAmount = coupon.DiscountAmount,
                 RemainingQuantity = coupon.RemainingQuantity,
@@ -909,6 +911,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
                 RecordId = record.RecordId,
                 CouponId = coupon.CouponId,
                 CouponName = coupon.CouponName,
+                CouponType = coupon.CouponType,
                 MinOrderAmount = coupon.MinOrderAmount,
                 DiscountAmount = coupon.DiscountAmount,
                 EndTime = coupon.EndTime
@@ -932,6 +935,15 @@ internal sealed class FakeCouponRepository : ICouponRepository
         string couponId,
         IDbTransaction? transaction = null)
     {
+        var coupon = Coupons.Single(item => item.CouponId == couponId);
+        PendingUsages[recordId] = new MktCouponUsage
+        {
+            RecordId = recordId,
+            CouponId = couponId,
+            CouponName = coupon.CouponName,
+            CouponType = coupon.CouponType,
+            DiscountAmount = coupon.DiscountAmount
+        };
         Stage(transaction, () => Records.Add(new MktCouponRecord
         {
             RecordId = recordId,
@@ -951,7 +963,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
     {
         var coupon = UsableCoupon?.RecordId == recordId
             ? UsableCoupon
-            : null;
+            : PendingUsages.GetValueOrDefault(recordId);
         return Task.FromResult(coupon);
     }
 
@@ -961,7 +973,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
         string orderId,
         IDbTransaction transaction)
     {
-        if (UsableCoupon?.RecordId != recordId)
+        if (UsableCoupon?.RecordId != recordId && !PendingUsages.ContainsKey(recordId))
             return Task.FromResult(false);
 
         ((FakeOrderTransaction)transaction).Stage(() => CouponUsed = true);
@@ -1014,6 +1026,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
         {
             CouponId = coupon.CouponId,
             CouponName = coupon.CouponName,
+            CouponType = coupon.CouponType,
             MinOrderAmount = coupon.MinOrderAmount,
             DiscountAmount = coupon.DiscountAmount,
             TotalQuantity = coupon.TotalQuantity,

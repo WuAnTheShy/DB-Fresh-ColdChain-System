@@ -292,14 +292,13 @@ public sealed class OrderService : IOrderService
             var goodsAmount = details.Sum(detail => detail.SubTotal);
             EnsureAmountFitsDatabase(goodsAmount);
 
-            var coupon = await GetCouponAsync(
-                request.CouponRecordId,
-                request.CustomerId,
+            var couponSelection = await ResolveCheckoutCouponsAsync(
+                request,
                 goodsAmount,
                 transaction);
-            var discountAmount = coupon == null
-                ? 0m
-                : Math.Min(coupon.DiscountAmount, goodsAmount);
+            var discountAmount = Math.Min(
+                couponSelection.Coupons.Sum(item => item.Usage.DiscountAmount),
+                goodsAmount);
             if (request.PointsToUse < 0 || request.PointsToUse % 100 != 0)
                 throw new OrderBusinessException("抵扣积分必须为100的整数倍");
             if (request.PointsToUse > customer.Points)
@@ -410,10 +409,10 @@ public sealed class OrderService : IOrderService
                 });
             }
 
-            if (coupon != null)
+            foreach (var selectedCoupon in couponSelection.Coupons)
             {
                 var couponUsed = await _couponRepo.TryUseCouponAsync(
-                    coupon.RecordId,
+                    selectedCoupon.Usage.RecordId,
                     request.CustomerId,
                     orderResults[0].OrderId,
                     transaction);
@@ -462,7 +461,15 @@ public sealed class OrderService : IOrderService
                 PointsUsed = request.PointsToUse,
                 PointsDiscountAmount = pointsDiscountAmount,
                 Orders = orderResults,
-                PriceChanges = priceChanges
+                PriceChanges = priceChanges,
+                AppliedCoupons = couponSelection.Coupons.Select(item => new AppliedCouponResult
+                {
+                    RecordId = item.Usage.RecordId,
+                    CouponName = item.Usage.CouponName,
+                    CouponType = IsSpecialCoupon(item.Usage.CouponType) ? "SPECIAL" : "NORMAL",
+                    DiscountAmount = item.Usage.DiscountAmount,
+                    WasAutoClaimed = item.WasAutoClaimed
+                }).ToList()
             };
         });
     }
@@ -1082,6 +1089,12 @@ public sealed class OrderService : IOrderService
             throw new OrderBusinessException("收货地址ID格式不正确");
         if (request.CouponRecordId != null && !GroupBIds.IsValid(request.CouponRecordId))
             throw new OrderBusinessException("优惠券记录ID格式不正确");
+        if (request.StackableCouponRecordId != null &&
+            !GroupBIds.IsValid(request.StackableCouponRecordId))
+            throw new OrderBusinessException("特殊叠加券记录ID格式不正确");
+        if (request.CouponRecordId != null &&
+            request.CouponRecordId == request.StackableCouponRecordId)
+            throw new OrderBusinessException("同一张优惠券不能重复使用");
         if (request.Items == null || request.Items.Count == 0)
             throw new OrderBusinessException("结算批次至少需要一件商品");
 
@@ -1135,6 +1148,11 @@ public sealed class OrderService : IOrderService
             !GroupBIds.IsValid(request.CouponRecordId))
         {
             throw new OrderBusinessException("优惠券记录ID格式不正确");
+        }
+        if (request.StackableCouponRecordId != null &&
+            !GroupBIds.IsValid(request.StackableCouponRecordId))
+        {
+            throw new OrderBusinessException("特殊叠加券记录ID格式不正确");
         }
         if (request.Items == null || request.Items.Count == 0)
             throw new OrderBusinessException("订单至少需要一件商品");
@@ -1212,6 +1230,113 @@ public sealed class OrderService : IOrderService
 
         return details;
     }
+
+    private async Task<CheckoutCouponSelection> ResolveCheckoutCouponsAsync(
+        CreateOrderRequest request,
+        decimal goodsAmount,
+        IDbTransaction transaction)
+    {
+        var selected = new List<SelectedCoupon>(2);
+        await AddExplicitCouponAsync(request.CouponRecordId, false);
+        await AddExplicitCouponAsync(request.StackableCouponRecordId, true);
+
+        var available = await _couponRepo.GetAvailableCouponsAsync(
+            request.CustomerId,
+            transaction);
+        var claimable = await _couponRepo.GetClaimableCouponsAsync(
+            request.CustomerId,
+            transaction);
+
+        await SelectBestForTypeAsync(false);
+        await SelectBestForTypeAsync(true);
+        return new CheckoutCouponSelection(selected);
+
+        async Task AddExplicitCouponAsync(string? recordId, bool specialExpected)
+        {
+            if (recordId == null)
+                return;
+            var usage = await GetCouponAsync(recordId, request.CustomerId, goodsAmount, transaction);
+            if (usage == null)
+                return;
+            if (IsSpecialCoupon(usage.CouponType) != specialExpected)
+                throw new OrderBusinessException(specialExpected
+                    ? "所选优惠券不是特殊叠加券"
+                    : "普通优惠券栏不能选择特殊叠加券");
+            selected.Add(new SelectedCoupon(usage, false));
+        }
+
+        async Task SelectBestForTypeAsync(bool special)
+        {
+            if (selected.Any(item => IsSpecialCoupon(item.Usage.CouponType) == special))
+                return;
+
+            var bestAvailable = available
+                .Where(item => item.MinOrderAmount <= goodsAmount &&
+                    IsSpecialCoupon(item.CouponType) == special)
+                .OrderByDescending(item => item.DiscountAmount)
+                .ThenBy(item => item.EndTime)
+                .FirstOrDefault();
+            var bestClaimable = claimable
+                .Where(item => item.HasClaimed == 0 &&
+                    item.RemainingQuantity > 0 &&
+                    item.MinOrderAmount <= goodsAmount &&
+                    IsSpecialCoupon(item.CouponType) == special)
+                .OrderByDescending(item => item.DiscountAmount)
+                .ThenBy(item => item.EndTime)
+                .FirstOrDefault();
+
+            if (bestAvailable != null &&
+                (bestClaimable == null ||
+                 bestAvailable.DiscountAmount >= bestClaimable.DiscountAmount))
+            {
+                var usage = await GetCouponAsync(
+                    bestAvailable.RecordId,
+                    request.CustomerId,
+                    goodsAmount,
+                    transaction);
+                if (usage != null)
+                    selected.Add(new SelectedCoupon(usage, false));
+                return;
+            }
+
+            if (bestClaimable == null)
+                return;
+            var template = await _couponRepo.GetCouponTemplateForUpdateAsync(
+                bestClaimable.CouponId,
+                transaction);
+            if (template == null || template.Status != 1 ||
+                template.StartTime > DateTime.Now || template.EndTime < DateTime.Now ||
+                template.RemainingQuantity <= 0 || template.MinOrderAmount > goodsAmount ||
+                IsSpecialCoupon(template.CouponType) != special ||
+                await _couponRepo.HasCustomerClaimedCouponAsync(
+                    request.CustomerId,
+                    template.CouponId,
+                    transaction))
+                return;
+            if (!await _couponRepo.DecrementCouponStockAsync(template.CouponId, transaction))
+                return;
+
+            var recordId = GroupBIds.NewId();
+            await _couponRepo.CreateCouponRecordAsync(
+                recordId,
+                request.CustomerId,
+                template.CouponId,
+                transaction);
+            var claimedUsage = await GetCouponAsync(
+                recordId,
+                request.CustomerId,
+                goodsAmount,
+                transaction);
+            if (claimedUsage != null)
+                selected.Add(new SelectedCoupon(claimedUsage, true));
+        }
+    }
+
+    private static bool IsSpecialCoupon(string? couponType) =>
+        string.Equals(couponType?.Trim(), "SPECIAL", StringComparison.OrdinalIgnoreCase);
+
+    private sealed record SelectedCoupon(MktCouponUsage Usage, bool WasAutoClaimed);
+    private sealed record CheckoutCouponSelection(IReadOnlyList<SelectedCoupon> Coupons);
 
     private async Task<MktCouponUsage?> GetCouponAsync(
         string? couponRecordId,

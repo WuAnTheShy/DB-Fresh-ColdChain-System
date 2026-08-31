@@ -18,6 +18,7 @@ public sealed class ClaimableCouponItem
 {
     public string CouponId { get; init; } = string.Empty;
     public string CouponName { get; init; } = string.Empty;
+    public string? CouponType { get; init; }
     public decimal MinOrderAmount { get; init; }
     public decimal DiscountAmount { get; init; }
     public int RemainingQuantity { get; init; }
@@ -33,6 +34,7 @@ public sealed class AvailableCouponItem
     public string RecordId { get; init; } = string.Empty;
     public string CouponId { get; init; } = string.Empty;
     public string CouponName { get; init; } = string.Empty;
+    public string? CouponType { get; init; }
     public decimal MinOrderAmount { get; init; }
     public decimal DiscountAmount { get; init; }
     public DateTime EndTime { get; init; }

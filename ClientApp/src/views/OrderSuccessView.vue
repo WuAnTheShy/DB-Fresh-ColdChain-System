@@ -12,6 +12,7 @@ const { lastOrder } = useShop()
     <h1>下单成功</h1>
     <p>结算批次已按团长拆单，请在15分钟内完成支付。</p>
     <div v-if="lastOrder?.priceChanges?.length" class="alert alert-warning success-price-alert">商品价格已更新，本批次已按最新价格生成待支付订单。</div>
+    <div v-if="lastOrder?.appliedCoupons?.some(item => item.wasAutoClaimed)" class="alert alert-success success-price-alert">已自动领取并使用本次优惠金额最大的优惠券。</div>
     <div class="success-order-card">
       <div><span>结算批次</span><strong>{{ lastOrder?.checkoutBatchId || `订单 #${id}` }}</strong></div>
       <div><span>实付金额</span><strong>¥{{ Number(lastOrder?.finalAmount ?? 0).toFixed(2) }}</strong></div>

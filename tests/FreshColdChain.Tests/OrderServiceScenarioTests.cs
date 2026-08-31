@@ -14,6 +14,7 @@ internal static class OrderServiceScenarioTests
             ("批次任一商品缺货时不创建任何子订单", CheckoutBatchStockFailureRollsBackAsync),
             ("模拟支付一次性支付整个结算批次", CheckoutBatchPaymentPaysAllOrdersAsync),
             ("结算积分最多抵扣10%且支付后按实付商品金额累计", CheckoutPointsRedeemAndEarnAsync),
+            ("自动领取一张普通券并叠加一张特殊券", AutoClaimNormalAndSpecialCouponsAsync),
             ("支付流水失败时整个批次回滚", CheckoutBatchPaymentFailureRollsBackAsync),
             ("超过15分钟关闭整个结算批次并释放库存", ExpiredCheckoutBatchClosesAsync),
             ("库存不足时回滚且不创建订单", InsufficientStockRollsBackAsync),
@@ -75,7 +76,10 @@ internal static class OrderServiceScenarioTests
 
         AssertEx.Equal(100, batch.PointsUsed);
         AssertEx.Equal(1m, batch.PointsDiscountAmount);
-        AssertEx.Equal(179m, batch.FinalAmount);
+        AssertEx.Equal(159m, batch.FinalAmount);
+        AssertEx.Equal(20m, batch.DiscountAmount);
+        AssertEx.Equal(1, batch.AppliedCoupons.Count);
+        AssertEx.True(batch.AppliedCoupons[0].WasAutoClaimed);
         AssertEx.Equal(0, context.CustomerRepository.Customer.Points);
 
         var payment = await context.Service.PayCheckoutBatchAsync(
@@ -83,10 +87,47 @@ internal static class OrderServiceScenarioTests
             TestIds.Customer,
             new CheckoutBatchPaymentRequest { PaymentMethod = CheckoutPaymentMethods.Alipay });
 
-        AssertEx.Equal(179, payment.PointsEarned);
-        AssertEx.Equal(179, context.CustomerRepository.Customer.Points);
-        AssertEx.Equal(179, context.OrderRepository.Orders.Sum(order => order.PointsEarned));
+        AssertEx.Equal(159, payment.PointsEarned);
+        AssertEx.Equal(159, context.CustomerRepository.Customer.Points);
+        AssertEx.Equal(159, context.OrderRepository.Orders.Sum(order => order.PointsEarned));
         AssertEx.Equal(2, context.PointRepository.Logs.Count);
+    }
+
+    private static async Task AutoClaimNormalAndSpecialCouponsAsync()
+    {
+        var context = TestContext.Create();
+        context.CouponRepository.Coupons.Add(new MktCoupon
+        {
+            CouponId = "30000000000000000000000000000002",
+            CouponName = "特殊叠加减5元",
+            CouponType = "SPECIAL",
+            MinOrderAmount = 100m,
+            DiscountAmount = 5m,
+            TotalQuantity = 10,
+            RemainingQuantity = 3,
+            StartTime = DateTime.Now.AddDays(-1),
+            EndTime = DateTime.Now.AddDays(7),
+            Status = 1
+        });
+
+        var batch = await context.Service.CreateCheckoutBatchAsync(new CreateOrderRequest
+        {
+            CustomerId = TestIds.Customer,
+            AddressId = TestIds.Address1,
+            Items =
+            [
+                new() { ProductId = "P1", PromoterId = "promoter-1", Quantity = 2 },
+                new() { ProductId = "P2", PromoterId = "promoter-2", Quantity = 1 }
+            ]
+        });
+
+        AssertEx.Equal(25m, batch.DiscountAmount);
+        AssertEx.Equal(155m, batch.FinalAmount);
+        AssertEx.Equal(2, batch.AppliedCoupons.Count);
+        AssertEx.Equal(1, batch.AppliedCoupons.Count(item => item.CouponType == "NORMAL"));
+        AssertEx.Equal(1, batch.AppliedCoupons.Count(item => item.CouponType == "SPECIAL"));
+        AssertEx.True(batch.AppliedCoupons.All(item => item.WasAutoClaimed));
+        AssertEx.Equal(2, context.CouponRepository.Records.Count);
     }
 
     private static async Task CheckoutBatchPaymentFailureRollsBackAsync()
@@ -173,7 +214,10 @@ internal static class OrderServiceScenarioTests
         AssertEx.Equal(2, context.LogisticsService.FreightRequests.Count);
         AssertEx.Equal(180m, result.GoodsAmount);
         AssertEx.Equal(16m, result.FreightAmount);
-        AssertEx.Equal(196m, result.FinalAmount);
+        AssertEx.Equal(20m, result.DiscountAmount);
+        AssertEx.Equal(176m, result.FinalAmount);
+        AssertEx.Equal(1, result.AppliedCoupons.Count);
+        AssertEx.True(result.AppliedCoupons[0].WasAutoClaimed);
         AssertEx.Equal(1, result.PriceChanges.Count);
         AssertEx.True(result.PaymentExpiresAt >= startedAt.AddMinutes(14));
         AssertEx.True(context.OrderRepository.Orders.All(order => order.CheckoutBatchId == result.CheckoutBatchId));

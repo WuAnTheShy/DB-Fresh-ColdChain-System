@@ -7,6 +7,7 @@ public class MktCoupon
 {
     public string CouponId { get; set; } = string.Empty;
     public string CouponName { get; set; } = string.Empty;
+    public string? CouponType { get; set; }
     public decimal MinOrderAmount { get; set; }     // 最低使用门槛
     public decimal DiscountAmount { get; set; }      // 优惠金额
     public int TotalQuantity { get; set; }           // 发行总量
