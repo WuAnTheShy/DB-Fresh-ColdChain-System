@@ -22,6 +22,13 @@ public sealed class OrderService : IOrderService
     private readonly ICommissionService _commissionService;
     private readonly IOrderTransactionManager _transactionManager;
     private readonly IPromoterService? _promoterService;
+    private readonly IPaymentRepository? _paymentRepository;
+
+    private static readonly IReadOnlySet<string> SupportedBanks = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "中国工商银行", "中国农业银行", "中国银行", "中国建设银行",
+        "交通银行", "招商银行", "中国邮政储蓄银行", "浦发银行"
+    };
 
     public OrderService(
         IOrderRepository orderRepo,
@@ -32,7 +39,8 @@ public sealed class OrderService : IOrderService
         ILogisticsService logisticsService,
         ICommissionService commissionService,
         IOrderTransactionManager transactionManager,
-        IPromoterService? promoterService = null)
+        IPromoterService? promoterService = null,
+        IPaymentRepository? paymentRepository = null)
     {
         _orderRepo = orderRepo;
         _customerRepo = customerRepo;
@@ -43,6 +51,141 @@ public sealed class OrderService : IOrderService
         _commissionService = commissionService;
         _transactionManager = transactionManager;
         _promoterService = promoterService;
+        _paymentRepository = paymentRepository;
+    }
+
+    public async Task<CheckoutBatchSummary?> GetCheckoutBatchAsync(
+        string checkoutBatchId,
+        string customerId)
+    {
+        if (!GroupBIds.IsValid(checkoutBatchId) || !GroupBIds.IsValid(customerId))
+            return null;
+
+        var orders = await _orderRepo.GetByCheckoutBatchAsync(checkoutBatchId, customerId);
+        if (orders.Count == 0) return null;
+        return CreateCheckoutBatchSummary(checkoutBatchId, orders);
+    }
+
+    public async Task<CheckoutBatchPaymentResult> PayCheckoutBatchAsync(
+        string checkoutBatchId,
+        string customerId,
+        CheckoutBatchPaymentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (!GroupBIds.IsValid(checkoutBatchId) || !GroupBIds.IsValid(customerId))
+            throw new OrderBusinessException("结算批次不存在");
+        if (_paymentRepository == null)
+            throw new OrderBusinessException("支付流水服务未配置");
+
+        var paymentMethod = request.PaymentMethod?.Trim().ToUpperInvariant() ?? string.Empty;
+        if (!CheckoutPaymentMethods.All.Contains(paymentMethod))
+            throw new OrderBusinessException("请选择微信、支付宝或银行卡支付");
+        var bankName = string.IsNullOrWhiteSpace(request.BankName) ? null : request.BankName.Trim();
+        if (paymentMethod == CheckoutPaymentMethods.BankCard &&
+            (bankName == null || !SupportedBanks.Contains(bankName)))
+        {
+            throw new OrderBusinessException("请选择支持的银行");
+        }
+        if (paymentMethod != CheckoutPaymentMethods.BankCard && bankName != null)
+            throw new OrderBusinessException("微信或支付宝支付无需选择银行");
+
+        return await _transactionManager.ExecuteAsync(async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var orders = await _orderRepo.GetByCheckoutBatchForUpdateAsync(
+                checkoutBatchId,
+                customerId,
+                transaction);
+            if (orders.Count == 0)
+                throw new OrderBusinessException("结算批次不存在或不属于当前消费者");
+
+            if (orders.All(order => order.OrderStatus == OrderStatusCodes.Paid))
+            {
+                return new CheckoutBatchPaymentResult
+                {
+                    CheckoutBatchId = checkoutBatchId,
+                    PaymentMethod = paymentMethod,
+                    BankName = bankName,
+                    PaidAmount = orders.Sum(order => order.FinalAmount),
+                    ChildOrderCount = orders.Count,
+                    AlreadyPaid = true
+                };
+            }
+            if (orders.Any(order => order.OrderStatus != OrderStatusCodes.PendingPayment))
+                throw new OrderBusinessException("结算批次状态不一致，无法支付");
+
+            var expiresAt = orders.Min(order => order.PaymentExpiresAt)
+                ?? throw new OrderBusinessException("结算批次缺少支付截止时间");
+            if (expiresAt <= DateTime.Now)
+            {
+                foreach (var order in orders)
+                {
+                    var changed = await _orderRepo.TryUpdateStatusAsync(
+                        order.OrderId,
+                        OrderStatus.PendingPayment,
+                        OrderStatus.Cancelled,
+                        transaction);
+                    if (!changed)
+                        throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
+                    await _inventoryService.ReleaseAsync(
+                        new FulfillmentOrderRequest
+                        {
+                            OrderId = order.OrderId,
+                            Items = CreateFulfillmentItems(
+                                await _orderRepo.GetDetailsAsync(order.OrderId, transaction))
+                        },
+                        transaction,
+                        cancellationToken);
+                }
+                return new CheckoutBatchPaymentResult
+                {
+                    CheckoutBatchId = checkoutBatchId,
+                    PaymentMethod = paymentMethod,
+                    BankName = bankName,
+                    ChildOrderCount = orders.Count,
+                    IsExpired = true
+                };
+            }
+
+            var transactionNo = $"SIM{DateTime.Now:yyyyMMddHHmmss}{Guid.NewGuid():N}"[..34];
+            foreach (var order in orders)
+            {
+                var changed = await _orderRepo.TryUpdateStatusAsync(
+                    order.OrderId,
+                    OrderStatus.PendingPayment,
+                    OrderStatus.Paid,
+                    transaction);
+                if (!changed)
+                    throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
+
+                await _paymentRepository.GroupC_AddPaymentRecordAsync(
+                    new GroupC_FinPaymentRecord
+                    {
+                        PayId = $"PAY_{Guid.NewGuid():N}",
+                        OrderId = order.OrderId,
+                        PayMethod = paymentMethod == CheckoutPaymentMethods.BankCard
+                            ? $"{paymentMethod}:{bankName}"
+                            : paymentMethod,
+                        TransactionNo = transactionNo,
+                        PayAmount = order.FinalAmount,
+                        Status = "Success",
+                        PayTime = DateTime.Now,
+                        Remark = "SIMULATED"
+                    },
+                    transaction);
+            }
+
+            return new CheckoutBatchPaymentResult
+            {
+                CheckoutBatchId = checkoutBatchId,
+                TransactionNo = transactionNo,
+                PaymentMethod = paymentMethod,
+                BankName = bankName,
+                PaidAmount = orders.Sum(order => order.FinalAmount),
+                ChildOrderCount = orders.Count
+            };
+        });
     }
 
     /// <summary>
@@ -962,6 +1105,29 @@ public sealed class OrderService : IOrderService
             throw new OrderBusinessException("关键词不能超过50个字符");
         request.Page = Math.Max(1, request.Page);
         request.PageSize = Math.Clamp(request.PageSize, 1, 50);
+    }
+
+    private static CheckoutBatchSummary CreateCheckoutBatchSummary(
+        string checkoutBatchId,
+        IReadOnlyList<BizOrder> orders)
+    {
+        var statuses = orders.Select(order => order.OrderStatus).Distinct(StringComparer.Ordinal).ToList();
+        return new CheckoutBatchSummary
+        {
+            CheckoutBatchId = checkoutBatchId,
+            PaymentExpiresAt = orders.Min(order => order.PaymentExpiresAt) ?? orders.Min(order => order.CreatedAt),
+            OrderStatus = statuses.Count == 1 ? statuses[0] : "MIXED",
+            FinalAmount = orders.Sum(order => order.FinalAmount),
+            ChildOrderCount = orders.Count,
+            Orders = orders.Select(order => new CheckoutBatchOrderSummary
+            {
+                OrderId = order.OrderId,
+                OrderNo = order.OrderNo,
+                PromoterId = order.PromoterId ?? string.Empty,
+                FinalAmount = order.FinalAmount,
+                OrderStatus = order.OrderStatus
+            }).ToList()
+        };
     }
 
     private static string CreateShippingAddress(CrmUserAddress address)

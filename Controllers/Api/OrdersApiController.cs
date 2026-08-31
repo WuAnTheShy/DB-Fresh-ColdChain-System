@@ -39,6 +39,35 @@ public sealed class OrdersApiController(
         });
     }
 
+    [HttpGet("batches/{checkoutBatchId}")]
+    public async Task<IActionResult> GetCheckoutBatch(string checkoutBatchId)
+    {
+        var customerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(customerId)) return ApiUnauthorized();
+
+        var result = await orderService.GetCheckoutBatchAsync(checkoutBatchId, customerId);
+        return result == null ? ApiNotFound("结算批次不存在") : Ok(result);
+    }
+
+    [HttpPost("batches/{checkoutBatchId}/pay")]
+    public async Task<IActionResult> PayCheckoutBatch(
+        string checkoutBatchId,
+        CheckoutBatchPaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var customerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(customerId)) return ApiUnauthorized();
+
+        var result = await orderService.PayCheckoutBatchAsync(
+            checkoutBatchId,
+            customerId,
+            request,
+            cancellationToken);
+        return result.IsExpired
+            ? Conflict(new { message = "支付已超过15分钟，整个结算批次已关闭", result })
+            : Ok(result);
+    }
+
     [HttpGet("{orderId}")]
     public async Task<IActionResult> GetOrder(string orderId)
     {

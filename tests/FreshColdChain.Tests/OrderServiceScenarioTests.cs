@@ -12,6 +12,9 @@ internal static class OrderServiceScenarioTests
             ("正常下单提交订单、优惠券和双倍积分", SuccessfulOrderCommitsAsync),
             ("结算批次按团长原子拆单并分别计算运费", CheckoutBatchSplitsByPromoterAsync),
             ("批次任一商品缺货时不创建任何子订单", CheckoutBatchStockFailureRollsBackAsync),
+            ("模拟支付一次性支付整个结算批次", CheckoutBatchPaymentPaysAllOrdersAsync),
+            ("支付流水失败时整个批次回滚", CheckoutBatchPaymentFailureRollsBackAsync),
+            ("超过15分钟关闭整个结算批次并释放库存", ExpiredCheckoutBatchClosesAsync),
             ("库存不足时回滚且不创建订单", InsufficientStockRollsBackAsync),
             ("优惠券无效时回滚且不创建订单", InvalidCouponRollsBackAsync),
             ("积分流水失败时回滚全部已暂存变更", PointLogFailureRollsBackEverythingAsync)
@@ -35,6 +38,84 @@ internal static class OrderServiceScenarioTests
 
         Console.WriteLine($"场景总数: {scenarios.Length}, 通过: {scenarios.Length - failed}, 失败: {failed}");
         return failed == 0 ? 0 : 1;
+    }
+
+    private static async Task CheckoutBatchPaymentPaysAllOrdersAsync()
+    {
+        var context = TestContext.Create();
+        SeedPendingBatch(context, DateTime.Now.AddMinutes(15));
+
+        var result = await context.Service.PayCheckoutBatchAsync(
+            "batch-1",
+            TestIds.Customer,
+            new CheckoutBatchPaymentRequest { PaymentMethod = CheckoutPaymentMethods.WeChat });
+
+        AssertEx.Equal(130m, result.PaidAmount);
+        AssertEx.Equal(2, result.ChildOrderCount);
+        AssertEx.True(context.OrderRepository.Orders.All(order => order.OrderStatus == OrderStatusCodes.Paid));
+        AssertEx.Equal(2, context.PaymentRepository.Records.Count);
+        AssertEx.Equal(1, context.PaymentRepository.Records.Select(record => record.TransactionNo).Distinct().Count());
+    }
+
+    private static async Task CheckoutBatchPaymentFailureRollsBackAsync()
+    {
+        var context = TestContext.Create();
+        SeedPendingBatch(context, DateTime.Now.AddMinutes(15));
+        context.PaymentRepository.ThrowOnInsert = true;
+
+        await AssertEx.ThrowsAsync<InvalidOperationException>(() =>
+            context.Service.PayCheckoutBatchAsync(
+                "batch-1",
+                TestIds.Customer,
+                new CheckoutBatchPaymentRequest { PaymentMethod = CheckoutPaymentMethods.Alipay }));
+
+        AssertEx.True(context.OrderRepository.Orders.All(order => order.OrderStatus == OrderStatusCodes.PendingPayment));
+        AssertEx.Equal(0, context.PaymentRepository.Records.Count);
+        AssertEx.True(context.TransactionManager.LastTransaction?.RolledBack == true);
+    }
+
+    private static async Task ExpiredCheckoutBatchClosesAsync()
+    {
+        var context = TestContext.Create();
+        SeedPendingBatch(context, DateTime.Now.AddSeconds(-1));
+
+        var result = await context.Service.PayCheckoutBatchAsync(
+            "batch-1",
+            TestIds.Customer,
+            new CheckoutBatchPaymentRequest
+            {
+                PaymentMethod = CheckoutPaymentMethods.BankCard,
+                BankName = "中国工商银行"
+            });
+
+        AssertEx.True(result.IsExpired);
+        AssertEx.True(context.OrderRepository.Orders.All(order => order.OrderStatus == OrderStatusCodes.Cancelled));
+        AssertEx.Equal(2, context.InventoryService.ReleasedOrderIds.Count);
+        AssertEx.Equal(0, context.PaymentRepository.Records.Count);
+    }
+
+    private static void SeedPendingBatch(TestContext context, DateTime expiresAt)
+    {
+        context.OrderRepository.Orders.AddRange(
+        [
+            new BizOrder
+            {
+                OrderId = "order-pay-1", OrderNo = "ORD-PAY-1", CustomerId = TestIds.Customer,
+                CheckoutBatchId = "batch-1", PromoterId = "promoter-1", FinalAmount = 50m,
+                OrderStatus = OrderStatusCodes.PendingPayment, PaymentExpiresAt = expiresAt
+            },
+            new BizOrder
+            {
+                OrderId = "order-pay-2", OrderNo = "ORD-PAY-2", CustomerId = TestIds.Customer,
+                CheckoutBatchId = "batch-1", PromoterId = "promoter-2", FinalAmount = 80m,
+                OrderStatus = OrderStatusCodes.PendingPayment, PaymentExpiresAt = expiresAt
+            }
+        ]);
+        context.OrderRepository.Details.AddRange(
+        [
+            new BizOrderDetail { OrderDetailId = "detail-pay-1", OrderId = "order-pay-1", ProductId = "P1", ProductName = "车厘子", Quantity = 1, UnitPrice = 50m, SubTotal = 50m, SupplierId = "SUP1" },
+            new BizOrderDetail { OrderDetailId = "detail-pay-2", OrderId = "order-pay-2", ProductId = "P2", ProductName = "三文鱼", Quantity = 1, UnitPrice = 80m, SubTotal = 80m, SupplierId = "SUP2" }
+        ]);
     }
 
     private static async Task CheckoutBatchSplitsByPromoterAsync()

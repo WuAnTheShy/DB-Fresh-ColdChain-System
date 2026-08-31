@@ -16,6 +16,16 @@ public interface IOrderService
         CreateOrderRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<CheckoutBatchSummary?> GetCheckoutBatchAsync(
+        string checkoutBatchId,
+        string customerId);
+
+    Task<CheckoutBatchPaymentResult> PayCheckoutBatchAsync(
+        string checkoutBatchId,
+        string customerId,
+        CheckoutBatchPaymentRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<OrderListViewModel> GetOrdersAsync(OrderQueryRequest request);
 
     Task<OrderDetailViewModel?> GetOrderDetailAsync(string orderId);

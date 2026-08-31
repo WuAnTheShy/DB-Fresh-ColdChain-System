@@ -36,6 +36,7 @@ internal sealed class TestContext
         LogisticsService = new FakeLogisticsService();
         CommissionService = new FakeCommissionService();
         PromoterService = new FakePromoterService();
+        PaymentRepository = new FakePaymentRepository();
         TransactionManager = new FakeTransactionManager();
         AuthenticationState = new CustomerAuthenticationStateService();
         Service = new OrderService(
@@ -47,7 +48,8 @@ internal sealed class TestContext
             LogisticsService,
             CommissionService,
             TransactionManager,
-            PromoterService);
+            PromoterService,
+            PaymentRepository);
         CustomerService = new CustomerService(
             CustomerRepository,
             PointRepository,
@@ -68,6 +70,7 @@ internal sealed class TestContext
     public FakeLogisticsService LogisticsService { get; }
     public FakeCommissionService CommissionService { get; }
     public FakePromoterService PromoterService { get; }
+    public FakePaymentRepository PaymentRepository { get; }
     public FakeTransactionManager TransactionManager { get; }
     public CustomerAuthenticationStateService AuthenticationState { get; }
     public OrderService Service { get; }
@@ -171,6 +174,19 @@ internal sealed class FakeOrderRepository : IOrderRepository
     {
         return GetByIdAsync(orderId, transaction);
     }
+
+    public Task<List<BizOrder>> GetByCheckoutBatchAsync(
+        string checkoutBatchId,
+        string customerId,
+        IDbTransaction? transaction = null) => Task.FromResult(Orders
+        .Where(order => order.CheckoutBatchId == checkoutBatchId && order.CustomerId == customerId)
+        .OrderBy(order => order.OrderId)
+        .ToList());
+
+    public Task<List<BizOrder>> GetByCheckoutBatchForUpdateAsync(
+        string checkoutBatchId,
+        string customerId,
+        IDbTransaction transaction) => GetByCheckoutBatchAsync(checkoutBatchId, customerId, transaction);
 
     public Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
         DateTime threshold,
@@ -338,6 +354,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
             OrderId = order.OrderId,
             OrderNo = order.OrderNo,
             CustomerId = order.CustomerId,
+            CheckoutBatchId = order.CheckoutBatchId,
             PromoterId = order.PromoterId,
             AddressId = order.AddressId,
             ReceiverName = order.ReceiverName,
@@ -352,6 +369,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
             CommSettlementDate = order.CommSettlementDate,
             PointsEarned = order.PointsEarned,
             OrderStatus = order.OrderStatus,
+            PaymentExpiresAt = order.PaymentExpiresAt,
             CreatedAt = order.CreatedAt,
             UpdatedAt = order.UpdatedAt
         };
@@ -1215,6 +1233,42 @@ internal sealed class FakeCommissionService : ICommissionService
     {
         return Task.FromResult(new Result { IsSuccess = true });
     }
+}
+
+internal sealed class FakePaymentRepository : IPaymentRepository
+{
+    public List<GroupC_FinPaymentRecord> Records { get; } = [];
+    public bool ThrowOnInsert { get; set; }
+
+    public Task GroupC_AddPaymentRecordAsync(
+        GroupC_FinPaymentRecord finPaymentRecord,
+        IDbTransaction? transaction = null)
+    {
+        if (ThrowOnInsert) throw new InvalidOperationException("支付流水写入失败");
+        var copy = new GroupC_FinPaymentRecord
+        {
+            PayId = finPaymentRecord.PayId,
+            OrderId = finPaymentRecord.OrderId,
+            PayMethod = finPaymentRecord.PayMethod,
+            TransactionNo = finPaymentRecord.TransactionNo,
+            PayAmount = finPaymentRecord.PayAmount,
+            Status = finPaymentRecord.Status,
+            PayTime = finPaymentRecord.PayTime,
+            Remark = finPaymentRecord.Remark
+        };
+        if (transaction is FakeOrderTransaction fakeTransaction)
+            fakeTransaction.Stage(() => Records.Add(copy));
+        else
+            Records.Add(copy);
+        return Task.CompletedTask;
+    }
+
+    public Task<List<GroupC_FinPaymentRecord>> SearchAsync(
+        DateTime? startTime,
+        DateTime? endTime,
+        string? orderId,
+        string? status,
+        IDbTransaction? transaction = null) => Task.FromResult(Records.ToList());
 }
 
 internal sealed class FakePromoterService : IPromoterService

@@ -7,6 +7,7 @@ import ProductDetailView from './views/ProductDetailView.vue'
 import CartView from './views/CartView.vue'
 import CheckoutView from './views/CheckoutView.vue'
 import OrderSuccessView from './views/OrderSuccessView.vue'
+import PaymentView from './views/PaymentView.vue'
 import OrdersView from './views/OrdersView.vue'
 import OrderDetailView from './views/OrderDetailView.vue'
 import CouponsView from './views/CouponsView.vue'
@@ -28,6 +29,7 @@ const router = createRouter({
     { path: '/cart', name: 'cart', component: CartView, meta: { requiresAuth: true } },
     { path: '/checkout', name: 'checkout', component: CheckoutView, meta: { requiresAuth: true } },
     { path: '/order-success/:id', name: 'order-success', component: OrderSuccessView, props: true, meta: { requiresAuth: true } },
+    { path: '/payment/:batchId', name: 'payment', component: PaymentView, props: true, meta: { requiresAuth: true } },
     { path: '/orders', name: 'orders', component: OrdersView, meta: { requiresAuth: true } },
     { path: '/orders/:id', name: 'order-detail', component: OrderDetailView, props: true, meta: { requiresAuth: true } },
     { path: '/coupons', name: 'coupons', component: CouponsView, meta: { requiresAuth: true } },
