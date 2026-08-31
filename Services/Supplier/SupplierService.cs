@@ -319,6 +319,16 @@ public class SupplierService : ISupplierService
                 .ToList();
             var supplierMap = suppliers.ToDictionary(s => s.SupplierID);
 
+            // 商品图片：按商品分组，取展示顺序前 3 张
+            var productImages = (await _productRepo.GetAllProductImagesAsync())
+                .GroupBy(img => img.ProductID)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderBy(img => img.SortOrder)
+                          .Select(img => img.ImageUrl)
+                          .Take(3)
+                          .ToList());
+
             var entries = new List<SupplierProductEntryDto>();
             var seen = new HashSet<string>();
 
@@ -339,7 +349,9 @@ public class SupplierService : ISupplierService
                     Unit = p.Unit,
                     SupplyPrice = q.SupplyPrice,
                     DefaultPrice = p.DefaultPrice,
-                    ExpiryHours = q.ShelfLifeHours ?? p.ExpiryHours
+                    ExpiryHours = q.ShelfLifeHours ?? p.ExpiryHours,
+                    Description = p.Description,
+                    Images = productImages.TryGetValue(p.ProductID, out var imgs) ? imgs : new List<string>()
                 });
             }
 

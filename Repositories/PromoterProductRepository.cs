@@ -16,19 +16,32 @@ public class PromoterProductRepository : IPromoterProductRepository
         _uow = uow;
     }
 
-    public async Task<bool> AddOrUpdateEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice = null, string status = "Active", IDbTransaction? transaction = null)
+    public async Task<bool> AddOrUpdateEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice = null, string? promoterDesc = null, string status = "Active", IDbTransaction? transaction = null)
     {
         const string sql = @"
             MERGE INTO CRM_PRODUCT_ENTRIES T
             USING (SELECT :PromoterId AS PROMOTERID, :ProductId AS PRODUCTID, :SupplierId AS SUPPLIERID FROM DUAL) S
             ON (T.PROMOTERID = S.PROMOTERID AND T.PRODUCTID = S.PRODUCTID AND T.SUPPLIERID = S.SUPPLIERID)
             WHEN MATCHED THEN
-                UPDATE SET STATUS = :Status, PROMOTERPRICE = :PromoterPrice, UPDATETIME = SYSDATE
+                UPDATE SET STATUS = :Status, PROMOTERPRICE = :PromoterPrice,
+                           PROMOTERDESC = NVL(:PromoterDesc, T.PROMOTERDESC), UPDATETIME = SYSDATE
             WHEN NOT MATCHED THEN
-                INSERT (PROMOTERID, PRODUCTID, SUPPLIERID, STATUS, PROMOTERPRICE, CREATETIME)
-                VALUES (S.PROMOTERID, S.PRODUCTID, S.SUPPLIERID, :Status, :PromoterPrice, SYSDATE)";
+                INSERT (PROMOTERID, PRODUCTID, SUPPLIERID, STATUS, PROMOTERPRICE, PROMOTERDESC, CREATETIME)
+                VALUES (S.PROMOTERID, S.PRODUCTID, S.SUPPLIERID, :Status, :PromoterPrice, :PromoterDesc, SYSDATE)";
         var rows = await _uow.Connection.ExecuteAsync(sql,
-            new { PromoterId = promoterId, ProductId = productId, SupplierId = supplierId, Status = status, PromoterPrice = promoterPrice },
+            new { PromoterId = promoterId, ProductId = productId, SupplierId = supplierId, Status = status, PromoterPrice = promoterPrice, PromoterDesc = promoterDesc },
+            transaction);
+        return rows > 0;
+    }
+
+    public async Task<bool> UpdateEntryDescriptionAsync(string promoterId, string productId, string supplierId, string? promoterDesc, IDbTransaction? transaction = null)
+    {
+        const string sql = @"
+            UPDATE CRM_PRODUCT_ENTRIES
+            SET PROMOTERDESC = :PromoterDesc, UPDATETIME = SYSDATE
+            WHERE PROMOTERID = :PromoterId AND PRODUCTID = :ProductId AND SUPPLIERID = :SupplierId AND STATUS = 'Active'";
+        var rows = await _uow.Connection.ExecuteAsync(sql,
+            new { PromoterId = promoterId, ProductId = productId, SupplierId = supplierId, PromoterDesc = promoterDesc },
             transaction);
         return rows > 0;
     }
@@ -61,8 +74,8 @@ public class PromoterProductRepository : IPromoterProductRepository
     {
         // 表/列名以共享库（COLDCHAIN）实际结构为准：INV_SUPPLIERPRICES、DEFAULTPRICE、SUPPLYPRICE
         const string sql = @"
-            SELECT E.PRODUCTID, E.SUPPLIERID, E.PROMOTERPRICE,
-                   P.PRODUCTNAME, P.UNIT, P.DEFAULTPRICE,
+            SELECT E.PRODUCTID, E.SUPPLIERID, E.PROMOTERPRICE, E.PROMOTERDESC,
+                   P.PRODUCTNAME, P.UNIT, P.DEFAULTPRICE, P.DESCRIPTION,
                    S.SUPPLIERNAME,
                    SP.SUPPLYPRICE
             FROM CRM_PRODUCT_ENTRIES E

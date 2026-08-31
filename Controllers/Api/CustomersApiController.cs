@@ -28,6 +28,7 @@ public sealed class CustomersApiController(
                 customer.CustomerName,
                 customer.Phone,
                 customer.Email,
+                customer.Avatar,
                 customer.PromoterId,
                 customer.MemberLevelId,
                 customer.TotalSpent,

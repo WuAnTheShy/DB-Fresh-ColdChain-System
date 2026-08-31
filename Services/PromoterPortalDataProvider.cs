@@ -327,6 +327,7 @@ namespace FreshColdChain.Services
         {
             PromoterId = promoterId,
             PromoterName = "演示团长",
+            Avatar = "panda",
             Phone = "13800138000",
             InviteCode = "TEAM2026",
             BaseCommissionRate = 0.05m,

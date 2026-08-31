@@ -12,6 +12,13 @@ namespace FreshColdChain.Services
 {
     public class PromoterService: IPromoterService
     {
+        /// <summary>系统预置头像标识集合（与消费者端 Crm_Customers.Avatar 白名单、前端 ClientApp/src/assets/avatars 一致）。</summary>
+        private static readonly HashSet<string> AllowedPromoterAvatars = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "cat", "rabbit", "panda", "fox",
+            "carrot", "broccoli", "tomato", "corn"
+        };
+
         // Repository层句柄
         // 事务核心句柄
         private readonly IUnitOfWork _uow;
@@ -23,9 +30,11 @@ namespace FreshColdChain.Services
         // 商品入团表（CRM_PRODUCT_ENTRIES）仓库
         private readonly IPromoterProductRepository _iproductRepository;
 		private readonly IPCRRepository _pcrRepository;
+		// 商品仓库（用于商品图片）
+		private readonly IProductRepository _productRepository;
 		
         // 构造函数
-        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPromoterProductRepository iproductRepository,IPCRRepository pcrRepository)
+        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPromoterProductRepository iproductRepository,IPCRRepository pcrRepository, IProductRepository productRepository)
         {
             _uow = uow;
             _ipromoterRepository = ipromoterRepository;
@@ -33,6 +42,7 @@ namespace FreshColdChain.Services
             _ipsRepository = ipsRepository;
             _iproductRepository = iproductRepository;
 			_pcrRepository = pcrRepository;
+			_productRepository = productRepository;
         }
 
 
@@ -65,12 +75,41 @@ namespace FreshColdChain.Services
             if (promoterinfo == null)
                 return null;
 
+            var avatar = string.IsNullOrWhiteSpace(promoterinfo.Avatar) ? null : promoterinfo.Avatar.Trim();
+
             return new GroupC_PromoterBasicInfoDto
             {
                 PromoterId = promoterinfo.PromoterId,
                 PromoterName = promoterinfo.PromoterName,
                 Status = promoterinfo.Status,
+                Avatar = avatar,
+                AvatarUrl = string.IsNullOrWhiteSpace(avatar)
+                    ? null
+                    : $"/images/avatars/{avatar}.png"
             };
+        }
+
+        /// <summary>
+        /// 查询团长带货商品（消费者端查看团长带货接口）：
+        /// 返回已入团商品的（团长文字介绍、售价、商品图片等）。
+        /// 文字介绍优先取团长写的（PromoterDesc），未填写时兜底为供应商商品文字（Description）。
+        /// </summary>
+        public async Task<List<GroupC_FeaturedProductDto>> GetPromoterFeaturedProductsAsync(string promoterId)
+        {
+            var items = await GetProductEntryDetailsAsync(promoterId);
+            return items.Select(p => new GroupC_FeaturedProductDto
+            {
+                ProductID = p.ProductID,
+                ProductName = p.ProductName,
+                Unit = p.Unit,
+                SupplierID = p.SupplierID,
+                SupplierName = p.SupplierName,
+                SupplyPrice = p.SupplyPrice,
+                DefaultPrice = p.DefaultPrice,
+                Price = p.PromoterPrice ?? p.DefaultPrice,
+                PromoterDesc = string.IsNullOrWhiteSpace(p.PromoterDesc) ? (p.Description ?? string.Empty) : p.PromoterDesc,
+                Images = p.Images
+            }).ToList();
         }
 
 
@@ -319,6 +358,63 @@ namespace FreshColdChain.Services
         }
 
 
+        // 团长自助修改头像（仅限系统预置头像白名单；传 null/空白表示恢复默认文字头像）
+        public async Task<Result> UpdatePromoterAvatarAsync(string promoterId, string? avatar)
+        {
+            await _uow.BeginAsync();
+            var _result = new Result();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(promoterId))
+                {
+                    throw new Exception("团长编号不能为空");
+                }
+
+                string? normalized = null;
+                if (!string.IsNullOrWhiteSpace(avatar))
+                {
+                    normalized = avatar.Trim();
+                    if (!AllowedPromoterAvatars.Contains(normalized))
+                        throw new Exception("请选择有效的预置头像");
+                }
+
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, _uow.Transaction);
+                if (promoter == null)
+                {
+                    throw new Exception("该团长不存在");
+                }
+
+                var dbResult = await _ipromoterRepository.GroupC_UpdatePromoterAvatarAsync(promoterId, normalized, _uow.Transaction);
+                if (!dbResult)
+                {
+                    throw new Exception("更新头像失败");
+                }
+
+                var log = new GroupC_LogAuditrails
+                {
+                    TableName = "CRM_PROMOTERS",
+                    ActionType = "Update",
+                    OperatorType = "Promoter",
+                    OperatorId = promoterId,
+                    OldValue = JsonConvert.SerializeObject(new { promoter.PromoterId, Avatar = promoter.Avatar }),
+                    NewValue = JsonConvert.SerializeObject(new { promoter.PromoterId, Avatar = normalized })
+                };
+                await _logManager.WriteTableChangeLog(log);
+
+                await _uow.CommitAsync();
+                _result.IsSuccess = true;
+                return _result;
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                _result.IsSuccess = false;
+                _result.ErrorMessage = $"系统错误：{ex.Message}";
+                return _result;
+            }
+        }
+
         //============================团长-供应商合作服务===================================
         public async Task<List<string>> GetActiveSupplierIdsAsync(string promoterId)
         {
@@ -397,10 +493,30 @@ namespace FreshColdChain.Services
             }
         }
 
-        /// <summary>查询团长已入团商品详情列表（含商品名、供应商名、报价、推荐价、团长定价）</summary>
+        /// <summary>查询团长已入团商品详情列表（含商品名、供应商名、报价、推荐价、团长定价、文字介绍、图片）</summary>
         public async Task<List<PromoterProductEntryDetailDto>> GetProductEntryDetailsAsync(string promoterId)
         {
-            return await _iproductRepository.GetActiveEntriesDetailAsync(promoterId, _uow.Transaction);
+            var items = await _iproductRepository.GetActiveEntriesDetailAsync(promoterId, _uow.Transaction);
+            await AttachProductImagesAsync(items);
+            return items;
+        }
+
+        /// <summary>为已入团商品详情批量附加商品图片（按商品分组，取前 3 张）</summary>
+        private async Task AttachProductImagesAsync(IEnumerable<PromoterProductEntryDetailDto> items)
+        {
+            var images = (await _productRepository.GetAllProductImagesAsync())
+                .GroupBy(img => img.ProductID)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderBy(img => img.SortOrder)
+                          .Select(img => img.ImageUrl)
+                          .Take(3)
+                          .ToList());
+            foreach (var item in items)
+            {
+                if (images.TryGetValue(item.ProductID, out var urls))
+                    item.Images = urls;
+            }
         }
 
         /// <summary>查询团长当前所有已入团的（商品，供应商，团长定价）组合</summary>
@@ -414,8 +530,9 @@ namespace FreshColdChain.Services
         /// supplyPrice 为该供应商报价，defaultPrice 为商品推荐价。
         /// promoterPrice 为团长定价：未填写（null）时默认取推荐价；
         /// 填写时须满足定价规则 |团长价 - 推荐价| &lt; |推荐价 - 报价| / 2，否则抛异常。
+        /// description 为供应商商品文字：作为团长带货介绍默认值（默认复制供应商文字，团长可自行修改）。
         /// </summary>
-        public async Task<bool> AddProductEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, decimal supplyPrice, decimal defaultPrice)
+        public async Task<bool> AddProductEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, decimal supplyPrice, decimal defaultPrice, string? description = null)
         {
             var price = promoterPrice ?? defaultPrice;
 
@@ -431,7 +548,24 @@ namespace FreshColdChain.Services
             await _uow.BeginAsync();
             try
             {
-                var result = await _iproductRepository.AddOrUpdateEntryAsync(promoterId, productId, supplierId, price, "Active", _uow.Transaction);
+                var result = await _iproductRepository.AddOrUpdateEntryAsync(promoterId, productId, supplierId, price, description, "Active", _uow.Transaction);
+                await _uow.CommitAsync();
+                return result;
+            }
+            catch
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>更新已入团（商品，供应商）组合的团长带货介绍文字（团长主动书写/改写）</summary>
+        public async Task<bool> UpdateEntryDescriptionAsync(string promoterId, string productId, string supplierId, string? promoterDesc)
+        {
+            await _uow.BeginAsync();
+            try
+            {
+                var result = await _iproductRepository.UpdateEntryDescriptionAsync(promoterId, productId, supplierId, promoterDesc, _uow.Transaction);
                 await _uow.CommitAsync();
                 return result;
             }

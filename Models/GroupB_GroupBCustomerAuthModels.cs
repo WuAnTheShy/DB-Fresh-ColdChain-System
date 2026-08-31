@@ -21,4 +21,5 @@ public sealed class GroupBCustomerLoginResult
     public string CustomerId { get; init; } = string.Empty;
     public string CustomerName { get; init; } = string.Empty;
     public string Phone { get; init; } = string.Empty;
+    public string? Avatar { get; init; }
 }

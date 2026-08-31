@@ -23,6 +23,12 @@ public class SupplierProductEntryDto
 
     /// <summary>保质期（小时），优先取供应商声明值，否则取商品典型值</summary>
     public int? ExpiryHours { get; set; }
+
+    /// <summary>商品文字介绍（供应商维护，团长可参考/复制/改写）</summary>
+    public string? Description { get; set; }
+
+    /// <summary>商品图片（按展示顺序，最多 3 张）</summary>
+    public List<string> Images { get; set; } = new();
 }
 
 /// <summary>
@@ -47,4 +53,13 @@ public class PromoterProductEntryDetailDto
 
     /// <summary>团长定价（null 表示未定价，展示时默认取推荐价）</summary>
     public decimal? PromoterPrice { get; set; }
+
+    /// <summary>商品文字介绍（供应商维护，团长可参考/复制/改写）</summary>
+    public string? Description { get; set; }
+
+    /// <summary>团长带货介绍文字（入团时默认复制供应商文字，团长可修改/重写）</summary>
+    public string? PromoterDesc { get; set; }
+
+    /// <summary>商品图片（按展示顺序，最多 3 张）</summary>
+    public List<string> Images { get; set; } = new();
 }

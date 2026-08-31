@@ -19,7 +19,8 @@ public sealed class GroupBAuthApiController : GroupBApiController
         {
             CustomerId = customerId,
             CustomerName = request.CustomerName,
-            Phone = request.Phone
+            Phone = request.Phone,
+            Avatar = request.Avatar
         };
         SignIn(result);
 
@@ -55,7 +56,8 @@ public sealed class GroupBAuthApiController : GroupBApiController
         {
             CustomerId = customerId,
             CustomerName = HttpContext.Session.GetString(CustomerNameSessionKey) ?? string.Empty,
-            Phone = HttpContext.Session.GetString(CustomerPhoneSessionKey) ?? string.Empty
+            Phone = HttpContext.Session.GetString(CustomerPhoneSessionKey) ?? string.Empty,
+            Avatar = HttpContext.Session.GetString(CustomerAvatarSessionKey)
         });
     }
 
@@ -65,6 +67,7 @@ public sealed class GroupBAuthApiController : GroupBApiController
         HttpContext.Session.Remove(CustomerIdSessionKey);
         HttpContext.Session.Remove(CustomerNameSessionKey);
         HttpContext.Session.Remove(CustomerPhoneSessionKey);
+        HttpContext.Session.Remove(CustomerAvatarSessionKey);
         return NoContent();
     }
 
@@ -73,5 +76,9 @@ public sealed class GroupBAuthApiController : GroupBApiController
         HttpContext.Session.SetString(CustomerIdSessionKey, customer.CustomerId);
         HttpContext.Session.SetString(CustomerNameSessionKey, customer.CustomerName);
         HttpContext.Session.SetString(CustomerPhoneSessionKey, customer.Phone);
+        if (!string.IsNullOrWhiteSpace(customer.Avatar))
+        {
+            HttpContext.Session.SetString(CustomerAvatarSessionKey, customer.Avatar);
+        }
     }
 }

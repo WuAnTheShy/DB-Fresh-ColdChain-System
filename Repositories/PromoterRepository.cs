@@ -106,7 +106,8 @@ public class PromoterRepository : IPromoterRepository
                 LASTSETTLEMENTTIME as LastSettlementTime,
                 REMARK as Remark,
                 LOGINACCOUNT as LoginAccount,
-                LOGINPASSWORD as LoginPassword
+                LOGINPASSWORD as LoginPassword,
+                AVATAR as Avatar
             FROM CRM_PROMOTERS
             WHERE PROMOTERID = :PromoterId";
         return await _uow.Connection.QueryFirstOrDefaultAsync<GroupC_CrmPromoter>(sql, new { PromoterId = promoterId }, transaction);
@@ -131,7 +132,8 @@ public class PromoterRepository : IPromoterRepository
                 LASTSETTLEMENTTIME as LastSettlementTime,
                 REMARK as Remark,
                 LOGINACCOUNT as LoginAccount,
-                LOGINPASSWORD as LoginPassword
+                LOGINPASSWORD as LoginPassword,
+                AVATAR as Avatar
             FROM CRM_PROMOTERS
             WHERE PROMOTERID = :PromoterId";
 
@@ -163,7 +165,8 @@ public class PromoterRepository : IPromoterRepository
                 LASTSETTLEMENTTIME as LastSettlementTime,
                 REMARK as Remark,
                 LOGINACCOUNT as LoginAccount,
-                LOGINPASSWORD as LoginPassword
+                LOGINPASSWORD as LoginPassword,
+                AVATAR as Avatar
             FROM CRM_PROMOTERS
             ORDER BY REGISTERTIME DESC";
 
@@ -211,6 +214,20 @@ public class PromoterRepository : IPromoterRepository
         var rows = await _uow.Connection.ExecuteAsync(
             sql,
             new { PromoterId = promoterId, BaseCommissionRate = rate },
+            transaction);
+        return rows > 0;
+    }
+
+    public async Task<bool> GroupC_UpdatePromoterAvatarAsync(string promoterId, string? avatar, IDbTransaction? transaction = null)
+    {
+        const string sql = @"
+            UPDATE CRM_PROMOTERS
+            SET AVATAR = :Avatar
+            WHERE PROMOTERID = :PromoterId";
+
+        var rows = await _uow.Connection.ExecuteAsync(
+            sql,
+            new { PromoterId = promoterId, Avatar = avatar },
             transaction);
         return rows > 0;
     }
@@ -265,7 +282,8 @@ public class PromoterRepository : IPromoterRepository
                 LASTSETTLEMENTTIME as LastSettlementTime,
                 REMARK as Remark,
                 LOGINACCOUNT as LoginAccount,
-                LOGINPASSWORD as LoginPassword
+                LOGINPASSWORD as LoginPassword,
+                AVATAR as Avatar
             FROM CRM_PROMOTERS
             WHERE LOGINACCOUNT = :LoginAccount";
 

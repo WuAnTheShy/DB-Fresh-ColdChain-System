@@ -11,6 +11,7 @@ function normalizeCustomer(value) {
     customerId: String(value.customerId),
     customerName: String(value.customerName ?? ''),
     phone: String(value.phone ?? ''),
+    avatar: value.avatar ? String(value.avatar) : '',
   }
 }
 

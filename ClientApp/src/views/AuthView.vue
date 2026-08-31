@@ -4,6 +4,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
+import { presetAvatars } from '../assets/avatars'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,7 +14,14 @@ const submitting = ref(false)
 const showPassword = ref(false)
 const error = ref('')
 const loginForm = reactive({ phone: '', password: '' })
-const registerForm = reactive({ customerName: '', phone: '', email: '', password: '', confirmPassword: '' })
+const registerForm = reactive({
+  customerName: '',
+  phone: '',
+  email: '',
+  avatar: presetAvatars[Math.floor(Math.random() * presetAvatars.length)].id,
+  password: '',
+  confirmPassword: '',
+})
 const isRegister = computed(() => mode.value === 'register')
 
 watch(() => route.query.mode, (value) => {
@@ -112,6 +120,14 @@ async function submit() {
           <span>确认密码</span>
           <input v-model="registerForm.confirmPassword" class="form-control" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" minlength="8" maxlength="100" placeholder="再次输入密码" required />
         </label>
+        <fieldset v-if="isRegister" class="auth-avatar-field">
+          <legend>选择头像</legend>
+          <div class="auth-avatar-grid">
+            <button v-for="avatar in presetAvatars" :key="avatar.id" type="button" :class="{ active: registerForm.avatar === avatar.id }" :title="avatar.name" :aria-label="`选择${avatar.name}头像`" @click="registerForm.avatar = avatar.id">
+              <img :src="avatar.src" :alt="avatar.name" />
+            </button>
+          </div>
+        </fieldset>
 
         <button class="btn btn-buy auth-submit" type="submit" :disabled="submitting">
           <span v-if="submitting" class="spinner-border spinner-border-sm"></span>
@@ -155,6 +171,16 @@ async function submit() {
 .password-field { position: relative; display: block; }
 .password-field input { padding-right: 46px; }
 .password-field button { position: absolute; top: 1px; right: 1px; display: inline-flex; width: 42px; height: 40px; align-items: center; justify-content: center; border: 0; background: transparent; color: #68736e; }
+.auth-avatar-field { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; border: 0; }
+.auth-avatar-field legend { padding: 0; color: #39443f; font-size: 11px; font-weight: 750; }
+.auth-avatar-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+.auth-avatar-grid button { display: inline-flex; align-items: center; justify-content: center; padding: 3px; border: 2px solid transparent; border-radius: 50%; background: transparent; cursor: pointer; transition: border-color .15s, transform .15s; }
+.auth-avatar-grid button:hover { transform: scale(1.06); }
+.auth-avatar-grid button.active { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(21, 128, 61, .18); }
+.auth-avatar-grid img { width: 100%; height: auto; border-radius: 50%; }
+@media (max-width: 479.98px) {
+  .auth-avatar-grid { grid-template-columns: repeat(4, 1fr); }
+}
 .auth-submit { width: 100%; margin-top: 5px; }
 .auth-switch { margin: 22px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
 .auth-switch button { border: 0; background: transparent; color: var(--brand); font-weight: 750; }

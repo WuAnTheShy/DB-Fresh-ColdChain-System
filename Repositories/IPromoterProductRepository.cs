@@ -12,14 +12,18 @@ public interface IPromoterProductRepository
     /// <summary>
     /// 将（商品，供应商）加入/更新为团长入团商品（存在则改状态为 Active）。
     /// promoterPrice 为团长定价，null 表示未填写（入库前应由服务层回填为推荐价）。
+    /// promoterDesc 为团长带货介绍，入团时默认复制供应商商品文字；重复入团且传入 null 时保留原团长文字。
     /// </summary>
-    Task<bool> AddOrUpdateEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice = null, string status = "Active", IDbTransaction? transaction = null);
+    Task<bool> AddOrUpdateEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice = null, string? promoterDesc = null, string status = "Active", IDbTransaction? transaction = null);
 
     /// <summary>将（商品，供应商）从团长入团商品中移除（软删除为 Inactive）</summary>
     Task<bool> SoftDeleteEntryAsync(string promoterId, string productId, string supplierId, IDbTransaction? transaction = null);
 
     /// <summary>更新已入团（商品，供应商）组合的团长定价（仅限 Active 记录）</summary>
     Task<bool> UpdateEntryPriceAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, IDbTransaction? transaction = null);
+
+    /// <summary>更新已入团（商品，供应商）组合的团长带货介绍文字（仅限 Active 记录）</summary>
+    Task<bool> UpdateEntryDescriptionAsync(string promoterId, string productId, string supplierId, string? promoterDesc, IDbTransaction? transaction = null);
 
     /// <summary>查询团长已入团商品详情（含商品名、供应商名、报价、推荐价、团长定价）</summary>
     Task<List<PromoterProductEntryDetailDto>> GetActiveEntriesDetailAsync(string promoterId, IDbTransaction? transaction = null);

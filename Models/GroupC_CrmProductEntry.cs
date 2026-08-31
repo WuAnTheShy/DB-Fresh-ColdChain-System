@@ -36,6 +36,14 @@ public class GroupC_CrmProductEntry
     [Column("PROMOTERPRICE")]
     public decimal? PromoterPrice { get; set; }
 
+    /// <summary>
+    /// 团长带货介绍文字（给消费者端展示）。
+    /// 入团时默认复制供应商商品文字（Inv_Products.Description），团长可修改/重写。
+    /// </summary>
+    [Column("PROMOTERDESC")]
+    [MaxLength(2000)]
+    public string? PromoterDesc { get; set; }
+
     [Column("CREATETIME")]
     public DateTime CreateTime { get; set; } = DateTime.Now;
 

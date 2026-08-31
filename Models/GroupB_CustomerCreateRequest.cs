@@ -20,6 +20,10 @@ public sealed class CustomerCreateRequest
     [EmailAddress(ErrorMessage = "请输入有效的邮箱地址")]
     public string? Email { get; set; }
 
+    /// <summary>预制头像标识，可选，仅允许系统预置集合中的值。</summary>
+    [StringLength(50, ErrorMessage = "头像标识不能超过50个字符")]
+    public string? Avatar { get; set; }
+
     [Required(ErrorMessage = "请输入登录密码")]
     [StringLength(100, MinimumLength = 8, ErrorMessage = "密码长度必须为8到100个字符")]
     [DataType(DataType.Password)]

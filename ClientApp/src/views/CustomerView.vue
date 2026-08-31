@@ -4,6 +4,7 @@ import { onMounted, reactive, ref } from 'vue'
 import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { ApiError, api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
+import { avatarUrl, presetAvatars } from '../assets/avatars'
 
 const { customerId } = useCustomerContext()
 const loading = ref(true)
@@ -12,7 +13,7 @@ const notFound = ref(false)
 const error = ref('')
 const success = ref('')
 const profile = ref(null)
-const form = reactive({ customerId: '', customerName: '', phone: '', email: '' })
+const form = reactive({ customerId: '', customerName: '', phone: '', email: '', avatar: '' })
 function money(value) { return `¥${Number(value ?? 0).toFixed(2)}` }
 
 async function loadProfile() {
@@ -20,7 +21,7 @@ async function loadProfile() {
   try {
     profile.value = await api.getCustomer(customerId.value)
     const customer = profile.value.customer
-    Object.assign(form, { customerId: customer.customerId, customerName: customer.customerName, phone: customer.phone, email: customer.email ?? '' })
+    Object.assign(form, { customerId: customer.customerId, customerName: customer.customerName, phone: customer.phone, email: customer.email ?? '', avatar: customer.avatar ?? '' })
   } catch (requestError) { notFound.value = requestError instanceof ApiError && requestError.status === 404; if (!notFound.value) error.value = requestError.message } finally { loading.value = false }
 }
 async function saveProfile() {
@@ -37,10 +38,10 @@ onMounted(loadProfile)
     <div v-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在读取账户信息</div>
     <div v-else-if="notFound" class="store-empty"><UserRound :size="40" /><strong>当前演示消费者尚未建档</strong><span>请先通过系统初始数据建立消费者账号</span></div>
     <template v-else-if="profile">
-      <section class="profile-banner"><span class="profile-avatar"><UserRound :size="34" /></span><div><small>欢迎回来</small><h1>{{ profile.customer.customerName }}</h1><p><BadgeCheck :size="15" />{{ profile.memberLevel?.levelName || '基础会员' }} · 团长团购消费者</p></div></section>
+      <section class="profile-banner"><span class="profile-avatar"><img v-if="avatarUrl(profile.customer.avatar)" :src="avatarUrl(profile.customer.avatar)" :alt="'当前头像'" /><UserRound v-else :size="34" /></span><div><small>欢迎回来</small><h1>{{ profile.customer.customerName }}</h1><p><BadgeCheck :size="15" />{{ profile.memberLevel?.levelName || '基础会员' }} · 团长团购消费者</p></div></section>
       <section class="profile-metrics"><RouterLink to="/orders"><PackageSearch :size="22" /><span><strong>我的订单</strong><small>查看团购进度</small></span><ChevronRight :size="17" /></RouterLink><RouterLink to="/coupons"><TicketPercent :size="22" /><span><strong>优惠券</strong><small>领取和使用</small></span><ChevronRight :size="17" /></RouterLink><div><Coins :size="22" /><span><strong>{{ profile.customer.points }} 积分</strong><small>累计消费 {{ money(profile.customer.totalSpent) }}</small></span></div><RouterLink to="/addresses"><MapPin :size="22" /><span><strong>收货地址</strong><small>{{ profile.addresses.length }} 条地址</small></span><ChevronRight :size="17" /></RouterLink></section>
       <div class="profile-content-grid">
-        <section class="account-section"><div class="account-section-head"><div><h2>账户资料</h2></div></div><form class="account-form" @submit.prevent="saveProfile"><label><span>姓名</span><input v-model.trim="form.customerName" class="form-control" maxlength="100" required /></label><label><span>手机号码</span><input v-model.trim="form.phone" class="form-control" maxlength="20" pattern="1[0-9]{10}" required /></label><label><span>电子邮箱</span><input v-model.trim="form.email" class="form-control" type="email" maxlength="100" /></label><button class="btn btn-buy" type="submit" :disabled="saving"><span v-if="saving" class="spinner-border spinner-border-sm"></span><Save v-else :size="17" />保存资料</button></form></section>
+        <section class="account-section"><div class="account-section-head"><div><h2>账户资料</h2></div></div><form class="account-form" @submit.prevent="saveProfile"><label><span>姓名</span><input v-model.trim="form.customerName" class="form-control" maxlength="100" required /></label><label><span>手机号码</span><input v-model.trim="form.phone" class="form-control" maxlength="20" pattern="1[0-9]{10}" required /></label><label><span>电子邮箱</span><input v-model.trim="form.email" class="form-control" type="email" maxlength="100" /></label><div class="profile-avatar-picker"><span>更换头像</span><div class="profile-avatar-grid"><button v-for="avatar in presetAvatars" :key="avatar.id" type="button" :class="{ active: form.avatar === avatar.id }" :title="avatar.name" :aria-label="`选择${avatar.name}头像`" @click="form.avatar = avatar.id"><img :src="avatar.src" :alt="avatar.name" /></button></div></div><button class="btn btn-buy" type="submit" :disabled="saving"><span v-if="saving" class="spinner-border spinner-border-sm"></span><Save v-else :size="17" />保存资料</button></form></section>
         <aside class="account-section"><div class="account-section-head"><div><h2>常用收货地址</h2></div><RouterLink to="/addresses">管理</RouterLink></div><div v-if="profile.addresses.length" class="profile-address-list"><div v-for="address in profile.addresses.slice(0, 3)" :key="address.addressId"><MapPin :size="17" /><span><strong>{{ address.receiverName }} {{ address.phone }}</strong><small>{{ address.city }}{{ address.district }} {{ address.detailAddress }}</small></span></div></div><div v-else class="inline-empty">暂无收货地址</div></aside>
       </div>
     </template>
@@ -49,7 +50,15 @@ onMounted(loadProfile)
 
 <style scoped>
 .profile-banner { display: flex; min-height: 142px; align-items: center; gap: 17px; padding: 23px; background: var(--header); color: #fff; }
-.profile-avatar { display: inline-flex; width: 72px; height: 72px; align-items: center; justify-content: center; border-radius: 50%; background: #2d4f40; color: #dcece5; }
+.profile-avatar { display: inline-flex; width: 72px; height: 72px; flex: 0 0 72px; align-items: center; justify-content: center; overflow: hidden; border: 3px solid rgba(255, 255, 255, .55); border-radius: 50%; background: #2d4f40; color: #dcece5; }
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.profile-avatar-picker { display: flex; grid-column: 1 / -1; flex-direction: column; gap: 8px; }
+.profile-avatar-picker > span { color: #4d5953; font-size: 10px; font-weight: 700; }
+.profile-avatar-grid { display: flex; flex-wrap: nowrap; align-items: center; gap: 5px; }
+.profile-avatar-grid button { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border: 2px solid transparent; border-radius: 50%; background: transparent; cursor: pointer; transition: border-color .15s, transform .15s; }
+.profile-avatar-grid button:hover { transform: scale(1.06); }
+.profile-avatar-grid button.active { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(21, 128, 61, .18); }
+.profile-avatar-grid img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .profile-banner small { color: #aebbb5; }
 .profile-banner h1 { margin: 2px 0 5px; font-size: 25px; }
 .profile-banner p { display: flex; align-items: center; gap: 5px; margin: 0; color: #dfc272; font-size: 10px; }
@@ -83,5 +92,6 @@ onMounted(loadProfile)
   .account-form { grid-template-columns: 1fr; }
   .account-form label:first-child { grid-column: auto; }
   .account-form button { grid-column: auto; justify-self: stretch; }
+  .profile-avatar-picker { grid-column: auto; }
 }
 </style>
