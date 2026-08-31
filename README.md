@@ -56,7 +56,7 @@ npm run dev
 
 ### 1. 初始化表结构与数据
 
-将 `groupB_ddl.sql` 在 Oracle 中执行（建议使用隔离 schema），其中包含 B 组 8 张表及最小演示数据（含演示消费者）。
+全新 schema 执行 `groupB_ddl.sql`，其中包含 B 组 8 张核心表、1 张会员定级历史扩展表及最小演示数据。已有 schema 不要重复执行基础脚本，应按文件名顺序执行 `migrations/` 中尚未应用的 B 组增量脚本；其中 `20260831_add_coupon_type.sql` 补齐结算所需的优惠券类型列。
 
 ### 2. 连接串配置
 

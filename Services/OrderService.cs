@@ -322,13 +322,10 @@ public sealed class OrderService : IOrderService
                         throw new OrderBusinessException("自动确认收货时商品状态已变化");
                 }
 
-                await _commissionService.RegisterCompletedOrderAsync(new CommissionOrderRequest
-                {
-                    orderID = context.Order.OrderId,
-                    promoterID = context.Order.PromoterId ?? context.Customer.PromoterId,
-                    finalAmount = context.Order.FinalAmount,
-                    goodsAmount = context.Order.TotalAmount
-                }, transaction, cancellationToken);
+                await RegisterCompletedOrderCommissionAsync(
+                    context,
+                    transaction,
+                    cancellationToken);
                 if (!await _orderRepo.TryUpdateStatusAsync(
                     context.Order.OrderId, OrderStatus.Shipped, OrderStatus.Completed, transaction))
                     throw new OrderBusinessException("自动确认收货时订单状态已变化");
@@ -808,14 +805,8 @@ public sealed class OrderService : IOrderService
             }
             else
             {
-                await _commissionService.RegisterCompletedOrderAsync(
-                    new CommissionOrderRequest
-                    {
-                        orderID = context.Order.OrderId,
-                        promoterID = context.Order.PromoterId ?? context.Customer.PromoterId,
-                        finalAmount = context.Order.FinalAmount,
-                        goodsAmount = context.Order.TotalAmount
-                    },
+                await RegisterCompletedOrderCommissionAsync(
+                    context,
                     transaction,
                     cancellationToken);
             }
@@ -1185,14 +1176,8 @@ public sealed class OrderService : IOrderService
                 return;
             }
 
-            await _commissionService.RegisterCompletedOrderAsync(
-                new CommissionOrderRequest
-                {
-                    orderID = context.Order.OrderId,
-                    promoterID = context.Order.PromoterId ?? context.Customer.PromoterId,
-                    finalAmount = context.Order.FinalAmount,
-                    goodsAmount = context.Order.TotalAmount
-                },
+            await RegisterCompletedOrderCommissionAsync(
+                context,
                 transaction,
                 cancellationToken);
             if (!await _orderRepo.TryUpdateStatusAsync(
@@ -1373,6 +1358,30 @@ public sealed class OrderService : IOrderService
         if (validated.Count != snapshots.Count)
             throw new OrderBusinessException("团长商品校验结果不完整");
         return snapshots.Select(snapshot => validated[snapshot.ProductId]).ToList();
+    }
+
+    private async Task RegisterCompletedOrderCommissionAsync(
+        LockedOrderContext context,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var result = await _commissionService.RegisterCompletedOrderAsync(
+            new CommissionOrderRequest
+            {
+                orderID = context.Order.OrderId,
+                promoterID = context.Order.PromoterId ?? context.Customer.PromoterId,
+                finalAmount = context.Order.FinalAmount,
+                goodsAmount = context.Order.TotalAmount
+            },
+            transaction,
+            cancellationToken);
+        if (!result.IsSuccess)
+        {
+            throw new OrderBusinessException(
+                string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? "佣金登记失败"
+                    : result.ErrorMessage);
+        }
     }
 
     private static List<BizOrderDetail> CreateTrustedDetails(

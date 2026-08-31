@@ -186,10 +186,9 @@ internal static class OrderLifecycleScenarioTests
     {
         var context = TestContext.Create();
         SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-COMM-FAIL-001");
-        context.CommissionService.ExceptionToThrow =
-            new InvalidOperationException("模拟佣金登记失败");
+        context.CommissionService.ReturnFailure = true;
 
-        await AssertEx.ThrowsAsync<InvalidOperationException>(() =>
+        await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
             context.Service.TransitionOrderAsync(TestIds.Order, OrderStatus.Completed));
 
         AssertEx.Equal(

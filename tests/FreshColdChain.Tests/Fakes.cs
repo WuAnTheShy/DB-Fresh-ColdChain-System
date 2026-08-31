@@ -1309,6 +1309,7 @@ internal sealed class FakeLogisticsService : ILogisticsService
 internal sealed class FakeCommissionService : ICommissionService
 {
     public Exception? ExceptionToThrow { get; set; }
+    public bool ReturnFailure { get; set; }
     public List<CommissionOrderRequest> CompletedOrders { get; } = [];
 
     public Task<CommissionResult> RegisterCompletedOrderAsync(
@@ -1318,6 +1319,14 @@ internal sealed class FakeCommissionService : ICommissionService
     {
         if (ExceptionToThrow != null)
             throw ExceptionToThrow;
+        if (ReturnFailure)
+        {
+            return Task.FromResult(new CommissionResult
+            {
+                IsSuccess = false,
+                ErrorMessage = "模拟佣金登记失败"
+            });
+        }
 
         ((FakeOrderTransaction)transaction).Stage(
             () => CompletedOrders.Add(request));

@@ -1,6 +1,6 @@
 # GroupB 跨组接口契约
 
-更新日期：2026-08-08
+更新日期：2026-08-31
 
 ## 1. 通用事务规则
 
@@ -8,7 +8,7 @@
 - A/C 组实现必须使用传入的 `IDbTransaction` 及其 `Connection`。
 - 接口实现不得新建独立连接写数据，不得自行 `Commit` 或 `Rollback`。
 - B 组只传递完成业务所需的可信快照，不允许其他组直接修改 B 组表。
-- 当前 Dummy 只做隔离联调，不访问其他组数据表，不代表正式适配已经完成。
+- 生产注册已切换为真实适配；单元场景测试继续使用仅存在于测试项目的 Fake。
 
 ## 2. B 组调用 A 组：库存预留与释放
 
@@ -39,15 +39,12 @@ Task ReleaseAsync(
 - `FulfillmentOrderRequest` 包含订单标识和原订单商品快照。
 - A 组应按原预留记录幂等释放，不能根据当前商品价格重新计算。
 
-### 2.3 当前 Dummy
+### 2.3 当前正式适配
 
-| 商品ID | 商品 | 供应商ID | 单价 | 模拟可用库存 |
-| --- | --- | --- | --- | --- |
-| P1 | 车厘子 | SUP1 | 50.00 | 100 |
-| P2 | 三文鱼 | SUP2 | 80.00 | 50 |
-| P3 | 有机蔬菜 | SUP1 | 20.00 | 200 |
+`GroupAInventoryServiceAdapter` 已注册为生产实现。它复用 B 组事务，通过 A 组现有
+`IProductRepository` 与 `IStockSummaryRepository` 读取可信商品并以行锁更新
+`LockedQty/AvailableQty`。B 组没有在仓储或 Service 中编写 A 组表 SQL。
 
-`DummyInventoryService` 只校验数量并返回确定性快照，不持久化库存变化。
 `ProductId`、`SupplierId` 和 `PromoterId` 均使用字符串，兼容各组的 GUID 主键。
 
 ### 2.4 商品目录与可信商品批量查询
@@ -67,7 +64,7 @@ Task<IReadOnlyList<GroupATrustedProduct>> GetTrustedProductsAsync(
 - B 组先从 C 组取得团长合作供应商集合，再传给 A 组查询可售商品。
 - `SupplierId` 只在后端协作和下单校验中使用；消费者商品 DTO 已用 `JsonIgnore` 禁止输出该字段。
 - 结算和下单必须重新批量读取实际价格、库存、上下架状态和供应商，不能信任购物车缓存。
-- 本仓库只冻结契约，不实现 A 组查询，也不读取 A 组表。
+- 结算使用库存适配返回的可信商品快照，不再使用固定商品或客户端价格。
 
 ## 3. B 组调用 A 组：运费与物流履约
 
@@ -95,7 +92,7 @@ Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
 - B 组传递目的省市区、商品金额及按供应商归属的可信商品快照。
 - A 组按自身 `Log_FreightTemplates` 和冷链规则计算，不允许 B 组直接查询运费表。
 - 返回值必须非负并符合 B 组 `NUMBER(10,2)` 金额范围。
-- 当前 `DummyLogisticsService` 返回 0。
+- 当前 `GroupALogisticsServiceAdapter` 调用 A 组 `IColdChainLogisticsService.QuoteFreightAsync` 返回真实冷链运费。
 
 ### 3.2 创建物流
 
@@ -109,11 +106,11 @@ Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
 - A 组返回每个供应商的物流状态和可选运单号。
 - B 组订单详情只展示结果，不重复持久化 `Log_ExpressDeliveries`。
 
-### 3.4 远端 A 组现状
+### 3.4 当前 A 组联调限制
 
-`origin/dev-groupA` 当前 `ILogisticsService` 使用 EF、自有订单表和另一套 1-5 状态码，
-无法直接实现上述 Oracle/Dapper 事务契约。正式合并前需要 A 组提供适配器，不能把现有
-Service 直接注册到 B 组。
+`GroupALogisticsServiceAdapter` 已把 A 组真实运费、FEFO 发货和履约状态映射到 B 组契约，
+并通过 A 组工作单元挂载 B 组事务。A 组当前发货实现仍用 `AvailableQty` 再次校验已经预留
+的订单；接近售罄时可能误判库存不足。该实现位于 A 组范围，B 组只记录联调问题，不直接修改。
 
 ## 4. B 组调用 C 组：订单完成佣金登记
 
@@ -130,7 +127,7 @@ Task RegisterCompletedOrderAsync(
 - B 组传递订单、消费者、可选团长、实付佣金基数和完成时间。
 - C 组负责阶梯佣金算法、预计佣金和审计记录，不允许 B 组直接写 C 组表。
 - C 组失败时订单保持已发货，完整事务回滚。
-- `origin/dev-groupC` 当前尚无佣金接口，现阶段使用 `DummyCommissionService`。
+- 运行时已注册 C 组真实 `CommissionService`；B 组不再保留生产 Dummy。
 
 ### 4.1 团长目录与合作范围
 
@@ -158,7 +155,13 @@ Task<IReadOnlyList<GroupCPromoterProductValidation>> ValidatePromoterProductsAsy
 - C 组维护独立的团长—供应商合作关系，不要求修改 `Crm_Promoters` 字段。
 - 消费者端只接收团长和商品信息，不接收供应商编号或合作关系。
 - B 组下单前使用 A 组可信商品快照，再由 C 组批量校验每件商品是否允许该团长带货。
-- 本仓库不创建 C 组合作关系表，也不实现 C 组查询。
+- `GroupCPromoterCatalogService` 只调用 C 组现有 `PromoterService`，用于可用团长、合作供应商、带货商品和团长售价校验；B 组不直接查询 C 组表。
+
+### 4.2 支付与消费者消息
+
+- 批次支付通过 C 组现有 `IPaymentService.CreatePaymentRecord` 写支付流水，B 组不再调用 C 组 Repository。
+- 消息中心先由 B 组仓储查询消费者订单，再按订单调用 C 组现有 `IRefundService.GetOrderRefundsAsync`，最后在 B 组 `ConsumerMessageService` 中合并排序。
+- C 组支付服务当前将审计日志写入独立连接，外层订单事务回滚时可能留下已提交日志；这是 C 组实现问题，B 组不越界修改。
 
 ## 5. C 组调用 B 组：退款积分扣回
 

@@ -62,7 +62,6 @@ builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddSingleton<CustomerAuthenticationStateService>();
 builder.Services.AddScoped<ICouponService, CouponService>();
 builder.Services.AddScoped<IConsumerMessageService, ConsumerMessageService>();
-builder.Services.AddScoped<IGroupCInterface, GroupCInterfaceService>();
 builder.Services.AddScoped<IGroupCPromoterCatalogService, GroupCPromoterCatalogService>();
 builder.Services.AddScoped<GroupBDailyMaintenanceService>();
 builder.Services.AddHostedService<GroupBDailyCheckHostedService>();
