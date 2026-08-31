@@ -82,6 +82,16 @@
     border-radius: 6px;
     text-align: center;
 }
+.user-chip .chip-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+    vertical-align: middle;
+    margin-right: 4px;
+    border: 1px solid rgba(255,255,255,0.6);
+    background: #fff;
+}
 
 .portal-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .portal-header { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 18px 28px; }
@@ -407,6 +417,84 @@
     font-weight: 700;
     flex-shrink: 0;
 }
+
+/* 预制头像：顶部大图 + 右下角更换按钮 */
+.profile-avatar.avatar-preview {
+    position: relative;
+    overflow: visible;
+}
+.profile-avatar.avatar-preview img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.6);
+    background: #fff;
+}
+.avatar-change-btn {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: #2E5870;
+    color: #fff;
+    font-size: 12px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+.avatar-change-btn:hover { background: #1f4357; }
+
+/* 基本信息行的头像缩略图 */
+.avatar-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    vertical-align: middle;
+    border: 1px solid #dee2e6;
+}
+
+/* 头像选择弹窗 */
+.avatar-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+.avatar-picker-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 6px;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    background: #f7fafc;
+    cursor: pointer;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.avatar-picker-item img {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+}
+.avatar-picker-item span { font-size: 12px; color: #495057; }
+.avatar-picker-item:hover { background: #eef4f8; }
+.avatar-picker-item.selected {
+    border-color: #2E5870;
+    background: #e3edf3;
+    box-shadow: 0 0 0 2px rgba(46, 88, 112, 0.2);
+}
+.avatar-picker-item.selected span { color: #2E5870; font-weight: 600; }
 
 .profile-name { font-size: 22px; font-weight: 700; }
 .profile-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }

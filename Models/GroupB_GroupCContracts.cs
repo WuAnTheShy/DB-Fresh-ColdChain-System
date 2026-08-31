@@ -83,6 +83,12 @@ public sealed class PromBind
     }
 
     public DateTime? BindExpireTime { get; init; }
+
+    // 团长头像标识（cat/rabbit/panda/fox/carrot/broccoli/tomato/corn），未设置时为空
+    public string? Avatar { get; init; }
+
+    // 团长头像图片地址（可直接用于 <img src>），未设置时为空
+    public string? AvatarUrl { get; init; }
 }
 
 public sealed class ActivatePromoterMoneyInput

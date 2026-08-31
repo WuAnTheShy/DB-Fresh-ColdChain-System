@@ -5,6 +5,7 @@ namespace FreshColdChain.Models
         public string PromoterId { get; set; } = string.Empty;       // 团长编号 (主键)
         public string PromoterName { get; set; } = string.Empty;     // 团长姓名
         public string Phone { get; set; } = string.Empty;            // 联系电话
+        public string? Avatar { get; set; }                          // 预制头像标识（cat/rabbit/panda/fox/carrot/broccoli/tomato/corn）
         public string InviteCode { get; set; } = string.Empty;       // 邀请码
         public decimal BaseCommissionRate { get; set; }              // 基础佣金比例(如 5.00 表示 5%)
         public decimal CurrentBalance { get; set; }                  // 当前可提现余额

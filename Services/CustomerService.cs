@@ -15,6 +15,23 @@ public sealed class CustomerService : ICustomerService
         @"^1\d{10}$",
         RegexOptions.CultureInvariant);
 
+    /// <summary>系统预置头像标识集合（与前端 ClientApp/src/assets/avatars 目录一致）。</summary>
+    private static readonly HashSet<string> AllowedAvatars = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "cat", "rabbit", "panda", "fox",
+        "carrot", "broccoli", "tomato", "corn"
+    };
+
+    private static string? NormalizeAvatar(string? avatar)
+    {
+        if (string.IsNullOrWhiteSpace(avatar))
+            return null;
+        var normalized = avatar.Trim();
+        return AllowedAvatars.Contains(normalized)
+            ? normalized
+            : throw new GroupBBusinessException("请选择有效的预置头像");
+    }
+
     private readonly ICustomerRepository _customerRepo;
     private readonly IPointRepository _pointRepo;
     private readonly IOrderTransactionManager _transactionManager;
@@ -55,6 +72,7 @@ public sealed class CustomerService : ICustomerService
                 CustomerName = request.CustomerName,
                 Phone = request.Phone,
                 Email = request.Email,
+                Avatar = request.Avatar,
                 MemberLevelId = baseLevel?.MemberLevelId,
                 TotalSpent = 0m,
                 Points = 0
@@ -92,7 +110,8 @@ public sealed class CustomerService : ICustomerService
         {
             CustomerId = customer.CustomerId,
             CustomerName = customer.CustomerName,
-            Phone = customer.Phone
+            Phone = customer.Phone,
+            Avatar = customer.Avatar
         };
     }
 
@@ -429,6 +448,7 @@ public sealed class CustomerService : ICustomerService
         {
             throw new GroupBBusinessException("请输入有效的邮箱地址");
         }
+        request.Avatar = NormalizeAvatar(request.Avatar);
     }
 
     private static void NormalizeAndValidateCreateRequest(CustomerCreateRequest request)
@@ -448,12 +468,17 @@ public sealed class CustomerService : ICustomerService
         {
             throw new GroupBBusinessException("请输入有效的邮箱地址");
         }
+<<<<<<< HEAD
         ValidatePassword(request.Password, request.ConfirmPassword);
     }
 
     private static void ValidatePassword(string? password, string? confirmPassword)
     {
         if (password?.Length is not (>= 8 and <= 100))
+=======
+        request.Avatar = NormalizeAvatar(request.Avatar);
+        if (request.Password.Length is < 8 or > 100)
+>>>>>>> origin/dev-groupC
             throw new GroupBBusinessException("密码长度必须为8到100个字符");
         if (!string.Equals(password, confirmPassword, StringComparison.Ordinal))
             throw new GroupBBusinessException("两次输入的密码不一致");

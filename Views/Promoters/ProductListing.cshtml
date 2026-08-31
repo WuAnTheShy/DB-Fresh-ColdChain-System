@@ -36,11 +36,24 @@
                             var priceMax = p.DefaultPrice + priceDiff;
                             <tr>
                                 <td>
-                                    @p.ProductName
-                                    @if (!string.IsNullOrEmpty(p.Unit))
-                                    {
-                                        <span class="text-muted small">（@p.Unit）</span>
-                                    }
+                                    <div class="d-flex align-items-center gap-2">
+                                        @if (p.Images.Any())
+                                        {
+                                            <img src="@p.Images[0]" alt="@p.ProductName" class="product-thumb" onerror="this.style.display='none'" />
+                                        }
+                                        <div>
+                                            <div>@p.ProductName
+                                                @if (!string.IsNullOrEmpty(p.Unit))
+                                                {
+                                                    <span class="text-muted small">（@p.Unit）</span>
+                                                }
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(p.Description))
+                                            {
+                                                <div class="text-muted small text-truncate" style="max-width:340px;" title="@p.Description">📝 @p.Description</div>
+                                            }
+                                        </div>
+                                    </div>
                                 </td>
                                 <td>@p.SupplierName</td>
                                 <td class="text-center">￥@p.SupplyPrice.ToString("F2")</td>
@@ -74,6 +87,33 @@
                                         <input type="hidden" name="keyword" value="@Model.Keyword" />
                                         <input type="hidden" name="action" value="unbind" />
                                         <button type="submit" class="btn btn-sm btn-outline-danger">移除</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <!-- 团长带货介绍：默认复制供应商文字，团长可修改/重写（给消费者端展示的即是此文字） -->
+                            <tr class="desc-row table-light">
+                                <td colspan="8">
+                                    <form asp-action="UpdateEntryDescription" method="post" class="d-flex flex-column gap-2">
+                                        <div class="d-flex align-items-start gap-2">
+                                            <input type="hidden" name="productId" value="@p.ProductID" />
+                                            <input type="hidden" name="supplierId" value="@p.SupplierID" />
+                                            <input type="hidden" name="keyword" value="@Model.Keyword" />
+                                            <textarea name="promoterDesc" rows="2" class="form-control form-control-sm desc-input"
+                                                      placeholder="填写您的带货介绍（消费者端将展示这段文字）">@p.PromoterDesc</textarea>
+                                            <button type="submit" class="btn btn-sm btn-outline-primary" style="flex-shrink:0;white-space:nowrap;">保存介绍</button>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(p.Description))
+                                        {
+                                            <div class="text-muted small">
+                                                <b>供应商原版文字：</b>
+                                                <span class="supplier-desc" style="white-space:pre-wrap;">@p.Description</span>
+                                                <button type="button" class="btn btn-link btn-sm p-0 ms-2 copy-desc">复制到上方介绍框</button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="text-muted small">供应商暂未提供商品文字介绍，您可以直接撰写。</div>
+                                        }
                                     </form>
                                 </td>
                             </tr>
@@ -147,8 +187,20 @@
                                     <div class="small">@item.SupplierName</div>
                                 </td>
                                 <td>
-                                    <div>@item.ProductName</div>
-                                    <div class="text-muted small">@item.ProductID</div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        @if (item.Images.Any())
+                                        {
+                                            <img src="@item.Images[0]" alt="@item.ProductName" class="product-thumb" onerror="this.style.display='none'" />
+                                        }
+                                        <div>
+                                            <div>@item.ProductName</div>
+                                            <div class="text-muted small">@item.ProductID</div>
+                                            @if (!string.IsNullOrEmpty(item.Description))
+                                            {
+                                                <div class="text-muted small text-truncate" style="max-width:340px;" title="@item.Description">📝 @item.Description</div>
+                                            }
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="text-center">￥@item.SupplyPrice.ToString("F2")</td>
                                 <td class="text-center">￥@item.DefaultPrice.ToString("F2")</td>
@@ -210,6 +262,7 @@
                                             <input type="hidden" name="action" value="bind" />
                                             <input type="hidden" name="supplyPrice" value="@item.SupplyPrice" />
                                             <input type="hidden" name="defaultPrice" value="@item.DefaultPrice" />
+                                            <input type="hidden" name="description" value="@item.Description" />
                                             <button type="submit" class="btn btn-sm btn-success">入团</button>
                                         </form>
                                     }
@@ -232,7 +285,22 @@
 </div>
 
 @section Scripts {
+    <style>
+        .product-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb; flex-shrink: 0; }
+    </style>
     <script>
+        // 复制供应商原版文字到团长介绍框
+        document.querySelectorAll('.copy-desc').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var row = btn.closest('.desc-row');
+                if (!row) return;
+                var textarea = row.querySelector('.desc-input');
+                var src = row.querySelector('.supplier-desc');
+                if (!textarea || !src) return;
+                textarea.value = src.textContent.trim();
+                textarea.focus();
+            });
+        });
         // 团长定价校验：|团长价 - 推荐价| < |推荐价 - 报价| / 2（仅对已入团商品生效；留空 = 使用推荐价）
         document.querySelectorAll('.price-form').forEach(function (form) {
             form.addEventListener('submit', function (e) {

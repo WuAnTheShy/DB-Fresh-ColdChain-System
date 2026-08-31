@@ -54,4 +54,15 @@ public class ProductRepository : BaseRepository<InvProduct>, IProductRepository
             new { Id = id }, _uow.Transaction, splitOn: "CATEGORYNAME,SUPPLIERNAME,STOCKID");
         return result.FirstOrDefault();
     }
+
+    public async Task<List<InvProductImage>> GetAllProductImagesAsync()
+    {
+        var sql = """
+            SELECT ImageID, ProductID, ImageUrl, SortOrder, CreateTime
+            FROM Inv_ProductImages
+            ORDER BY ProductID, SortOrder
+            """;
+        var items = await _uow.Connection.QueryAsync<InvProductImage>(sql, null, _uow.Transaction);
+        return items.ToList();
+    }
 }

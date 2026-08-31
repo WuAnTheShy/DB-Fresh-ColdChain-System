@@ -10,6 +10,7 @@ public class CrmCustomer
     public string CustomerName { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string? Email { get; set; }
+    public string? Avatar { get; set; }          // 预制头像标识
     public string PasswordHash { get; set; } = string.Empty;
     public string? PromoterId { get; set; }       // 所属团长ID（C组字符串GUID）
     public string? MemberLevelId { get; set; }     // 当前会员等级

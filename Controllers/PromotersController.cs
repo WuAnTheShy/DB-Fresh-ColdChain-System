@@ -96,6 +96,26 @@ namespace FreshColdChain.Controllers
             return View(_dataProvider.BuildProfile(GetPromoterId()!));
         }
 
+        /// <summary>
+        /// 团长自助更换预置头像（avatar 传空则恢复默认文字头像）。
+        /// </summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateAvatar(string avatar)
+        {
+            var redirect = EnsureLoggedIn();
+            if (redirect != null) return redirect;
+            var promoterId = GetPromoterId()!;
+
+            var result = await _promoterService.UpdatePromoterAvatarAsync(promoterId, avatar);
+            if (result.IsSuccess)
+                TempData["SuccessMessage"] = "头像已更新！";
+            else
+                TempData["ErrorMessage"] = result.ErrorMessage;
+
+            return RedirectToAction("Profile");
+        }
+
         public IActionResult Logout()
         {
             HttpContext.Session.Remove(SessionPromoterIdKey);
@@ -169,10 +189,11 @@ namespace FreshColdChain.Controllers
         /// 将（商品，供应商）加入/移出团长入团商品（商品入团表 CRM_PRODUCT_ENTRIES）。
         /// 入团时携带团长定价 price（留空则默认推荐价），以及该组合的报价 supplyPrice、推荐价 defaultPrice，
         /// 由服务层校验定价规则：|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2。
+        /// description 为供应商商品文字，入团时默认复制为团长带货介绍。
         /// </summary>
         [HttpPost]
         public async Task<IActionResult> ToggleProductEntry(string productId, string supplierId, string action, string? keyword,
-            decimal? price, decimal supplyPrice, decimal defaultPrice)
+            decimal? price, decimal supplyPrice, decimal defaultPrice, string? description = null)
         {
             var redirect = EnsureLoggedIn();
             if (redirect != null) return redirect;
@@ -183,7 +204,7 @@ namespace FreshColdChain.Controllers
             {
                 if (action == "bind")
                 {
-                    success = await _promoterService.AddProductEntryAsync(promoterId, productId, supplierId, price, supplyPrice, defaultPrice);
+                    success = await _promoterService.AddProductEntryAsync(promoterId, productId, supplierId, price, supplyPrice, defaultPrice, description);
                     TempData["SuccessMessage"] = success ? "商品已加入入团商品！" : "入团失败，请重试。";
                 }
                 else if (action == "unbind")
@@ -221,6 +242,30 @@ namespace FreshColdChain.Controllers
             catch (Exception ex)
             {
                 TempData["ErrorMessage"] = "定价保存失败：" + ex.Message;
+            }
+
+            return RedirectToAction("ProductListing", new { keyword });
+        }
+
+        /// <summary>
+        /// 更新已入团（商品，供应商）组合的团长带货介绍文字（团长主动书写/改写商品介绍）。
+        /// 给消费者端展示的始终是团长的文字。
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> UpdateEntryDescription(string productId, string supplierId, string? keyword, string? promoterDesc)
+        {
+            var redirect = EnsureLoggedIn();
+            if (redirect != null) return redirect;
+            var promoterId = GetPromoterId()!;
+
+            try
+            {
+                var success = await _promoterService.UpdateEntryDescriptionAsync(promoterId, productId, supplierId, promoterDesc);
+                TempData["SuccessMessage"] = success ? "带货介绍已保存！" : "介绍保存失败，请重试。";
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = "介绍保存失败：" + ex.Message;
             }
 
             return RedirectToAction("ProductListing", new { keyword });

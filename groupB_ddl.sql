@@ -24,6 +24,7 @@ CREATE TABLE Crm_Customers (
     CustomerName    VARCHAR2(100)  NOT NULL,
     Phone           VARCHAR2(20)   NOT NULL,
     Email           VARCHAR2(100),
+    Avatar          VARCHAR2(50),                -- 预制头像标识（cat/rabbit/panda/fox/carrot/broccoli/tomato/corn）
     PasswordHash    VARCHAR2(255)  NOT NULL,
     PromoterId      VARCHAR2(36),                 -- 所属团长ID（C组字符串GUID）
     MemberLevelId   VARCHAR2(36),

@@ -1,13 +1,23 @@
 <script setup>
+<<<<<<< HEAD
 import { Eye, EyeOff, KeyRound, LogIn, ShieldCheck, Smartphone, UserPlus } from '@lucide/vue'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
+=======
+import { Eye, EyeOff, LogIn, ShieldCheck, UserPlus } from '@lucide/vue'
+import { computed, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { api } from '../services/api'
+import { useCustomerContext } from '../state/customer'
+import { presetAvatars } from '../assets/avatars'
+>>>>>>> origin/dev-groupC
 
 const route = useRoute()
 const router = useRouter()
 const { setCustomer } = useCustomerContext()
+<<<<<<< HEAD
 const supportedModes = ['login', 'register', 'reset']
 const initialMode = supportedModes.includes(route.query.mode) ? route.query.mode : 'login'
 const mode = ref(initialMode)
@@ -33,11 +43,32 @@ watch(() => route.query.mode, (value) => {
   mode.value = supportedModes.includes(value) ? value : 'login'
   error.value = ''
   success.value = ''
+=======
+const mode = ref(route.query.mode === 'register' ? 'register' : 'login')
+const submitting = ref(false)
+const showPassword = ref(false)
+const error = ref('')
+const loginForm = reactive({ phone: '', password: '' })
+const registerForm = reactive({
+  customerName: '',
+  phone: '',
+  email: '',
+  avatar: presetAvatars[Math.floor(Math.random() * presetAvatars.length)].id,
+  password: '',
+  confirmPassword: '',
+})
+const isRegister = computed(() => mode.value === 'register')
+
+watch(() => route.query.mode, (value) => {
+  mode.value = value === 'register' ? 'register' : 'login'
+  error.value = ''
+>>>>>>> origin/dev-groupC
 })
 
 function switchMode(nextMode) {
   mode.value = nextMode
   error.value = ''
+<<<<<<< HEAD
   success.value = ''
   return router.replace({
     name: 'auth',
@@ -80,6 +111,14 @@ async function sendCode() {
 
 onBeforeUnmount(() => window.clearInterval(resendTimer))
 
+=======
+  router.replace({
+    name: 'auth',
+    query: { ...route.query, mode: nextMode === 'register' ? 'register' : undefined },
+  })
+}
+
+>>>>>>> origin/dev-groupC
 function destination() {
   const redirect = String(route.query.redirect ?? '')
   return redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/profile'
@@ -89,6 +128,7 @@ async function submit() {
   submitting.value = true
   error.value = ''
   try {
+<<<<<<< HEAD
     if (isReset.value) {
       await api.resetCustomerPassword(resetForm)
       loginForm.phone = resetForm.phone
@@ -99,6 +139,8 @@ async function submit() {
       return
     }
 
+=======
+>>>>>>> origin/dev-groupC
     const result = isRegister.value
       ? await api.registerCustomer({
           ...registerForm,
@@ -132,39 +174,61 @@ async function submit() {
 
     <section class="auth-panel" aria-labelledby="auth-title">
       <div class="auth-tabs" role="tablist" aria-label="账号入口">
+<<<<<<< HEAD
         <button type="button" :class="{ active: mode === 'login' }" role="tab" :aria-selected="mode === 'login'" @click="switchMode('login')">登录</button>
+=======
+        <button type="button" :class="{ active: !isRegister }" role="tab" :aria-selected="!isRegister" @click="switchMode('login')">登录</button>
+>>>>>>> origin/dev-groupC
         <button type="button" :class="{ active: isRegister }" role="tab" :aria-selected="isRegister" @click="switchMode('register')">注册</button>
       </div>
 
       <div class="auth-heading">
+<<<<<<< HEAD
         <span class="auth-heading-icon"><UserPlus v-if="isRegister" :size="23" /><KeyRound v-else-if="isReset" :size="23" /><LogIn v-else :size="23" /></span>
         <div>
           <h2 id="auth-title">{{ title }}</h2>
           <p>{{ subtitle }}</p>
+=======
+        <span class="auth-heading-icon"><UserPlus v-if="isRegister" :size="23" /><LogIn v-else :size="23" /></span>
+        <div>
+          <h2 id="auth-title">{{ isRegister ? '创建消费者账号' : '欢迎回来' }}</h2>
+          <p>{{ isRegister ? '填写资料后即可开始社区团购' : '使用注册手机号和密码登录' }}</p>
+>>>>>>> origin/dev-groupC
         </div>
       </div>
 
       <div v-if="error" class="alert alert-danger auth-alert" role="alert">{{ error }}</div>
+<<<<<<< HEAD
       <div v-if="success" class="alert alert-success auth-alert" role="status">{{ success }}</div>
+=======
+>>>>>>> origin/dev-groupC
 
       <form class="auth-form" @submit.prevent="submit">
         <label v-if="isRegister">
           <span>姓名</span>
           <input v-model.trim="registerForm.customerName" class="form-control" autocomplete="name" maxlength="100" placeholder="请输入姓名" required />
         </label>
+<<<<<<< HEAD
         <label v-if="!isReset">
+=======
+        <label>
+>>>>>>> origin/dev-groupC
           <span>手机号码</span>
           <input v-if="isRegister" v-model.trim="registerForm.phone" class="form-control" type="tel" inputmode="numeric" autocomplete="tel" maxlength="11" pattern="1[0-9]{10}" placeholder="11位中国大陆手机号" required />
           <input v-else v-model.trim="loginForm.phone" class="form-control" type="tel" inputmode="numeric" autocomplete="tel" maxlength="11" pattern="1[0-9]{10}" placeholder="11位中国大陆手机号" required />
         </label>
+<<<<<<< HEAD
         <label v-else>
           <span>注册手机号码</span>
           <input v-model.trim="resetForm.phone" class="form-control" type="tel" inputmode="numeric" autocomplete="tel" maxlength="11" pattern="1[0-9]{10}" placeholder="11位中国大陆手机号" required />
         </label>
+=======
+>>>>>>> origin/dev-groupC
         <label v-if="isRegister">
           <span>电子邮箱 <small>选填</small></span>
           <input v-model.trim="registerForm.email" class="form-control" type="email" autocomplete="email" maxlength="100" placeholder="name@example.com" />
         </label>
+<<<<<<< HEAD
         <template v-if="isReset">
           <label>
             <span>模拟短信验证码</span>
@@ -193,6 +257,9 @@ async function submit() {
           </label>
         </template>
         <label v-else>
+=======
+        <label>
+>>>>>>> origin/dev-groupC
           <span>密码</span>
           <span class="password-field">
             <input v-if="isRegister" v-model="registerForm.password" class="form-control" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" minlength="8" maxlength="100" placeholder="至少8个字符" required />
@@ -204,6 +271,7 @@ async function submit() {
           <span>确认密码</span>
           <input v-model="registerForm.confirmPassword" class="form-control" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" minlength="8" maxlength="100" placeholder="再次输入密码" required />
         </label>
+<<<<<<< HEAD
 
         <button class="btn btn-buy auth-submit" type="submit" :disabled="submitting || (isReset && !resetForm.verificationId)">
           <span v-if="submitting" class="spinner-border spinner-border-sm"></span>
@@ -223,6 +291,29 @@ async function submit() {
         <button type="button" @click="switchMode(isRegister ? 'login' : 'register')">{{ isRegister ? '直接登录' : '立即注册' }}</button>
       </p>
       <p v-if="!isRegister && !isReset" class="auth-forgot"><button type="button" @click="openReset">忘记密码？</button></p>
+=======
+        <fieldset v-if="isRegister" class="auth-avatar-field">
+          <legend>选择头像</legend>
+          <div class="auth-avatar-grid">
+            <button v-for="avatar in presetAvatars" :key="avatar.id" type="button" :class="{ active: registerForm.avatar === avatar.id }" :title="avatar.name" :aria-label="`选择${avatar.name}头像`" @click="registerForm.avatar = avatar.id">
+              <img :src="avatar.src" :alt="avatar.name" />
+            </button>
+          </div>
+        </fieldset>
+
+        <button class="btn btn-buy auth-submit" type="submit" :disabled="submitting">
+          <span v-if="submitting" class="spinner-border spinner-border-sm"></span>
+          <UserPlus v-else-if="isRegister" :size="18" />
+          <LogIn v-else :size="18" />
+          {{ submitting ? '正在提交…' : isRegister ? '注册并登录' : '登录' }}
+        </button>
+      </form>
+
+      <p class="auth-switch">
+        {{ isRegister ? '已经有账号？' : '还没有账号？' }}
+        <button type="button" @click="switchMode(isRegister ? 'login' : 'register')">{{ isRegister ? '直接登录' : '立即注册' }}</button>
+      </p>
+>>>>>>> origin/dev-groupC
     </section>
   </div>
 </template>
@@ -253,6 +344,7 @@ async function submit() {
 .password-field { position: relative; display: block; }
 .password-field input { padding-right: 46px; }
 .password-field button { position: absolute; top: 1px; right: 1px; display: inline-flex; width: 42px; height: 40px; align-items: center; justify-content: center; border: 0; background: transparent; color: #68736e; }
+<<<<<<< HEAD
 .code-field { display: grid; grid-template-columns: minmax(0, 1fr) 118px; gap: 8px; }
 .code-field button { white-space: nowrap; font-size: 11px; }
 .simulated-code { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border: 1px dashed #63a88d; border-radius: 8px; background: #eef8f4; color: #326c58; font-size: 11px; }
@@ -262,6 +354,21 @@ async function submit() {
 .auth-switch button { border: 0; background: transparent; color: var(--brand); font-weight: 750; }
 .auth-forgot { margin: 9px 0 0; text-align: center; }
 .auth-forgot button { border: 0; background: transparent; color: #68736e; font-size: 11px; text-decoration: underline; }
+=======
+.auth-avatar-field { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; border: 0; }
+.auth-avatar-field legend { padding: 0; color: #39443f; font-size: 11px; font-weight: 750; }
+.auth-avatar-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+.auth-avatar-grid button { display: inline-flex; align-items: center; justify-content: center; padding: 3px; border: 2px solid transparent; border-radius: 50%; background: transparent; cursor: pointer; transition: border-color .15s, transform .15s; }
+.auth-avatar-grid button:hover { transform: scale(1.06); }
+.auth-avatar-grid button.active { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(21, 128, 61, .18); }
+.auth-avatar-grid img { width: 100%; height: auto; border-radius: 50%; }
+@media (max-width: 479.98px) {
+  .auth-avatar-grid { grid-template-columns: repeat(4, 1fr); }
+}
+.auth-submit { width: 100%; margin-top: 5px; }
+.auth-switch { margin: 22px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
+.auth-switch button { border: 0; background: transparent; color: var(--brand); font-weight: 750; }
+>>>>>>> origin/dev-groupC
 
 @media (max-width: 767.98px) {
   .auth-page { width: min(100% - 20px, 520px); min-height: 0; grid-template-columns: 1fr; margin-top: 14px; }
