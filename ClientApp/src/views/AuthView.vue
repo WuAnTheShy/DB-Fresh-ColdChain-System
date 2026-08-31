@@ -1,6 +1,6 @@
 <script setup>
-import { Eye, EyeOff, LogIn, ShieldCheck, UserPlus } from '@lucide/vue'
-import { computed, reactive, ref, watch } from 'vue'
+import { Eye, EyeOff, KeyRound, LogIn, ShieldCheck, Smartphone, UserPlus } from '@lucide/vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
@@ -8,27 +8,77 @@ import { useCustomerContext } from '../state/customer'
 const route = useRoute()
 const router = useRouter()
 const { setCustomer } = useCustomerContext()
-const mode = ref(route.query.mode === 'register' ? 'register' : 'login')
+const supportedModes = ['login', 'register', 'reset']
+const initialMode = supportedModes.includes(route.query.mode) ? route.query.mode : 'login'
+const mode = ref(initialMode)
 const submitting = ref(false)
+const sendingCode = ref(false)
 const showPassword = ref(false)
 const error = ref('')
+const success = ref('')
 const loginForm = reactive({ phone: '', password: '' })
 const registerForm = reactive({ customerName: '', phone: '', email: '', password: '', confirmPassword: '' })
+const resetForm = reactive({ phone: '', verificationId: '', code: '', newPassword: '', confirmPassword: '' })
+const simulatedCode = ref('')
+const resendSeconds = ref(0)
+let resendTimer = null
 const isRegister = computed(() => mode.value === 'register')
+const isReset = computed(() => mode.value === 'reset')
+const title = computed(() => isRegister.value ? '创建消费者账号' : isReset.value ? '重置登录密码' : '欢迎回来')
+const subtitle = computed(() => isRegister.value
+  ? '填写资料后即可开始社区团购'
+  : isReset.value ? '通过手机号和模拟短信验证码设置新密码' : '使用注册手机号和密码登录')
 
 watch(() => route.query.mode, (value) => {
-  mode.value = value === 'register' ? 'register' : 'login'
+  mode.value = supportedModes.includes(value) ? value : 'login'
   error.value = ''
+  success.value = ''
 })
 
 function switchMode(nextMode) {
   mode.value = nextMode
   error.value = ''
-  router.replace({
+  success.value = ''
+  return router.replace({
     name: 'auth',
-    query: { ...route.query, mode: nextMode === 'register' ? 'register' : undefined },
+    query: { ...route.query, mode: nextMode === 'login' ? undefined : nextMode },
   })
 }
+
+watch(() => resetForm.phone, () => {
+  resetForm.verificationId = ''
+  resetForm.code = ''
+  simulatedCode.value = ''
+})
+
+function openReset() {
+  resetForm.phone = loginForm.phone
+  switchMode('reset')
+}
+
+async function sendCode() {
+  sendingCode.value = true
+  error.value = ''
+  success.value = ''
+  try {
+    const result = await api.sendCustomerPasswordResetCode({ phone: resetForm.phone })
+    resetForm.verificationId = result.verificationId
+    simulatedCode.value = result.simulatedCode
+    success.value = '模拟短信验证码已生成，请在5分钟内使用'
+    resendSeconds.value = 60
+    window.clearInterval(resendTimer)
+    resendTimer = window.setInterval(() => {
+      resendSeconds.value--
+      if (resendSeconds.value <= 0) window.clearInterval(resendTimer)
+    }, 1000)
+  } catch (requestError) {
+    error.value = requestError.message
+  } finally {
+    sendingCode.value = false
+  }
+}
+
+onBeforeUnmount(() => window.clearInterval(resendTimer))
 
 function destination() {
   const redirect = String(route.query.redirect ?? '')
@@ -39,6 +89,16 @@ async function submit() {
   submitting.value = true
   error.value = ''
   try {
+    if (isReset.value) {
+      await api.resetCustomerPassword(resetForm)
+      loginForm.phone = resetForm.phone
+      loginForm.password = ''
+      simulatedCode.value = ''
+      await switchMode('login')
+      success.value = '密码已重置，原登录会话已失效，请使用新密码登录'
+      return
+    }
+
     const result = isRegister.value
       ? await api.registerCustomer({
           ...registerForm,
@@ -72,35 +132,67 @@ async function submit() {
 
     <section class="auth-panel" aria-labelledby="auth-title">
       <div class="auth-tabs" role="tablist" aria-label="账号入口">
-        <button type="button" :class="{ active: !isRegister }" role="tab" :aria-selected="!isRegister" @click="switchMode('login')">登录</button>
+        <button type="button" :class="{ active: mode === 'login' }" role="tab" :aria-selected="mode === 'login'" @click="switchMode('login')">登录</button>
         <button type="button" :class="{ active: isRegister }" role="tab" :aria-selected="isRegister" @click="switchMode('register')">注册</button>
       </div>
 
       <div class="auth-heading">
-        <span class="auth-heading-icon"><UserPlus v-if="isRegister" :size="23" /><LogIn v-else :size="23" /></span>
+        <span class="auth-heading-icon"><UserPlus v-if="isRegister" :size="23" /><KeyRound v-else-if="isReset" :size="23" /><LogIn v-else :size="23" /></span>
         <div>
-          <h2 id="auth-title">{{ isRegister ? '创建消费者账号' : '欢迎回来' }}</h2>
-          <p>{{ isRegister ? '填写资料后即可开始社区团购' : '使用注册手机号和密码登录' }}</p>
+          <h2 id="auth-title">{{ title }}</h2>
+          <p>{{ subtitle }}</p>
         </div>
       </div>
 
       <div v-if="error" class="alert alert-danger auth-alert" role="alert">{{ error }}</div>
+      <div v-if="success" class="alert alert-success auth-alert" role="status">{{ success }}</div>
 
       <form class="auth-form" @submit.prevent="submit">
         <label v-if="isRegister">
           <span>姓名</span>
           <input v-model.trim="registerForm.customerName" class="form-control" autocomplete="name" maxlength="100" placeholder="请输入姓名" required />
         </label>
-        <label>
+        <label v-if="!isReset">
           <span>手机号码</span>
           <input v-if="isRegister" v-model.trim="registerForm.phone" class="form-control" type="tel" inputmode="numeric" autocomplete="tel" maxlength="11" pattern="1[0-9]{10}" placeholder="11位中国大陆手机号" required />
           <input v-else v-model.trim="loginForm.phone" class="form-control" type="tel" inputmode="numeric" autocomplete="tel" maxlength="11" pattern="1[0-9]{10}" placeholder="11位中国大陆手机号" required />
+        </label>
+        <label v-else>
+          <span>注册手机号码</span>
+          <input v-model.trim="resetForm.phone" class="form-control" type="tel" inputmode="numeric" autocomplete="tel" maxlength="11" pattern="1[0-9]{10}" placeholder="11位中国大陆手机号" required />
         </label>
         <label v-if="isRegister">
           <span>电子邮箱 <small>选填</small></span>
           <input v-model.trim="registerForm.email" class="form-control" type="email" autocomplete="email" maxlength="100" placeholder="name@example.com" />
         </label>
-        <label>
+        <template v-if="isReset">
+          <label>
+            <span>模拟短信验证码</span>
+            <span class="code-field">
+              <input v-model.trim="resetForm.code" class="form-control" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="请输入6位验证码" required />
+              <button class="btn btn-outline-secondary" type="button" :disabled="sendingCode || resendSeconds > 0" @click="sendCode">
+                {{ sendingCode ? '生成中…' : resendSeconds > 0 ? `${resendSeconds}秒后重发` : '获取验证码' }}
+              </button>
+            </span>
+          </label>
+          <div v-if="simulatedCode" class="simulated-code" role="status">
+            <Smartphone :size="18" />
+            <span>演示验证码</span>
+            <strong>{{ simulatedCode }}</strong>
+          </div>
+          <label>
+            <span>新密码</span>
+            <span class="password-field">
+              <input v-model="resetForm.newPassword" class="form-control" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" minlength="8" maxlength="100" placeholder="至少8个字符" required />
+              <button type="button" :aria-label="showPassword ? '隐藏密码' : '显示密码'" @click="showPassword = !showPassword"><EyeOff v-if="showPassword" :size="18" /><Eye v-else :size="18" /></button>
+            </span>
+          </label>
+          <label>
+            <span>确认新密码</span>
+            <input v-model="resetForm.confirmPassword" class="form-control" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" minlength="8" maxlength="100" placeholder="再次输入新密码" required />
+          </label>
+        </template>
+        <label v-else>
           <span>密码</span>
           <span class="password-field">
             <input v-if="isRegister" v-model="registerForm.password" class="form-control" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" minlength="8" maxlength="100" placeholder="至少8个字符" required />
@@ -113,18 +205,24 @@ async function submit() {
           <input v-model="registerForm.confirmPassword" class="form-control" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" minlength="8" maxlength="100" placeholder="再次输入密码" required />
         </label>
 
-        <button class="btn btn-buy auth-submit" type="submit" :disabled="submitting">
+        <button class="btn btn-buy auth-submit" type="submit" :disabled="submitting || (isReset && !resetForm.verificationId)">
           <span v-if="submitting" class="spinner-border spinner-border-sm"></span>
           <UserPlus v-else-if="isRegister" :size="18" />
+          <KeyRound v-else-if="isReset" :size="18" />
           <LogIn v-else :size="18" />
-          {{ submitting ? '正在提交…' : isRegister ? '注册并登录' : '登录' }}
+          {{ submitting ? '正在提交…' : isRegister ? '注册并登录' : isReset ? '确认重置密码' : '登录' }}
         </button>
       </form>
 
-      <p class="auth-switch">
+      <p v-if="isReset" class="auth-switch">
+        想起密码了？
+        <button type="button" @click="switchMode('login')">返回登录</button>
+      </p>
+      <p v-else class="auth-switch">
         {{ isRegister ? '已经有账号？' : '还没有账号？' }}
         <button type="button" @click="switchMode(isRegister ? 'login' : 'register')">{{ isRegister ? '直接登录' : '立即注册' }}</button>
       </p>
+      <p v-if="!isRegister && !isReset" class="auth-forgot"><button type="button" @click="openReset">忘记密码？</button></p>
     </section>
   </div>
 </template>
@@ -155,9 +253,15 @@ async function submit() {
 .password-field { position: relative; display: block; }
 .password-field input { padding-right: 46px; }
 .password-field button { position: absolute; top: 1px; right: 1px; display: inline-flex; width: 42px; height: 40px; align-items: center; justify-content: center; border: 0; background: transparent; color: #68736e; }
+.code-field { display: grid; grid-template-columns: minmax(0, 1fr) 118px; gap: 8px; }
+.code-field button { white-space: nowrap; font-size: 11px; }
+.simulated-code { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border: 1px dashed #63a88d; border-radius: 8px; background: #eef8f4; color: #326c58; font-size: 11px; }
+.simulated-code strong { margin-left: auto; color: var(--brand); font-size: 20px; letter-spacing: 4px; }
 .auth-submit { width: 100%; margin-top: 5px; }
 .auth-switch { margin: 22px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
 .auth-switch button { border: 0; background: transparent; color: var(--brand); font-weight: 750; }
+.auth-forgot { margin: 9px 0 0; text-align: center; }
+.auth-forgot button { border: 0; background: transparent; color: #68736e; font-size: 11px; text-decoration: underline; }
 
 @media (max-width: 767.98px) {
   .auth-page { width: min(100% - 20px, 520px); min-height: 0; grid-template-columns: 1fr; margin-top: 14px; }

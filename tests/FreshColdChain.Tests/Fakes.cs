@@ -35,6 +35,7 @@ internal sealed class TestContext
         LogisticsService = new FakeLogisticsService();
         CommissionService = new FakeCommissionService();
         TransactionManager = new FakeTransactionManager();
+        AuthenticationState = new CustomerAuthenticationStateService();
         Service = new OrderService(
             OrderRepository,
             CustomerRepository,
@@ -48,7 +49,8 @@ internal sealed class TestContext
             CustomerRepository,
             PointRepository,
             TransactionManager,
-            new PasswordHasher<CrmCustomer>());
+            new PasswordHasher<CrmCustomer>(),
+            AuthenticationState);
         CouponService = new CouponService(
             CouponRepository,
             CustomerRepository,
@@ -63,6 +65,7 @@ internal sealed class TestContext
     public FakeLogisticsService LogisticsService { get; }
     public FakeCommissionService CommissionService { get; }
     public FakeTransactionManager TransactionManager { get; }
+    public CustomerAuthenticationStateService AuthenticationState { get; }
     public OrderService Service { get; }
     public CustomerService CustomerService { get; }
     public CouponService CouponService { get; }
@@ -445,6 +448,31 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
             .SingleOrDefault(item =>
                 string.Equals(item.Phone, phone, StringComparison.Ordinal));
         return Task.FromResult(customer == null ? null : CloneCustomer(customer));
+    }
+
+    public Task<CrmCustomer?> GetByPhoneForUpdateAsync(
+        string phone,
+        IDbTransaction transaction)
+    {
+        return GetByPhoneAsync(phone, transaction);
+    }
+
+    public Task<bool> UpdatePasswordHashAsync(
+        string customerId,
+        string passwordHash,
+        IDbTransaction transaction)
+    {
+        var customer = new[] { Customer }
+            .Concat(CreatedCustomers)
+            .SingleOrDefault(item => item.CustomerId == customerId);
+        if (customer == null) return Task.FromResult(false);
+
+        Stage(transaction, () =>
+        {
+            customer.PasswordHash = passwordHash;
+            customer.UpdatedAt = DateTime.Now;
+        });
+        return Task.FromResult(true);
     }
 
     public Task<CrmCustomer?> GetByIdForUpdateAsync(

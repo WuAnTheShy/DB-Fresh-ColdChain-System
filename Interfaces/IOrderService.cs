@@ -49,6 +49,11 @@ public interface ICustomerService
 
     Task<GroupBCustomerLoginResult> LoginAsync(GroupBCustomerLoginRequest request);
 
+    Task<GroupBCustomerPasswordResetCodeResult> SendPasswordResetCodeAsync(
+        GroupBCustomerPasswordResetCodeRequest request);
+
+    Task ResetPasswordAsync(GroupBCustomerPasswordResetRequest request);
+
     Task<CrmCustomer?> GetCustomerAsync(string customerId);
 
     Task<CustomerProfileViewModel?> GetProfileAsync(string customerId);

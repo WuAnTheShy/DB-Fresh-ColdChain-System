@@ -67,6 +67,34 @@ public class CustomerRepository : B_BaseRepository, ICustomerRepository
                 transaction));
     }
 
+    public async Task<CrmCustomer?> GetByPhoneForUpdateAsync(
+        string phone,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, connection =>
+            connection.QueryFirstOrDefaultAsync<CrmCustomer>(
+                "SELECT * FROM Crm_Customers WHERE Phone = :Phone FOR UPDATE",
+                new { Phone = phone },
+                transaction));
+    }
+
+    public async Task<bool> UpdatePasswordHashAsync(
+        string customerId,
+        string passwordHash,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+        {
+            var affected = await connection.ExecuteAsync(
+                @"UPDATE Crm_Customers
+                  SET PasswordHash = :PasswordHash, UpdatedAt = SYSDATE
+                  WHERE CustomerId = :CustomerId",
+                new { CustomerId = customerId, PasswordHash = passwordHash },
+                transaction);
+            return affected == 1;
+        });
+    }
+
     /// <summary>锁定消费者行，防止并发订单覆盖积分余额</summary>
     public async Task<CrmCustomer?> GetByIdForUpdateAsync(
         string customerId,

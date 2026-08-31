@@ -22,6 +22,15 @@ public interface ICustomerRepository
         string phone,
         IDbTransaction? transaction = null);
 
+    Task<CrmCustomer?> GetByPhoneForUpdateAsync(
+        string phone,
+        IDbTransaction transaction);
+
+    Task<bool> UpdatePasswordHashAsync(
+        string customerId,
+        string passwordHash,
+        IDbTransaction transaction);
+
     Task<CrmCustomer?> GetByIdForUpdateAsync(
         string customerId,
         IDbTransaction transaction);

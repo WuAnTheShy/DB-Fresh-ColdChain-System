@@ -58,6 +58,7 @@ builder.Services.AddScoped<IInventoryService, DummyInventoryService>();
 builder.Services.AddScoped<ILogisticsService, DummyLogisticsService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddSingleton<CustomerAuthenticationStateService>();
 builder.Services.AddScoped<ICouponService, CouponService>();
 builder.Services.AddScoped<IGroupCInterface, GroupCInterfaceService>();
 builder.Services.AddScoped<GroupBDailyMaintenanceService>();
@@ -105,6 +106,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 app.UseSession();
+app.UseMiddleware<CustomerSessionValidationMiddleware>();
 app.UseAuthorization();
 
 app.MapControllerRoute(
