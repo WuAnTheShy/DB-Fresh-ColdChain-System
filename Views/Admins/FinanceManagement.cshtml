@@ -1,0 +1,60 @@
+@{
+    ViewData["Title"] = "财务管理";
+    int pendingWithdrawalCount = ViewBag.PendingWithdrawalCount ?? 0;
+    decimal pendingWithdrawalAmount = ViewBag.PendingWithdrawalAmount ?? 0m;
+    int pendingRefundCount = ViewBag.PendingRefundCount ?? 0;
+    decimal pendingRefundAmount = ViewBag.PendingRefundAmount ?? 0m;
+}
+<partial name="_Alerts" />
+
+<!-- 待办汇总 -->
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-warning-subtle text-warning">⏳</span>
+            <span class="stat-label">待审核提现</span>
+        </div>
+        <div class="stat-value text-warning">@pendingWithdrawalCount 笔</div>
+        <div class="stat-sub">合计 ¥@pendingWithdrawalAmount.ToString("N2")</div>
+    </div>
+    <div class="stat-card sales">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-danger-subtle text-danger">⏳</span>
+            <span class="stat-label">待审核退款</span>
+        </div>
+        <div class="stat-value text-dark">@pendingRefundCount 笔</div>
+        <div class="stat-sub">合计 ¥@pendingRefundAmount.ToString("N2")</div>
+    </div>
+</div>
+
+<!-- 功能入口 -->
+<h5 class="mb-3 mt-2">💼 财务功能</h5>
+<div class="stat-grid">
+    <div class="content-card mb-0">
+        <div class="content-card-header">
+            <h5>提现审核</h5>
+            <a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary">进入</a>
+        </div>
+        <div class="content-card-body">
+            <p class="text-muted small mb-0">审核团长提现申请（锁定可提现余额）。</p>
+        </div>
+    </div>
+    <div class="content-card mb-0">
+        <div class="content-card-header">
+            <h5>退款管理</h5>
+            <a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary">进入</a>
+        </div>
+        <div class="content-card-body">
+            <p class="text-muted small mb-0">审核退款申请，通过后执行佣金/积分回滚。</p>
+        </div>
+    </div>
+    <div class="content-card mb-0">
+        <div class="content-card-header">
+            <h5>支付流水</h5>
+            <a asp-action="PaymentRecords" class="btn btn-sm btn-outline-primary">进入</a>
+        </div>
+        <div class="content-card-body">
+            <p class="text-muted small mb-0">查询支付流水与退款记录，支持时间/订单号/状态筛选。</p>
+        </div>
+    </div>
+</div>

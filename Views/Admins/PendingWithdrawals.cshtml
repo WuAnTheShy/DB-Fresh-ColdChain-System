@@ -1,0 +1,112 @@
+@model List<GroupC_FinWithdrawalRecord>
+@{
+    ViewData["Title"] = "提现审核";
+    var totalPending = Model.Count;
+    var totalAmount = Model.Sum(x => x.ApplyAmount);
+}
+<partial name="_Alerts" />
+
+<!-- 汇总卡片（仿照佣金明细顶部的统计卡片） -->
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-warning-subtle text-warning">⏳</span>
+            <span class="stat-label">待审核提现</span>
+        </div>
+        <div class="stat-value text-warning">@totalPending 笔</div>
+        <div class="stat-sub">需平台审核</div>
+    </div>
+    <div class="stat-card sales">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-purple-subtle text-purple">¥</span>
+            <span class="stat-label">待审核总金额</span>
+        </div>
+        <div class="stat-value text-dark">@totalAmount.ToString("N2")</div>
+        <div class="stat-sub">预计需发放金额</div>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5>📋 提现申请列表</h5>
+        <span class="text-muted small">点击操作进行审核，驳回需填写原因</span>
+    </div>
+    <div class="content-card-body p-0">
+        @if (!Model.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>暂无待审核的提现申请</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>申请编号</th>
+                            <th>团长ID</th>
+                            <th>提现金额</th>
+                            <th>收款账户</th>
+                            <th>申请时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td><code class="small">@item.WithdrawalId</code></td>
+                                <td><code class="small">@item.PromoterId</code></td>
+                                <td><strong class="text-success">¥@item.ApplyAmount.ToString("N2")</strong></td>
+                                <td class="small">@item.AccountInfo</td>
+                                <td class="small text-muted">@item.ApplyTime.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>
+                                    <form asp-action="ApproveWithdrawal" method="post" style="display:inline-block;">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="withdrawalId" value="@item.WithdrawalId" />
+                                        <button type="submit" class="btn btn-sm btn-success">通过</button>
+                                    </form>
+                                    <!-- 驳回触发模态框 -->
+                                    <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal-@item.WithdrawalId">
+                                        驳回
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- 模态框部分：针对每一个申请生成一个专属驳回模态框 -->
+@foreach (var item in Model)
+{
+    <div class="modal fade" id="rejectModal-@item.WithdrawalId" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">驳回提现申请</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form asp-action="RejectWithdrawal" method="post">
+                    <div class="modal-body">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="withdrawalId" value="@item.WithdrawalId" />
+                        <div class="mb-3">
+                            <label class="form-label">驳回原因</label>
+                            <textarea name="rejectReason" class="form-control" rows="3" placeholder="请填写驳回原因，团长将在提现记录中看到..." required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-danger">确认驳回</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}

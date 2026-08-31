@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - 管理员工作台</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/promoter-portal.css" asp-append-version="true" />
+</head>
+<body class="promoter-portal">
+    <div class="portal-wrapper">
+        <aside class="portal-sidebar">
+            <div class="sidebar-brand">
+                <span class="brand-icon">管</span>
+                <div>
+                    <div class="brand-title">管理后台</div>
+                    <div class="brand-sub">生鲜冷链团购</div>
+                </div>
+            </div>
+            @{
+                var adminAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+                var isRoleModule = new[] { "RoleManagement", "PendingPromoters", "PendingSuppliers", "ManagePromoters", "ManageSuppliers", "AddPromoter" }.Contains(adminAction);
+                var isFinanceModule = new[] { "FinanceManagement", "PendingWithdrawals", "PendingRefunds", "PaymentRecords" }.Contains(adminAction);
+                var isLogModule = adminAction == "OperationLogs";
+            }
+            <nav class="sidebar-nav">
+                <a asp-controller="Admins" asp-action="Dashboard"
+                   class="nav-link @(adminAction == "Dashboard" ? "active" : "")">
+                    <span class="nav-icon">⌂</span> 工作台
+                </a>
+                <a asp-controller="Admins" asp-action="RoleManagement"
+                   class="nav-link @(isRoleModule ? "active" : "")">
+                    <span class="nav-icon">👥</span> 角色管理
+                </a>
+                <a asp-controller="Admins" asp-action="FinanceManagement"
+                   class="nav-link @(isFinanceModule ? "active" : "")">
+                    <span class="nav-icon">💰</span> 财务管理
+                </a>
+                <a asp-controller="Admins" asp-action="OperationLogs"
+                   class="nav-link @(isLogModule ? "active" : "")">
+                    <span class="nav-icon">📋</span> 日志管理
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-chip">管理员: @Context.Session.GetString("AdminName")</div>
+                <a asp-controller="Account" asp-action="Login" asp-route-role="管理员" class="btn btn-outline-light btn-sm w-100 mt-2">退出登录</a>
+            </div>
+        </aside>
+        <main class="portal-main">
+            <header class="portal-header d-flex align-items-center justify-content-between">
+                <h1 class="page-title mb-0">@ViewData["Title"]</h1>
+                <span class="header-date text-muted small">@DateTime.Now.ToString("yyyy年MM月dd日 dddd")</span>
+            </header>
+            <div class="portal-content">
+                @RenderBody()
+            </div>
+        </main>
+    </div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -40,6 +40,11 @@ public class InvSupplier
     [MaxLength(255)]
     public string? LoginPassword { get; set; }
 
+    /// <summary>状态: Pending(待审核) / Active(正常) / Disabled(已禁用) / Rejected(入驻被驳回)</summary>
+    [Column("STATUS")]
+    [MaxLength(20)]
+    public string Status { get; set; } = "Active";
+
     // 导航属性
     [NotMapped] public ICollection<InvProduct> Products { get; set; } = new List<InvProduct>();
 

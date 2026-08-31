@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between align-items-center">
     <h3>我的报价 — @Model.SupplierName</h3>
     <div class="d-flex align-items-center gap-2">
-        <a class="btn btn-outline-secondary btn-sm" asp-controller="Home" asp-action="Index">← 返回首页</a>
+        <a class="btn btn-outline-secondary btn-sm" asp-controller="SuppliersHome" asp-action="Index">← 返回供应商首页</a>
         <form asp-action="Logout" method="post" class="mb-0">
             @Html.AntiForgeryToken()
             <button type="submit" class="btn btn-outline-secondary btn-sm">退出登录</button>

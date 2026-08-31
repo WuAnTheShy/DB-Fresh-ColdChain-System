@@ -12,8 +12,8 @@ public class OracleDbConnectionFactory : IDbConnectionFactory
 
     public OracleDbConnectionFactory(IConfiguration configuration)
     {
-        _connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException("未找到 DefaultConnection 连接字符串");
+        _connectionString = configuration.GetConnectionString("OracleConnection")
+            ?? throw new InvalidOperationException("未找到 OracleConnection 连接字符串");
     }
 
     public IDbConnection CreateConnection()

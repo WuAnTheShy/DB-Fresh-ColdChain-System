@@ -1,0 +1,67 @@
+
+@* Views/Account/Login.cshtml *@
+@{
+    ViewData["Title"] = $"{@ViewBag.Role} 注册";
+}
+<link rel="stylesheet" href="~/css/accountsite.css" asp-append-version="true" />
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="selection1 p-4">
+                <div class="selection2 mb-3" style="padding: 1.5rem; text-align: center;">
+                    <h3 style="font-size: 1.8rem; color: white;"> 注 册</h3>
+                    <div style="font-size: 0.9rem; opacity: 0.9; color: white;">正在以 @ViewBag.Role 身份注册</div>
+                </div>
+                    @* 显示全局错误信息 *@
+                    @if (!ViewData.ModelState.IsValid)
+                    {
+                        <div class="alert alert-danger" role="alert" data-auto-dismiss>
+                            @Html.ValidationSummary(false, "", new { @class = "text-danger" })
+                        </div>
+                    }
+
+                    <form asp-action="PromoterRegister" method="post">
+                        <div class="mb-3">
+                            <label for="promotername" class="form-label">真实姓名</label>
+                            <input type="text" class="form-control" id="promotername" name="promotername"
+                                   placeholder="请输入真实姓名" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="phonenumber" class="form-label">联系电话</label>
+                            <input type="text" class="form-control" id="phonenumber" name="phonenumber"
+                                   placeholder="请输入联系电话号码" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="username" class="form-label">用户名</label>
+                            <input type="text" class="form-control" id="username" name="username"
+                                   placeholder="请输入用户名" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">密码</label>
+                            <input type="password" class="form-control" id="password" name="password"
+                                   placeholder="请输入密码" required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password_again" class="form-label">确认密码</label>
+                            <input type="password" class="form-control" id="password_again" name="password_again"
+                                   placeholder="请再次输入密码" required />
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-lg button1 text-white">注 册</button>
+                        </div>
+                        </form>
+
+                        <div class="text-center mt-4">
+                        <a class="back-btn" asp-action="Login" asp-controller="Account" asp-route-role="@ViewBag.Role">返回登录</a>
+                        </div>
+                        </div>
+            </div>
+        </div>
+    </div>
+</div>

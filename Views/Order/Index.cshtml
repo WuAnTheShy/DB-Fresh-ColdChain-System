@@ -1,0 +1,132 @@
+@model OrderListViewModel
+@{
+    ViewData["Title"] = "订单管理";
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-2">订单管理</h1>
+            <p class="text-muted mb-0">查询订单、查看供应商拆单并执行合法状态流转。</p>
+        </div>
+        <a asp-action="Create" class="btn btn-primary align-self-md-start">创建订单</a>
+    </div>
+
+    @if (ViewData["ErrorMessage"] is string errorMessage)
+    {
+        <div class="alert alert-warning" role="alert">@errorMessage</div>
+    }
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body p-4">
+            <form asp-action="Index" method="get" class="row g-3 align-items-end">
+                <div class="col-lg-4">
+                    <label class="form-label" for="Keyword">订单号或消费者姓名</label>
+                    <input id="Keyword" name="Keyword" value="@Model.Query.Keyword"
+                           class="form-control" placeholder="输入关键词" />
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <label class="form-label" for="CustomerId">消费者ID</label>
+                    <input id="CustomerId" name="CustomerId" value="@Model.Query.CustomerId"
+                           class="form-control" inputmode="numeric" />
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <label class="form-label" for="Status">订单状态</label>
+                    <select id="Status" name="Status" class="form-select">
+                        <option value="">全部状态</option>
+                        @foreach (var status in Enum.GetValues<OrderStatus>())
+                        {
+                            <option value="@status"
+                                    selected="@(Model.Query.Status == status)">
+                                @OrderStatusNames.GetName(status)
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="col-lg-2 d-grid">
+                    <button type="submit" class="btn btn-outline-primary">查询</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="text-muted">共 @Model.TotalCount 条订单</div>
+        @if (Model.TotalPages > 0)
+        {
+            <div class="small text-muted">
+                第 @Model.Query.Page / @Model.TotalPages 页
+            </div>
+        }
+    </div>
+
+    <div class="card shadow-sm">
+        @if (Model.Orders.Count == 0)
+        {
+            <div class="card-body p-5 text-center">
+                <h2 class="h5">没有符合条件的订单</h2>
+                <p class="text-muted mb-3">可以调整查询条件，或先创建一笔订单。</p>
+                <a asp-action="Create" class="btn btn-primary">创建订单</a>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>订单</th>
+                            <th>消费者</th>
+                            <th>拆单</th>
+                            <th>实付</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th class="text-end">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in Model.Orders)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold">#@order.OrderId</div>
+                                    <div class="small text-muted">@order.OrderNo</div>
+                                </td>
+                                <td>@order.CustomerName（#@order.CustomerId）</td>
+                                <td>@order.ItemCount 项 / @order.SupplierCount 家供应商</td>
+                                <td>¥@order.FinalAmount.ToString("F2")</td>
+                                <td>
+                                    <span class="badge text-bg-light">@order.StatusName</span>
+                                </td>
+                                <td>@order.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="text-end">
+                                    <a asp-action="Detail" asp-route-id="@order.OrderId"
+                                       class="btn btn-outline-primary btn-sm">查看详情</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav class="mt-4" aria-label="订单分页">
+            <ul class="pagination justify-content-center">
+                @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                {
+                    <li class="page-item @(pageNumber == Model.Query.Page ? "active" : "")">
+                        <a class="page-link" asp-action="Index"
+                           asp-route-page="@pageNumber"
+                           asp-route-pageSize="@Model.Query.PageSize"
+                           asp-route-keyword="@Model.Query.Keyword"
+                           asp-route-customerId="@Model.Query.CustomerId"
+                           asp-route-status="@Model.Query.Status">@pageNumber</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+    }
+</div>

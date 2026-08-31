@@ -3,7 +3,6 @@ using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
-using Microsoft.Extensions.Logging;
 
 namespace FreshColdChain.Controllers;
 
@@ -13,20 +12,17 @@ public class ColdChainLogisticsController : Controller
     private readonly ILogFreightTemplateRepository _templates;
     private readonly ILogExpressDeliveryRepository _deliveries;
     private readonly IProductRepository _products;
-    private readonly ILogger<ColdChainLogisticsController> _logger;
 
     public ColdChainLogisticsController(
         IColdChainLogisticsService logistics,
         ILogFreightTemplateRepository templates,
         ILogExpressDeliveryRepository deliveries,
-        IProductRepository products,
-        ILogger<ColdChainLogisticsController> logger)
+        IProductRepository products)
     {
         _logistics = logistics;
         _templates = templates;
         _deliveries = deliveries;
         _products = products;
-        _logger = logger;
     }
 
     // ========== 运费模板管理 ==========
@@ -52,8 +48,7 @@ public class ColdChainLogisticsController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "运费模板创建失败 TemplateName={TemplateName}", template.TemplateName);
-            TempData["Error"] = "运费模板创建失败，请稍后重试";
+            TempData["Error"] = $"运费模板创建失败：{ex.Message}";
         }
         return RedirectToAction(nameof(Index));
     }
@@ -71,8 +66,7 @@ public class ColdChainLogisticsController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "运费模板删除失败 TemplateID={TemplateID}", id);
-            TempData["Error"] = "运费模板删除失败，请稍后重试";
+            TempData["Error"] = $"运费模板删除失败：{ex.Message}";
         }
         return RedirectToAction(nameof(Index));
     }
@@ -113,8 +107,7 @@ public class ColdChainLogisticsController : Controller
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "运费模板更新失败 TemplateID={TemplateID}", id);
-            TempData["Error"] = "运费模板更新失败，请稍后重试";
+            TempData["Error"] = $"运费模板更新失败：{ex.Message}";
         }
         return RedirectToAction(nameof(Index));
     }

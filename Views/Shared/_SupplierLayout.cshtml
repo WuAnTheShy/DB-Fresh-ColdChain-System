@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] — 生鲜冷链团购分销供应链系统</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+@{
+    // 蓝条导航栏和品牌名始终保留；
+    // 已登录的供应商始终显示完整导航菜单（冷链物流/运费模板等）；
+    // 未登录时仅平台管理页面显示菜单，首页与登录页只显示品牌蓝条
+    var supplierLoggedIn = Context.Session.GetString("SupplierId") != null;
+    var currentController = ViewContext.RouteData.Values["controller"] as string;
+    var currentAction = ViewContext.RouteData.Values["action"] as string;
+    var showMenu = supplierLoggedIn
+        || (!(currentController == "SuppliersHome" && currentAction == "Index")
+            && !(currentController == "Suppliers" && currentAction == "Login"));
+}
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-dark bg-primary mb-3">
+            <div class="container">
+                <a class="navbar-brand" asp-controller="SuppliersHome" asp-action="Index">🧊 冷链团购系统</a>
+                @if (showMenu)
+                {
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav">
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="SuppliersHome" asp-action="Index">首页</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Products" asp-action="Index">产品库存</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Suppliers" asp-action="Index">供应商</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Prices" asp-action="Index">💰 定价规则</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">冷链物流</a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" asp-controller="ColdChainLogistics" asp-action="Index">运费模板</a></li>
+                                    <li><a class="dropdown-item" asp-controller="ColdChainLogistics" asp-action="Quote">运费报价</a></li>
+                                    <li><a class="dropdown-item" asp-controller="ColdChainLogistics" asp-action="CreateShipment">创建发货</a></li>
+                                    <li><a class="dropdown-item" asp-controller="ColdChainLogistics" asp-action="Shipments">发货记录</a></li>
+                                    <li><hr class="dropdown-divider" /></li>
+                                    <li><a class="dropdown-item" asp-controller="ColdChainLogistics" asp-action="Traceability">🔍 精准溯源</a></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                }
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+        @if (TempData["Success"] is string successMsg)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert" data-auto-dismiss>
+                @successMsg
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        @if (TempData["Error"] is string errorMsg)
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert" data-auto-dismiss>
+                @errorMsg
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        <main role="main" class="pb-4">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted mt-5">
+        <div class="container text-center py-3">
+            &copy; 2026 — 生鲜冷链团购分销供应链系统
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

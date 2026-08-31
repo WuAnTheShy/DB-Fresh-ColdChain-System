@@ -214,7 +214,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
             // 任一步骤失败 → 回滚事务，不残留任何数据
             _logger.LogError(e, "冷链发货失败 OrderID={OrderID} SupplierID={SupplierID}", request.OrderID, request.SupplierID);
             await _uow.RollbackAsync();
-            return ApiResponse<LogExpressDelivery>.Fail("冷链发货失败，请稍后重试");
+            return ApiResponse<LogExpressDelivery>.Fail(e.Message);
         }
     }
 

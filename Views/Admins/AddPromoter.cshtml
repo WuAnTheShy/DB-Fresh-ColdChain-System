@@ -1,0 +1,44 @@
+@model FreshColdChain.Models.DTOs.GroupC_PromoterAddInfo
+@{
+    ViewData["Title"] = "新增团长";
+}
+<partial name="_Alerts" />
+
+<div class="content-card" style="max-width: 640px;">
+    <div class="content-card-header">
+        <h5>➕ 新增团长</h5>
+        <span class="text-muted small">管理员创建的账号免审核，直接生效</span>
+    </div>
+    <div class="content-card-body">
+        <form asp-action="AddPromoter" method="post">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label">团长姓名 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" name="PromoterName" value="@Model.PromoterName" required />
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">登录账号 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="LoginAccount" value="@Model.LoginAccount" required />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">登录密码 <span class="text-danger">*</span></label>
+                    <input type="password" class="form-control" name="LoginPassword" required />
+                </div>
+            </div>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">联系电话</label>
+                    <input type="text" class="form-control" name="Phone" value="@Model.Phone" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">基础佣金率（小数，如 0.03 表示 3%）</label>
+                    <input type="number" class="form-control" name="BaseCommissionRate"
+                           value="@Model.BaseCommissionRate" step="0.001" min="0" max="1" />
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">创建团长</button>
+            <a asp-action="ManagePromoters" class="btn btn-outline-secondary ms-2">返回列表</a>
+        </form>
+    </div>
+</div>

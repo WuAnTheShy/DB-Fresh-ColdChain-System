@@ -1,0 +1,74 @@
+.bg {
+    /* 背景配图：生鲜蔬果实拍图 + 半透明遮罩（同色双层，非装饰渐变） */
+    background-image: linear-gradient(rgba(203, 228, 235, 0.2), rgba(203, 228, 235, 0.2)), url('/images/homepic.png');
+    background-size: cover; /* 与首页 homesite.css 一致：始终按比例铺满，不随缩放拉伸变形 */
+    background-position: center top;
+    background-repeat: no-repeat;
+    background-color: #CBE4EB;
+    border-bottom: 0;
+    box-shadow: 0 4px 12px rgba(34, 59, 70, 0.08);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    margin-bottom: 0 !important;
+}
+
+.selection1 {
+    background: #ffffff;
+    border-radius: 0.75rem;
+    padding: 2rem;
+    margin-top: 2rem;
+    transition: transform 0.25s ease, box-shadow 0.25s ease; /* 平滑过渡 */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+
+.selection2 {
+    background: #2E5870;
+    border-radius: 0.75rem;
+    padding: 2rem;
+    margin-top: 2rem;
+}
+
+.button1 {
+    background: #005C74;
+}
+
+.button2 {
+    background: #2E5870;
+}
+
+.button1, .button2 {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+    .button1:hover, .button2:hover {
+        background: #223B46;
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    }
+
+/* 页脚：由 layoutsite.css 统一控制（文档流布局，margin-top:auto 贴底），
+   此处不再使用 position: fixed，避免大屏下遮挡页面内容且滚轮无法看到 */
+
+/* 返回按钮（返回首页 / 返回角色选择 / 返回登录） */
+.back-btn {
+    display: block;
+    width: 100%; /* 与登入/注册按钮同宽 */
+    text-align: center;
+    color: #fff;
+    font-size: 1.25rem; /* 与登入/注册按钮（btn-lg）字号一致 */
+    font-weight: 400;
+    background: #1E4553; /* 比“选择你的身份”背景（#2E5870）更暗一点的灰蓝色 */
+    border: none;
+    border-radius: 0.45rem;
+    padding: 0.65rem 1.2rem;
+    text-decoration: none;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.back-btn:hover {
+    background: #183B47;
+    color: #fff;
+    transform: translateY(-2px);
+}

@@ -1,0 +1,136 @@
+@model List<GroupC_CrmPromoter>
+@{
+    ViewData["Title"] = "团长管理";
+}
+<partial name="_Alerts" />
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5>🧑‍🤝‍🧑 团长列表</h5>
+        <a asp-action="AddPromoter" class="btn btn-sm btn-primary">+ 新增团长</a>
+    </div>
+    <div class="content-card-body p-0">
+        @if (!Model.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>暂无团长账号</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>团长</th>
+                            <th>登录账号</th>
+                            <th>联系电话</th>
+                            <th>基础佣金率</th>
+                            <th>累计销售额</th>
+                            <th>可提现余额</th>
+                            <th>注册时间</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            var (badge, text) = item.Status switch
+                            {
+                                "Enable" => ("text-bg-success", "正常"),
+                                "Disable" => ("text-bg-secondary", "已禁用"),
+                                "Frozen" => ("text-bg-danger", "已冻结"),
+                                _ => ("text-bg-warning", "待审核")
+                            };
+                            <tr>
+                                <td>
+                                    @item.PromoterName
+                                    <div class="small text-muted"><code>@item.PromoterId</code></div>
+                                </td>
+                                <td class="small">@item.LoginAccount</td>
+                                <td class="small">@item.Phone</td>
+                                <td>@((item.BaseCommissionRate * 100).ToString("0.##"))%</td>
+                                <td>¥@item.TotalSales.ToString("N2")</td>
+                                <td>¥@item.CurrentBalance.ToString("N2")</td>
+                                <td class="small text-muted">@item.RegisterTime.ToString("yyyy-MM-dd")</td>
+                                <td><span class="badge @badge">@text</span></td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary mb-1" data-bs-toggle="modal"
+                                            data-bs-target="#rateModal"
+                                            data-id="@item.PromoterId" data-name="@item.PromoterName" data-rate="@item.BaseCommissionRate">改比例</button>
+                                    @if (item.Status == "Enable")
+                                    {
+                                        <form asp-action="SetPromoterStatus" method="post" style="display:inline-block;"
+                                              onsubmit="return confirm('确认禁用该团长？禁用后其无法登录。');">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="promoterId" value="@item.PromoterId" />
+                                            <input type="hidden" name="targetStatus" value="Disable" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">禁用</button>
+                                        </form>
+                                    }
+                                    else if (item.Status is "Disable" or "Frozen")
+                                    {
+                                        <form asp-action="SetPromoterStatus" method="post" style="display:inline-block;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="promoterId" value="@item.PromoterId" />
+                                            <input type="hidden" name="targetStatus" value="Enable" />
+                                            <button type="submit" class="btn btn-sm btn-outline-success">重新启用</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <a asp-action="PendingPromoters" class="btn btn-sm btn-outline-primary">去审核</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- 修改佣金比例 Modal -->
+<div class="modal fade" id="rateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="UpdateCommissionRate" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="rateModalPromoterId" name="PromoterId" />
+                <div class="modal-header">
+                    <h6 class="modal-title">修改佣金比例</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-2">
+                        团长：<strong id="rateModalPromoterName"></strong>
+                        （当前 <span id="rateModalCurrent"></span>）
+                    </p>
+                    <label class="form-label">新基础佣金率（小数，如 0.03 表示 3%）</label>
+                    <input type="number" class="form-control" id="rateModalInput" name="BaseCommissionRate"
+                           step="0.001" min="0" max="1" required />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary btn-sm">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    var rateModalEl = document.getElementById('rateModal');
+    if (rateModalEl) {
+        rateModalEl.addEventListener('show.bs.modal', function (event) {
+            var btn = event.relatedTarget;
+            document.getElementById('rateModalPromoterId').value = btn.getAttribute('data-id');
+            document.getElementById('rateModalPromoterName').textContent = btn.getAttribute('data-name');
+            document.getElementById('rateModalCurrent').textContent = (parseFloat(btn.getAttribute('data-rate')) * 100).toFixed(2) + '%';
+            document.getElementById('rateModalInput').value = btn.getAttribute('data-rate');
+        });
+    }
+</script>

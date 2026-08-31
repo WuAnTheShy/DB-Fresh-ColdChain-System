@@ -1,0 +1,201 @@
+@model OrderDetailViewModel
+@{
+    ViewData["Title"] = "订单详情";
+    var order = Model.Order;
+    var badgeClass = order?.OrderStatus switch
+    {
+        OrderStatusCodes.Paid => "text-bg-primary",
+        OrderStatusCodes.Shipped => "text-bg-info",
+        OrderStatusCodes.Completed => "text-bg-success",
+        OrderStatusCodes.Cancelled => "text-bg-secondary",
+        OrderStatusCodes.Refunding => "text-bg-warning",
+        OrderStatusCodes.Refunded => "text-bg-dark",
+        _ => "text-bg-light"
+    };
+}
+
+<div class="container py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+        <div>
+            <a asp-action="Index" class="text-decoration-none small">← 返回订单列表</a>
+            <h1 class="h3 mt-2 mb-1">订单详情 #@Model.OrderId</h1>
+            @if (order != null)
+            {
+                <div class="text-muted">@order.OrderNo</div>
+            }
+        </div>
+        @if (order != null)
+        {
+            <span class="badge @badgeClass align-self-md-start px-3 py-2">
+                @Model.StatusName
+            </span>
+        }
+    </div>
+
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="alert alert-success" role="alert">@successMessage</div>
+    }
+    @if (TempData["ErrorMessage"] is string errorMessage)
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+    @if (ViewData["ErrorMessage"] is string pageError)
+    {
+        <div class="alert alert-danger" role="alert">@pageError</div>
+    }
+
+    @if (order == null)
+    {
+        <div class="card shadow-sm">
+            <div class="card-body p-5 text-center">
+                <h2 class="h5">订单详情暂不可用</h2>
+                <p class="text-muted mb-3">请稍后重试，或返回订单列表选择其他订单。</p>
+                <a asp-action="Index" class="btn btn-outline-primary">返回订单列表</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (Model.CanShip || Model.CanComplete || Model.CanCancel)
+        {
+            <div class="card shadow-sm mb-4">
+                <div class="card-body d-flex flex-wrap align-items-center gap-2">
+                    <span class="text-muted me-2">可执行操作</span>
+                    @if (Model.CanShip)
+                    {
+                        <form asp-action="Transition" asp-route-id="@order.OrderId" method="post">
+                            <input type="hidden" name="targetStatus" value="@OrderStatus.Shipped" />
+                            <button type="submit" class="btn btn-primary">标记已发货</button>
+                        </form>
+                    }
+                    @if (Model.CanComplete)
+                    {
+                        <form asp-action="Transition" asp-route-id="@order.OrderId" method="post">
+                            <input type="hidden" name="targetStatus" value="@OrderStatus.Completed" />
+                            <button type="submit" class="btn btn-success">确认订单完成</button>
+                        </form>
+                    }
+                    @if (Model.CanCancel)
+                    {
+                        <form asp-action="Cancel" asp-route-id="@order.OrderId" method="post"
+                              onsubmit="return confirm('确定取消该订单并归还库存、优惠券和积分吗？');">
+                            <button type="submit" class="btn btn-outline-danger">取消订单</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (order.OrderStatus is OrderStatusCodes.Paid or OrderStatusCodes.Shipped
+            or OrderStatusCodes.Completed or OrderStatusCodes.Refunding)
+        {
+            <div class="card shadow-sm mb-4">
+                <div class="card-body d-flex flex-wrap align-items-center gap-2">
+                    <span class="text-muted me-2">售后服务</span>
+                    <a asp-controller="Refund" asp-action="Apply" asp-route-orderId="@order.OrderId"
+                       class="btn btn-outline-danger">申请退款</a>
+                </div>
+            </div>
+        }
+
+        <div class="row g-4 mb-4">
+            <div class="col-lg-7">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-body-tertiary">订单信息</div>
+                    <div class="card-body p-4">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4 text-muted">消费者</dt>
+                            <dd class="col-sm-8">@Model.CustomerName（#@order.CustomerId）</dd>
+                            <dt class="col-sm-4 text-muted">创建时间</dt>
+                            <dd class="col-sm-8">@order.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+                            <dt class="col-sm-4 text-muted">收件人</dt>
+                            <dd class="col-sm-8">@order.ReceiverName @order.ReceiverPhone</dd>
+                            <dt class="col-sm-4 text-muted">收货地址</dt>
+                            <dd class="col-sm-8">@order.ShippingAddress</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-body-tertiary">金额与积分</div>
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">商品金额</span>
+                            <span>¥@order.TotalAmount.ToString("F2")</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">优惠金额</span>
+                            <span>- ¥@order.DiscountAmount.ToString("F2")</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3">
+                            <span class="text-muted">冷链运费</span>
+                            <span>¥@order.FreightAmount.ToString("F2")</span>
+                        </div>
+                        <div class="border-top pt-3 d-flex justify-content-between">
+                            <strong>实付金额</strong>
+                            <strong class="text-primary">¥@order.FinalAmount.ToString("F2")</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mt-2 small text-muted">
+                            <span>订单奖励积分</span>
+                            <span>@order.PointsEarned</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <section>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="h4 mb-0">供应商拆单</h2>
+                <span class="badge text-bg-secondary">@Model.SupplierGroups.Count 个履约单元</span>
+            </div>
+            @foreach (var group in Model.SupplierGroups)
+            {
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-body-tertiary d-flex justify-content-between">
+                        <span>
+                            @(string.IsNullOrWhiteSpace(group.SupplierId)
+                                ? "待分配供应商"
+                                : $"供应商 #{group.SupplierId}")
+                        </span>
+                        <span>
+                            <span class="badge text-bg-light me-2">@group.FulfillmentStatus</span>
+                            小计 ¥@group.SubTotal.ToString("F2")
+                        </span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(group.TrackingNo))
+                    {
+                        <div class="px-3 pt-3 small text-muted">
+                            运单号：@group.TrackingNo
+                        </div>
+                    }
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>商品</th>
+                                    <th>单价</th>
+                                    <th>数量</th>
+                                    <th class="text-end">小计</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in group.Items)
+                                {
+                                    <tr>
+                                        <td>@item.ProductName</td>
+                                        <td>¥@item.UnitPrice.ToString("F2")</td>
+                                        <td>@item.Quantity</td>
+                                        <td class="text-end">¥@item.SubTotal.ToString("F2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        </section>
+    }
+</div>

@@ -1,0 +1,249 @@
+@{
+    ViewData["Title"] = "工作台";
+    var adminName = ViewBag.AdminName as string ?? "管理员";
+    int pendingPromoterCount = ViewBag.PendingPromoterCount ?? 0;
+    int pendingSupplierCount = ViewBag.PendingSupplierCount ?? 0;
+    int pendingWithdrawalCount = ViewBag.PendingWithdrawalCount ?? 0;
+    int pendingRefundCount = ViewBag.PendingRefundCount ?? 0;
+    decimal pendingWithdrawalAmount = ViewBag.PendingWithdrawalAmount ?? 0m;
+    decimal pendingRefundAmount = ViewBag.PendingRefundAmount ?? 0m;
+    var recentWithdrawals = ViewBag.RecentWithdrawals as List<GroupC_FinWithdrawalRecord> ?? new();
+    var recentRefunds = ViewBag.RecentRefunds as List<FinRefund> ?? new();
+    var hasTodo = pendingPromoterCount + pendingSupplierCount + pendingWithdrawalCount + pendingRefundCount > 0;
+}
+
+<!-- 欢迎横幅 -->
+<div class="dashboard-hero">
+    <div class="hero-text">
+        <div class="hero-greeting">你好，@adminName 👋</div>
+        <div class="hero-meta">
+            <span class="level-badge">管理员</span>
+            <span class="text-white-50">· 生鲜冷链团购后台</span>
+        </div>
+    </div>
+    <div class="hero-actions">
+        <a asp-action="RoleManagement" class="btn btn-light btn-sm">角色管理</a>
+        <a asp-action="FinanceManagement" class="btn btn-outline-light btn-sm">财务管理</a>
+    </div>
+</div>
+
+<!-- 通知栏：紧要事项（仿团长工作台） -->
+<div class="notice-panel rounded-3 overflow-hidden mb-3 shadow-sm">
+    @if (!hasTodo)
+    {
+        <div class="alert alert-success d-flex align-items-center gap-2 mb-0 border-0 rounded-0">
+            <span>✅</span>
+            <span>所有待办均已处理完毕，今日无紧要事项。</span>
+        </div>
+    }
+    else
+    {
+        @if (pendingPromoterCount > 0)
+        {
+            <div class="alert alert-warning d-flex align-items-center justify-content-between mb-0 border-0 rounded-0">
+                <div class="d-flex align-items-center gap-2">
+                    <span>⏳</span>
+                    <span>有 <strong>@pendingPromoterCount</strong> 位团长的入驻申请待审核，请及时处理。</span>
+                </div>
+                <a asp-action="PendingPromoters" class="btn btn-sm btn-outline-primary">去处理</a>
+            </div>
+        }
+        @if (pendingSupplierCount > 0)
+        {
+            <div class="alert alert-warning d-flex align-items-center justify-content-between mb-0 border-0 rounded-0">
+                <div class="d-flex align-items-center gap-2">
+                    <span>⏳</span>
+                    <span>有 <strong>@pendingSupplierCount</strong> 家供应商的入驻申请待审核。</span>
+                </div>
+                <a asp-action="PendingSuppliers" class="btn btn-sm btn-outline-primary">去处理</a>
+            </div>
+        }
+        @if (pendingWithdrawalCount > 0)
+        {
+            <div class="alert alert-warning d-flex align-items-center justify-content-between mb-0 border-0 rounded-0">
+                <div class="d-flex align-items-center gap-2">
+                    <span>💰</span>
+                    <span>有 <strong>@pendingWithdrawalCount</strong> 笔提现申请待审核，合计 <strong>¥@pendingWithdrawalAmount.ToString("N2")</strong>。</span>
+                </div>
+                <a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary">去处理</a>
+            </div>
+        }
+        @if (pendingRefundCount > 0)
+        {
+            <div class="alert alert-warning d-flex align-items-center justify-content-between mb-0 border-0 rounded-0">
+                <div class="d-flex align-items-center gap-2">
+                    <span>↩️</span>
+                    <span>有 <strong>@pendingRefundCount</strong> 笔退款申请待审核，合计 <strong>¥@pendingRefundAmount.ToString("N2")</strong>。</span>
+                </div>
+                <a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary">去处理</a>
+            </div>
+        }
+    }
+</div>
+
+<!-- 核心指标统计卡片 -->
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-primary-subtle text-primary">👤</span>
+            <span class="stat-label">待审核团长</span>
+        </div>
+        <div class="stat-value text-primary">@pendingPromoterCount</div>
+        <div class="stat-sub">入驻申请待处理</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-info-subtle text-info">🏭</span>
+            <span class="stat-label">待审核供应商</span>
+        </div>
+        <div class="stat-value text-dark">@pendingSupplierCount</div>
+        <div class="stat-sub">入驻申请待处理</div>
+    </div>
+    <div class="stat-card pending">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-warning-subtle text-warning">💰</span>
+            <span class="stat-label">待审核提现</span>
+        </div>
+        <div class="stat-value text-warning">@pendingWithdrawalCount</div>
+        <div class="stat-sub">合计 ¥@pendingWithdrawalAmount.ToString("N2")</div>
+    </div>
+    <div class="stat-card sales">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-danger-subtle text-danger">↩️</span>
+            <span class="stat-label">待审核退款</span>
+        </div>
+        <div class="stat-value text-dark">@pendingRefundCount</div>
+        <div class="stat-sub">合计 ¥@pendingRefundAmount.ToString("N2")</div>
+    </div>
+</div>
+
+<!-- 最近待办记录预览 -->
+<div class="row g-3 mt-2">
+    <div class="col-md-6">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5>最近提现申请</h5>
+                <a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary">查看全部</a>
+            </div>
+            <div class="content-card-body p-0">
+                @if (!recentWithdrawals.Any())
+                {
+                    <div class="empty-state py-4">
+                        <div class="empty-icon">📭</div>
+                        <p>暂无待审核提现申请</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>团长编号</th>
+                                    <th>申请金额</th>
+                                    <th>申请时间</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var w in recentWithdrawals)
+                                {
+                                    <tr>
+                                        <td><code class="small">@w.PromoterId</code></td>
+                                        <td class="text-danger fw-semibold">¥@w.ApplyAmount.ToString("N2")</td>
+                                        <td class="small text-muted">@w.ApplyTime.ToString("MM-dd HH:mm")</td>
+                                        <td class="text-end">
+                                            <a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary">审核</a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5>最近退款申请</h5>
+                <a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary">查看全部</a>
+            </div>
+            <div class="content-card-body p-0">
+                @if (!recentRefunds.Any())
+                {
+                    <div class="empty-state py-4">
+                        <div class="empty-icon">📭</div>
+                        <p>暂无待审核退款申请</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>订单号</th>
+                                    <th>退款金额</th>
+                                    <th>申请时间</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in recentRefunds)
+                                {
+                                    <tr>
+                                        <td><code class="small">@r.OrderId</code></td>
+                                        <td class="text-danger fw-semibold">¥@r.RefundAmount.ToString("N2")</td>
+                                        <td class="small text-muted">@r.ApplyTime.ToString("MM-dd HH:mm")</td>
+                                        <td class="text-end">
+                                            <a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary">审核</a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 快捷入口 -->
+<div class="row g-3 mt-2">
+    <div class="col-md-4">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5>👥 角色管理</h5>
+                <a asp-action="RoleManagement" class="btn btn-sm btn-outline-primary">进入</a>
+            </div>
+            <div class="content-card-body">
+                <p class="text-muted small mb-0">团长/供应商注册审核、新增账号、禁用与重新启用。</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5>💰 财务管理</h5>
+                <a asp-action="FinanceManagement" class="btn btn-sm btn-outline-primary">进入</a>
+            </div>
+            <div class="content-card-body">
+                <p class="text-muted small mb-0">提现审核、退款管理、支付流水查询。</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5>📋 日志管理</h5>
+                <a asp-action="OperationLogs" class="btn btn-sm btn-outline-primary">进入</a>
+            </div>
+            <div class="content-card-body">
+                <p class="text-muted small mb-0">操作日志查询，按日期/表名/操作类型检索审计记录。</p>
+            </div>
+        </div>
+    </div>
+</div>

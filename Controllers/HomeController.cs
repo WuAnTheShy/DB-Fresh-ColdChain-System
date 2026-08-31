@@ -1,23 +1,31 @@
-//用于前端页面API
-
+using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using FreshColdChain.Models;
-
-namespace FreshColdChain.Controllers;
-
-public class HomeController : Controller
+namespace FreshColdChain.Controllers
 {
-    public IActionResult Index()
+    public class HomeController : Controller
     {
-        return View();
-    }
+        private readonly ILogger<HomeController> _logger;
 
-    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-    public IActionResult Error()
-    {
-        return View(new ErrorViewModel
+        public HomeController(ILogger<HomeController> logger)
         {
-            RequestId = System.Diagnostics.Activity.Current?.Id ?? HttpContext.TraceIdentifier
-        });
+            _logger = logger;
+        }
+
+        public IActionResult Index()
+        {
+            return View();
+        }
+
+        public IActionResult Load()
+        {
+            return View();
+        }
+
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Error()
+        {
+            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
     }
 }

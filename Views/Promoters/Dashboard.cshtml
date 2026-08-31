@@ -1,0 +1,375 @@
+@model PromoterDashboardViewModel
+@{
+    ViewData["Title"] = "工作台";
+    var p = Model.Promoter;
+    var commissionRateDisplay = p.BaseCommissionRate < 1 ? p.BaseCommissionRate * 100 : p.BaseCommissionRate;
+}
+
+<partial name="_Alerts" />
+
+<!-- 欢迎横幅 -->
+<div class="dashboard-hero">
+    <div class="hero-text">
+        <div class="hero-greeting">你好，@p.PromoterName 👋</div>
+        <div class="hero-meta">
+            <span class="level-badge">@Model.LevelName</span>
+            <span class="text-white-50">· 基础佣金 @Model.CurrentTierRate%</span>
+            <span class="text-white-50">· 累计 @p.TotalOrderCount 笔订单</span>
+        </div>
+    </div>
+    <div class="hero-actions">
+        <a asp-action="Withdrawals" class="btn btn-light btn-sm">申请提现</a>
+        <button type="button" class="btn btn-outline-light btn-sm" onclick="copyInviteCode()">复制邀请码</button>
+    </div>
+</div>
+
+<!-- 核心指标 -->
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-success-subtle text-success">¥</span>
+            <span class="stat-label">可提现余额</span>
+        </div>
+        <div class="stat-value text-success">@p.CurrentBalance.ToString("N2")</div>
+        <div class="stat-sub">已过退款期，可随时提现</div>
+    </div>
+    <div class="stat-card pending">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-warning-subtle text-warning">⏳</span>
+            <span class="stat-label">待结算佣金</span>
+        </div>
+        <div class="stat-value text-warning">@p.PendingBalance.ToString("N2")</div>
+        <div class="stat-sub">@Model.PendingCommissionCount 笔 · 签收后 14 天退款期</div>
+    </div>
+    <div class="stat-card frozen">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-info-subtle text-info">🔒</span>
+            <span class="stat-label">冻结金额</span>
+        </div>
+        <div class="stat-value text-info">@p.FrozenAmount.ToString("N2")</div>
+        <div class="stat-sub">提现审核中的金额</div>
+    </div>
+    <div class="stat-card sales">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-purple-subtle text-purple">📈</span>
+            <span class="stat-label">累计有效销售额</span>
+        </div>
+        <div class="stat-value">@p.TotalSales.ToString("N2")</div>
+        <div class="stat-sub">资产合计 ¥@Model.TotalAsset.ToString("N2")</div>
+    </div>
+</div>
+
+@if (Model.HasPendingWithdrawal)
+{
+    <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+        <span>⚠</span>
+        <span>您有一笔提现申请正在审核中，审核完成前无法再次申请。</span>
+        <a asp-action="Withdrawals" class="ms-auto btn btn-sm btn-outline-warning">查看详情</a>
+    </div>
+}
+
+<div class="row g-3">
+    <!-- 左栏 -->
+    <div class="col-lg-8">
+        <!-- 本月概览 -->
+        <div class="content-card">
+            <div class="content-card-header">
+                <h5>本月佣金概览</h5>
+                <span class="text-muted small">@DateTime.Today.ToString("yyyy年MM月")</span>
+            </div>
+            <div class="content-card-body">
+                <div class="row g-3 text-center">
+                    <div class="col-4">
+                        <div class="mini-stat-value text-primary">¥@Model.MonthCommissionTotal.ToString("N2")</div>
+                        <div class="mini-stat-label">本月佣金</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="mini-stat-value text-warning">@Model.PendingCommissionCount</div>
+                        <div class="mini-stat-label">待结算笔数</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="mini-stat-value text-success">@Model.SettledCommissionCount</div>
+                        <div class="mini-stat-label">可提现笔数</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近佣金 -->
+        <div class="content-card">
+            <div class="content-card-header">
+                <h5>最近佣金记录</h5>
+                <a asp-action="Commissions" class="btn btn-sm btn-outline-secondary">查看全部</a>
+            </div>
+            <div class="content-card-body p-0">
+                @if (!Model.RecentCommissions.Any())
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <p>暂无佣金记录</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>订单号</th>
+                                    <th>实付</th>
+                                    <th>基础佣金</th>
+                                    <th>奖励佣金</th>
+                                    <th>退款扣减</th>
+                                    <th>预计结算</th>
+                                    <th>状态</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in Model.RecentCommissions)
+                                {
+                                    <tr>
+                                        <td><code class="order-id">@item.OrderId</code></td>
+                                        <td>¥@item.FinalAmount.ToString("N2")</td>
+                                        <td>¥@item.CommBaseAmount.ToString("N2")</td>
+                                        <td>
+                                            @if (item.CommBonusAmount > 0)
+                                            {
+                                                <span class="text-success">+¥@item.CommBonusAmount.ToString("N2")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (item.RefundedAmount > 0)
+                                            {
+                                                <span class="text-danger">-¥@item.RefundedAmount.ToString("N2")</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td class="small text-muted">@(item.CommSettlementDate?.ToString("MM-dd") ?? "—")</td>
+                                        <td><span class="badge bg-@item.StatusBadgeClass">@item.StatusLabel</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- 最近提现 -->
+        @if (Model.RecentWithdrawals.Any())
+        {
+            <div class="content-card">
+                <div class="content-card-header">
+                    <h5>最近提现</h5>
+                    <a asp-action="Withdrawals" class="btn btn-sm btn-outline-secondary">提现管理</a>
+                </div>
+                <div class="content-card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>申请编号</th>
+                                    <th>金额</th>
+                                    <th>申请时间</th>
+                                    <th>状态</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var w in Model.RecentWithdrawals)
+                                {
+                                    <tr>
+                                        <td><code class="order-id">@w.WithdrawalId</code></td>
+                                        <td>¥@w.ApplyAmount.ToString("N2")</td>
+                                        <td class="small text-muted">@w.ApplyTime.ToString("yyyy-MM-dd HH:mm")</td>
+                                        <td><span class="badge bg-@w.AuditStatusBadgeClass">@w.AuditStatusLabel</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- 快速查看：已上架商品 + 团内消费者（左下角） -->
+        <div class="content-card">
+            <div class="content-card-header">
+                <h5>⚡ 快速查看</h5>
+            </div>
+            <div class="content-card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="border rounded p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold">📦 已上架商品</span>
+                                <span class="badge bg-success">@Model.ListedProducts.Count</span>
+                            </div>
+                            @if (Model.ListedProducts.Any())
+                            {
+                                <ul class="list-unstyled small mb-2">
+                                    @foreach (var lp in Model.ListedProducts.Take(5))
+                                    {
+                                        <li class="d-flex justify-content-between border-bottom py-1">
+                                            <span>@lp.ProductName <span class="text-muted">· @lp.SupplierName</span></span>
+                                            <span class="text-success fw-bold">￥@((lp.PromoterPrice ?? lp.DefaultPrice).ToString("F2"))</span>
+                                        </li>
+                                    }
+                                </ul>
+                                @if (Model.ListedProducts.Count > 5)
+                                {
+                                    <div class="text-muted small mb-2">… 共 @Model.ListedProducts.Count 件商品</div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="text-muted small mb-2">暂无上架商品</div>
+                            }
+                            <a asp-action="ProductListing" class="btn btn-sm btn-outline-success w-100">去商品上架</a>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded p-3 h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold">👥 团内消费者</span>
+                                <span class="badge bg-primary">@Model.BoundCustomers.Count</span>
+                            </div>
+                            @if (Model.BoundCustomers.Any())
+                            {
+                                <ul class="list-unstyled small mb-2">
+                                    @foreach (var c in Model.BoundCustomers.Take(5))
+                                    {
+                                        <li class="d-flex justify-content-between border-bottom py-1">
+                                            <span>@c.CustomerName</span>
+                                            <span class="text-muted">@c.Phone</span>
+                                        </li>
+                                    }
+                                </ul>
+                                @if (Model.BoundCustomers.Count > 5)
+                                {
+                                    <div class="text-muted small mb-2">… 共 @Model.BoundCustomers.Count 人</div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="text-muted small mb-2">暂无绑定消费者</div>
+                            }
+                            <a asp-action="BoundConsumers" class="btn btn-sm btn-outline-primary w-100">查看团内消费者</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右栏 -->
+    <div class="col-lg-4">
+        <!-- 等级进度 -->
+        <div class="content-card">
+            <div class="content-card-header">
+                <h5>等级晋升</h5>
+                <a asp-action="Performance" class="btn btn-sm btn-link p-0">详情</a>
+            </div>
+            <div class="content-card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="level-badge-lg">@Model.LevelName</span>
+                    <span class="text-muted small">佣金 @Model.CurrentTierRate%</span>
+                </div>
+                @if (Model.IsMaxTier)
+                {
+                    <div class="alert alert-success py-2 mb-0 small">
+                        🎉 已达最高等级「@Model.LevelName」，基础佣金比例 @Model.CurrentTierRate%
+                    </div>
+                }
+                else
+                {
+                    <div class="tier-progress-wrap mb-2">
+                        <div class="tier-bar">
+                            <div class="tier-bar-fill" style="width:@Model.TierProgressPercent.ToString("F1")%"></div>
+                        </div>
+                        <div class="tier-labels">
+                            <span>¥@p.TotalSales.ToString("N0")</span>
+                            <span>¥@Model.NextTierThreshold.ToString("N0")</span>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        晋升「<strong>@Model.NextTierName</strong>」还需
+                        <strong>¥@((Model.NextTierThreshold - p.TotalSales).ToString("N2"))</strong>，
+                        将获得 <strong>¥@Model.NextTierBonus.ToString("N0")</strong> 里程碑奖励
+                    </p>
+                }
+            </div>
+        </div>
+
+        <!-- 邀请码 -->
+        <div class="content-card">
+            <div class="content-card-header"><h5>我的邀请码</h5></div>
+            <div class="content-card-body text-center">
+                <div class="invite-code-box" id="inviteCode">@p.InviteCode</div>
+                <p class="text-muted small mt-2 mb-3">分享给用户下单，绑定团长关系</p>
+                <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="copyInviteCode()">
+                    一键复制
+                </button>
+            </div>
+        </div>
+
+        <!-- 快捷操作 -->
+        <div class="content-card">
+            <div class="content-card-header"><h5>快捷操作</h5></div>
+            <div class="content-card-body d-grid gap-2">
+                <a asp-action="Withdrawals" class="btn btn-success">
+                    申请提现
+                    @if (p.CurrentBalance > 0)
+                    {
+                        <span class="opacity-75 small">（¥@p.CurrentBalance.ToString("N2") 可提）</span>
+                    }
+                </a>
+                <a asp-action="Commissions" class="btn btn-outline-primary">查看佣金明细</a>
+                <a asp-action="Performance" class="btn btn-outline-secondary">业绩与等级</a>
+                <a asp-action="Profile" class="btn btn-outline-secondary">个人资料</a>
+            </div>
+        </div>
+
+        <!-- 账户信息摘要 -->
+        <div class="content-card">
+            <div class="content-card-header"><h5>账户摘要</h5></div>
+            <div class="content-card-body py-2">
+                <div class="info-row compact">
+                    <span class="info-label">团长编号</span>
+                    <span class="info-value"><code>@p.PromoterId</code></span>
+                </div>
+                <div class="info-row compact">
+                    <span class="info-label">平台设定比例</span>
+                    <span class="info-value">@commissionRateDisplay%</span>
+                </div>
+                <div class="info-row compact">
+                    <span class="info-label">注册时间</span>
+                    <span class="info-value">@p.RegisterTime.ToString("yyyy-MM-dd")</span>
+                </div>
+                <div class="info-row compact">
+                    <span class="info-label">最近结算</span>
+                    <span class="info-value">@(p.LastSettlementTime?.ToString("yyyy-MM-dd") ?? "暂无")</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function copyInviteCode() {
+            var code = document.getElementById('inviteCode').innerText.trim();
+            navigator.clipboard.writeText(code).then(function () {
+                alert('邀请码已复制：' + code);
+            }).catch(function () {
+                prompt('请手动复制邀请码：', code);
+            });
+        }
+    </script>
+}

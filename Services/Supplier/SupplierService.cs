@@ -4,7 +4,6 @@ using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
-using Microsoft.Extensions.Logging;
 
 namespace FreshColdChain.Services.Supplier;
 
@@ -13,14 +12,12 @@ public class SupplierService : ISupplierService
     private readonly ISupplierRepository _repo;
     private readonly ISupplierPriceRepository _priceRepo;
     private readonly IProductRepository _productRepo;
-    private readonly ILogger<SupplierService> _logger;
 
-    public SupplierService(ISupplierRepository repo, ISupplierPriceRepository priceRepo, IProductRepository productRepo, ILogger<SupplierService> logger)
+    public SupplierService(ISupplierRepository repo, ISupplierPriceRepository priceRepo, IProductRepository productRepo)
     {
         _repo = repo;
         _priceRepo = priceRepo;
         _productRepo = productRepo;
-        _logger = logger;
     }
 
     public async Task<ApiResponse<PagedResult<SupplierDto>>> GetSuppliersAsync(int pageIndex, int pageSize)
@@ -56,8 +53,7 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "供应商创建失败 SupplierName={SupplierName}", dto.SupplierName);
-            return ApiResponse<SupplierDto>.Fail("供应商创建失败，请稍后重试");
+            return ApiResponse<SupplierDto>.Fail($"供应商创建失败：{ex.Message}");
         }
     }
 
@@ -76,8 +72,7 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "供应商更新失败 SupplierID={SupplierID}", id);
-            return ApiResponse<SupplierDto>.Fail("供应商更新失败，请稍后重试");
+            return ApiResponse<SupplierDto>.Fail($"供应商更新失败：{ex.Message}");
         }
     }
 
@@ -97,8 +92,7 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "供应商删除失败 SupplierID={SupplierID}", id);
-            return ApiResponse.Fail("供应商删除失败，请稍后重试");
+            return ApiResponse.Fail($"供应商删除失败：{ex.Message}");
         }
     }
 
@@ -131,8 +125,7 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "查询供货价失败 SupplierID={SupplierID}", supplierId);
-            return ApiResponse<List<SupplierProductQuoteDto>>.Fail("查询供货价失败，请稍后重试");
+            return ApiResponse<List<SupplierProductQuoteDto>>.Fail($"查询供货价失败：{ex.Message}");
         }
     }
 
@@ -165,8 +158,7 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "查询报价面板失败 SupplierID={SupplierID}", supplierId);
-            return ApiResponse<List<SupplierProductQuoteDto>>.Fail("查询报价面板失败，请稍后重试");
+            return ApiResponse<List<SupplierProductQuoteDto>>.Fail($"查询报价面板失败：{ex.Message}");
         }
     }
 
@@ -212,8 +204,7 @@ public class SupplierService : ISupplierService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "设置供货价失败 SupplierID={SupplierID} ProductID={ProductID}", supplierId, productId);
-            return ApiResponse.Fail("设置供货价失败，请稍后重试");
+            return ApiResponse.Fail($"设置供货价失败：{ex.Message}");
         }
     }
 
@@ -239,12 +230,19 @@ public class SupplierService : ISupplierService
             if (!string.Equals(supplier.LoginPassword, inputHash, StringComparison.OrdinalIgnoreCase))
                 return ApiResponse<SupplierDto>.Fail("密码错误");
 
+            // 状态拦截：待审核/已禁用/被驳回的供应商不允许登录
+            if (supplier.Status == "Pending")
+                return ApiResponse<SupplierDto>.Fail("入驻申请正在审核中，请耐心等待");
+            if (supplier.Status == "Rejected")
+                return ApiResponse<SupplierDto>.Fail("入驻申请已被驳回，请联系平台管理员");
+            if (supplier.Status != "Active")
+                return ApiResponse<SupplierDto>.Fail("账号已被禁用，请联系平台管理员");
+
             return ApiResponse<SupplierDto>.Success(MapToDto(supplier), "登录成功");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "供应商登录失败 LoginAccount={LoginAccount}", loginAccount);
-            return ApiResponse<SupplierDto>.Fail("登录失败，请稍后重试");
+            return ApiResponse<SupplierDto>.Fail($"登录失败：{ex.Message}");
         }
     }
 
@@ -296,12 +294,156 @@ public class SupplierService : ISupplierService
         return ApiResponse<bool>.Success(valid, valid ? "验证通过" : "密码错误");
     }
 
+    // ========== 商品上架搜索（C 组团长“商品上架”模块用）==========
+
+    /// <summary>
+    /// 搜索供应商提供的商品：按供应商（名称/ID）或商品名称（两种命中合并去重）。
+    /// 供应商的“可提供商品”由其报价记录（Inv_SupplierPrices）决定：报价即供货关系。
+    /// </summary>
+    public async Task<ApiResponse<List<SupplierProductEntryDto>>> SearchSupplierProductEntriesAsync(string? keyword)
+    {
+        try
+        {
+            var kw = keyword?.Trim();
+            if (string.IsNullOrEmpty(kw))
+                return ApiResponse<List<SupplierProductEntryDto>>.Success(new List<SupplierProductEntryDto>());
+
+            // 全量数据源（演示/中小规模可直接内存过滤，避免多次连库）
+            var products = (await _productRepo.GetAllAsync())
+                .Where(p => p.Status == "ACTIVE")
+                .ToList();
+            var productMap = products.ToDictionary(p => p.ProductID);
+
+            var suppliers = (await _repo.GetAllAsync())
+                .Where(s => s.Status == "Active")
+                .ToList();
+            var supplierMap = suppliers.ToDictionary(s => s.SupplierID);
+
+            // 商品图片：按商品分组，取展示顺序前 3 张
+            var productImages = (await _productRepo.GetAllProductImagesAsync())
+                .GroupBy(img => img.ProductID)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderBy(img => img.SortOrder)
+                          .Select(img => img.ImageUrl)
+                          .Take(3)
+                          .ToList());
+
+            var entries = new List<SupplierProductEntryDto>();
+            var seen = new HashSet<string>();
+
+            void CollectQuote(InvSupplierPrice q)
+            {
+                if (!productMap.TryGetValue(q.ProductID, out var p)) return;
+                if (!supplierMap.TryGetValue(q.SupplierID, out var s)) return;
+
+                var key = $"{q.SupplierID}|{q.ProductID}";
+                if (!seen.Add(key)) return; // 去重：同一（供应商，商品）只保留一次
+
+                entries.Add(new SupplierProductEntryDto
+                {
+                    SupplierID = s.SupplierID,
+                    SupplierName = s.SupplierName,
+                    ProductID = p.ProductID,
+                    ProductName = p.ProductName,
+                    Unit = p.Unit,
+                    SupplyPrice = q.SupplyPrice,
+                    DefaultPrice = p.DefaultPrice,
+                    ExpiryHours = q.ShelfLifeHours ?? p.ExpiryHours,
+                    Description = p.Description,
+                    Images = productImages.TryGetValue(p.ProductID, out var imgs) ? imgs : new List<string>()
+                });
+            }
+
+            // ① 按供应商命中：供应商名称包含关键词，或供应商ID精确匹配 → 该供应商提供的全部商品
+            var matchedSuppliers = suppliers
+                .Where(s => s.SupplierID.Equals(kw, StringComparison.OrdinalIgnoreCase)
+                            || s.SupplierName.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            foreach (var s in matchedSuppliers)
+            {
+                var quotes = await _priceRepo.GetQuotesBySupplierAsync(s.SupplierID);
+                foreach (var q in quotes) CollectQuote(q);
+            }
+
+            // ② 按商品命中：商品名称包含关键词 → 所有供货该商品的供应商
+            var matchedProducts = products
+                .Where(p => p.ProductName.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            foreach (var p in matchedProducts)
+            {
+                var quotes = await _priceRepo.GetQuotesByProductWithSupplierAsync(p.ProductID);
+                foreach (var q in quotes) CollectQuote(q);
+            }
+
+            return ApiResponse<List<SupplierProductEntryDto>>.Success(entries);
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<List<SupplierProductEntryDto>>.Fail($"商品搜索失败：{ex.Message}");
+        }
+    }
+
+    // ========== 管理端（管理员角色管理用）==========
+
+    /// <summary>全部供应商列表（含状态），供管理员启禁用管理</summary>
+    public async Task<ApiResponse<List<SupplierDto>>> GetAllSuppliersAsync()
+    {
+        var all = await _repo.GetAllAsync();
+        return ApiResponse<List<SupplierDto>>.Success(all.Select(MapToDto).ToList());
+    }
+
+    /// <summary>按状态查询供应商（如 Pending 待审核列表）</summary>
+    public async Task<ApiResponse<List<SupplierDto>>> GetSuppliersByStatusAsync(string status)
+    {
+        var all = await _repo.GetAllAsync();
+        var list = all.Where(s => s.Status == status).Select(MapToDto).ToList();
+        return ApiResponse<List<SupplierDto>>.Success(list);
+    }
+
+    /// <summary>变更供应商状态，含状态流转校验（Active/Pending/Disabled/Rejected）</summary>
+    public async Task<ApiResponse> SetSupplierStatusAsync(string supplierId, string targetStatus)
+    {
+        var allowedTargets = new[] { "Active", "Pending", "Disabled", "Rejected" };
+        if (!allowedTargets.Contains(targetStatus))
+            return ApiResponse.Fail("非法的目标状态");
+
+        try
+        {
+            var supplier = await _repo.GetByIdAsync(supplierId);
+            if (supplier == null)
+                return ApiResponse.Fail("供应商不存在", 404);
+            if (supplier.Status == targetStatus)
+                return ApiResponse.Fail("供应商已处于该状态，无需变更");
+
+            // 状态流转约束：待审核只能 通过(Active)/驳回(Rejected)；已禁用/已驳回只能重新启用(Active)；正常只能禁用
+            var allowed = supplier.Status switch
+            {
+                "Pending" => new[] { "Active", "Rejected" },
+                "Active" => new[] { "Disabled" },
+                "Disabled" or "Rejected" => new[] { "Active" },
+                _ => Array.Empty<string>()
+            };
+            if (!allowed.Contains(targetStatus))
+                return ApiResponse.Fail($"不允许从 {supplier.Status} 变更为 {targetStatus}");
+
+            supplier.Status = targetStatus;
+            _repo.Update(supplier);
+            return ApiResponse.Success("状态已更新");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse.Fail($"状态更新失败：{ex.Message}");
+        }
+    }
+
     private static SupplierDto MapToDto(InvSupplier s) => new()
     {
         SupplierID = s.SupplierID, SupplierName = s.SupplierName,
         LicenseNo = s.LicenseNo, ExpiryDate = s.ExpiryDate,
         CreditLevel = s.CreditLevel, ContactPhone = s.ContactPhone,
         LoginAccount = s.LoginAccount,
+        Status = s.Status,
         // SQL 聚合查出来的产品数优先（列表页）；否则用已加载的 Products（详情页）
         ProductCount = s.ProductCount > 0 ? s.ProductCount : (s.Products?.Count ?? 0)
     };

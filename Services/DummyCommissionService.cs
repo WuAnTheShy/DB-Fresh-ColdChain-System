@@ -1,20 +1,37 @@
 using System.Data;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
+using FreshColdChain.Models.CrossGroup_C;
 
 namespace FreshColdChain.Services;
 
 /// <summary>
-/// C 组佣金模块的 Mock 实现 — C 组完成前使用
+/// C 组正式适配前使用的佣金 Dummy，不访问 C 组数据表。
 /// </summary>
-public class DummyCommissionService : ICommissionService
+public sealed class DummyCommissionService : ICommissionService
 {
-    public Task RegisterCompletedOrderAsync(
+    public Task<CommissionResult> RegisterCompletedOrderAsync(
         CommissionOrderRequest request,
         IDbTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        // Mock：永远成功，不写 C 组表
-        return Task.CompletedTask;
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(transaction);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new CommissionResult
+        {
+            IsSuccess = true,
+            CommSettlementDate = DateTime.Now
+        });
+    }
+
+    public Task<Result> ActivatePromoterMoney(
+        ActivateCommissionOrderRequest request,
+        IDbTransaction? transaction = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new Result { IsSuccess = true });
     }
 }

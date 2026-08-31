@@ -1,0 +1,328 @@
+@model FreshColdChain.Models.ViewModels.ProductListingViewModel
+@{
+    ViewData["Title"] = "商品上架";
+}
+
+<partial name="_Alerts" />
+
+<!-- 已上架商品一览 -->
+<div class="content-card mb-4">
+    <div class="content-card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">✅ 已上架商品</h5>
+        <span class="badge bg-success">@Model.ListedProducts.Count</span>
+    </div>
+    <div class="content-card-body p-0">
+        @if (Model.ListedProducts.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>商品</th>
+                            <th>供应商</th>
+                            <th class="text-center">报价</th>
+                            <th class="text-center">推荐价</th>
+                            <th class="text-center">定价范围</th>
+                            <th class="text-center">团长定价</th>
+                            <th class="text-center">状态</th>
+                            <th class="text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model.ListedProducts)
+                        {
+                            var priceDiff = Math.Abs(p.DefaultPrice - p.SupplyPrice) / 2m;
+                            var priceMin = p.DefaultPrice - priceDiff;
+                            var priceMax = p.DefaultPrice + priceDiff;
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        @if (p.Images.Any())
+                                        {
+                                            <img src="@p.Images[0]" alt="@p.ProductName" class="product-thumb" onerror="this.style.display='none'" />
+                                        }
+                                        <div>
+                                            <div>@p.ProductName
+                                                @if (!string.IsNullOrEmpty(p.Unit))
+                                                {
+                                                    <span class="text-muted small">（@p.Unit）</span>
+                                                }
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(p.Description))
+                                            {
+                                                <div class="text-muted small text-truncate" style="max-width:340px;" title="@p.Description">📝 @p.Description</div>
+                                            }
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>@p.SupplierName</td>
+                                <td class="text-center">￥@p.SupplyPrice.ToString("F2")</td>
+                                <td class="text-center">￥@p.DefaultPrice.ToString("F2")</td>
+                                <td class="text-center text-muted small">
+                                    ￥@priceMin.ToString("F2") ~ ￥@priceMax.ToString("F2")
+                                </td>
+                                <td>
+                                    <!-- 已上架：可设置/修改团长定价 -->
+                                    <form asp-action="UpdateEntryPrice" method="post" class="price-form d-flex align-items-center gap-1">
+                                        <input type="hidden" name="productId" value="@p.ProductID" />
+                                        <input type="hidden" name="supplierId" value="@p.SupplierID" />
+                                        <input type="hidden" name="keyword" value="@Model.Keyword" />
+                                        <input type="hidden" name="supplyPrice" value="@p.SupplyPrice" />
+                                        <input type="hidden" name="defaultPrice" value="@p.DefaultPrice" />
+                                        <input type="number" step="0.1" min="0.1" name="price"
+                                               class="form-control form-control-sm price-input"
+                                               style="width:110px;"
+                                               value="@(p.PromoterPrice.HasValue ? p.PromoterPrice.Value.ToString("F1") : p.DefaultPrice.ToString("F1"))"
+                                               placeholder="默认￥@p.DefaultPrice.ToString("F1")" />
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">保存</button>
+                                    </form>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-success">已入团</span>
+                                </td>
+                                <td class="text-center">
+                                    <form asp-action="ToggleProductEntry" method="post" style="display:inline;">
+                                        <input type="hidden" name="productId" value="@p.ProductID" />
+                                        <input type="hidden" name="supplierId" value="@p.SupplierID" />
+                                        <input type="hidden" name="keyword" value="@Model.Keyword" />
+                                        <input type="hidden" name="action" value="unbind" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">移除</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <!-- 团长带货介绍：默认复制供应商文字，团长可修改/重写（给消费者端展示的即是此文字） -->
+                            <tr class="desc-row table-light">
+                                <td colspan="8">
+                                    <form asp-action="UpdateEntryDescription" method="post" class="d-flex flex-column gap-2">
+                                        <div class="d-flex align-items-start gap-2">
+                                            <input type="hidden" name="productId" value="@p.ProductID" />
+                                            <input type="hidden" name="supplierId" value="@p.SupplierID" />
+                                            <input type="hidden" name="keyword" value="@Model.Keyword" />
+                                            <textarea name="promoterDesc" rows="2" class="form-control form-control-sm desc-input"
+                                                      placeholder="填写您的带货介绍（消费者端将展示这段文字）">@p.PromoterDesc</textarea>
+                                            <button type="submit" class="btn btn-sm btn-outline-primary" style="flex-shrink:0;white-space:nowrap;">保存介绍</button>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(p.Description))
+                                        {
+                                            <div class="text-muted small">
+                                                <b>供应商原版文字：</b>
+                                                <span class="supplier-desc" style="white-space:pre-wrap;">@p.Description</span>
+                                                <button type="button" class="btn btn-link btn-sm p-0 ms-2 copy-desc">复制到上方介绍框</button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="text-muted small">供应商暂未提供商品文字介绍，您可以直接撰写。</div>
+                                        }
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-center text-muted py-4">尚未上架任何商品，请在下方搜索（供应商或商品）并点击“入团”。</div>
+        }
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5>📦 商品上架</h5>
+    </div>
+    <div class="content-card-body">
+        <p class="text-muted small">
+            输入<b>供应商名称 / 供应商ID</b>，查看该供应商提供的全部商品；输入<b>商品名称</b>，查看所有供货该商品的供应商。
+            可将某个“（供应商 × 商品）”组合加入您的入团商品，一个团长可入团多个商品，同一商品也可选择不同供应商供货。
+        </p>
+        <p class="text-muted small mb-3">
+            每个（供应商 × 商品）有<b>报价</b>（供应商供货价）与<b>推荐价</b>（商品默认售价）。
+            商品<b>入团后</b>方可设置团长定价，规则：<b>|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2</b>；不填写则默认为推荐价。
+            当前已入团商品数：<span class="badge bg-success">@Model.ListedKeys.Count</span>
+        </p>
+
+        <!-- 搜索表单 -->
+        <form asp-action="SearchProducts" method="post" class="row g-3 mb-4">
+            <div class="col-md-8">
+                <input type="text" name="keyword" class="form-control"
+                       placeholder="输入供应商名称/ID 或 商品名称搜索，例如：苹果 / 供应商A" value="@Model.Keyword" />
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">搜索</button>
+            </div>
+        </form>
+
+        <!-- 搜索结果 -->
+        @if (Model.Entries != null && Model.Entries.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-center" style="min-width:120px;">供应商</th>
+                            <th style="min-width:120px;">商品</th>
+                            <th class="text-center" style="min-width:80px;">报价</th>
+                            <th class="text-center" style="min-width:80px;">推荐价</th>
+                            <th class="text-center" style="min-width:160px;">定价范围</th>
+                            <th class="text-center" style="min-width:200px;">团长定价</th>
+                            <th class="text-center" style="min-width:80px;">状态</th>
+                            <th class="text-center" style="min-width:90px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Entries)
+                        {
+                            var key = $"{item.ProductID}|{item.SupplierID}";
+                            var isListed = Model.ListedKeys.Contains(key);
+                            Model.ListedPrices.TryGetValue(key, out var listedPrice);
+                            var priceDiff = Math.Abs(item.DefaultPrice - item.SupplyPrice) / 2m;
+                            var priceMin = item.DefaultPrice - priceDiff;
+                            var priceMax = item.DefaultPrice + priceDiff;
+                            <tr>
+                                <td>
+                                    <div><code class="small">@item.SupplierID</code></div>
+                                    <div class="small">@item.SupplierName</div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        @if (item.Images.Any())
+                                        {
+                                            <img src="@item.Images[0]" alt="@item.ProductName" class="product-thumb" onerror="this.style.display='none'" />
+                                        }
+                                        <div>
+                                            <div>@item.ProductName</div>
+                                            <div class="text-muted small">@item.ProductID</div>
+                                            @if (!string.IsNullOrEmpty(item.Description))
+                                            {
+                                                <div class="text-muted small text-truncate" style="max-width:340px;" title="@item.Description">📝 @item.Description</div>
+                                            }
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-center">￥@item.SupplyPrice.ToString("F2")</td>
+                                <td class="text-center">￥@item.DefaultPrice.ToString("F2")</td>
+                                <td class="text-center text-muted small">
+                                    ￥@priceMin.ToString("F2") ~ ￥@priceMax.ToString("F2")
+                                </td>
+                                <td>
+                                    @if (isListed)
+                                    {
+                                        <!-- 已入团：可设置/修改团长定价 -->
+                                        <form asp-action="UpdateEntryPrice" method="post" class="price-form d-flex align-items-center gap-1">
+                                            <input type="hidden" name="productId" value="@item.ProductID" />
+                                            <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                                            <input type="hidden" name="keyword" value="@Model.Keyword" />
+                                            <input type="hidden" name="supplyPrice" value="@item.SupplyPrice" />
+                                            <input type="hidden" name="defaultPrice" value="@item.DefaultPrice" />
+                                            <input type="number" step="0.1" min="0.1" name="price"
+                                                   class="form-control form-control-sm price-input"
+                                                   style="width:110px;"
+                                                   value="@(listedPrice.HasValue ? listedPrice.Value.ToString("F1") : item.DefaultPrice.ToString("F1"))"
+                                                   placeholder="默认￥@item.DefaultPrice.ToString("F1")" />
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">保存</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <!-- 未入团：不允许定价 -->
+                                        <span class="text-muted small">入团后可定价</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @if (isListed)
+                                    {
+                                        <span class="badge bg-success">已入团</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">可入团</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @if (isListed)
+                                    {
+                                        <form asp-action="ToggleProductEntry" method="post" style="display:inline;">
+                                            <input type="hidden" name="productId" value="@item.ProductID" />
+                                            <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                                            <input type="hidden" name="keyword" value="@Model.Keyword" />
+                                            <input type="hidden" name="action" value="unbind" />
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">移除</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <!-- 入团时不允许定价，入团成功后默认取推荐价，再在此设置团长定价 -->
+                                        <form asp-action="ToggleProductEntry" method="post" style="display:inline;">
+                                            <input type="hidden" name="productId" value="@item.ProductID" />
+                                            <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                                            <input type="hidden" name="keyword" value="@Model.Keyword" />
+                                            <input type="hidden" name="action" value="bind" />
+                                            <input type="hidden" name="supplyPrice" value="@item.SupplyPrice" />
+                                            <input type="hidden" name="defaultPrice" value="@item.DefaultPrice" />
+                                            <input type="hidden" name="description" value="@item.Description" />
+                                            <button type="submit" class="btn btn-sm btn-success">入团</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(Model.Keyword))
+        {
+            <div class="alert alert-info">未找到符合条件的（供应商 × 商品），请尝试修改关键词。</div>
+        }
+        else
+        {
+            <div class="text-center text-muted py-4">请在搜索框输入供应商或商品关键字后点击搜索</div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <style>
+        .product-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb; flex-shrink: 0; }
+    </style>
+    <script>
+        // 复制供应商原版文字到团长介绍框
+        document.querySelectorAll('.copy-desc').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var row = btn.closest('.desc-row');
+                if (!row) return;
+                var textarea = row.querySelector('.desc-input');
+                var src = row.querySelector('.supplier-desc');
+                if (!textarea || !src) return;
+                textarea.value = src.textContent.trim();
+                textarea.focus();
+            });
+        });
+        // 团长定价校验：|团长价 - 推荐价| < |推荐价 - 报价| / 2（仅对已入团商品生效；留空 = 使用推荐价）
+        document.querySelectorAll('.price-form').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+                var input = form.querySelector('.price-input');
+                if (!input) return;
+                var raw = input.value.trim();
+                if (raw === '') return; // 留空，服务端按推荐价处理
+
+                var price = parseFloat(raw);
+                var supply = parseFloat(form.querySelector('input[name="supplyPrice"]').value);
+                var def = parseFloat(form.querySelector('input[name="defaultPrice"]').value);
+                if (isNaN(price) || price <= 0) {
+                    e.preventDefault();
+                    alert('请输入有效的团长定价，或留空使用推荐价。');
+                    return;
+                }
+                var allowed = Math.abs(def - supply) / 2;
+                if (Math.abs(price - def) >= allowed) {
+                    e.preventDefault();
+                    alert('定价超出允许范围：|团长价 - 推荐价| 必须小于 |推荐价 - 报价| / 2（即 ' + allowed.toFixed(2) + ' 元），当前已超出。');
+                }
+            });
+        });
+    </script>
+}

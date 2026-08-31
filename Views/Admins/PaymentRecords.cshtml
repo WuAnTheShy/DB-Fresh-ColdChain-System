@@ -1,0 +1,224 @@
+@model FreshColdChain.Models.DTOs.GroupC_PaymentQueryViewModel
+@{
+    ViewData["Title"] = "支付流水与退款记录";
+    var successAmount = Model.Payments.Where(p => p.Status == "Success").Sum(p => p.PayAmount);
+    var approvedAmount = Model.Refunds.Where(r => r.Status == "Approved").Sum(r => r.RefundAmount);
+}
+
+<style>
+    /* 未选择日期时隐藏浏览器原生的"年/月/日"占位文本（Chromium 系） */
+    input.js-date:not(.has-value)::-webkit-datetime-edit {
+        color: transparent;
+    }
+    /* 未选择时降低日历图标存在感 */
+    input.js-date:not(.has-value)::-webkit-calendar-picker-indicator {
+        opacity: 0.45;
+    }
+</style>
+<partial name="_Alerts" />
+
+<!-- 汇总卡片 -->
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-primary-subtle text-primary">💳</span>
+            <span class="stat-label">支付流水</span>
+        </div>
+        <div class="stat-value text-primary">@Model.Payments.Count 笔</div>
+        <div class="stat-sub">成功金额 ¥@successAmount.ToString("N2")</div>
+    </div>
+    <div class="stat-card sales">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-purple-subtle text-purple">↩</span>
+            <span class="stat-label">退款记录</span>
+        </div>
+        <div class="stat-value text-dark">@Model.Refunds.Count 笔</div>
+        <div class="stat-sub">已退金额 ¥@approvedAmount.ToString("N2")</div>
+    </div>
+</div>
+
+<!-- 查询条件 -->
+<div class="content-card mb-3">
+    <div class="content-card-header">
+        <h5>🔍 查询条件</h5>
+        <span class="text-muted small">时间按申请/支付日期筛选，结束日期含当天；每类结果最多显示 500 条</span>
+    </div>
+    <div class="content-card-body">
+        <form asp-action="PaymentRecords" method="get" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">开始日期</label>
+                <input type="date" class="form-control js-date" name="startDate"
+                       value="@Model.StartDate?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">结束日期</label>
+                <input type="date" class="form-control js-date" name="endDate"
+                       value="@Model.EndDate?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">订单编号</label>
+                <input type="text" class="form-control" name="orderId" value="@Model.OrderId"
+                       placeholder="精确匹配订单编号" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">支付状态</label>
+                <select class="form-select" name="payStatus">
+                    <option value="">全部</option>
+                    <option value="Success" selected="@(Model.PayStatus == "Success")">支付成功</option>
+                    <option value="Failed" selected="@(Model.PayStatus == "Failed")">支付失败</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">退款状态</label>
+                <select class="form-select" name="refundStatus">
+                    <option value="">全部</option>
+                    <option value="Pending" selected="@(Model.RefundStatus == "Pending")">待审核</option>
+                    <option value="Approved" selected="@(Model.RefundStatus == "Approved")">已通过</option>
+                    <option value="Rejected" selected="@(Model.RefundStatus == "Rejected")">已驳回</option>
+                </select>
+            </div>
+            <div class="col-md-1 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">查询</button>
+                <a asp-action="PaymentRecords" class="btn btn-outline-secondary">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 支付流水 -->
+<div class="content-card mb-3">
+    <div class="content-card-header">
+        <h5>💳 支付流水（FIN_PAYMENTRECORDS）</h5>
+        <span class="text-muted small">共 @Model.Payments.Count 条</span>
+    </div>
+    <div class="content-card-body p-0">
+        @if (!Model.Payments.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>没有符合条件的支付流水</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>支付编号</th>
+                            <th>订单编号</th>
+                            <th>支付方式</th>
+                            <th>第三方流水号</th>
+                            <th>金额</th>
+                            <th>状态</th>
+                            <th>支付时间</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Payments)
+                        {
+                            var (badge, text) = item.Status switch
+                            {
+                                "Success" => ("text-bg-success", "成功"),
+                                "Failed" => ("text-bg-danger", "失败"),
+                                _ => ("text-bg-warning", item.Status)
+                            };
+                            <tr>
+                                <td><code class="small">@item.PayId</code></td>
+                                <td><code class="small">@item.OrderId</code></td>
+                                <td>@item.PayMethod</td>
+                                <td class="small text-muted">@item.TransactionNo</td>
+                                <td><strong>¥@item.PayAmount.ToString("N2")</strong></td>
+                                <td><span class="badge @badge">@text</span></td>
+                                <td class="small text-muted">@item.PayTime?.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="small text-muted">@item.Remark</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- 退款记录 -->
+<div class="content-card">
+    <div class="content-card-header">
+        <h5>↩ 退款记录（FIN_REFUND）</h5>
+        <span class="text-muted small">共 @Model.Refunds.Count 条</span>
+    </div>
+    <div class="content-card-body p-0">
+        @if (!Model.Refunds.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>没有符合条件的退款记录</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>退款编号</th>
+                            <th>订单编号</th>
+                            <th>类型</th>
+                            <th>金额</th>
+                            <th>状态</th>
+                            <th>申请时间</th>
+                            <th>审核时间</th>
+                            <th>审核人</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Refunds)
+                        {
+                            var (badge, text) = item.Status switch
+                            {
+                                "Approved" => ("text-bg-success", "已通过"),
+                                "Rejected" => ("text-bg-secondary", "已驳回"),
+                                _ => ("text-bg-warning", "待审核")
+                            };
+                            <tr>
+                                <td><code class="small">@item.RefundId</code></td>
+                                <td><code class="small">@item.OrderId</code></td>
+                                <td>
+                                    @(string.IsNullOrEmpty(item.DetailId) ? "整单退款" : "部分退款")
+                                    @if (item.RefundQty > 0)
+                                    {
+                                        <span class="small text-muted">×@item.RefundQty</span>
+                                    }
+                                </td>
+                                <td><strong class="text-danger">¥@item.RefundAmount.ToString("N2")</strong></td>
+                                <td><span class="badge @badge">@text</span></td>
+                                <td class="small text-muted">@item.ApplyTime.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="small text-muted">@item.AuditTime?.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="small">@item.AuditorId</td>
+                                <td class="small text-muted">@item.Remark</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // 未选择日期时隐藏原生占位文本：有值时加 has-value 类，无值时移除
+        (function () {
+            document.querySelectorAll('input.js-date').forEach(function (input) {
+                var sync = function () {
+                    input.classList.toggle('has-value', !!input.value);
+                };
+                input.addEventListener('input', sync);
+                input.addEventListener('change', sync);
+                sync();
+            });
+        })();
+    </script>
+}

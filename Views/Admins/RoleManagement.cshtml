@@ -1,0 +1,95 @@
+@{
+    ViewData["Title"] = "角色管理";
+    int pendingPromoterCount = ViewBag.PendingPromoterCount ?? 0;
+    int pendingSupplierCount = ViewBag.PendingSupplierCount ?? 0;
+}
+<partial name="_Alerts" />
+
+<!-- 待办汇总 -->
+<div class="stat-grid">
+    <div class="stat-card">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-warning-subtle text-warning">⏳</span>
+            <span class="stat-label">待审核团长</span>
+        </div>
+        <div class="stat-value text-warning">@pendingPromoterCount 位</div>
+        <div class="stat-sub">入驻申请待处理</div>
+    </div>
+    <div class="stat-card sales">
+        <div class="stat-card-top">
+            <span class="stat-icon bg-info-subtle text-info">⏳</span>
+            <span class="stat-label">待审核供应商</span>
+        </div>
+        <div class="stat-value text-dark">@pendingSupplierCount 家</div>
+        <div class="stat-sub">入驻申请待处理</div>
+    </div>
+</div>
+
+<!-- 注册审核 -->
+<h5 class="mb-3 mt-2">📝 注册审核</h5>
+<div class="stat-grid mb-4">
+    <div class="content-card mb-0">
+        <div class="content-card-header">
+            <h5>团长注册审核</h5>
+            <a asp-action="PendingPromoters" class="btn btn-sm btn-outline-primary">进入</a>
+        </div>
+        <div class="content-card-body">
+            <p class="text-muted small mb-0">审核消费者提交的团长入驻申请，通过后账号生效。</p>
+        </div>
+    </div>
+    <div class="content-card mb-0">
+        <div class="content-card-header">
+            <h5>供应商注册审核</h5>
+            <a asp-action="PendingSuppliers" class="btn btn-sm btn-outline-primary">进入</a>
+        </div>
+        <div class="content-card-body">
+            <p class="text-muted small mb-0">审核供应商入驻申请，驳回需填写原因。</p>
+        </div>
+    </div>
+</div>
+
+<!-- 账号新增 -->
+<h5 class="mb-3">➕ 账号新增</h5>
+<div class="stat-grid mb-4">
+    <div class="content-card mb-0">
+        <div class="content-card-header">
+            <h5>新增团长</h5>
+            <a asp-action="AddPromoter" class="btn btn-sm btn-outline-primary">进入</a>
+        </div>
+        <div class="content-card-body">
+            <p class="text-muted small mb-0">管理员直接创建团长账号，免审核立即生效，可自定义基础佣金率。</p>
+        </div>
+    </div>
+    <div class="content-card mb-0">
+        <div class="content-card-header">
+            <h5>新增供应商</h5>
+            <a asp-controller="Suppliers" asp-action="Create" class="btn btn-sm btn-outline-primary">进入</a>
+        </div>
+        <div class="content-card-body">
+            <p class="text-muted small mb-0">登记供应商资质与登录账号，创建后即可供货报价。</p>
+        </div>
+    </div>
+</div>
+
+<!-- 账号管理 -->
+<h5 class="mb-3">🛡️ 账号管理</h5>
+<div class="stat-grid">
+    <div class="content-card mb-0">
+        <div class="content-card-header">
+            <h5>团长管理</h5>
+            <a asp-action="ManagePromoters" class="btn btn-sm btn-outline-primary">进入</a>
+        </div>
+        <div class="content-card-body">
+            <p class="text-muted small mb-0">查看全部团长，执行禁用 / 重新启用。</p>
+        </div>
+    </div>
+    <div class="content-card mb-0">
+        <div class="content-card-header">
+            <h5>供应商管理</h5>
+            <a asp-action="ManageSuppliers" class="btn btn-sm btn-outline-primary">进入</a>
+        </div>
+        <div class="content-card-body">
+            <p class="text-muted small mb-0">查看全部供应商，执行禁用 / 重新启用。</p>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,152 @@
+@model FreshColdChain.Models.DTOs.GroupC_RefundApplyViewModel
+@{
+    ViewData["Title"] = "申请退款";
+    var order = Model.Order.Order!;
+    var hasPending = Model.ExistingRefunds.Any(r => r.Status == "Pending");
+}
+
+<div class="container py-4" style="max-width: 860px;">
+    <div class="mb-4">
+        <a asp-controller="Order" asp-action="Detail" asp-route-id="@order.OrderId" class="text-decoration-none small">← 返回订单详情</a>
+        <h1 class="h3 mt-2 mb-1">申请退款</h1>
+        <div class="text-muted">订单号 @order.OrderNo · 实付 ¥@order.FinalAmount.ToString("F2")</div>
+    </div>
+
+    @if (TempData["ErrorMessage"] is string errorMessage)
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    @if (hasPending)
+    {
+        <div class="alert alert-warning" role="alert">
+            该订单已有待审核的退款申请，请等待平台审核，请勿重复提交。
+        </div>
+    }
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-body-tertiary">退款申请单</div>
+        <div class="card-body p-4">
+            <form asp-action="Apply" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="OrderId" value="@order.OrderId" />
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">退款方式</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="refundType" id="typeFull" value="full" checked @(hasPending ? "disabled" : "") />
+                        <label class="form-check-label" for="typeFull">
+                            整单退款（¥@order.FinalAmount.ToString("F2")）
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="refundType" id="typePartial" value="partial" @(hasPending ? "disabled" : "") />
+                        <label class="form-check-label" for="typePartial">部分退款（按商品）</label>
+                    </div>
+                </div>
+
+                <div id="partialSection" class="row g-3 mb-3" style="display:none;">
+                    <div class="col-md-6">
+                        <label class="form-label">退款商品</label>
+                        <select class="form-select" id="productSelect" name="ProductID">
+                            @foreach (var item in Model.Order.Details)
+                            {
+                                <option value="@item.ProductId" data-price="@item.UnitPrice" data-qty="@item.Quantity">
+                                    @item.ProductName（¥@item.UnitPrice.ToString("F2") × @item.Quantity）
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">退款数量</label>
+                        <input type="number" class="form-control" id="refundQty" name="RefundQty" value="1" min="1" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">预计退款金额</label>
+                        <div class="form-control-plaintext fw-semibold text-danger" id="amountPreview">¥0.00</div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">退款原因</label>
+                    <textarea class="form-control" name="Remark" rows="3" placeholder="请简要说明退款原因" required @(hasPending ? "disabled" : "")></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-danger" @(hasPending ? "disabled" : "")>提交申请</button>
+                <a asp-controller="Order" asp-action="Detail" asp-route-id="@order.OrderId" class="btn btn-outline-secondary ms-2">取消</a>
+            </form>
+        </div>
+    </div>
+
+    @if (Model.ExistingRefunds.Count > 0)
+    {
+        <div class="card shadow-sm">
+            <div class="card-header bg-body-tertiary">退款记录</div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>申请时间</th>
+                            <th>类型</th>
+                            <th>金额</th>
+                            <th>状态</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var refund in Model.ExistingRefunds)
+                        {
+                            var (badge, text) = refund.Status switch
+                            {
+                                "Approved" => ("text-bg-success", "已通过"),
+                                "Rejected" => ("text-bg-secondary", "已驳回"),
+                                _ => ("text-bg-warning", "待审核")
+                            };
+                            <tr>
+                                <td class="small text-muted">@refund.ApplyTime.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>@(string.IsNullOrEmpty(refund.DetailId) ? "整单退款" : "部分退款")</td>
+                                <td>¥@refund.RefundAmount.ToString("F2")</td>
+                                <td><span class="badge @badge">@text</span></td>
+                                <td class="small text-muted">@refund.Remark</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var typeFull = document.getElementById('typeFull');
+            var typePartial = document.getElementById('typePartial');
+            var section = document.getElementById('partialSection');
+            var productSelect = document.getElementById('productSelect');
+            var qtyInput = document.getElementById('refundQty');
+            var preview = document.getElementById('amountPreview');
+
+            function refresh() {
+                section.style.display = typePartial.checked ? '' : 'none';
+                productSelect.disabled = !typePartial.checked;
+                qtyInput.disabled = !typePartial.checked;
+                if (!typePartial.checked) return;
+                var opt = productSelect.selectedOptions[0];
+                if (!opt) return;
+                var price = parseFloat(opt.dataset.price);
+                var maxQty = parseInt(opt.dataset.qty, 10);
+                qtyInput.max = maxQty;
+                var qty = Math.min(Math.max(parseInt(qtyInput.value || '1', 10), 1), maxQty);
+                qtyInput.value = qty;
+                preview.textContent = '¥' + (price * qty).toFixed(2);
+            }
+
+            typeFull.addEventListener('change', refresh);
+            typePartial.addEventListener('change', refresh);
+            productSelect.addEventListener('change', refresh);
+            qtyInput.addEventListener('input', refresh);
+            refresh();
+        })();
+    </script>
+}
