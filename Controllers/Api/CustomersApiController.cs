@@ -12,6 +12,9 @@ public sealed class CustomersApiController(
     [HttpGet("{customerId}")]
     public async Task<IActionResult> GetProfile(string customerId)
     {
+        var authorizationError = AuthorizeCustomer(customerId);
+        if (authorizationError != null) return authorizationError;
+
         var profile = await customerService.GetProfileAsync(customerId);
         if (profile == null)
             return ApiNotFound("消费者不存在");
@@ -38,21 +41,14 @@ public sealed class CustomersApiController(
         });
     }
 
-    [HttpPost]
-    public async Task<IActionResult> Create(CustomerCreateRequest request)
-    {
-        var customerId = await customerService.CreateCustomerAsync(request);
-        return CreatedAtAction(
-            nameof(GetProfile),
-            new { customerId },
-            new { customerId });
-    }
-
     [HttpPut("{customerId}")]
     public async Task<IActionResult> UpdateProfile(
         string customerId,
         CustomerProfileUpdateRequest request)
     {
+        var authorizationError = AuthorizeCustomer(customerId);
+        if (authorizationError != null) return authorizationError;
+
         if (request.CustomerId != customerId)
             return ApiBadRequest("消费者标识不一致");
 
@@ -63,6 +59,9 @@ public sealed class CustomersApiController(
     [HttpGet("{customerId}/addresses")]
     public async Task<IActionResult> GetAddresses(string customerId)
     {
+        var authorizationError = AuthorizeCustomer(customerId);
+        if (authorizationError != null) return authorizationError;
+
         var result = await customerService.GetAddressesAsync(customerId);
         return result == null
             ? ApiNotFound("消费者不存在")
@@ -72,6 +71,9 @@ public sealed class CustomersApiController(
     [HttpGet("{customerId}/addresses/{addressId}")]
     public async Task<IActionResult> GetAddress(string customerId, string addressId)
     {
+        var authorizationError = AuthorizeCustomer(customerId);
+        if (authorizationError != null) return authorizationError;
+
         var address = await customerService.GetAddressForEditAsync(
             customerId,
             addressId);
@@ -85,6 +87,9 @@ public sealed class CustomersApiController(
         string customerId,
         AddressUpsertRequest request)
     {
+        var authorizationError = AuthorizeCustomer(customerId);
+        if (authorizationError != null) return authorizationError;
+
         if (request.CustomerId != customerId)
             return ApiBadRequest("消费者标识不一致");
 
@@ -102,6 +107,9 @@ public sealed class CustomersApiController(
         string addressId,
         AddressUpsertRequest request)
     {
+        var authorizationError = AuthorizeCustomer(customerId);
+        if (authorizationError != null) return authorizationError;
+
         if (request.CustomerId != customerId)
             return ApiBadRequest("消费者标识不一致");
         if (request.AddressId != addressId)
@@ -114,6 +122,9 @@ public sealed class CustomersApiController(
     [HttpDelete("{customerId}/addresses/{addressId}")]
     public async Task<IActionResult> DeleteAddress(string customerId, string addressId)
     {
+        var authorizationError = AuthorizeCustomer(customerId);
+        if (authorizationError != null) return authorizationError;
+
         await customerService.DeleteAddressAsync(customerId, addressId);
         return NoContent();
     }
@@ -123,7 +134,11 @@ public sealed class CustomersApiController(
         string customerId,
         string addressId)
     {
+        var authorizationError = AuthorizeCustomer(customerId);
+        if (authorizationError != null) return authorizationError;
+
         await customerService.SetDefaultAddressAsync(customerId, addressId);
         return NoContent();
     }
+
 }
