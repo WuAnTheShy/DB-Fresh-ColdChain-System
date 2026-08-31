@@ -287,6 +287,45 @@ public sealed class OrderService : IOrderService
         return closed;
     }
 
+    /// <summary>发货满七天后自动确认子订单内全部商品收货，并完成订单。</summary>
+    public async Task<int> AutoConfirmShippedOrdersAsync(CancellationToken cancellationToken = default)
+    {
+        var candidates = await _orderRepo.GetShippedOrdersBeforeAsync(DateTime.Now.AddDays(-7));
+        var completed = 0;
+        foreach (var candidate in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var autoConfirmed = await _transactionManager.ExecuteAsync(async transaction =>
+            {
+                var context = await GetLockedOrderContextAsync(candidate.OrderId, transaction);
+                if (context.Order.OrderStatus != OrderStatusCodes.Shipped ||
+                    (context.Order.UpdatedAt ?? context.Order.CreatedAt) > DateTime.Now.AddDays(-7))
+                    return false;
+
+                foreach (var detail in context.Details.Where(detail =>
+                    !string.Equals(detail.ReceiptStatus, "RECEIVED", StringComparison.Ordinal)))
+                {
+                    if (!await _orderRepo.TryConfirmDetailReceiptAsync(detail.OrderDetailId, context.Order.OrderId, transaction))
+                        throw new OrderBusinessException("自动确认收货时商品状态已变化");
+                }
+
+                await _commissionService.RegisterCompletedOrderAsync(new CommissionOrderRequest
+                {
+                    orderID = context.Order.OrderId,
+                    promoterID = context.Order.PromoterId ?? context.Customer.PromoterId,
+                    finalAmount = context.Order.FinalAmount,
+                    goodsAmount = context.Order.TotalAmount
+                }, transaction, cancellationToken);
+                if (!await _orderRepo.TryUpdateStatusAsync(
+                    context.Order.OrderId, OrderStatus.Shipped, OrderStatus.Completed, transaction))
+                    throw new OrderBusinessException("自动确认收货时订单状态已变化");
+                return true;
+            });
+            if (autoConfirmed) completed++;
+        }
+        return completed;
+    }
+
     /// <summary>
     /// 将一次消费者结算按团长拆成多个待支付子订单。库存校验和全部子订单写入
     /// 共用一个事务，任一商品缺货时整个批次回滚。

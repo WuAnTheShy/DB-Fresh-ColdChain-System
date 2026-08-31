@@ -515,6 +515,7 @@ public sealed class GroupBCheckoutExpiryHostedService : BackgroundService
             using var scope = _scopeFactory.CreateScope();
             var orderService = scope.ServiceProvider.GetRequiredService<IOrderService>();
             await orderService.ExpirePendingCheckoutBatchesAsync(stoppingToken);
+            await orderService.AutoConfirmShippedOrdersAsync(stoppingToken);
         }
         catch (OperationCanceledException)
         {
