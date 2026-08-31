@@ -1407,6 +1407,9 @@ internal sealed class FakePromoterService : IPromoterService
 
     public Task<List<GroupC_CrmPCRelation>> GetBoundCustomersByPromoterAsync(string promoterId) =>
         Task.FromResult(new List<GroupC_CrmPCRelation>());
+
+    public Task<Result> UpdatePromoterAvatarAsync(string promoterId, string? avatar) =>
+        Task.FromResult(new Result { IsSuccess = true });
 }
 
 internal sealed class FakeDbConnection : IDbConnection

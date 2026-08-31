@@ -225,6 +225,11 @@ public sealed class OrderService : IOrderService
                 }, transaction);
             }
 
+            await UpdateCustomerSpentAndLevelAsync(
+                customer,
+                orders.Sum(order => order.FinalAmount),
+                transaction);
+
             return new CheckoutBatchPaymentResult
             {
                 CheckoutBatchId = checkoutBatchId,
@@ -680,6 +685,11 @@ public sealed class OrderService : IOrderService
                 }, transaction);
             }
 
+            await UpdateCustomerSpentAndLevelAsync(
+                customer,
+                finalAmount,
+                transaction);
+
             return new CreateOrderResult
             {
                 OrderId = orderId,
@@ -880,6 +890,11 @@ public sealed class OrderService : IOrderService
                 context.Customer.CustomerId,
                 transaction);
 
+            await UpdateCustomerSpentAndLevelAsync(
+                context.Customer,
+                -context.Order.FinalAmount,
+                transaction);
+
             if (!await _orderRepo.TryUpdateStatusAsync(
                 orderId,
                 currentStatus,
@@ -973,6 +988,11 @@ public sealed class OrderService : IOrderService
                     OrderId = orderId
                 }, transaction);
             }
+
+            await UpdateCustomerSpentAndLevelAsync(
+                context.Customer,
+                -context.Order.FinalAmount,
+                transaction);
 
             if (!await _orderRepo.TryUpdateStatusAsync(
                 orderId,
@@ -1082,6 +1102,36 @@ public sealed class OrderService : IOrderService
             return null;
 
         return await _pointRepo.GetLevelForSpentAsync(customer.TotalSpent);
+    }
+
+    private async Task UpdateCustomerSpentAndLevelAsync(
+        CrmCustomer customer,
+        decimal changeAmount,
+        IDbTransaction transaction)
+    {
+        var newTotalSpent = Math.Max(0m, customer.TotalSpent + changeAmount);
+        await _customerRepo.SetTotalSpentAsync(
+            customer.CustomerId,
+            newTotalSpent,
+            transaction);
+
+        var level = await _pointRepo.GetLevelForSpentAsync(
+            newTotalSpent,
+            transaction);
+        if (level != null &&
+            !string.Equals(
+                customer.MemberLevelId,
+                level.MemberLevelId,
+                StringComparison.Ordinal))
+        {
+            await _customerRepo.UpdateMemberLevelAsync(
+                customer.CustomerId,
+                level.MemberLevelId,
+                transaction);
+            customer.MemberLevelId = level.MemberLevelId;
+        }
+
+        customer.TotalSpent = newTotalSpent;
     }
 
     public async Task ConfirmOrderItemReceiptAsync(
