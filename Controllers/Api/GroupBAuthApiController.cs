@@ -13,38 +13,25 @@ public sealed class GroupBAuthApiController : GroupBApiController
     [HttpPost("register")]
     public async Task<IActionResult> Register(
         CustomerCreateRequest request,
-<<<<<<< HEAD
         [FromServices] ICustomerService customerService,
         [FromServices] CustomerAuthenticationStateService authenticationState)
-=======
-        [FromServices] ICustomerService customerService)
->>>>>>> origin/dev-groupC
     {
         var customerId = await customerService.CreateCustomerAsync(request);
         var result = new GroupBCustomerLoginResult
         {
             CustomerId = customerId,
             CustomerName = request.CustomerName,
-<<<<<<< HEAD
-            Phone = request.Phone
-        };
-        SignIn(result, authenticationState.GetAuthenticationVersion(customerId));
-=======
             Phone = request.Phone,
             Avatar = request.Avatar
         };
-        SignIn(result);
->>>>>>> origin/dev-groupC
+        SignIn(result, authenticationState.GetAuthenticationVersion(customerId));
 
-        return StatusCode(
-            StatusCodes.Status201Created,
-            result);
+        return StatusCode(StatusCodes.Status201Created, result);
     }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login(
         GroupBCustomerLoginRequest request,
-<<<<<<< HEAD
         [FromServices] ICustomerService customerService,
         [FromServices] CustomerAuthenticationStateService authenticationState)
     {
@@ -71,15 +58,6 @@ public sealed class GroupBAuthApiController : GroupBApiController
         return NoContent();
     }
 
-=======
-        [FromServices] ICustomerService customerService)
-    {
-        var result = await customerService.LoginAsync(request);
-        SignIn(result);
-        return Ok(result);
-    }
-
->>>>>>> origin/dev-groupC
     [HttpGet("me")]
     public IActionResult Me()
     {
@@ -97,47 +75,29 @@ public sealed class GroupBAuthApiController : GroupBApiController
         {
             CustomerId = customerId,
             CustomerName = HttpContext.Session.GetString(CustomerNameSessionKey) ?? string.Empty,
-<<<<<<< HEAD
-            Phone = HttpContext.Session.GetString(CustomerPhoneSessionKey) ?? string.Empty
-=======
             Phone = HttpContext.Session.GetString(CustomerPhoneSessionKey) ?? string.Empty,
             Avatar = HttpContext.Session.GetString(CustomerAvatarSessionKey)
->>>>>>> origin/dev-groupC
         });
     }
 
     [HttpPost("logout")]
     public IActionResult Logout()
     {
-<<<<<<< HEAD
         HttpContext.Session.Clear();
         return NoContent();
     }
 
     private void SignIn(GroupBCustomerLoginResult customer, int authenticationVersion)
-=======
-        HttpContext.Session.Remove(CustomerIdSessionKey);
-        HttpContext.Session.Remove(CustomerNameSessionKey);
-        HttpContext.Session.Remove(CustomerPhoneSessionKey);
-        HttpContext.Session.Remove(CustomerAvatarSessionKey);
-        return NoContent();
-    }
-
-    private void SignIn(GroupBCustomerLoginResult customer)
->>>>>>> origin/dev-groupC
     {
         HttpContext.Session.SetString(CustomerIdSessionKey, customer.CustomerId);
         HttpContext.Session.SetString(CustomerNameSessionKey, customer.CustomerName);
         HttpContext.Session.SetString(CustomerPhoneSessionKey, customer.Phone);
-<<<<<<< HEAD
         HttpContext.Session.SetInt32(
             CustomerAuthenticationVersionSessionKey,
             authenticationVersion);
-=======
         if (!string.IsNullOrWhiteSpace(customer.Avatar))
         {
             HttpContext.Session.SetString(CustomerAvatarSessionKey, customer.Avatar);
         }
->>>>>>> origin/dev-groupC
     }
 }

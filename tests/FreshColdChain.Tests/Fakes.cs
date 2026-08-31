@@ -3,10 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.CrossGroup_C;
-<<<<<<< HEAD
 using FreshColdChain.Models.DTOs;
-=======
->>>>>>> origin/dev-groupC
 using FreshColdChain.Repositories;
 using FreshColdChain.Services;
 using Microsoft.AspNetCore.Identity;
@@ -1328,7 +1325,6 @@ internal sealed class FakeCommissionService : ICommissionService
         CancellationToken cancellationToken = default)
     {
         return Task.FromResult(new Result { IsSuccess = true });
-<<<<<<< HEAD
     }
 }
 
@@ -1358,8 +1354,6 @@ internal sealed class FakePaymentRepository : IPaymentRepository
         else
             Records.Add(copy);
         return Task.CompletedTask;
-=======
->>>>>>> origin/dev-groupC
     }
 
     public Task<List<GroupC_FinPaymentRecord>> SearchAsync(

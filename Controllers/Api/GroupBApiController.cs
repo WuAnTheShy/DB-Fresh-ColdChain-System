@@ -10,11 +10,8 @@ public abstract class GroupBApiController : ControllerBase
     protected const string CustomerIdSessionKey = "CustomerId";
     protected const string CustomerNameSessionKey = "CustomerName";
     protected const string CustomerPhoneSessionKey = "CustomerPhone";
-<<<<<<< HEAD
     protected const string CustomerAuthenticationVersionSessionKey = "CustomerAuthenticationVersion";
-=======
     protected const string CustomerAvatarSessionKey = "CustomerAvatar";
->>>>>>> origin/dev-groupC
 
     protected string? SignedInCustomerId =>
         HttpContext.Session.GetString(CustomerIdSessionKey);
