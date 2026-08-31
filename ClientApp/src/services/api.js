@@ -105,6 +105,7 @@ export const api = {
     method: 'DELETE',
   }),
   getCoupons: (customerId) => request(`/api/customers/${customerId}/coupons`),
+  getMessages: (customerId) => request(`/api/customers/${customerId}/messages`),
   claimCoupon: (customerId, couponId) => request(`/api/customers/${customerId}/coupons/${couponId}/claim`, {
     method: 'POST',
   }),

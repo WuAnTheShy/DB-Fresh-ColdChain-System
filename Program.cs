@@ -31,6 +31,7 @@ builder.Services.AddScoped<ILogFulfillmentBatchItemRepository, LogFulfillmentBat
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 builder.Services.AddScoped<ICouponRepository, CouponRepository>();
+builder.Services.AddScoped<IConsumerMessageRepository, ConsumerMessageRepository>();
 builder.Services.AddScoped<IPointRepository, PointRepository>();
 builder.Services.AddScoped<IPromoterRepository, PromoterRepository>();
 
