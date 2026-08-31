@@ -9,6 +9,8 @@ namespace FreshColdChain.Repositories;
 /// </summary>
 public class PointRepository : B_BaseRepository, IPointRepository
 {
+    private const string ConsumerLevelFilter =
+        "('00000000000000000000000000000001','MEMBER_LEVEL_1','MEMBER_LEVEL_500','MEMBER_LEVEL_2000','MEMBER_LEVEL_5000')";
     public PointRepository(IConfiguration configuration) : base(configuration) { }
 
     /// <summary>写入积分流水（防篡改审计）</summary>
@@ -55,7 +57,7 @@ public class PointRepository : B_BaseRepository, IPointRepository
     {
         return await WithConnectionAsync(transaction, async connection =>
             (await connection.QueryAsync<CrmMemberLevel>(
-                "SELECT * FROM Crm_MemberLevels ORDER BY MinSpent ASC",
+                $"SELECT * FROM Crm_MemberLevels WHERE MemberLevelId IN {ConsumerLevelFilter} ORDER BY MinSpent ASC",
                 transaction: transaction)).ToList());
     }
 
@@ -66,8 +68,8 @@ public class PointRepository : B_BaseRepository, IPointRepository
     {
         return await WithConnectionAsync(transaction, connection =>
             connection.QueryFirstOrDefaultAsync<CrmMemberLevel>(
-                @"SELECT * FROM Crm_MemberLevels
-                  WHERE MemberLevelId = :MemberLevelId",
+                $@"SELECT * FROM Crm_MemberLevels
+                  WHERE MemberLevelId = :MemberLevelId AND MemberLevelId IN {ConsumerLevelFilter}",
                 new { MemberLevelId = memberLevelId },
                 transaction));
     }
@@ -79,8 +81,8 @@ public class PointRepository : B_BaseRepository, IPointRepository
     {
         return await WithConnectionAsync(transaction, connection =>
             connection.QueryFirstOrDefaultAsync<CrmMemberLevel>(
-                @"SELECT * FROM Crm_MemberLevels
-                  WHERE MinSpent <= :TotalSpent
+                $@"SELECT * FROM Crm_MemberLevels
+                  WHERE MinSpent <= :TotalSpent AND MemberLevelId IN {ConsumerLevelFilter}
                   ORDER BY MinSpent DESC, MemberLevelId DESC
                   FETCH FIRST 1 ROWS ONLY",
                 new { TotalSpent = totalSpent },

@@ -641,23 +641,6 @@ public sealed class OrderService : IOrderService
                 }, transaction);
             }
 
-            await _customerRepo.UpdateTotalSpentAsync(
-                customer.CustomerId,
-                finalAmount,
-                transaction);
-            var newTotalSpent = customer.TotalSpent + finalAmount;
-            var qualifiedLevel = await _pointRepo.GetLevelForSpentAsync(
-                newTotalSpent,
-                transaction);
-            if (qualifiedLevel != null &&
-                qualifiedLevel.MemberLevelId != customer.MemberLevelId)
-            {
-                await _customerRepo.UpdateMemberLevelAsync(
-                    customer.CustomerId,
-                    qualifiedLevel.MemberLevelId,
-                    transaction);
-            }
-
             return new CreateOrderResult
             {
                 OrderId = orderId,
@@ -853,35 +836,10 @@ public sealed class OrderService : IOrderService
                 }, transaction);
             }
 
-            if (context.Order.CheckoutBatchId == null &&
-                !await _customerRepo.TrySubtractTotalSpentAsync(
-                    context.Customer.CustomerId,
-                    context.Order.FinalAmount,
-                    transaction))
-            {
-                throw new OrderBusinessException(
-                    "累计消费金额不足以撤销该订单，请联系管理员处理");
-            }
-
             _ = await _couponRepo.RestoreCouponForCancelledOrderAsync(
                 context.Order.OrderId,
                 context.Customer.CustomerId,
                 transaction);
-
-            var newTotalSpent = context.Order.CheckoutBatchId == null
-                ? context.Customer.TotalSpent - context.Order.FinalAmount
-                : context.Customer.TotalSpent;
-            var qualifiedLevel = await _pointRepo.GetLevelForSpentAsync(
-                newTotalSpent,
-                transaction);
-            if (qualifiedLevel != null &&
-                qualifiedLevel.MemberLevelId != context.Customer.MemberLevelId)
-            {
-                await _customerRepo.UpdateMemberLevelAsync(
-                    context.Customer.CustomerId,
-                    qualifiedLevel.MemberLevelId,
-                    transaction);
-            }
 
             if (!await _orderRepo.TryUpdateStatusAsync(
                 orderId,
