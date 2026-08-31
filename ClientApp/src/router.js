@@ -10,6 +10,7 @@ import OrderSuccessView from './views/OrderSuccessView.vue'
 import PaymentView from './views/PaymentView.vue'
 import OrdersView from './views/OrdersView.vue'
 import OrderDetailView from './views/OrderDetailView.vue'
+import RefundApplyView from './views/RefundApplyView.vue'
 import CouponsView from './views/CouponsView.vue'
 import AddressesView from './views/AddressesView.vue'
 import CustomerView from './views/CustomerView.vue'
@@ -32,6 +33,7 @@ const router = createRouter({
     { path: '/payment/:batchId', name: 'payment', component: PaymentView, props: true, meta: { requiresAuth: true } },
     { path: '/orders', name: 'orders', component: OrdersView, meta: { requiresAuth: true } },
     { path: '/orders/:id', name: 'order-detail', component: OrderDetailView, props: true, meta: { requiresAuth: true } },
+    { path: '/orders/:id/refund', name: 'refund-apply', component: RefundApplyView, props: true, meta: { requiresAuth: true } },
     { path: '/coupons', name: 'coupons', component: CouponsView, meta: { requiresAuth: true } },
     { path: '/addresses', name: 'addresses', component: AddressesView, meta: { requiresAuth: true } },
     { path: '/profile', name: 'profile', component: CustomerView, meta: { requiresAuth: true } },

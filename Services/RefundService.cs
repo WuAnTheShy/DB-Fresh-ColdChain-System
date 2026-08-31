@@ -65,8 +65,10 @@ namespace FreshColdChain.Services
                 }
                 var ctx = await BuildContextFromRequestAsync(refundRequest, _uow.Transaction);
                 //添加退款记录（免审流程直接置为已通过）
-                await RefundRecord(ctx.Order.OrderId, ctx.DetailId, ctx.SupplierId, ctx.RefundQty, ctx.RefundAmount,
+                var recordResult = await RefundRecord(ctx.Order.OrderId, ctx.DetailId, ctx.SupplierId, ctx.RefundQty, ctx.RefundAmount,
                     refundRequest.LiabilityType, refundRequest.Remark, "Approved", _uow.Transaction);
+                if (!recordResult.IsSuccess)
+                    throw new Exception(recordResult.ErrorMessage ?? "退款记录写入失败");
                 await ExecuteRefundCoreAsync(ctx, _uow.Transaction);
                 //支付流水是否需要回滚？默认不回滚支付流水好了
                 await _uow.CommitAsync();
@@ -105,8 +107,10 @@ namespace FreshColdChain.Services
                     throw new Exception("该订单已有待审核的退款申请，请勿重复提交！");
                 }
                 //创建待审核申请单（不写佣金/积分/订单状态，等待管理员审核）
-                await RefundRecord(ctx.Order.OrderId, ctx.DetailId, ctx.SupplierId, ctx.RefundQty, ctx.RefundAmount,
+                var recordResult = await RefundRecord(ctx.Order.OrderId, ctx.DetailId, ctx.SupplierId, ctx.RefundQty, ctx.RefundAmount,
                     refundRequest.LiabilityType, refundRequest.Remark, "Pending", _uow.Transaction);
+                if (!recordResult.IsSuccess)
+                    throw new Exception(recordResult.ErrorMessage ?? "退款申请记录写入失败");
                 await _uow.CommitAsync();
                 _result.IsSuccess = true;
                 return _result;
@@ -248,7 +252,10 @@ namespace FreshColdChain.Services
             if (string.IsNullOrEmpty(refundRequest.ProductID))
             {
                 ctx.IsFullRefund = true;
-                ctx.RefundAmount = ctx.Order.FinalAmount;   // 整单退时，退款金额 = 订单实付金额
+                // 发货后冷链运费已实际发生，整单退款也不退运费。
+                ctx.RefundAmount = ctx.OrderStatus is OrderStatus.Shipped or OrderStatus.Completed or OrderStatus.Refunding
+                    ? Math.Max(0m, ctx.Order.FinalAmount - ctx.Order.FreightAmount)
+                    : ctx.Order.FinalAmount;
                 ctx.RefundQty = 0;                          // 整单不计数量
             }
             else
@@ -266,7 +273,13 @@ namespace FreshColdChain.Services
                 ctx.DetailId = detail.OrderDetailId;
                 ctx.SupplierId = detail.SupplierId;    //供应商信息直接取自B组订单明细快照
                 ctx.RefundQty = refundRequest.RefundQty;
-                ctx.RefundAmount = ctx.RefundQty * detail.UnitPrice;    //计算退款金额
+                var discountRate = ctx.Order.TotalAmount <= 0
+                    ? 1m
+                    : Math.Max(0m, ctx.Order.TotalAmount - ctx.Order.DiscountAmount) / ctx.Order.TotalAmount;
+                ctx.RefundAmount = Math.Round(
+                    ctx.RefundQty * detail.UnitPrice * discountRate,
+                    2,
+                    MidpointRounding.AwayFromZero);
             }
             FinalizeRatio(ctx);
             return ctx;
@@ -291,7 +304,11 @@ namespace FreshColdChain.Services
             {
                 throw new Exception("订单实付金额异常，无法计算退款比例！");
             }
-            ctx.Ratio = ctx.RefundAmount / ctx.Order.FinalAmount;  //退款金额占订单实付比例
+            ctx.Ratio = ctx.IsFullRefund
+                ? 1m
+                : Math.Min(1m, ctx.RefundQty <= 0 || ctx.Order.TotalAmount <= 0
+                    ? 0m
+                    : ctx.RefundAmount / Math.Max(0.01m, ctx.Order.TotalAmount - ctx.Order.DiscountAmount));
         }
 
         //执行退款的资金操作：佣金/销售额回滚、佣金记录更新、B组积分扣减与订单状态变更（不含申请单写入）

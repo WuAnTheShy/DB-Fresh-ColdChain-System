@@ -135,4 +135,9 @@ export const api = {
   confirmOrderItemReceipt: (orderId, orderDetailId) => request(`/api/orders/${orderId}/items/${orderDetailId}/confirm-receipt`, {
     method: 'POST',
   }),
+  getOrderRefunds: (orderId) => request(`/api/orders/${orderId}/refunds`),
+  applyOrderRefund: (orderId, payload) => request(`/api/orders/${orderId}/refunds`, {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
 }
