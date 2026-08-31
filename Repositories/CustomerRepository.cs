@@ -179,6 +179,12 @@ public class CustomerRepository : B_BaseRepository, ICustomerRepository
                 transaction)).ToList());
     }
 
+    public async Task<List<CrmCustomer>> GetAllCustomersAsync(IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<CrmCustomer>("SELECT * FROM Crm_Customers", transaction: transaction)).ToList());
+    }
+
     /// <summary>只更新消费者允许自行维护的资料</summary>
     public async Task<bool> UpdateProfileAsync(
         CustomerProfileUpdateRequest request,
@@ -222,6 +228,11 @@ public class CustomerRepository : B_BaseRepository, ICustomerRepository
                 transaction);
         });
     }
+
+    public Task SetTotalSpentAsync(string customerId, decimal totalSpent, IDbTransaction transaction) =>
+        WithConnectionAsync(transaction, connection => connection.ExecuteAsync(
+            "UPDATE Crm_Customers SET TotalSpent = :TotalSpent, UpdatedAt = SYSDATE WHERE CustomerId = :CustomerId",
+            new { CustomerId = customerId, TotalSpent = totalSpent }, transaction));
 
     public async Task<bool> TrySubtractTotalSpentAsync(
         string customerId,

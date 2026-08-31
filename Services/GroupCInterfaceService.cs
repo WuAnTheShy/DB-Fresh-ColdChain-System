@@ -10,15 +10,18 @@ public sealed class GroupCInterfaceService : IGroupCInterface
     private static readonly TimeSpan RefundWindow = TimeSpan.FromDays(14);
 
     private readonly ICustomerRepository _customerRepository;
+    private readonly IPointRepository _pointRepository;
     private readonly IPromoterRepository _promoterRepository;
     private readonly ILogger<GroupCInterfaceService> _logger;
 
     public GroupCInterfaceService(
         ICustomerRepository customerRepository,
+        IPointRepository pointRepository,
         IPromoterRepository promoterRepository,
         ILogger<GroupCInterfaceService> logger)
     {
         _customerRepository = customerRepository;
+        _pointRepository = pointRepository;
         _promoterRepository = promoterRepository;
         _logger = logger;
     }
@@ -252,6 +255,7 @@ public sealed class GroupBDailyMaintenanceService
 
     private readonly IOrderRepository _orderRepository;
     private readonly ICustomerRepository _customerRepository;
+    private readonly IPointRepository _pointRepository;
     private readonly IPromoterRepository _promoterRepository;
     private readonly IGroupCInterface _groupCInterface;
     private readonly IOrderTransactionManager _transactionManager;
@@ -260,6 +264,7 @@ public sealed class GroupBDailyMaintenanceService
     public GroupBDailyMaintenanceService(
         IOrderRepository orderRepository,
         ICustomerRepository customerRepository,
+        IPointRepository pointRepository,
         IPromoterRepository promoterRepository,
         IGroupCInterface groupCInterface,
         IOrderTransactionManager transactionManager,
@@ -267,6 +272,7 @@ public sealed class GroupBDailyMaintenanceService
     {
         _orderRepository = orderRepository;
         _customerRepository = customerRepository;
+        _pointRepository = pointRepository;
         _promoterRepository = promoterRepository;
         _groupCInterface = groupCInterface;
         _transactionManager = transactionManager;
@@ -277,6 +283,7 @@ public sealed class GroupBDailyMaintenanceService
     {
         await RunOrderExpiryCheckAsync(cancellationToken);
         await RunBindingExpiryCheckAsync(cancellationToken);
+        await RunMonthlyMemberLevelSettlementAsync(cancellationToken);
     }
 
     public async Task RunOrderExpiryCheckAsync(CancellationToken cancellationToken = default)
@@ -397,6 +404,41 @@ public sealed class GroupBDailyMaintenanceService
                 {
                     throw new GroupBBusinessException("消费者团长绑定清理失败");
                 }
+            });
+        }
+    }
+
+    /// <summary>每月1日以前一月末为截止点，以已完结订单累计金额重新定级并留痕。</summary>
+    public async Task RunMonthlyMemberLevelSettlementAsync(CancellationToken cancellationToken = default)
+    {
+        var today = DateTime.Today;
+        if (today.Day != 1)
+            return;
+
+        var settlementMonth = new DateTime(today.Year, today.Month, 1);
+        var customers = await _customerRepository.GetAllCustomersAsync();
+        foreach (var customer in customers)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await _transactionManager.ExecuteAsync(async transaction =>
+            {
+                if (await _pointRepository.HasMemberLevelHistoryAsync(customer.CustomerId, settlementMonth, transaction))
+                    return;
+                var locked = await _customerRepository.GetByIdForUpdateAsync(customer.CustomerId, transaction);
+                if (locked == null)
+                    return;
+                var spent = await _orderRepository.GetCompletedSpentBeforeAsync(customer.CustomerId, settlementMonth, transaction);
+                var level = await _pointRepository.GetLevelForSpentAsync(spent, transaction);
+                if (level == null)
+                    throw new GroupBBusinessException("会员等级配置不完整");
+                await _customerRepository.SetTotalSpentAsync(customer.CustomerId, spent, transaction);
+                await _customerRepository.UpdateMemberLevelAsync(customer.CustomerId, level.MemberLevelId, transaction);
+                await _pointRepository.InsertMemberLevelHistoryAsync(new CrmMemberLevelHistory
+                {
+                    HistoryId = GroupBIds.NewId(), CustomerId = customer.CustomerId,
+                    MemberLevelId = level.MemberLevelId, QualifiedSpent = spent,
+                    SettlementMonth = settlementMonth
+                }, transaction);
             });
         }
     }

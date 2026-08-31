@@ -37,6 +37,7 @@ public sealed class CustomersApiController(
                 customer.UpdatedAt
             },
             profile.MemberLevel,
+            profile.MemberLevelHistory,
             profile.Addresses
         });
     }

@@ -100,6 +100,17 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 transaction)).ToList());
     }
 
+    public async Task<decimal> GetCompletedSpentBeforeAsync(string customerId, DateTime cutoff, IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            await connection.ExecuteScalarAsync<decimal>(
+                @"SELECT NVL(SUM(FinalAmount), 0) FROM Biz_Orders
+                  WHERE CustomerId = :CustomerId
+                    AND OrderStatus = 'COMPLETED'
+                    AND NVL(UpdatedAt, CreatedAt) < :Cutoff",
+                new { CustomerId = customerId, Cutoff = cutoff }, transaction));
+    }
+
     public async Task<int> CountOrdersAsync(
         OrderQueryRequest request,
         IDbTransaction? transaction = null)

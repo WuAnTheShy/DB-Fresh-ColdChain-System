@@ -201,6 +201,9 @@ internal sealed class FakeOrderRepository : IOrderRepository
             .ToList());
     }
 
+    public Task<decimal> GetCompletedSpentBeforeAsync(string customerId, DateTime cutoff, IDbTransaction? transaction = null) =>
+        Task.FromResult(Orders.Where(order => order.CustomerId == customerId && order.OrderStatus == OrderStatusCodes.Completed && (order.UpdatedAt ?? order.CreatedAt) < cutoff).Sum(order => order.FinalAmount));
+
     public Task<int> CountOrdersAsync(
         OrderQueryRequest request,
         IDbTransaction? transaction = null)
@@ -607,6 +610,9 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         return Task.FromResult(list);
     }
 
+    public Task<List<CrmCustomer>> GetAllCustomersAsync(IDbTransaction? transaction = null) =>
+        Task.FromResult(new List<CrmCustomer> { CloneCustomer(Customer) }.Concat(CreatedCustomers.Select(CloneCustomer)).ToList());
+
     public Task<bool> UpdateProfileAsync(
         CustomerProfileUpdateRequest request,
         IDbTransaction? transaction = null)
@@ -638,6 +644,12 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         IDbTransaction? transaction = null)
     {
         Stage(transaction, () => Customer.TotalSpent += addAmount);
+        return Task.CompletedTask;
+    }
+
+    public Task SetTotalSpentAsync(string customerId, decimal totalSpent, IDbTransaction transaction)
+    {
+        Stage(transaction, () => Customer.TotalSpent = totalSpent);
         return Task.CompletedTask;
     }
 
@@ -1063,6 +1075,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
 internal sealed class FakePointRepository : IPointRepository
 {
     public List<CrmPointLog> Logs { get; } = [];
+    public List<CrmMemberLevelHistory> Histories { get; } = [];
     public bool ThrowOnInsert { get; set; }
     public List<CrmMemberLevel> Levels { get; } =
     [
@@ -1148,6 +1161,18 @@ internal sealed class FakePointRepository : IPointRepository
             .OrderByDescending(item => item.MinSpent)
             .FirstOrDefault();
         return Task.FromResult(level == null ? null : CloneLevel(level));
+    }
+
+    public Task<List<CrmMemberLevelHistory>> GetMemberLevelHistoryAsync(string customerId) =>
+        Task.FromResult(Histories.Where(item => item.CustomerId == customerId).OrderByDescending(item => item.SettlementMonth).ToList());
+
+    public Task<bool> HasMemberLevelHistoryAsync(string customerId, DateTime settlementMonth, IDbTransaction transaction) =>
+        Task.FromResult(Histories.Any(item => item.CustomerId == customerId && item.SettlementMonth == settlementMonth));
+
+    public Task InsertMemberLevelHistoryAsync(CrmMemberLevelHistory history, IDbTransaction transaction)
+    {
+        ((FakeOrderTransaction)transaction).Stage(() => Histories.Add(history));
+        return Task.CompletedTask;
     }
 
     private static CrmMemberLevel CloneLevel(CrmMemberLevel level)

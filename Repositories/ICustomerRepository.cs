@@ -53,6 +53,8 @@ public interface ICustomerRepository
         DateTime now,
         IDbTransaction? transaction = null);
 
+    Task<List<CrmCustomer>> GetAllCustomersAsync(IDbTransaction? transaction = null);
+
     Task<bool> UpdateProfileAsync(
         CustomerProfileUpdateRequest request,
         IDbTransaction? transaction = null);
@@ -66,6 +68,8 @@ public interface ICustomerRepository
         string customerId,
         decimal addAmount,
         IDbTransaction? transaction = null);
+
+    Task SetTotalSpentAsync(string customerId, decimal totalSpent, IDbTransaction transaction);
 
     Task<bool> TrySubtractTotalSpentAsync(
         string customerId,

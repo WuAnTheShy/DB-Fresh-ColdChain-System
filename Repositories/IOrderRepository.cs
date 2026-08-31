@@ -61,6 +61,8 @@ public interface IOrderRepository
         IEnumerable<BizOrderDetail> details,
         IDbTransaction? transaction = null);
 
+    Task<decimal> GetCompletedSpentBeforeAsync(string customerId, DateTime cutoff, IDbTransaction? transaction = null);
+
     Task<bool> TryConfirmDetailReceiptAsync(
         string orderDetailId,
         string orderId,

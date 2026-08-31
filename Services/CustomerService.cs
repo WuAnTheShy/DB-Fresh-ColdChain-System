@@ -169,6 +169,7 @@ public sealed class CustomerService : ICustomerService
             return null;
 
         var addressesTask = _customerRepo.GetAddressesAsync(customerId);
+        var historyTask = _pointRepo.GetMemberLevelHistoryAsync(customerId);
         var levelTask = customer.MemberLevelId != null
             ? _pointRepo.GetLevelByIdAsync(customer.MemberLevelId)
             : _pointRepo.GetLevelForSpentAsync(customer.TotalSpent);
@@ -178,7 +179,8 @@ public sealed class CustomerService : ICustomerService
         {
             Customer = customer,
             MemberLevel = await levelTask,
-            Addresses = await addressesTask
+            Addresses = await addressesTask,
+            MemberLevelHistory = await historyTask
         };
     }
 

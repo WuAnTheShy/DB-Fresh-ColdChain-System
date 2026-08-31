@@ -86,4 +86,33 @@ public class PointRepository : B_BaseRepository, IPointRepository
                 new { TotalSpent = totalSpent },
                 transaction));
     }
+
+    public async Task<List<CrmMemberLevelHistory>> GetMemberLevelHistoryAsync(string customerId)
+    {
+        return await WithConnectionAsync(null, async connection =>
+            (await connection.QueryAsync<CrmMemberLevelHistory>(
+                @"SELECT h.HistoryId, h.CustomerId, h.MemberLevelId, l.LevelName,
+                         h.QualifiedSpent, h.SettlementMonth, h.CreatedAt
+                  FROM Crm_MemberLevelHistories h
+                  JOIN Crm_MemberLevels l ON l.MemberLevelId = h.MemberLevelId
+                  WHERE h.CustomerId = :CustomerId
+                  ORDER BY h.SettlementMonth DESC, h.CreatedAt DESC",
+                new { CustomerId = customerId })).ToList());
+    }
+
+    public async Task<bool> HasMemberLevelHistoryAsync(string customerId, DateTime settlementMonth, IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            await connection.ExecuteScalarAsync<int>(
+                @"SELECT COUNT(1) FROM Crm_MemberLevelHistories
+                  WHERE CustomerId = :CustomerId AND SettlementMonth = :SettlementMonth",
+                new { CustomerId = customerId, SettlementMonth = settlementMonth }, transaction) > 0);
+    }
+
+    public Task InsertMemberLevelHistoryAsync(CrmMemberLevelHistory history, IDbTransaction transaction) =>
+        WithConnectionAsync(transaction, connection => connection.ExecuteAsync(
+            @"INSERT INTO Crm_MemberLevelHistories
+                 (HistoryId, CustomerId, MemberLevelId, QualifiedSpent, SettlementMonth, CreatedAt)
+              VALUES (:HistoryId, :CustomerId, :MemberLevelId, :QualifiedSpent, :SettlementMonth, SYSDATE)",
+            history, transaction));
 }
