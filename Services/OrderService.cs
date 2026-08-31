@@ -936,6 +936,24 @@ public sealed class OrderService : IOrderService
             {
                 throw new OrderBusinessException("订单状态已变化，请刷新后重试");
             }
+
+            // 同一结算批次的所有团长子订单均完成整单退款后，再归还本批次使用的券。
+            if (!string.IsNullOrWhiteSpace(context.Order.CheckoutBatchId))
+            {
+                var batchOrders = await _orderRepo.GetByCheckoutBatchForUpdateAsync(
+                    context.Order.CheckoutBatchId,
+                    customerId,
+                    transaction);
+                if (batchOrders.Count > 0 && batchOrders.All(order =>
+                    OrderStatusCodes.Parse(order.OrderStatus) == OrderStatus.Refunded))
+                {
+                    foreach (var batchOrder in batchOrders)
+                        _ = await _couponRepo.RestoreCouponForCancelledOrderAsync(
+                            batchOrder.OrderId,
+                            customerId,
+                            transaction);
+                }
+            }
         });
     }
 

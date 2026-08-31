@@ -19,11 +19,12 @@ namespace FreshColdChain.Services
 		private readonly ITableLogService _logManager;
 		private readonly ICommissionRepository _icommissionRepository;
 		private readonly IOrderService _orderService;   //B组真实订单接口（替代原 Mock_IGroupB / Mock_IGroupA）
+		private readonly IOrderRepository _orderRepository;
 		public RefundService(IUnitOfWork uow, IPromoterRepository ipromoterRepository,
 			IPromoterService ipromoterManager, IRefundRepository irefundRepository,
 								ITableLogService log_Auditrails,
 		ICommissionRepository icommissionRepository,
-								IOrderService orderService)
+								IOrderService orderService, IOrderRepository orderRepository)
 		{
 			_uow = uow;
 			_ipromoterRepository = ipromoterRepository;
@@ -32,6 +33,7 @@ namespace FreshColdChain.Services
 			_logManager = log_Auditrails;
 		_icommissionRepository = icommissionRepository;
 			_orderService = orderService;
+			_orderRepository = orderRepository;
 		}
 
 		//退款上下文：一次退款所需的全部订单侧信息与计算结果
@@ -122,6 +124,38 @@ namespace FreshColdChain.Services
                 _result.IsSuccess = false;
                 _result.ErrorMessage = $"系统错误：{ex.Message}";
                 return _result;
+            }
+        }
+
+        public async Task<Result> ApplyCheckoutBatchRefundAsync(string checkoutBatchId, string customerId, string remark)
+        {
+            await _uow.BeginAsync();
+            try
+            {
+                var transaction = _uow.Transaction ?? throw new InvalidOperationException("退款事务未初始化");
+                var orders = await _orderRepository.GetByCheckoutBatchForUpdateAsync(checkoutBatchId, customerId, transaction);
+                if (orders.Count == 0)
+                    throw new Exception("结算批次不存在或不属于当前消费者");
+                foreach (var order in orders)
+                {
+                    var ctx = await BuildContextFromRequestAsync(new GroupC_RefundRequest
+                    {
+                        OrderId = order.OrderId, LiabilityType = "Customer", Remark = remark
+                    }, transaction);
+                    if (await _irefundRepository.HasPendingApplicationAsync(order.OrderId, transaction))
+                        throw new Exception($"订单 {order.OrderNo} 已有待审核退款申请");
+                    var created = await RefundRecord(ctx.Order.OrderId, null, null, 0, ctx.RefundAmount,
+                        "Customer", remark, "Pending", transaction);
+                    if (!created.IsSuccess)
+                        throw new Exception(created.ErrorMessage ?? "退款申请记录写入失败");
+                }
+                await _uow.CommitAsync();
+                return new Result { IsSuccess = true };
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open) await _uow.RollbackAsync();
+                return new Result { IsSuccess = false, ErrorMessage = $"系统错误：{ex.Message}" };
             }
         }
 
