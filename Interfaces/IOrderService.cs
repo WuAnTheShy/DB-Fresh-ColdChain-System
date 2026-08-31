@@ -39,6 +39,12 @@ public interface IOrderService
         string orderId,
         CancellationToken cancellationToken = default);
 
+    Task ConfirmOrderItemReceiptAsync(
+        string orderId,
+        string orderDetailId,
+        string customerId,
+        CancellationToken cancellationToken = default);
+
     Task DeductPointsForRefundAsync(
         string customerId,
         string orderId,

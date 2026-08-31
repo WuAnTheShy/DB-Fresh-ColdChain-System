@@ -175,6 +175,8 @@ CREATE TABLE Biz_OrderDetails (
     UnitPrice       NUMBER(10,2)   NOT NULL,
     SubTotal        NUMBER(10,2)   NOT NULL,
     SupplierId      VARCHAR2(36),
+    ReceiptStatus   VARCHAR2(20)   DEFAULT 'PENDING' NOT NULL,
+    ReceivedAt      DATE,
     CONSTRAINT FK_Detail_Order FOREIGN KEY (OrderId) REFERENCES Biz_Orders(OrderId)
 );
 

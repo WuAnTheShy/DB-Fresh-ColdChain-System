@@ -613,7 +613,7 @@ public sealed class OrderService : IOrderService
                     new CommissionOrderRequest
                     {
                         orderID = context.Order.OrderId,
-                        promoterID = context.Customer.PromoterId,
+                        promoterID = context.Order.PromoterId ?? context.Customer.PromoterId,
                         finalAmount = context.Order.FinalAmount,
                         goodsAmount = context.Order.TotalAmount
                     },
@@ -891,6 +891,66 @@ public sealed class OrderService : IOrderService
             return null;
 
         return await _pointRepo.GetLevelForSpentAsync(customer.TotalSpent);
+    }
+
+    public async Task ConfirmOrderItemReceiptAsync(
+        string orderId,
+        string orderDetailId,
+        string customerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!GroupBIds.IsValid(orderId) || !GroupBIds.IsValid(orderDetailId))
+            throw new OrderBusinessException("订单或商品明细ID格式不正确");
+
+        await _transactionManager.ExecuteAsync(async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var context = await GetLockedOrderContextAsync(orderId, transaction);
+            if (!string.Equals(context.Customer.CustomerId, customerId, StringComparison.Ordinal))
+                throw new OrderBusinessException("订单不属于当前消费者");
+
+            var detail = context.Details.SingleOrDefault(item => item.OrderDetailId == orderDetailId)
+                ?? throw new OrderBusinessException("订单商品不存在");
+            if (string.Equals(detail.ReceiptStatus, "RECEIVED", StringComparison.Ordinal))
+                return;
+            if (context.Order.OrderStatus != OrderStatusCodes.Shipped)
+                throw new OrderBusinessException("商品发货后才能确认收货");
+
+            if (!await _orderRepo.TryConfirmDetailReceiptAsync(
+                orderDetailId,
+                orderId,
+                transaction))
+            {
+                throw new OrderBusinessException("商品收货状态已变化，请刷新后重试");
+            }
+
+            if (await _orderRepo.HasUnreceivedDetailsExceptAsync(
+                orderId,
+                orderDetailId,
+                transaction))
+            {
+                return;
+            }
+
+            await _commissionService.RegisterCompletedOrderAsync(
+                new CommissionOrderRequest
+                {
+                    orderID = context.Order.OrderId,
+                    promoterID = context.Order.PromoterId ?? context.Customer.PromoterId,
+                    finalAmount = context.Order.FinalAmount,
+                    goodsAmount = context.Order.TotalAmount
+                },
+                transaction,
+                cancellationToken);
+            if (!await _orderRepo.TryUpdateStatusAsync(
+                orderId,
+                OrderStatus.Shipped,
+                OrderStatus.Completed,
+                transaction))
+            {
+                throw new OrderBusinessException("订单状态已变化，请刷新后重试");
+            }
+        });
     }
 
     private static IReadOnlyList<BatchOrderItem> ValidateAndNormalizeBatchRequest(

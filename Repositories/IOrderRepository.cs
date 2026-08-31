@@ -60,4 +60,14 @@ public interface IOrderRepository
     Task InsertDetailsAsync(
         IEnumerable<BizOrderDetail> details,
         IDbTransaction? transaction = null);
+
+    Task<bool> TryConfirmDetailReceiptAsync(
+        string orderDetailId,
+        string orderId,
+        IDbTransaction transaction);
+
+    Task<bool> HasUnreceivedDetailsExceptAsync(
+        string orderId,
+        string excludedOrderDetailId,
+        IDbTransaction transaction);
 }

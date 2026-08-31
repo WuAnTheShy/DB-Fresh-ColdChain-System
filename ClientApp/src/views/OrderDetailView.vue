@@ -51,7 +51,7 @@ onMounted(loadOrder)
             <article v-for="item in detail.details" :key="item.orderDetailId" class="order-product-row">
               <img v-if="productImage(item.productId)" :src="productImage(item.productId)" :alt="item.productName" />
               <span v-else class="order-product-placeholder"><PackageCheck :size="24" /></span>
-              <div><strong>{{ item.productName }}</strong><small v-if="fallbackLeader(item.productId)"><BadgeCheck :size="13" />{{ fallbackLeader(item.productId).name }}团长带货</small></div><span>{{ money(item.unitPrice) }} × {{ item.quantity }}</span><strong>{{ money(item.subTotal) }}</strong>
+              <div><strong>{{ item.productName }}</strong><small v-if="fallbackLeader(item.productId)"><BadgeCheck :size="13" />{{ fallbackLeader(item.productId).name }}团长带货</small><small v-if="item.receiptStatus === 'RECEIVED'" class="receipt-done"><CheckCircle2 :size="13" />已确认收货 · {{ date(item.receivedAt) }}</small><button v-else-if="item.canConfirmReceipt" class="btn btn-sm btn-buy receipt-button" type="button" :disabled="acting" @click="runAction(() => api.confirmOrderItemReceipt(id, item.orderDetailId), `${item.productName}已确认收货`)"><CheckCircle2 :size="14" />确认该商品收货</button></div><span>{{ money(item.unitPrice) }} × {{ item.quantity }}</span><strong>{{ money(item.subTotal) }}</strong>
             </article>
           </section>
           <section class="order-consumer-section delivery-section"><div class="consumer-section-title"><Truck :size="21" /><div><h2>冷链配送</h2></div></div><div class="delivery-status-row"><span class="delivery-icon"><Truck :size="20" /></span><div><strong>{{ ['SHIPPED', 'COMPLETED'].includes(detail.order.orderStatus) ? '商品已进入配送流程' : '订单已进入备货流程' }}</strong><small>发货后将在此展示最新配送状态</small></div></div></section>
@@ -59,7 +59,7 @@ onMounted(loadOrder)
         <aside>
           <section class="order-side-section"><div class="consumer-section-title"><MapPin :size="20" /><div><h2>收货信息</h2></div></div><dl><div><dt>收货人</dt><dd>{{ detail.order.receiverName }} {{ detail.order.receiverPhone }}</dd></div><div><dt>地址</dt><dd>{{ detail.order.shippingAddress }}</dd></div></dl></section>
           <section class="order-side-section"><h2>金额明细</h2><dl><div><dt>商品金额</dt><dd>{{ money(detail.order.totalAmount) }}</dd></div><div><dt>团购优惠</dt><dd>-{{ money(detail.order.discountAmount) }}</dd></div><div><dt>冷链运费</dt><dd>{{ money(detail.order.freightAmount) }}</dd></div><div class="order-pay-total"><dt>实付金额</dt><dd>{{ money(detail.order.finalAmount) }}</dd></div></dl></section>
-          <div class="order-detail-actions"><RouterLink v-if="detail.order.orderStatus === 'PENDING_PAYMENT' && detail.order.checkoutBatchId" class="btn btn-buy" :to="`/payment/${detail.order.checkoutBatchId}`"><CreditCard :size="17" />支付整个结算批次</RouterLink><button v-if="detail.canComplete" class="btn btn-buy" type="button" :disabled="acting" @click="runAction(() => api.transitionOrder(id, 'Completed'), '已确认收货')"><CheckCircle2 :size="17" />确认收货</button><button v-if="detail.canCancel" class="btn btn-outline-danger" type="button" :disabled="acting" @click="runAction(() => api.cancelOrder(id), '订单已取消')"><Ban :size="17" />取消订单</button><button class="btn btn-outline-secondary" type="button" @click="loadOrder"><RefreshCw :size="16" />刷新状态</button></div>
+          <div class="order-detail-actions"><RouterLink v-if="detail.order.orderStatus === 'PENDING_PAYMENT' && detail.order.checkoutBatchId" class="btn btn-buy" :to="`/payment/${detail.order.checkoutBatchId}`"><CreditCard :size="17" />支付整个结算批次</RouterLink><button v-if="detail.canCancel" class="btn btn-outline-danger" type="button" :disabled="acting" @click="runAction(() => api.cancelOrder(id), '订单已取消')"><Ban :size="17" />取消订单</button><button class="btn btn-outline-secondary" type="button" @click="loadOrder"><RefreshCw :size="16" />刷新状态</button></div>
         </aside>
       </div>
     </template>
@@ -93,6 +93,8 @@ onMounted(loadOrder)
 .order-product-placeholder { display: inline-flex; align-items: center; justify-content: center; background: #eef1ef; color: var(--muted); }
 .order-product-row > div { display: flex; min-width: 0; flex-direction: column; }
 .order-product-row > div small { display: flex; align-items: center; gap: 3px; margin-top: 5px; color: var(--brand); font-size: 9px; }
+.order-product-row > div .receipt-done { color: #247349; }
+.receipt-button { align-self: flex-start; margin-top: 8px; padding: 5px 9px; font-size: 9px; }
 .order-product-row > span { color: var(--muted); font-size: 10px; text-align: right; }
 .order-product-row > strong { color: var(--danger); text-align: right; }
 .delivery-status-row { display: flex; align-items: center; gap: 10px; padding-top: 4px; }

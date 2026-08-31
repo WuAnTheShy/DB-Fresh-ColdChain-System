@@ -132,4 +132,7 @@ export const api = {
   cancelOrder: (orderId) => request(`/api/orders/${orderId}/cancel`, {
     method: 'POST',
   }),
+  confirmOrderItemReceipt: (orderId, orderDetailId) => request(`/api/orders/${orderId}/items/${orderDetailId}/confirm-receipt`, {
+    method: 'POST',
+  }),
 }

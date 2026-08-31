@@ -114,7 +114,11 @@ public sealed class OrdersApiController(
                 item.ProductName,
                 item.Quantity,
                 item.UnitPrice,
-                item.SubTotal
+                item.SubTotal,
+                item.ReceiptStatus,
+                item.ReceivedAt,
+                canConfirmReceipt = order.OrderStatus == OrderStatusCodes.Shipped &&
+                    !string.Equals(item.ReceiptStatus, "RECEIVED", StringComparison.Ordinal)
             }),
             detail.CanComplete,
             detail.CanCancel,
@@ -144,6 +148,8 @@ public sealed class OrdersApiController(
         OrderTransitionRequest request,
         CancellationToken cancellationToken)
     {
+        if (request.TargetStatus == OrderStatus.Completed)
+            return BadRequest(new { message = "请在订单详情中按商品分别确认收货" });
         var authorizationError = await AuthorizeOrderAsync(orderId);
         if (authorizationError != null) return authorizationError;
 
@@ -163,6 +169,25 @@ public sealed class OrdersApiController(
         if (authorizationError != null) return authorizationError;
 
         await orderService.CancelOrderAsync(orderId, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("{orderId}/items/{orderDetailId}/confirm-receipt")]
+    public async Task<IActionResult> ConfirmItemReceipt(
+        string orderId,
+        string orderDetailId,
+        CancellationToken cancellationToken)
+    {
+        var customerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(customerId)) return ApiUnauthorized();
+        var authorizationError = await AuthorizeOrderAsync(orderId);
+        if (authorizationError != null) return authorizationError;
+
+        await orderService.ConfirmOrderItemReceiptAsync(
+            orderId,
+            orderDetailId,
+            customerId,
+            cancellationToken);
         return NoContent();
     }
 

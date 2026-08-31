@@ -258,14 +258,48 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
         var sql = @"
             INSERT INTO Biz_OrderDetails (
                 OrderDetailId, OrderId, ProductId, ProductName,
-                Quantity, UnitPrice, SubTotal, SupplierId)
+                Quantity, UnitPrice, SubTotal, SupplierId, ReceiptStatus)
             VALUES (
                 :OrderDetailId, :OrderId, :ProductId, :ProductName,
-                :Quantity, :UnitPrice, :SubTotal, :SupplierId)";
+                :Quantity, :UnitPrice, :SubTotal, :SupplierId, :ReceiptStatus)";
         await WithConnectionAsync(transaction, async connection =>
         {
             await connection.ExecuteAsync(sql, details, transaction);
         });
+    }
+
+    public async Task<bool> TryConfirmDetailReceiptAsync(
+        string orderDetailId,
+        string orderId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+        {
+            var affected = await connection.ExecuteAsync(
+                @"UPDATE Biz_OrderDetails
+                  SET ReceiptStatus = 'RECEIVED', ReceivedAt = :ReceivedAt
+                  WHERE OrderDetailId = :OrderDetailId
+                    AND OrderId = :OrderId
+                    AND NVL(ReceiptStatus, 'PENDING') = 'PENDING'",
+                new { OrderDetailId = orderDetailId, OrderId = orderId, ReceivedAt = DateTime.Now },
+                transaction);
+            return affected == 1;
+        });
+    }
+
+    public async Task<bool> HasUnreceivedDetailsExceptAsync(
+        string orderId,
+        string excludedOrderDetailId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            await connection.ExecuteScalarAsync<int>(
+                @"SELECT COUNT(1) FROM Biz_OrderDetails
+                  WHERE OrderId = :OrderId
+                    AND OrderDetailId <> :ExcludedOrderDetailId
+                    AND NVL(ReceiptStatus, 'PENDING') = 'PENDING'",
+                new { OrderId = orderId, ExcludedOrderDetailId = excludedOrderDetailId },
+                transaction) > 0);
     }
 
     private static string CreateOrderFilterSql()

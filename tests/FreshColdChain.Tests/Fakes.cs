@@ -332,6 +332,31 @@ internal sealed class FakeOrderRepository : IOrderRepository
         return Task.CompletedTask;
     }
 
+    public Task<bool> TryConfirmDetailReceiptAsync(
+        string orderDetailId,
+        string orderId,
+        IDbTransaction transaction)
+    {
+        var detail = Details.SingleOrDefault(item =>
+            item.OrderDetailId == orderDetailId && item.OrderId == orderId);
+        if (detail == null || detail.ReceiptStatus == "RECEIVED")
+            return Task.FromResult(false);
+        Stage(transaction, () =>
+        {
+            detail.ReceiptStatus = "RECEIVED";
+            detail.ReceivedAt = DateTime.Now;
+        });
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> HasUnreceivedDetailsExceptAsync(
+        string orderId,
+        string excludedOrderDetailId,
+        IDbTransaction transaction) => Task.FromResult(Details.Any(detail =>
+            detail.OrderId == orderId &&
+            detail.OrderDetailId != excludedOrderDetailId &&
+            detail.ReceiptStatus != "RECEIVED"));
+
     private static BizOrderDetail CloneDetail(BizOrderDetail detail)
     {
         return new BizOrderDetail
@@ -343,7 +368,9 @@ internal sealed class FakeOrderRepository : IOrderRepository
             Quantity = detail.Quantity,
             UnitPrice = detail.UnitPrice,
             SubTotal = detail.SubTotal,
-            SupplierId = detail.SupplierId
+            SupplierId = detail.SupplierId,
+            ReceiptStatus = detail.ReceiptStatus,
+            ReceivedAt = detail.ReceivedAt
         };
     }
 
