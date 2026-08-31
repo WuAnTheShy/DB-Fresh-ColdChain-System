@@ -468,17 +468,14 @@ public sealed class CustomerService : ICustomerService
         {
             throw new GroupBBusinessException("请输入有效的邮箱地址");
         }
-<<<<<<< HEAD
+
+        request.Avatar = NormalizeAvatar(request.Avatar);
         ValidatePassword(request.Password, request.ConfirmPassword);
     }
 
     private static void ValidatePassword(string? password, string? confirmPassword)
     {
-        if (password?.Length is not (>= 8 and <= 100))
-=======
-        request.Avatar = NormalizeAvatar(request.Avatar);
-        if (request.Password.Length is < 8 or > 100)
->>>>>>> origin/dev-groupC
+        if (password is null || password.Length is < 8 or > 100)
             throw new GroupBBusinessException("密码长度必须为8到100个字符");
         if (!string.Equals(password, confirmPassword, StringComparison.Ordinal))
             throw new GroupBBusinessException("两次输入的密码不一致");
