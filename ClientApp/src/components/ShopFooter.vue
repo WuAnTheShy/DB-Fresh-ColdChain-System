@@ -45,7 +45,7 @@ function backToTop() {
 <style scoped>
 .store-footer {
   margin-top: 18px;
-  background: #232f3e;
+  background: var(--brand);
   color: #ddd;
 }
 
