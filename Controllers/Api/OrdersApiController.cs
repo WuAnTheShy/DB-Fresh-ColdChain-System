@@ -138,7 +138,11 @@ public sealed class OrdersApiController(
         if (!string.Equals(request.CustomerId, signedInCustomerId, StringComparison.Ordinal))
             return ApiForbidden();
 
+<<<<<<< HEAD
         var result = await orderService.CreateCheckoutBatchAsync(
+=======
+        var result = await orderService.CreateOrderAsync(
+>>>>>>> origin/dev-groupC
             request,
             cancellationToken);
         return StatusCode(StatusCodes.Status201Created, result);
@@ -150,8 +154,11 @@ public sealed class OrdersApiController(
         OrderTransitionRequest request,
         CancellationToken cancellationToken)
     {
+<<<<<<< HEAD
         if (request.TargetStatus == OrderStatus.Completed)
             return BadRequest(new { message = "请在订单详情中按商品分别确认收货" });
+=======
+>>>>>>> origin/dev-groupC
         var authorizationError = await AuthorizeOrderAsync(orderId);
         if (authorizationError != null) return authorizationError;
 
@@ -174,6 +181,7 @@ public sealed class OrdersApiController(
         return NoContent();
     }
 
+<<<<<<< HEAD
     [HttpPost("{orderId}/items/{orderDetailId}/confirm-receipt")]
     public async Task<IActionResult> ConfirmItemReceipt(
         string orderId,
@@ -193,6 +201,8 @@ public sealed class OrdersApiController(
         return NoContent();
     }
 
+=======
+>>>>>>> origin/dev-groupC
     private async Task<IActionResult?> AuthorizeOrderAsync(string orderId)
     {
         var signedInCustomerId = SignedInCustomerId;

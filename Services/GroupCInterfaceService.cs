@@ -188,11 +188,17 @@ public sealed class GroupCInterfaceService : IGroupCInterface
         if (promoter == null)
             return new PromBind { IsValid = false };
 
+        var avatar = string.IsNullOrWhiteSpace(promoter.Avatar) ? null : promoter.Avatar.Trim();
+
         return new PromBind
         {
             IsValid = true,
             BoundPromoterID = promoter.PromoterId.ToString(),
-            BindExpireTime = DateTime.Now.AddYears(3)
+            BindExpireTime = DateTime.Now.AddYears(3),
+            Avatar = avatar,
+            AvatarUrl = string.IsNullOrWhiteSpace(avatar)
+                ? null
+                : $"/images/avatars/{avatar}.png"
         };
     }
 

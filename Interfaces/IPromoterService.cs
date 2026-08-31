@@ -41,6 +41,9 @@ namespace FreshColdChain.Interfaces
 
         // 查询绑定了指定团长的消费者列表（团长端「我的消费者」实时读 CRM_PCR）
         Task<List<GroupC_CrmPCRelation>> GetBoundCustomersByPromoterAsync(string promoterId);
+
+        // 团长自助修改头像（仅限系统预置头像白名单）
+        Task<Result> UpdatePromoterAvatarAsync(string promoterId, string? avatar);
     }
 }
 

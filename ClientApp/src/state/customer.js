@@ -11,6 +11,10 @@ function normalizeCustomer(value) {
     customerId: String(value.customerId),
     customerName: String(value.customerName ?? ''),
     phone: String(value.phone ?? ''),
+<<<<<<< HEAD
+=======
+    avatar: value.avatar ? String(value.avatar) : '',
+>>>>>>> origin/dev-groupC
   }
 }
 

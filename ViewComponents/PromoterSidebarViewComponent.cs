@@ -23,7 +23,8 @@ namespace FreshColdChain.ViewComponents
             {
                 PromoterName = HttpContext.Session.GetString("PromoterName") ?? promoter.PromoterName,
                 CurrentBalance = promoter.CurrentBalance,
-                LevelName = PromoterPortalDataProvider.ResolveLevelName(promoter.TotalSales)
+                LevelName = PromoterPortalDataProvider.ResolveLevelName(promoter.TotalSales),
+                Avatar = promoter.Avatar ?? string.Empty
             });
         }
     }
@@ -33,5 +34,6 @@ namespace FreshColdChain.ViewComponents
         public string PromoterName { get; set; } = string.Empty;
         public decimal CurrentBalance { get; set; }
         public string LevelName { get; set; } = string.Empty;
+        public string Avatar { get; set; } = string.Empty;
     }
 }

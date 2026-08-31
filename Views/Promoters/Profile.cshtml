@@ -2,10 +2,33 @@
 @{
     ViewData["Title"] = "个人资料";
     var p = Model.Promoter;
+    var avatarChoices = new[]
+    {
+        new { id = "cat", name = "猫咪" },
+        new { id = "rabbit", name = "兔子" },
+        new { id = "panda", name = "熊猫" },
+        new { id = "fox", name = "狐狸" },
+        new { id = "carrot", name = "胡萝卜" },
+        new { id = "broccoli", name = "西兰花" },
+        new { id = "tomato", name = "番茄" },
+        new { id = "corn", name = "玉米" }
+    };
 }
 
+<partial name="_Alerts" />
+
 <div class="profile-header-card">
-    <div class="profile-avatar">@p.PromoterName.FirstOrDefault('团')</div>
+    <div class="profile-avatar avatar-preview">
+        @if (!string.IsNullOrWhiteSpace(p.Avatar))
+        {
+            <img src="@Url.Content("~/images/avatars/" + p.Avatar + ".png")" alt="@p.PromoterName 头像" />
+        }
+        else
+        {
+            <span>@p.PromoterName.FirstOrDefault('团')</span>
+        }
+        <button type="button" class="avatar-change-btn" data-bs-toggle="modal" data-bs-target="#avatarModal" title="更换头像">✎</button>
+    </div>
     <div class="profile-header-info">
         <div class="profile-name">@p.PromoterName</div>
         <div class="profile-meta">
@@ -61,6 +84,20 @@
                     <span class="info-value">
                         <code id="promoterId">@p.PromoterId</code>
                         <button type="button" class="btn btn-link btn-sm p-0 ms-1 copy-btn" data-copy="@p.PromoterId">复制</button>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">头像</span>
+                    <span class="info-value">
+                        @if (!string.IsNullOrWhiteSpace(p.Avatar))
+                        {
+                            <img class="avatar-thumb" src="@Url.Content("~/images/avatars/" + p.Avatar + ".png")" alt="当前头像" />
+                        }
+                        else
+                        {
+                            <span class="text-muted">未设置</span>
+                        }
+                        <button type="button" class="btn btn-sm btn-outline-primary ms-2" data-bs-toggle="modal" data-bs-target="#avatarModal">更换头像</button>
                     </span>
                 </div>
                 <div class="info-row">
@@ -154,6 +191,38 @@
     </div>
 </div>
 
+<!-- 更换头像弹窗 -->
+<div class="modal fade" id="avatarModal" tabindex="-1" aria-labelledby="avatarModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="avatarModalLabel">选择头像</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <form method="post" asp-action="UpdateAvatar">
+                <div class="modal-body">
+                    <input type="hidden" name="avatar" id="avatarInput" value="@p.Avatar" />
+                    <div class="avatar-picker-grid" id="avatarPickerGrid">
+                        @foreach (var av in avatarChoices)
+                        {
+                            <button type="button" class="avatar-picker-item" data-id="@av.id" title="@av.name">
+                                <img src="@Url.Content("~/images/avatars/" + av.id + ".png")" alt="@av.name" />
+                                <span>@av.name</span>
+                            </button>
+                        }
+                    </div>
+                    <p class="text-muted small mt-2 mb-0">选择后点击“保存”；点击“恢复默认”将使用姓名首字作为头像。</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" id="resetAvatarBtn">恢复默认</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-success">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         function copyText(text, label) {
@@ -168,5 +237,36 @@
                 copyText(btn.dataset.copy, '内容');
             });
         });
+
+        // 头像选择器：单选高亮 + 写入隐藏域
+        (function () {
+            var avatarInput = document.getElementById('avatarInput');
+            var grid = document.getElementById('avatarPickerGrid');
+            if (!avatarInput || !grid) return;
+            var current = avatarInput.value || '';
+            var items = grid.querySelectorAll('.avatar-picker-item');
+
+            function render() {
+                items.forEach(function (item) {
+                    item.classList.toggle('selected', item.dataset.id === current);
+                });
+            }
+            items.forEach(function (item) {
+                item.addEventListener('click', function () {
+                    current = item.dataset.id;
+                    avatarInput.value = current;
+                    render();
+                });
+            });
+            var resetBtn = document.getElementById('resetAvatarBtn');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', function () {
+                    current = '';
+                    avatarInput.value = '';
+                    render();
+                });
+            }
+            render();
+        })();
     </script>
 }

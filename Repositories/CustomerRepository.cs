@@ -34,10 +34,10 @@ public class CustomerRepository : B_BaseRepository, ICustomerRepository
     {
         const string sql = @"
             INSERT INTO Crm_Customers (
-                CustomerId, CustomerName, Phone, Email, PasswordHash, OpenId, PromoterId,
+                CustomerId, CustomerName, Phone, Email, Avatar, PasswordHash, OpenId, PromoterId,
                 MemberLevelId, TotalSpent, Points, GrowthValue, BindExpireTime, CreatedAt)
             VALUES (
-                :CustomerId, :CustomerName, :Phone, :Email, :PasswordHash, :OpenId, :PromoterId,
+                :CustomerId, :CustomerName, :Phone, :Email, :Avatar, :PasswordHash, :OpenId, :PromoterId,
                 :MemberLevelId, 0, 0, :GrowthValue, :BindExpireTime, SYSDATE)";
 
         return await WithConnectionAsync(transaction, async connection =>
@@ -197,6 +197,7 @@ public class CustomerRepository : B_BaseRepository, ICustomerRepository
                   SET CustomerName = :CustomerName,
                       Phone = :Phone,
                       Email = :Email,
+                      Avatar = :Avatar,
                       UpdatedAt = SYSDATE
                   WHERE CustomerId = :CustomerId",
                 request,

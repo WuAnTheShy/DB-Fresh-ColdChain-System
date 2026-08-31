@@ -105,7 +105,11 @@ namespace FreshColdChain.Controllers
             {
                 return AdminRegister();
             }
-                return View();
+            else if (role == "供应商")
+            {
+                return SupplierRegister();
+            }
+            return View();
         }
         public IActionResult PromoterRegister()
         {
@@ -116,6 +120,11 @@ namespace FreshColdChain.Controllers
         {
             ViewBag.Role = "管理员";
             return View("AdminRegister");
+        }
+        public IActionResult SupplierRegister()
+        {
+            ViewBag.Role = "供应商";
+            return RedirectToAction("Create", "Suppliers");
         }
 
         [HttpPost]

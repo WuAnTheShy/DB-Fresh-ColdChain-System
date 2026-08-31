@@ -50,6 +50,11 @@ public class InvProduct
     [MaxLength(20)]
     public string Status { get; set; } = "ACTIVE"; // ACTIVE=上架, INACTIVE=下架
 
+    /// <summary>商品文字介绍（供应商维护，团长可参考/复制/改写）</summary>
+    [Column("Description")]
+    [MaxLength(2000)]
+    public string? Description { get; set; }
+
     // 导航属性
     [NotMapped] public InvCategory? Category { get; set; }
     [NotMapped] public InvSupplier? Supplier { get; set; }
