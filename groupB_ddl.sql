@@ -138,6 +138,8 @@ CREATE TABLE Biz_Orders (
     CommBonusAmount NUMBER(10,2),
     CommSettlementDate DATE,
     PointsEarned    NUMBER         DEFAULT 0,
+    PointsUsed      NUMBER         DEFAULT 0 NOT NULL,
+    PointsDiscountAmount NUMBER(10,2) DEFAULT 0 NOT NULL,
     OrderStatus     VARCHAR2(20)   DEFAULT 'PENDING_PAYMENT',
     PaymentExpiresAt DATE,                         -- 模拟支付截止时间
     CreatedAt       DATE           DEFAULT SYSDATE,

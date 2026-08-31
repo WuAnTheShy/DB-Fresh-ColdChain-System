@@ -1,5 +1,5 @@
 <script setup>
-import { BadgeCheck, Check, ChevronRight, MapPin, ShieldCheck, TicketPercent, Truck } from '@lucide/vue'
+import { BadgeCheck, Check, ChevronRight, Coins, MapPin, ShieldCheck, TicketPercent, Truck } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
@@ -15,7 +15,15 @@ const saving = ref(false)
 const error = ref('')
 const addresses = ref([])
 const coupons = ref([])
-const form = reactive({ addressId: '', couponRecordId: '' })
+const pointsBalance = ref(0)
+const form = reactive({ addressId: '', couponRecordId: '', pointsToUse: 0 })
+const selectedCoupon = computed(() => coupons.value.find(item => String(item.recordId) === String(form.couponRecordId)))
+const maxPointsToUse = computed(() => Math.min(
+  pointsBalance.value,
+  Math.floor(Math.max(0, selectedCartSubtotal.value - Number(selectedCoupon.value?.discountAmount ?? 0)) * 0.10) * 100,
+))
+const pointsDiscount = computed(() => Number(form.pointsToUse || 0) / 100)
+function clampPoints() { form.pointsToUse = Math.floor(Math.min(Math.max(0, Number(form.pointsToUse || 0)), maxPointsToUse.value) / 100) * 100 }
 const groups = computed(() => {
   const map = new Map()
   selectedCartItems.value.forEach((item) => {
@@ -28,12 +36,14 @@ const groups = computed(() => {
 async function loadAssets() {
   loading.value = true
   error.value = ''
-  const [addressResult, couponResult] = await Promise.allSettled([
+  const [addressResult, couponResult, profileResult] = await Promise.allSettled([
     api.getAddresses(customerId.value),
     api.getCoupons(customerId.value),
+    api.getCustomer(customerId.value),
   ])
   addresses.value = addressResult.status === 'fulfilled' ? addressResult.value.addresses : []
   coupons.value = couponResult.status === 'fulfilled' ? couponResult.value.availableCoupons : []
+  pointsBalance.value = profileResult.status === 'fulfilled' ? Number(profileResult.value.customer.points ?? 0) : 0
   const defaultAddress = addresses.value.find((address) => address.isDefault === 1) ?? addresses.value[0]
   if (defaultAddress) form.addressId = String(defaultAddress.addressId)
   if (addressResult.status === 'rejected') error.value = addressResult.reason.message
@@ -61,6 +71,7 @@ async function submit() {
       customerId: customerId.value,
       addressId: form.addressId,
       couponRecordId: form.couponRecordId || null,
+      pointsToUse: Number(form.pointsToUse || 0),
       items: [...merged.values()],
     })
     setLastOrder({
@@ -111,6 +122,11 @@ onMounted(loadAssets)
         </section>
 
         <section class="checkout-section">
+          <div class="checkout-section-title"><Coins :size="21" /><div><h2>积分抵扣</h2><p>每100积分抵扣1元，最多抵扣优惠后商品金额的10%，不含运费</p></div></div>
+          <div class="points-redeem"><label>使用积分<input v-model.number="form.pointsToUse" class="form-control" type="number" min="0" :max="maxPointsToUse" step="100" @input="clampPoints" /></label><span>可用 {{ pointsBalance }}，本次最多 {{ maxPointsToUse }}</span><strong>- ¥{{ pointsDiscount.toFixed(2) }}</strong></div>
+        </section>
+
+        <section class="checkout-section">
           <div class="checkout-section-title"><BadgeCheck :size="21" /><div><h2>团长带货商品</h2></div></div>
           <div v-for="group in groups" :key="group.leader.id" class="checkout-leader-group">
             <header><img :src="group.leader.avatar" alt="" /><strong>{{ group.leader.name }}团长</strong><BadgeCheck :size="15" /><span>{{ group.leader.area }}</span></header>
@@ -126,8 +142,8 @@ onMounted(loadAssets)
 
       <aside class="checkout-summary">
         <h2>付款明细</h2>
-        <dl><div><dt>商品金额</dt><dd>¥{{ selectedCartSubtotal.toFixed(2) }}</dd></div><div><dt>团长子订单</dt><dd>{{ groups.length }} 个</dd></div><div><dt>优惠券</dt><dd>提交后确认</dd></div><div><dt>冷链运费</dt><dd>按团长分别计算</dd></div></dl>
-        <div class="summary-total-row"><span>预计金额</span><strong>¥{{ selectedCartSubtotal.toFixed(2) }}</strong></div>
+        <dl><div><dt>商品金额</dt><dd>¥{{ selectedCartSubtotal.toFixed(2) }}</dd></div><div><dt>团长子订单</dt><dd>{{ groups.length }} 个</dd></div><div><dt>优惠券</dt><dd>提交后确认</dd></div><div><dt>积分抵扣</dt><dd>- ¥{{ pointsDiscount.toFixed(2) }}</dd></div><div><dt>冷链运费</dt><dd>按团长分别计算</dd></div></dl>
+        <div class="summary-total-row"><span>预计金额</span><strong>¥{{ Math.max(0, selectedCartSubtotal - pointsDiscount).toFixed(2) }}</strong></div>
         <button class="btn btn-buy w-100 checkout-button" type="submit" :disabled="saving || !form.addressId"><span v-if="saving" class="spinner-border spinner-border-sm"></span><template v-else>提交订单</template></button>
         <small><ShieldCheck :size="14" />提交即表示确认订单信息和配送安排</small>
       </aside>
@@ -167,6 +183,7 @@ onMounted(loadAssets)
 .delivery-policy > span { display: flex; flex-direction: column; }
 .delivery-policy strong { color: var(--ink); font-size: 11px; }
 .delivery-policy small { margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.points-redeem { display: grid; grid-template-columns: 180px 1fr auto; gap: 12px; align-items: end; }.points-redeem label { font-size: 10px; font-weight: 700; }.points-redeem input { margin-top: 6px; }.points-redeem span { padding-bottom: 9px; color: var(--muted); font-size: 9px; }.points-redeem strong { padding-bottom: 7px; color: var(--danger); }
 .checkout-leader-group { margin-bottom: 10px; border: 1px solid var(--line); }
 .checkout-leader-group:last-child { margin-bottom: 0; }
 .checkout-leader-group > header { display: flex; min-height: 45px; align-items: center; gap: 6px; padding: 0 12px; background: #f3f8f6; }

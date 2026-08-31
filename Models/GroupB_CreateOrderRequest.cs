@@ -18,6 +18,9 @@ public sealed class CreateOrderRequest
     [StringLength(36, ErrorMessage = "优惠券记录ID不能超过36个字符")]
     public string? CouponRecordId { get; set; }
 
+    [Range(0, 100000000, ErrorMessage = "抵扣积分不能为负数")]
+    public int PointsToUse { get; set; }
+
     [MinLength(1, ErrorMessage = "订单至少需要一件商品")]
     public List<CreateOrderItemRequest> Items { get; set; } = [new()];
 }

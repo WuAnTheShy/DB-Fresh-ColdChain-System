@@ -100,6 +100,8 @@ public sealed class OrdersApiController(
                 order.FreightAmount,
                 order.FinalAmount,
                 order.PointsEarned,
+                order.PointsUsed,
+                order.PointsDiscountAmount,
                 order.OrderStatus,
                 order.PaymentExpiresAt,
                 order.CreatedAt,

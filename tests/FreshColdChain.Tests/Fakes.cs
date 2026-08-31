@@ -266,6 +266,8 @@ internal sealed class FakeOrderRepository : IOrderRepository
                 FreightAmount = order.FreightAmount,
                 FinalAmount = order.FinalAmount,
                 PointsEarned = order.PointsEarned,
+                PointsUsed = order.PointsUsed,
+                PointsDiscountAmount = order.PointsDiscountAmount,
                 OrderStatus = order.OrderStatus,
                 CreatedAt = order.CreatedAt,
                 UpdatedAt = order.UpdatedAt
@@ -357,6 +359,17 @@ internal sealed class FakeOrderRepository : IOrderRepository
             detail.OrderDetailId != excludedOrderDetailId &&
             detail.ReceiptStatus != "RECEIVED"));
 
+    public Task<bool> UpdatePointsEarnedAsync(
+        string orderId,
+        int pointsEarned,
+        IDbTransaction transaction)
+    {
+        var order = Orders.SingleOrDefault(item => item.OrderId == orderId);
+        if (order == null) return Task.FromResult(false);
+        Stage(transaction, () => order.PointsEarned = pointsEarned);
+        return Task.FromResult(true);
+    }
+
     private static BizOrderDetail CloneDetail(BizOrderDetail detail)
     {
         return new BizOrderDetail
@@ -395,6 +408,8 @@ internal sealed class FakeOrderRepository : IOrderRepository
             CommBonusAmount = order.CommBonusAmount,
             CommSettlementDate = order.CommSettlementDate,
             PointsEarned = order.PointsEarned,
+            PointsUsed = order.PointsUsed,
+            PointsDiscountAmount = order.PointsDiscountAmount,
             OrderStatus = order.OrderStatus,
             PaymentExpiresAt = order.PaymentExpiresAt,
             CreatedAt = order.CreatedAt,

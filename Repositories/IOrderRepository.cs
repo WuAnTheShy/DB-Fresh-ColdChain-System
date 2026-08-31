@@ -70,4 +70,9 @@ public interface IOrderRepository
         string orderId,
         string excludedOrderDetailId,
         IDbTransaction transaction);
+
+    Task<bool> UpdatePointsEarnedAsync(
+        string orderId,
+        int pointsEarned,
+        IDbTransaction transaction);
 }

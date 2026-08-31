@@ -31,6 +31,7 @@ public sealed class CheckoutBatchSummary
     public string OrderStatus { get; init; } = string.Empty;
     public decimal FinalAmount { get; init; }
     public int ChildOrderCount { get; init; }
+    public int PointsEarned { get; init; }
     public IReadOnlyList<CheckoutBatchOrderSummary> Orders { get; init; } = [];
 }
 
@@ -51,6 +52,7 @@ public sealed class CheckoutBatchPaymentResult
     public string? BankName { get; init; }
     public decimal PaidAmount { get; init; }
     public int ChildOrderCount { get; init; }
+    public int PointsEarned { get; init; }
     public bool AlreadyPaid { get; init; }
     public bool IsExpired { get; init; }
 }

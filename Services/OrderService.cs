@@ -109,11 +109,15 @@ public sealed class OrderService : IOrderService
                     BankName = bankName,
                     PaidAmount = orders.Sum(order => order.FinalAmount),
                     ChildOrderCount = orders.Count,
+                    PointsEarned = orders.Sum(order => order.PointsEarned),
                     AlreadyPaid = true
                 };
             }
             if (orders.Any(order => order.OrderStatus != OrderStatusCodes.PendingPayment))
                 throw new OrderBusinessException("结算批次状态不一致，无法支付");
+
+            var customer = await _customerRepo.GetByIdForUpdateAsync(customerId, transaction)
+                ?? throw new OrderBusinessException("消费者不存在");
 
             var expiresAt = orders.Min(order => order.PaymentExpiresAt)
                 ?? throw new OrderBusinessException("结算批次缺少支付截止时间");
@@ -138,6 +142,21 @@ public sealed class OrderService : IOrderService
                         transaction,
                         cancellationToken);
                 }
+                var pointsToRestore = orders.Sum(order => order.PointsUsed);
+                if (pointsToRestore > 0)
+                {
+                    var restoredBalance = checked(customer.Points + pointsToRestore);
+                    await _customerRepo.UpdatePointsAsync(customerId, restoredBalance, transaction);
+                    await _pointRepo.InsertLogAsync(new CrmPointLog
+                    {
+                        PointLogId = GroupBIds.NewId(),
+                        CustomerId = customerId,
+                        ChangeAmount = pointsToRestore,
+                        BalanceAfter = restoredBalance,
+                        ChangeType = "ORDER_REDEEM_RESTORE",
+                        OrderId = orders[0].OrderId
+                    }, transaction);
+                }
                 return new CheckoutBatchPaymentResult
                 {
                     CheckoutBatchId = checkoutBatchId,
@@ -149,8 +168,18 @@ public sealed class OrderService : IOrderService
             }
 
             var transactionNo = $"SIM{DateTime.Now:yyyyMMddHHmmss}{Guid.NewGuid():N}"[..34];
-            foreach (var order in orders)
+            var pointsEligibleAmount = orders.Sum(order =>
+                Math.Max(0m, order.FinalAmount - order.FreightAmount));
+            var totalPointsEarned = (int)Math.Floor(pointsEligibleAmount);
+            var remainingPointsEarned = totalPointsEarned;
+            for (var index = 0; index < orders.Count; index++)
             {
+                var order = orders[index];
+                var orderEligibleAmount = Math.Max(0m, order.FinalAmount - order.FreightAmount);
+                var orderPointsEarned = index == orders.Count - 1
+                    ? remainingPointsEarned
+                    : Math.Min(remainingPointsEarned, (int)Math.Floor(orderEligibleAmount));
+                remainingPointsEarned -= orderPointsEarned;
                 var changed = await _orderRepo.TryUpdateStatusAsync(
                     order.OrderId,
                     OrderStatus.PendingPayment,
@@ -158,6 +187,11 @@ public sealed class OrderService : IOrderService
                     transaction);
                 if (!changed)
                     throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
+                if (!await _orderRepo.UpdatePointsEarnedAsync(
+                    order.OrderId,
+                    orderPointsEarned,
+                    transaction))
+                    throw new OrderBusinessException("订单积分入账失败，请重试");
 
                 await _paymentRepository.GroupC_AddPaymentRecordAsync(
                     new GroupC_FinPaymentRecord
@@ -176,6 +210,21 @@ public sealed class OrderService : IOrderService
                     transaction);
             }
 
+            if (totalPointsEarned > 0)
+            {
+                var newPoints = checked(customer.Points + totalPointsEarned);
+                await _customerRepo.UpdatePointsAsync(customerId, newPoints, transaction);
+                await _pointRepo.InsertLogAsync(new CrmPointLog
+                {
+                    PointLogId = GroupBIds.NewId(),
+                    CustomerId = customerId,
+                    ChangeAmount = totalPointsEarned,
+                    BalanceAfter = newPoints,
+                    ChangeType = "ORDER_EARN",
+                    OrderId = orders[0].OrderId
+                }, transaction);
+            }
+
             return new CheckoutBatchPaymentResult
             {
                 CheckoutBatchId = checkoutBatchId,
@@ -183,7 +232,8 @@ public sealed class OrderService : IOrderService
                 PaymentMethod = paymentMethod,
                 BankName = bankName,
                 PaidAmount = orders.Sum(order => order.FinalAmount),
-                ChildOrderCount = orders.Count
+                ChildOrderCount = orders.Count,
+                PointsEarned = totalPointsEarned
             };
         });
     }
@@ -250,6 +300,15 @@ public sealed class OrderService : IOrderService
             var discountAmount = coupon == null
                 ? 0m
                 : Math.Min(coupon.DiscountAmount, goodsAmount);
+            if (request.PointsToUse < 0 || request.PointsToUse % 100 != 0)
+                throw new OrderBusinessException("抵扣积分必须为100的整数倍");
+            if (request.PointsToUse > customer.Points)
+                throw new OrderBusinessException("可用积分不足");
+            var maxPointsToUse = checked((int)Math.Floor(
+                Math.Max(0m, goodsAmount - discountAmount) * 0.10m) * 100);
+            if (request.PointsToUse > maxPointsToUse)
+                throw new OrderBusinessException($"本次最多可使用{maxPointsToUse}积分抵扣订单金额的10%");
+            var pointsDiscountAmount = request.PointsToUse / 100m;
             var checkoutBatchId = GroupBIds.NewId();
             var paymentExpiresAt = DateTime.Now.AddMinutes(15);
             var groupedDetails = details
@@ -258,6 +317,8 @@ public sealed class OrderService : IOrderService
                 .ToList();
 
             var remainingDiscount = discountAmount;
+            var remainingPointsDiscount = pointsDiscountAmount;
+            var remainingPointsUsed = request.PointsToUse;
             var orderResults = new List<CreateOrderResult>(groupedDetails.Count);
             for (var index = 0; index < groupedDetails.Count; index++)
             {
@@ -273,6 +334,23 @@ public sealed class OrderService : IOrderService
                             2,
                             MidpointRounding.AwayFromZero));
                 remainingDiscount -= groupDiscount;
+                var groupPointsDiscount = index == groupedDetails.Count - 1
+                    ? remainingPointsDiscount
+                    : Math.Min(
+                        remainingPointsDiscount,
+                        Math.Round(
+                            pointsDiscountAmount * (groupGoodsAmount - groupDiscount) /
+                            Math.Max(0.01m, goodsAmount - discountAmount),
+                            2,
+                            MidpointRounding.AwayFromZero));
+                var groupPointsUsed = index == groupedDetails.Count - 1
+                    ? remainingPointsUsed
+                    : Math.Min(remainingPointsUsed, (int)Math.Round(
+                        groupPointsDiscount * 100m,
+                        0,
+                        MidpointRounding.AwayFromZero));
+                remainingPointsDiscount -= groupPointsDiscount;
+                remainingPointsUsed -= groupPointsUsed;
 
                 var freightAmount = await _logisticsService.CalculateFreightAsync(
                     new FreightCalculationRequest
@@ -287,7 +365,7 @@ public sealed class OrderService : IOrderService
                     transaction,
                     cancellationToken);
                 EnsureAmountFitsDatabase(freightAmount);
-                var finalAmount = groupGoodsAmount - groupDiscount + freightAmount;
+                var finalAmount = groupGoodsAmount - groupDiscount - groupPointsDiscount + freightAmount;
                 EnsureAmountFitsDatabase(finalAmount);
 
                 var order = new BizOrder
@@ -306,6 +384,8 @@ public sealed class OrderService : IOrderService
                     FreightAmount = freightAmount,
                     FinalAmount = finalAmount,
                     PointsEarned = 0,
+                    PointsUsed = groupPointsUsed,
+                    PointsDiscountAmount = groupPointsDiscount,
                     OrderStatus = OrderStatusCodes.PendingPayment,
                     PaymentExpiresAt = paymentExpiresAt,
                     CreatedAt = DateTime.Now
@@ -324,6 +404,8 @@ public sealed class OrderService : IOrderService
                     FreightAmount = freightAmount,
                     FinalAmount = finalAmount,
                     PointsEarned = 0,
+                    PointsUsed = groupPointsUsed,
+                    PointsDiscountAmount = groupPointsDiscount,
                     SupplierGroups = CreateSupplierGroups(groupDetails)
                 });
             }
@@ -337,6 +419,21 @@ public sealed class OrderService : IOrderService
                     transaction);
                 if (!couponUsed)
                     throw new OrderBusinessException("优惠券已被使用，请重新选择");
+            }
+
+            if (request.PointsToUse > 0)
+            {
+                var newPoints = customer.Points - request.PointsToUse;
+                await _customerRepo.UpdatePointsAsync(customer.CustomerId, newPoints, transaction);
+                await _pointRepo.InsertLogAsync(new CrmPointLog
+                {
+                    PointLogId = GroupBIds.NewId(),
+                    CustomerId = customer.CustomerId,
+                    ChangeAmount = -request.PointsToUse,
+                    BalanceAfter = newPoints,
+                    ChangeType = "ORDER_REDEEM",
+                    OrderId = orderResults[0].OrderId
+                }, transaction);
             }
 
             var snapshotsById = snapshots.ToDictionary(
@@ -362,6 +459,8 @@ public sealed class OrderService : IOrderService
                 DiscountAmount = orderResults.Sum(order => order.DiscountAmount),
                 FreightAmount = orderResults.Sum(order => order.FreightAmount),
                 FinalAmount = orderResults.Sum(order => order.FinalAmount),
+                PointsUsed = request.PointsToUse,
+                PointsDiscountAmount = pointsDiscountAmount,
                 Orders = orderResults,
                 PriceChanges = priceChanges
             };
@@ -655,15 +754,34 @@ public sealed class OrderService : IOrderService
                 transaction,
                 cancellationToken);
 
+            var currentPoints = context.Customer.Points;
+            if (context.Order.PointsUsed > 0)
+            {
+                currentPoints = checked(currentPoints + context.Order.PointsUsed);
+                await _customerRepo.UpdatePointsAsync(
+                    context.Customer.CustomerId,
+                    currentPoints,
+                    transaction);
+                await _pointRepo.InsertLogAsync(new CrmPointLog
+                {
+                    PointLogId = GroupBIds.NewId(),
+                    CustomerId = context.Customer.CustomerId,
+                    ChangeAmount = context.Order.PointsUsed,
+                    BalanceAfter = currentPoints,
+                    ChangeType = "ORDER_REDEEM_RESTORE",
+                    OrderId = context.Order.OrderId
+                }, transaction);
+            }
+
             if (context.Order.PointsEarned > 0)
             {
-                if (context.Customer.Points < context.Order.PointsEarned)
+                if (currentPoints < context.Order.PointsEarned)
                 {
                     throw new OrderBusinessException(
                         "当前积分不足以撤销该订单奖励，请联系管理员处理");
                 }
 
-                var newPoints = context.Customer.Points - context.Order.PointsEarned;
+                var newPoints = currentPoints - context.Order.PointsEarned;
                 await _customerRepo.UpdatePointsAsync(
                     context.Customer.CustomerId,
                     newPoints,
@@ -679,10 +797,11 @@ public sealed class OrderService : IOrderService
                 }, transaction);
             }
 
-            if (!await _customerRepo.TrySubtractTotalSpentAsync(
-                context.Customer.CustomerId,
-                context.Order.FinalAmount,
-                transaction))
+            if (context.Order.CheckoutBatchId == null &&
+                !await _customerRepo.TrySubtractTotalSpentAsync(
+                    context.Customer.CustomerId,
+                    context.Order.FinalAmount,
+                    transaction))
             {
                 throw new OrderBusinessException(
                     "累计消费金额不足以撤销该订单，请联系管理员处理");
@@ -693,8 +812,9 @@ public sealed class OrderService : IOrderService
                 context.Customer.CustomerId,
                 transaction);
 
-            var newTotalSpent =
-                context.Customer.TotalSpent - context.Order.FinalAmount;
+            var newTotalSpent = context.Order.CheckoutBatchId == null
+                ? context.Customer.TotalSpent - context.Order.FinalAmount
+                : context.Customer.TotalSpent;
             var qualifiedLevel = await _pointRepo.GetLevelForSpentAsync(
                 newTotalSpent,
                 transaction);

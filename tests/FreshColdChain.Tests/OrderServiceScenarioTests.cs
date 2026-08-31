@@ -13,6 +13,7 @@ internal static class OrderServiceScenarioTests
             ("结算批次按团长原子拆单并分别计算运费", CheckoutBatchSplitsByPromoterAsync),
             ("批次任一商品缺货时不创建任何子订单", CheckoutBatchStockFailureRollsBackAsync),
             ("模拟支付一次性支付整个结算批次", CheckoutBatchPaymentPaysAllOrdersAsync),
+            ("结算积分最多抵扣10%且支付后按实付商品金额累计", CheckoutPointsRedeemAndEarnAsync),
             ("支付流水失败时整个批次回滚", CheckoutBatchPaymentFailureRollsBackAsync),
             ("超过15分钟关闭整个结算批次并释放库存", ExpiredCheckoutBatchClosesAsync),
             ("库存不足时回滚且不创建订单", InsufficientStockRollsBackAsync),
@@ -55,6 +56,37 @@ internal static class OrderServiceScenarioTests
         AssertEx.True(context.OrderRepository.Orders.All(order => order.OrderStatus == OrderStatusCodes.Paid));
         AssertEx.Equal(2, context.PaymentRepository.Records.Count);
         AssertEx.Equal(1, context.PaymentRepository.Records.Select(record => record.TransactionNo).Distinct().Count());
+    }
+
+    private static async Task CheckoutPointsRedeemAndEarnAsync()
+    {
+        var context = TestContext.Create();
+        var batch = await context.Service.CreateCheckoutBatchAsync(new CreateOrderRequest
+        {
+            CustomerId = TestIds.Customer,
+            AddressId = TestIds.Address1,
+            PointsToUse = 100,
+            Items =
+            [
+                new() { ProductId = "P1", PromoterId = "promoter-1", Quantity = 2 },
+                new() { ProductId = "P2", PromoterId = "promoter-2", Quantity = 1 }
+            ]
+        });
+
+        AssertEx.Equal(100, batch.PointsUsed);
+        AssertEx.Equal(1m, batch.PointsDiscountAmount);
+        AssertEx.Equal(179m, batch.FinalAmount);
+        AssertEx.Equal(0, context.CustomerRepository.Customer.Points);
+
+        var payment = await context.Service.PayCheckoutBatchAsync(
+            batch.CheckoutBatchId,
+            TestIds.Customer,
+            new CheckoutBatchPaymentRequest { PaymentMethod = CheckoutPaymentMethods.Alipay });
+
+        AssertEx.Equal(179, payment.PointsEarned);
+        AssertEx.Equal(179, context.CustomerRepository.Customer.Points);
+        AssertEx.Equal(179, context.OrderRepository.Orders.Sum(order => order.PointsEarned));
+        AssertEx.Equal(2, context.PointRepository.Logs.Count);
     }
 
     private static async Task CheckoutBatchPaymentFailureRollsBackAsync()

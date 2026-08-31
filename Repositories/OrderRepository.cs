@@ -20,11 +20,11 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
             INSERT INTO Biz_Orders (
                 OrderId, OrderNo, CustomerId, CheckoutBatchId, PromoterId, AddressId, ReceiverName, ReceiverPhone,
                 ShippingAddress, TotalAmount, DiscountAmount, FreightAmount,
-                FinalAmount, PointsEarned, OrderStatus, PaymentExpiresAt, CreatedAt)
+                FinalAmount, PointsEarned, PointsUsed, PointsDiscountAmount, OrderStatus, PaymentExpiresAt, CreatedAt)
             VALUES (
                 :OrderId, :OrderNo, :CustomerId, :CheckoutBatchId, :PromoterId, :AddressId, :ReceiverName, :ReceiverPhone,
                 :ShippingAddress, :TotalAmount, :DiscountAmount, :FreightAmount,
-                :FinalAmount, :PointsEarned, :OrderStatus, :PaymentExpiresAt, SYSDATE)";
+                :FinalAmount, :PointsEarned, :PointsUsed, :PointsDiscountAmount, :OrderStatus, :PaymentExpiresAt, SYSDATE)";
 
         return await WithConnectionAsync(transaction, async connection =>
         {
@@ -174,6 +174,8 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                          o.FreightAmount,
                          o.FinalAmount,
                          o.PointsEarned,
+                         o.PointsUsed,
+                         o.PointsDiscountAmount,
                          o.OrderStatus,
                          o.PaymentExpiresAt,
                          o.CreatedAt,
@@ -300,6 +302,19 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                     AND NVL(ReceiptStatus, 'PENDING') = 'PENDING'",
                 new { OrderId = orderId, ExcludedOrderDetailId = excludedOrderDetailId },
                 transaction) > 0);
+    }
+
+    public async Task<bool> UpdatePointsEarnedAsync(
+        string orderId,
+        int pointsEarned,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            await connection.ExecuteAsync(
+                @"UPDATE Biz_Orders SET PointsEarned = :PointsEarned, UpdatedAt = SYSDATE
+                  WHERE OrderId = :OrderId",
+                new { OrderId = orderId, PointsEarned = pointsEarned },
+                transaction) == 1);
     }
 
     private static string CreateOrderFilterSql()

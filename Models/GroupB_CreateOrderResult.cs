@@ -12,6 +12,8 @@ public sealed class CreateOrderResult
     public decimal FreightAmount { get; init; }
     public decimal FinalAmount { get; init; }
     public int PointsEarned { get; init; }
+    public int PointsUsed { get; init; }
+    public decimal PointsDiscountAmount { get; init; }
     public IReadOnlyList<SupplierOrderGroupResult> SupplierGroups { get; init; } = [];
 }
 
@@ -24,6 +26,8 @@ public sealed class CreateCheckoutBatchResult
     public decimal DiscountAmount { get; init; }
     public decimal FreightAmount { get; init; }
     public decimal FinalAmount { get; init; }
+    public int PointsUsed { get; init; }
+    public decimal PointsDiscountAmount { get; init; }
     public IReadOnlyList<CreateOrderResult> Orders { get; init; } = [];
     public IReadOnlyList<OrderPriceChangeResult> PriceChanges { get; init; } = [];
 }

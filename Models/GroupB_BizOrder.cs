@@ -22,6 +22,8 @@ public class BizOrder
     public decimal? CommBonusAmount { get; set; }
     public DateTime? CommSettlementDate { get; set; }
     public int PointsEarned { get; set; }                   // 该笔订单获得积分
+    public int PointsUsed { get; set; }
+    public decimal PointsDiscountAmount { get; set; }
     public string OrderStatus { get; set; } = OrderStatusCodes.PendingPayment;
     public DateTime CreatedAt { get; set; }
     public DateTime? PaymentExpiresAt { get; set; }

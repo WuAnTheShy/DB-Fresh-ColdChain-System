@@ -51,6 +51,8 @@ public sealed class OrderDetailHeader
     public decimal FreightAmount { get; init; }
     public decimal FinalAmount { get; init; }
     public int PointsEarned { get; init; }
+    public int PointsUsed { get; init; }
+    public decimal PointsDiscountAmount { get; init; }
     public string OrderStatus { get; init; } = OrderStatusCodes.PendingPayment;
     public DateTime CreatedAt { get; init; }
     public DateTime? PaymentExpiresAt { get; init; }
@@ -74,6 +76,8 @@ public sealed class OrderDetailHeader
             FreightAmount = FreightAmount,
             FinalAmount = FinalAmount,
             PointsEarned = PointsEarned,
+            PointsUsed = PointsUsed,
+            PointsDiscountAmount = PointsDiscountAmount,
             OrderStatus = OrderStatus,
             PaymentExpiresAt = PaymentExpiresAt,
             CreatedAt = CreatedAt,
