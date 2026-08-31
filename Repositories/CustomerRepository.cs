@@ -67,6 +67,34 @@ public class CustomerRepository : B_BaseRepository, ICustomerRepository
                 transaction));
     }
 
+    public async Task<CrmCustomer?> GetByPhoneForUpdateAsync(
+        string phone,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, connection =>
+            connection.QueryFirstOrDefaultAsync<CrmCustomer>(
+                "SELECT * FROM Crm_Customers WHERE Phone = :Phone FOR UPDATE",
+                new { Phone = phone },
+                transaction));
+    }
+
+    public async Task<bool> UpdatePasswordHashAsync(
+        string customerId,
+        string passwordHash,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+        {
+            var affected = await connection.ExecuteAsync(
+                @"UPDATE Crm_Customers
+                  SET PasswordHash = :PasswordHash, UpdatedAt = SYSDATE
+                  WHERE CustomerId = :CustomerId",
+                new { CustomerId = customerId, PasswordHash = passwordHash },
+                transaction);
+            return affected == 1;
+        });
+    }
+
     /// <summary>锁定消费者行，防止并发订单覆盖积分余额</summary>
     public async Task<CrmCustomer?> GetByIdForUpdateAsync(
         string customerId,
@@ -151,6 +179,12 @@ public class CustomerRepository : B_BaseRepository, ICustomerRepository
                 transaction)).ToList());
     }
 
+    public async Task<List<CrmCustomer>> GetAllCustomersAsync(IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<CrmCustomer>("SELECT * FROM Crm_Customers", transaction: transaction)).ToList());
+    }
+
     /// <summary>只更新消费者允许自行维护的资料</summary>
     public async Task<bool> UpdateProfileAsync(
         CustomerProfileUpdateRequest request,
@@ -194,6 +228,11 @@ public class CustomerRepository : B_BaseRepository, ICustomerRepository
                 transaction);
         });
     }
+
+    public Task SetTotalSpentAsync(string customerId, decimal totalSpent, IDbTransaction transaction) =>
+        WithConnectionAsync(transaction, connection => connection.ExecuteAsync(
+            "UPDATE Crm_Customers SET TotalSpent = :TotalSpent, UpdatedAt = SYSDATE WHERE CustomerId = :CustomerId",
+            new { CustomerId = customerId, TotalSpent = totalSpent }, transaction));
 
     public async Task<bool> TrySubtractTotalSpentAsync(
         string customerId,

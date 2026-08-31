@@ -30,12 +30,15 @@ public sealed class OrderListItem
     public string OrderId { get; init; } = string.Empty;
     public string OrderNo { get; init; } = string.Empty;
     public string CustomerId { get; init; } = string.Empty;
+    public string? CheckoutBatchId { get; init; }
+    public string? PromoterId { get; init; }
     public string CustomerName { get; init; } = string.Empty;
     public decimal FinalAmount { get; init; }
     public string OrderStatus { get; init; } = OrderStatusCodes.PendingPayment;
     public int ItemCount { get; init; }
     public int SupplierCount { get; init; }
     public DateTime CreatedAt { get; init; }
+    public DateTime? PaymentExpiresAt { get; init; }
 
     public OrderStatus Status => OrderStatusCodes.Parse(OrderStatus);
     public string StatusName => OrderStatusNames.GetName(Status);

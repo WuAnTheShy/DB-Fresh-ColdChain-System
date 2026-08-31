@@ -532,6 +532,38 @@ namespace FreshColdChain.Services
             return await _pcrRepository.GetPromoterIdsByCustomerAsync(customerId.Trim(), _uow.Transaction);
         }
 
+        public async Task<Result> UnbindCustomerFromPromoterAsync(
+            string customerId,
+            string promoterId,
+            CancellationToken cancellationToken = default)
+        {
+            var result = new Result();
+            if (string.IsNullOrWhiteSpace(customerId) || string.IsNullOrWhiteSpace(promoterId))
+            {
+                result.ErrorMessage = "消费者ID和团长ID不能为空";
+                return result;
+            }
+
+            await _uow.BeginAsync();
+            try
+            {
+                await _pcrRepository.DeleteRelationAsync(
+                    customerId.Trim(),
+                    promoterId.Trim(),
+                    _uow.Transaction);
+                await _uow.CommitAsync();
+                result.IsSuccess = true;
+                return result;
+            }
+            catch (Exception exception)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                result.ErrorMessage = $"系统错误：{exception.Message}";
+                return result;
+            }
+        }
+
         public async Task<List<GroupC_CrmPCRelation>> GetBoundCustomersByPromoterAsync(string promoterId)
         {
             if (string.IsNullOrWhiteSpace(promoterId))

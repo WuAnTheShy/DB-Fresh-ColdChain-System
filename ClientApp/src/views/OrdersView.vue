@@ -65,7 +65,7 @@ onMounted(loadOrders)
       </article>
       <div v-if="result.totalPages > 1" class="store-pagination"><button type="button" title="上一页" :disabled="filters.page <= 1" @click="changePage(filters.page - 1)"><ChevronLeft :size="18" /></button><span>{{ filters.page }} / {{ result.totalPages }}</span><button type="button" title="下一页" :disabled="filters.page >= result.totalPages" @click="changePage(filters.page + 1)"><ChevronRight :size="18" /></button></div>
     </div>
-    <div v-else class="store-empty"><ShoppingBag :size="40" /><strong>暂时没有符合条件的订单</strong><span>浏览商品并参加第一场生鲜团购</span><RouterLink class="btn btn-buy" to="/search">去逛全部商品</RouterLink></div>
+    <div v-else class="store-empty"><ShoppingBag :size="40" /><strong>暂时没有符合条件的订单</strong><span>浏览商品并购买第一件生鲜商品</span><RouterLink class="btn btn-buy" to="/search">去逛全部商品</RouterLink></div>
   </div>
 </template>
 

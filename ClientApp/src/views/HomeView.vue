@@ -1,5 +1,6 @@
 <script setup>
 import { Clock3, ShieldCheck, Snowflake, Truck } from '@lucide/vue'
+import ProductCard from '../components/ProductCard.vue'
 import { useShop } from '../state/shop'
 
 const { categories, products } = useShop()
@@ -8,25 +9,25 @@ const { categories, products } = useShop()
 <template>
   <div class="home-page">
     <section class="amazon-promo-grid" aria-label="今日精选">
-      <RouterLink class="amazon-promo-card promo-cherry" to="/products/1?leader=1">
-        <div class="promo-copy"><h1>产地冷链<br />车厘子礼盒</h1></div>
-        <img :src="products[0].image" alt="车厘子礼盒" />
+      <RouterLink class="amazon-promo-card promo-cherry" :to="`/products/${products[0].id}`">
+        <div class="promo-copy"><h1>产地冷链<br />阳光玫瑰葡萄</h1></div>
+        <img :src="products[0].image" alt="阳光玫瑰葡萄" />
         <strong>点击选购</strong>
       </RouterLink>
-      <RouterLink class="amazon-promo-card promo-seafood" to="/products/2?leader=2">
+      <RouterLink class="amazon-promo-card promo-seafood" :to="`/products/${products[1].id}`">
         <div class="promo-copy"><h2>冰鲜三文鱼<br />低温锁鲜</h2></div>
         <img :src="products[1].image" alt="冰鲜三文鱼" />
         <strong>点击选购</strong>
       </RouterLink>
-      <RouterLink class="amazon-promo-card promo-vegetable" to="/products/3?leader=1">
-        <div class="promo-copy"><h2>有机蔬菜<br />新鲜搭配</h2></div>
-        <img :src="products[2].image" alt="有机蔬菜组合" />
+      <RouterLink class="amazon-promo-card promo-vegetable" :to="`/products/${products[2].id}`">
+        <div class="promo-copy"><h2>水果甜玉米<br />新鲜到家</h2></div>
+        <img :src="products[2].image" alt="水果甜玉米" />
         <strong>点击选购</strong>
       </RouterLink>
       <RouterLink class="amazon-promo-card promo-delivery" to="/search">
         <div class="promo-copy"><h2>放心下单<br />新鲜到家</h2></div>
         <div class="delivery-visual"><Snowflake :size="76" /><Truck :size="122" /></div>
-        <strong>查看全部团购</strong>
+        <strong>查看全部商品</strong>
       </RouterLink>
     </section>
 
@@ -44,6 +45,13 @@ const { categories, products } = useShop()
           <img :src="category.image" :alt="category.name" />
           <span><strong>{{ category.name }}</strong></span>
         </RouterLink>
+      </div>
+    </section>
+
+    <section class="home-section amazon-home-panel store-container" aria-labelledby="all-products-title">
+      <div class="section-title-row"><div><h2 id="all-products-title">今日推荐</h2></div></div>
+      <div class="product-grid">
+        <ProductCard v-for="product in products" :key="product.id" :product="product" />
       </div>
     </section>
 
@@ -96,11 +104,13 @@ const { categories, products } = useShop()
 .category-tile img { opacity: 1; }
 .category-tile > span { padding: 50px 15px 15px; background: linear-gradient(180deg, transparent, rgba(0,0,0,.72)); }
 .category-tile strong { font-size: 18px; }
+.amazon-home-panel .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 
 @media (max-width: 1199.98px) {
   .amazon-promo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .amazon-promo-card { min-height: 420px; }
   .category-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .amazon-home-panel .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 991.98px) {
@@ -119,5 +129,6 @@ const { categories, products } = useShop()
   .amazon-home-panel { margin-top: 10px; padding: 14px; }
   .category-grid { grid-template-columns: 1fr; gap: 9px; }
   .category-tile { height: 120px; }
+  .amazon-home-panel .product-grid { grid-template-columns: 1fr; }
 }
 </style>

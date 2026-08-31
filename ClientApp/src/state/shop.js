@@ -1,4 +1,5 @@
 import { computed, reactive, ref } from 'vue'
+import { api } from '../services/api'
 import seasonalFruitImage from '../assets/categories/seasonal-fruit.jpg'
 import vegetableTofuImage from '../assets/categories/vegetable-tofu.jpg'
 import meatEggsImage from '../assets/categories/meat-eggs.jpg'
@@ -17,19 +18,19 @@ export const categories = [
 
 export const leaders = [
   {
-    id: 1,
-    name: '林晓晴',
+    id: 'PRO_2563c9557c564d86b015b90876c3d8f4',
+    name: '张三',
     title: '社区生鲜团长',
     area: '浦东新区 · 花木街道',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=240&q=85',
     cover: 'https://images.unsplash.com/photo-1528821128474-27f963b062bf?auto=format&fit=crop&w=1200&q=85',
-    description: '每天精选当季果蔬，严选冷链到家。开团前亲自试吃，截团后同步配送进度。',
+    description: '每天精选当季果蔬，严选冷链到家。上架前亲自试吃，下单后同步配送进度。',
     tags: ['平台认证', '果蔬优选'],
     following: 1280,
   },
   {
-    id: 2,
-    name: '陈海峰',
+    id: 'PRO_52d9f7b7cf2843a7b076732fb33374f0',
+    name: '长四',
     title: '海鲜冷链团长',
     area: '徐汇区 · 田林街道',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=240&q=85',
@@ -39,8 +40,8 @@ export const leaders = [
     following: 936,
   },
   {
-    id: 3,
-    name: '周婉宁',
+    id: 'PRO_9fb79e69831b4a50899999c0f438c734',
+    name: '宋张',
     title: '家庭餐桌团长',
     area: '闵行区 · 古美街道',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=240&q=85',
@@ -53,86 +54,87 @@ export const leaders = [
 
 export const products = [
   {
-    id: 'P1',
-    slug: 'cherries',
-    name: '智利进口车厘子礼盒',
-    shortName: '车厘子',
+    id: 'PROD-3004',
+    slug: 'shine-muscat',
+    name: '阳光玫瑰葡萄 2kg',
+    shortName: '阳光玫瑰葡萄',
     category: 'fruit',
-    spec: 'JJ级 · 2.5kg礼盒',
+    spec: '精品果 · 2kg礼盒',
     price: 50,
-    originalPrice: 69.9,
     image: 'https://images.unsplash.com/photo-1528821128474-27f963b062bf?auto=format&fit=crop&w=800&q=88',
     storage: '冷藏',
-    leaderIds: [1, 3],
+    leaderId: 'PRO_2563c9557c564d86b015b90876c3d8f4',
     sold: 286,
-    target: 300,
     stock: 100,
-    cutoff: '今天 22:00 截团',
     delivery: '明日 16:00 前送达',
     publishedAt: '2026-08-05T09:20:00+08:00',
-    summary: '果径饱满、脆甜多汁，产地冷链直达，适合家庭分享。',
+    summary: '颗粒饱满、清甜多汁，产地冷链直达，适合家庭分享。',
   },
   {
-    id: 'P2',
+    id: 'PROD-3002',
     slug: 'salmon',
-    name: '冰鲜三文鱼中段',
+    name: '智利三文鱼中段 500g',
     shortName: '三文鱼',
     category: 'seafood',
     spec: '去皮去刺 · 500g',
     price: 80,
-    originalPrice: 98,
     image: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=800&q=88',
     storage: '冷藏',
-    leaderIds: [2],
+    leaderId: 'PRO_52d9f7b7cf2843a7b076732fb33374f0',
     sold: 117,
-    target: 150,
     stock: 50,
-    cutoff: '明天 10:00 截团',
     delivery: '后日 12:00 前送达',
     publishedAt: '2026-08-05T08:35:00+08:00',
     summary: '肉质细腻，家庭小包装，低温锁鲜运输，开盒即可分切烹饪。',
   },
   {
-    id: 'P3',
-    slug: 'organic-vegetables',
-    name: '一周有机蔬菜组合',
-    shortName: '有机蔬菜',
+    id: 'PROD-3008',
+    slug: 'sweet-corn',
+    name: '鲜食水果甜玉米 2.5kg',
+    shortName: '水果甜玉米',
     category: 'vegetable',
-    spec: '6种搭配 · 约2.5kg',
+    spec: '家庭装 · 2.5kg',
     price: 20,
-    originalPrice: 29.9,
     image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=88',
     storage: '冷藏',
-    leaderIds: [1, 3],
+    leaderId: 'PRO_2563c9557c564d86b015b90876c3d8f4',
     sold: 368,
-    target: 400,
     stock: 200,
-    cutoff: '今天 20:00 截团',
     delivery: '明日 12:00 前送达',
     publishedAt: '2026-08-04T18:10:00+08:00',
-    summary: '当日搭配叶菜与根茎菜，一次备齐家庭一周的基础蔬菜。',
+    summary: '颗粒饱满、清甜脆嫩，适合蒸煮、煲汤和家庭日常搭配。',
   },
 ]
 
 const rawCart = JSON.parse(localStorage.getItem('freshMall.cart') ?? '[]')
 const rawRushCounts = JSON.parse(localStorage.getItem('freshMall.rushCounts') ?? '{}')
-const rawFollowedLeaderIds = JSON.parse(localStorage.getItem('freshMall.followedLeaderIds') ?? '[]')
 function normalizeProductId(id) {
   const value = String(id ?? '').trim()
-  return /^P\d+$/.test(value) ? value : `P${value}`
+  const legacyIds = { '1': 'PROD-3004', P1: 'PROD-3004', '2': 'PROD-3002', P2: 'PROD-3002', '3': 'PROD-3008', P3: 'PROD-3008' }
+  return legacyIds[value] ?? value
 }
 
 const cart = reactive(Array.isArray(rawCart)
-  ? rawCart.map((item) => ({ ...item, productId: normalizeProductId(item.productId) }))
+  ? rawCart.map((item) => {
+      const productId = normalizeProductId(item.productId)
+      const product = products.find((entry) => entry.id === productId)
+      return {
+        ...item,
+        productId,
+        leaderId: product?.leaderId ?? String(item.leaderId ?? ''),
+        selected: item.selected !== false,
+      }
+    })
   : [])
 const rushCounts = reactive(Object.fromEntries(products.map((product) => [
   product.id,
   Math.max(product.sold, Number(rawRushCounts[product.id]) || product.sold),
 ])))
-const selectedLeaderId = ref(Number(sessionStorage.getItem('freshMall.leaderId')) || 1)
-const followedLeaderIds = ref(Array.isArray(rawFollowedLeaderIds)
-  ? [...new Set(rawFollowedLeaderIds.map(Number).filter((id) => leaders.some((leader) => leader.id === id)))]
-  : [])
+const selectedLeaderId = ref(sessionStorage.getItem('freshMall.leaderId') || leaders[0].id)
+const followedLeaderIds = ref([])
+const followingLoading = ref(false)
+const followingError = ref('')
+const followingLoadedCustomerId = ref('')
 const lastOrder = ref(JSON.parse(sessionStorage.getItem('freshMall.lastOrder') ?? 'null'))
 
 function persistCart() {
@@ -144,7 +146,7 @@ function productById(id) {
 }
 
 function leaderById(id) {
-  return leaders.find((leader) => leader.id === Number(id))
+  return leaders.find((leader) => leader.id === String(id ?? ''))
 }
 
 function productRushCount(productId) {
@@ -162,29 +164,64 @@ function recordProductEntry(productId) {
 }
 
 function isLeaderFollowed(leaderId) {
-  return followedLeaderIds.value.includes(Number(leaderId))
+  return followedLeaderIds.value.includes(String(leaderId ?? ''))
 }
 
-function toggleLeaderFollow(leaderId) {
-  const id = Number(leaderId)
-  if (!leaderById(id)) return false
-  const index = followedLeaderIds.value.indexOf(id)
-  if (index >= 0) followedLeaderIds.value.splice(index, 1)
-  else followedLeaderIds.value.push(id)
-  localStorage.setItem('freshMall.followedLeaderIds', JSON.stringify(followedLeaderIds.value))
-  return isLeaderFollowed(id)
+async function loadFollowedLeaders(customerId, force = false) {
+  const id = String(customerId ?? '')
+  if (!id) {
+    followedLeaderIds.value = []
+    followingLoadedCustomerId.value = ''
+    return
+  }
+  if (!force && followingLoadedCustomerId.value === id) return
+
+  followingLoading.value = true
+  followingError.value = ''
+  try {
+    const result = await api.getFollowingPromoters(id)
+    followedLeaderIds.value = [...new Set((result.promoterIds ?? [])
+      .map(String)
+      .filter((leaderId) => leaderById(leaderId)))]
+    followingLoadedCustomerId.value = id
+  } catch (error) {
+    followingError.value = error.message
+    throw error
+  } finally {
+    followingLoading.value = false
+  }
 }
 
-function addToCart(productId, leaderId, quantity = 1) {
+async function setLeaderFollowed(customerId, leaderId, shouldFollow) {
+  const id = String(leaderId ?? '')
+  if (!leaderById(id)) throw new Error('团长不存在')
+
+  if (shouldFollow) await api.followPromoter(customerId, id)
+  else await api.unfollowPromoter(customerId, id)
+
+  const nextIds = new Set(followedLeaderIds.value)
+  if (shouldFollow) nextIds.add(id)
+  else nextIds.delete(id)
+  followedLeaderIds.value = [...nextIds]
+  followingLoadedCustomerId.value = String(customerId)
+  return shouldFollow
+}
+
+function addToCart(productId, quantity = 1) {
   const product = productById(productId)
-  const leader = leaderById(leaderId)
-  if (!product || !leader || !product.leaderIds.includes(leader.id)) return false
+  const leader = leaderById(product?.leaderId)
+  if (!product || !leader) return false
 
-  const existing = cart.find((item) => item.productId === product.id && item.leaderId === leader.id)
+  const existing = cart.find((item) => item.productId === product.id)
   if (existing) {
     existing.quantity = Math.min(product.stock, existing.quantity + Number(quantity || 1))
   } else {
-    cart.push({ productId: product.id, leaderId: leader.id, quantity: Math.max(1, Number(quantity || 1)) })
+    cart.push({
+      productId: product.id,
+      leaderId: leader.id,
+      quantity: Math.max(1, Number(quantity || 1)),
+      selected: true,
+    })
   }
   selectedLeaderId.value = leader.id
   sessionStorage.setItem('freshMall.leaderId', String(leader.id))
@@ -192,17 +229,44 @@ function addToCart(productId, leaderId, quantity = 1) {
   return true
 }
 
-function updateQuantity(productId, leaderId, quantity) {
-  const item = cart.find((entry) => entry.productId === normalizeProductId(productId) && entry.leaderId === Number(leaderId))
+function updateQuantity(productId, quantity) {
+  const item = cart.find((entry) => entry.productId === normalizeProductId(productId))
   const product = productById(productId)
   if (!item || !product) return
   item.quantity = Math.max(1, Math.min(product.stock, Number(quantity || 1)))
   persistCart()
 }
 
-function removeFromCart(productId, leaderId) {
-  const index = cart.findIndex((item) => item.productId === normalizeProductId(productId) && item.leaderId === Number(leaderId))
+function removeFromCart(productId) {
+  const index = cart.findIndex((item) => item.productId === normalizeProductId(productId))
   if (index >= 0) cart.splice(index, 1)
+  persistCart()
+}
+
+function setCartItemSelected(productId, selected) {
+  const item = cart.find((entry) => entry.productId === normalizeProductId(productId))
+  if (!item) return
+  item.selected = Boolean(selected)
+  persistCart()
+}
+
+function setLeaderCartSelected(leaderId, selected) {
+  cart
+    .filter((item) => item.leaderId === String(leaderId))
+    .forEach((item) => { item.selected = Boolean(selected) })
+  persistCart()
+}
+
+function setAllCartSelected(selected) {
+  cart.forEach((item) => { item.selected = Boolean(selected) })
+  persistCart()
+}
+
+function removeCartItems(productIds) {
+  const ids = new Set(productIds.map(normalizeProductId))
+  for (let index = cart.length - 1; index >= 0; index--) {
+    if (ids.has(cart[index].productId)) cart.splice(index, 1)
+  }
   persistCart()
 }
 
@@ -222,6 +286,7 @@ export function useShop() {
     product: productById(item.productId),
     leader: leaderById(item.leaderId),
   })).filter((item) => item.product && item.leader))
+  const selectedCartItems = computed(() => cartItems.value.filter((item) => item.selected))
 
   return {
     categories,
@@ -229,20 +294,30 @@ export function useShop() {
     products,
     cart,
     cartItems,
+    selectedCartItems,
     cartCount: computed(() => cart.reduce((sum, item) => sum + item.quantity, 0)),
     cartSubtotal: computed(() => cartItems.value.reduce((sum, item) => sum + item.product.price * item.quantity, 0)),
+    selectedCartCount: computed(() => selectedCartItems.value.reduce((sum, item) => sum + item.quantity, 0)),
+    selectedCartSubtotal: computed(() => selectedCartItems.value.reduce((sum, item) => sum + item.product.price * item.quantity, 0)),
     selectedLeaderId,
     followedLeaderIds,
+    followingLoading,
+    followingError,
     lastOrder,
     productById,
     leaderById,
     productRushCount,
     recordProductEntry,
     isLeaderFollowed,
-    toggleLeaderFollow,
+    loadFollowedLeaders,
+    setLeaderFollowed,
     addToCart,
     updateQuantity,
     removeFromCart,
+    setCartItemSelected,
+    setLeaderCartSelected,
+    setAllCartSelected,
+    removeCartItems,
     clearCart,
     setLastOrder,
   }

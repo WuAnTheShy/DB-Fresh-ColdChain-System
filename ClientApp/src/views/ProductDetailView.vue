@@ -1,24 +1,26 @@
 <script setup>
-import { BadgeCheck, Check, ChevronRight, Clock3, MapPin, PackageCheck, ShieldCheck, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
+import { BadgeCheck, Check, ChevronRight, Clock3, LockKeyhole, MapPin, PackageCheck, ShieldCheck, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import QuantityStepper from '../components/QuantityStepper.vue'
 import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
+import { useCustomerContext } from '../state/customer'
 
 const props = defineProps({ id: { type: String, required: true } })
 const route = useRoute()
 const router = useRouter()
-const { products, productById, leaderById, recordProductEntry, addToCart } = useShop()
+const { products, productById, leaderById, recordProductEntry, addToCart, isLeaderFollowed } = useShop()
+const { isAuthenticated } = useCustomerContext()
 const product = computed(() => productById(props.id))
-const requestedLeaderId = Number(route.query.leader)
-const activeLeaderId = ref(product.value?.leaderIds.includes(requestedLeaderId) ? requestedLeaderId : product.value?.leaderIds[0])
-const leader = computed(() => leaderById(activeLeaderId.value))
+const leader = computed(() => leaderById(product.value?.leaderId))
 const quantity = ref(1)
 const added = ref(false)
-const progress = computed(() => product.value ? Math.min(100, Math.round((product.value.sold / product.value.target) * 100)) : 0)
 const related = computed(() => products.filter((item) => item.id !== String(props.id)))
+const authLink = computed(() => ({ name: 'auth', query: { redirect: route.fullPath } }))
+const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(product.value?.leaderId))
+const followLink = computed(() => canViewPrice.value ? null : `/leaders/${leader.value?.id ?? ''}`)
 
 watch(() => props.id, (productId) => {
   if (productById(productId)) recordProductEntry(productId)
@@ -28,7 +30,7 @@ if (!product.value) router.replace('/search')
 
 function add() {
   if (!product.value || !leader.value) return
-  addToCart(product.value.id, leader.value.id, quantity.value)
+  addToCart(product.value.id, quantity.value)
   added.value = true
   window.setTimeout(() => { added.value = false }, 1400)
 }
@@ -50,7 +52,7 @@ function buyNow() {
       </div>
 
       <div class="product-info-column">
-        <span class="detail-deal-label">团长带货 · 限时团购</span>
+        <span class="detail-deal-label">团长精选 · 冷链直送</span>
         <h1>{{ product.name }}</h1>
         <p class="detail-summary">{{ product.summary }}</p>
         <div class="detail-leader-panel">
@@ -58,42 +60,40 @@ function buyNow() {
           <div><span><strong>{{ leader.name }}团长</strong><BadgeCheck :size="16" /></span><small>{{ leader.title }} · {{ leader.area }}</small></div>
           <RouterLink :to="`/leaders/${leader.id}`">查看详情<ChevronRight :size="15" /></RouterLink>
         </div>
-        <div v-if="product.leaderIds.length > 1" class="leader-choice">
-          <span>选择带货团长</span>
-          <button v-for="leaderId in product.leaderIds" :key="leaderId" type="button" :class="{ active: activeLeaderId === leaderId }" @click="activeLeaderId = leaderId">
-            <img :src="leaderById(leaderId).avatar" alt="" />{{ leaderById(leaderId).name }}团长
-          </button>
-        </div>
         <dl class="product-facts">
           <div><dt>规格</dt><dd>{{ product.spec }}</dd></div>
           <div><dt>温控</dt><dd>{{ product.storage }}冷链</dd></div>
-          <div><dt>库存</dt><dd>现货 {{ product.stock }} 件</dd></div>
+          <div v-if="canViewPrice"><dt>库存</dt><dd>现货 {{ product.stock }} 件</dd></div>
         </dl>
       </div>
 
       <aside class="buy-box">
-        <div class="buy-price"><span>¥</span><strong>{{ product.price.toFixed(2) }}</strong><del>¥{{ product.originalPrice.toFixed(2) }}</del></div>
-        <div class="discount-note">团购直降 ¥{{ (product.originalPrice - product.price).toFixed(2) }}</div>
+        <template v-if="canViewPrice">
+          <div class="buy-price"><span>¥</span><strong>{{ product.price.toFixed(2) }}</strong></div>
+        </template>
+        <div v-else class="buy-gated-message"><LockKeyhole :size="20" /><strong>关注团长后查看专属价格</strong><span>{{ isAuthenticated ? '关注该团长后，即可立即查看价格和购买商品' : '登录后关注该团长，即可查看价格和购买商品' }}</span></div>
         <div class="delivery-promise"><Truck :size="19" /><div><strong>{{ product.delivery }}</strong><span>配送至 上海市浦东新区</span></div></div>
-        <div class="stock-status"><Check :size="17" />有货，冷链备货中</div>
-        <div class="group-status"><div><span>{{ product.cutoff }}</span><strong>{{ product.sold }} / {{ product.target }} 件</strong></div><div class="progress"><div class="progress-bar" :style="{ width: `${progress}%` }"></div></div></div>
-        <label class="buy-quantity">数量<QuantityStepper v-model="quantity" :max="product.stock" /></label>
-        <button class="btn btn-cart w-100" type="button" @click="add"><Check v-if="added" :size="18" /><ShoppingCart v-else :size="18" />{{ added ? '已加入购物车' : '加入购物车' }}</button>
-        <button class="btn btn-buy w-100" type="button" @click="buyNow">立即参团</button>
+        <template v-if="canViewPrice">
+          <div class="stock-status"><Check :size="17" />有货，冷链备货中</div>
+          <label class="buy-quantity">数量<QuantityStepper v-model="quantity" :max="product.stock" /></label>
+          <button class="btn btn-cart w-100" type="button" @click="add"><Check v-if="added" :size="18" /><ShoppingCart v-else :size="18" />{{ added ? '已加入购物车' : '加入购物车' }}</button>
+          <button class="btn btn-buy w-100" type="button" @click="buyNow">立即购买</button>
+        </template>
+        <RouterLink v-else class="btn btn-buy w-100 gated-login-button" :to="isAuthenticated ? followLink : authLink">{{ isAuthenticated ? '前往关注团长' : '登录并关注团长' }}</RouterLink>
         <small class="buy-box-guarantee"><ShieldCheck :size="15" />平台交易保障 · 团长身份已认证</small>
       </aside>
     </section>
 
     <section class="detail-info-band">
-      <div><PackageCheck :size="23" /><span><strong>团购说明</strong><small>达到成团条件后统一备货</small></span></div>
-      <div><Clock3 :size="23" /><span><strong>截团透明</strong><small>{{ product.cutoff }}</small></span></div>
+      <div><PackageCheck :size="23" /><span><strong>下单即备货</strong><small>支付成功后立即进入履约流程</small></span></div>
+      <div><Clock3 :size="23" /><span><strong>配送时效</strong><small>{{ product.delivery }}</small></span></div>
       <div><MapPin :size="23" /><span><strong>社区履约</strong><small>{{ leader.area }}</small></span></div>
       <div><Snowflake :size="23" /><span><strong>冷链到家</strong><small>温控方式：{{ product.storage }}</small></span></div>
     </section>
 
     <section class="product-description-section">
       <h2>商品详情</h2>
-      <div class="description-grid"><div><h3>商品亮点</h3><p>{{ product.summary }}</p></div><div><h3>收货提示</h3><p>收到商品后请及时检查外包装及温度状态，并按照商品标注方式冷藏保存。</p></div><div><h3>团购进度</h3><p>当前已团 {{ product.sold }} 件，目标 {{ product.target }} 件。进度变化以页面实时展示为准。</p></div></div>
+      <div class="description-grid"><div><h3>商品亮点</h3><p>{{ product.summary }}</p></div><div><h3>收货提示</h3><p>收到商品后请及时检查外包装及温度状态，并按照商品标注方式冷藏保存。</p></div><div><h3>配送说明</h3><p>订单支付成功后立即进入常规备货与冷链配送流程。</p></div></div>
     </section>
 
     <section class="home-section px-0">
@@ -122,11 +122,6 @@ function buyNow() {
 .detail-leader-panel svg { color: var(--brand); }
 .detail-leader-panel small { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .detail-leader-panel > a { display: inline-flex; align-items: center; color: var(--brand); font-size: 10px; font-weight: 700; text-decoration: none; }
-.leader-choice { margin-top: 14px; }
-.leader-choice > span { display: block; margin-bottom: 7px; color: var(--muted); font-size: 10px; font-weight: 700; }
-.leader-choice button { display: inline-flex; height: 34px; align-items: center; gap: 5px; margin: 0 6px 6px 0; padding: 0 8px; border: 1px solid #cad3ce; border-radius: 4px; background: #fff; font-size: 10px; }
-.leader-choice button.active { border-color: var(--brand); background: #edf6f2; color: var(--brand); font-weight: 700; }
-.leader-choice img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
 .product-facts { margin: 15px 0 0; }
 .product-facts > div { display: grid; grid-template-columns: 62px 1fr; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .product-facts dt { color: var(--muted); font-size: 10px; }
@@ -135,17 +130,16 @@ function buyNow() {
 .buy-price { display: flex; align-items: baseline; color: var(--danger); }
 .buy-price > span { font-size: 16px; }
 .buy-price strong { font-size: 30px; }
-.buy-price del { margin-left: 8px; color: #8c9691; font-size: 11px; }
-.discount-note { width: fit-content; margin: 6px 0 15px; padding: 3px 6px; background: #fce9e7; color: var(--danger); font-size: 9px; }
+.buy-price { margin-bottom: 15px; }
+.buy-gated-message { display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px; padding: 13px; border: 1px solid #cfe1d8; background: #f2f8f5; color: var(--brand); }
+.buy-gated-message strong { color: var(--ink); font-size: 13px; }
+.buy-gated-message span { color: var(--muted); font-size: 10px; line-height: 1.5; }
+.gated-login-button { margin-top: 8px; }
 .delivery-promise { display: flex; gap: 8px; margin-bottom: 12px; color: var(--brand); }
 .delivery-promise div { display: flex; min-width: 0; flex-direction: column; }
 .delivery-promise strong { color: var(--ink); font-size: 11px; }
 .delivery-promise span { margin-top: 2px; color: var(--muted); font-size: 9px; }
 .stock-status { display: flex; align-items: center; gap: 5px; margin-bottom: 14px; color: var(--brand); font-size: 11px; font-weight: 700; }
-.group-status { padding: 10px; background: #fff8e9; }
-.group-status > div:first-child { display: flex; justify-content: space-between; gap: 8px; color: #785710; font-size: 9px; }
-.group-status .progress { height: 5px; margin-top: 7px; }
-.group-status .progress-bar { background: var(--amber); }
 .buy-quantity { display: flex; align-items: center; justify-content: space-between; margin: 15px 0; color: var(--muted); font-size: 10px; }
 .buy-box > .btn { margin-top: 8px; }
 .buy-box-guarantee { display: flex; align-items: center; gap: 4px; margin-top: 13px; color: var(--muted); font-size: 9px; }

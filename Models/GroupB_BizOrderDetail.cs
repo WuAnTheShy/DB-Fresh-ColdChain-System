@@ -13,4 +13,6 @@ public class BizOrderDetail
     public decimal UnitPrice { get; set; }          // 下单时单价(快照)
     public decimal SubTotal { get; set; }            // 小计 = Quantity * UnitPrice
     public string? SupplierId { get; set; }          // 供应商ID（用于拆单）
+    public string ReceiptStatus { get; set; } = "PENDING";
+    public DateTime? ReceivedAt { get; set; }
 }

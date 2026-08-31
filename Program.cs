@@ -31,6 +31,7 @@ builder.Services.AddScoped<ILogFulfillmentBatchItemRepository, LogFulfillmentBat
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 builder.Services.AddScoped<ICouponRepository, CouponRepository>();
+builder.Services.AddScoped<IConsumerMessageRepository, ConsumerMessageRepository>();
 builder.Services.AddScoped<IPointRepository, PointRepository>();
 builder.Services.AddScoped<IPromoterRepository, PromoterRepository>();
 
@@ -58,10 +59,12 @@ builder.Services.AddScoped<IInventoryService, DummyInventoryService>();
 builder.Services.AddScoped<ILogisticsService, DummyLogisticsService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddSingleton<CustomerAuthenticationStateService>();
 builder.Services.AddScoped<ICouponService, CouponService>();
 builder.Services.AddScoped<IGroupCInterface, GroupCInterfaceService>();
 builder.Services.AddScoped<GroupBDailyMaintenanceService>();
 builder.Services.AddHostedService<GroupBDailyCheckHostedService>();
+builder.Services.AddHostedService<GroupBCheckoutExpiryHostedService>();
 
 // C组
 builder.Services.AddScoped<AccountService>();
@@ -105,6 +108,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 app.UseSession();
+app.UseMiddleware<CustomerSessionValidationMiddleware>();
 app.UseAuthorization();
 
 app.MapControllerRoute(

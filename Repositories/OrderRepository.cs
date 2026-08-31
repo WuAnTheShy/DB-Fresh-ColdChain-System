@@ -18,13 +18,13 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
     {
         var sql = @"
             INSERT INTO Biz_Orders (
-                OrderId, OrderNo, CustomerId, PromoterId, AddressId, ReceiverName, ReceiverPhone,
+                OrderId, OrderNo, CustomerId, CheckoutBatchId, PromoterId, AddressId, ReceiverName, ReceiverPhone,
                 ShippingAddress, TotalAmount, DiscountAmount, FreightAmount,
-                FinalAmount, PointsEarned, OrderStatus, CreatedAt)
+                FinalAmount, PointsEarned, PointsUsed, PointsDiscountAmount, OrderStatus, PaymentExpiresAt, CreatedAt)
             VALUES (
-                :OrderId, :OrderNo, :CustomerId, :PromoterId, :AddressId, :ReceiverName, :ReceiverPhone,
+                :OrderId, :OrderNo, :CustomerId, :CheckoutBatchId, :PromoterId, :AddressId, :ReceiverName, :ReceiverPhone,
                 :ShippingAddress, :TotalAmount, :DiscountAmount, :FreightAmount,
-                :FinalAmount, :PointsEarned, :OrderStatus, SYSDATE)";
+                :FinalAmount, :PointsEarned, :PointsUsed, :PointsDiscountAmount, :OrderStatus, :PaymentExpiresAt, SYSDATE)";
 
         return await WithConnectionAsync(transaction, async connection =>
         {
@@ -56,6 +56,60 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 transaction));
     }
 
+    public async Task<List<BizOrder>> GetByCheckoutBatchAsync(
+        string checkoutBatchId,
+        string customerId,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<BizOrder>(
+                @"SELECT * FROM Biz_Orders
+                  WHERE CheckoutBatchId = :CheckoutBatchId
+                    AND CustomerId = :CustomerId
+                  ORDER BY OrderId",
+                new { CheckoutBatchId = checkoutBatchId, CustomerId = customerId },
+                transaction)).ToList());
+    }
+
+    public async Task<List<BizOrder>> GetByCheckoutBatchForUpdateAsync(
+        string checkoutBatchId,
+        string customerId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<BizOrder>(
+                @"SELECT * FROM Biz_Orders
+                  WHERE CheckoutBatchId = :CheckoutBatchId
+                    AND CustomerId = :CustomerId
+                  ORDER BY OrderId
+                  FOR UPDATE",
+                new { CheckoutBatchId = checkoutBatchId, CustomerId = customerId },
+                transaction)).ToList());
+    }
+
+    public async Task<List<BizOrder>> GetByCheckoutBatchForUpdateAsync(
+        string checkoutBatchId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<BizOrder>(
+                @"SELECT * FROM Biz_Orders WHERE CheckoutBatchId = :CheckoutBatchId
+                  ORDER BY OrderId FOR UPDATE",
+                new { CheckoutBatchId = checkoutBatchId }, transaction)).ToList());
+    }
+
+    public async Task<List<string>> GetExpiredPendingCheckoutBatchIdsAsync(
+        DateTime now,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<string>(
+                @"SELECT DISTINCT CheckoutBatchId FROM Biz_Orders
+                  WHERE CheckoutBatchId IS NOT NULL AND OrderStatus = 'PENDING_PAYMENT'
+                    AND PaymentExpiresAt <= :Now",
+                new { Now = now }, transaction)).ToList());
+    }
+
     public async Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
         DateTime threshold,
         IDbTransaction? transaction = null)
@@ -67,6 +121,17 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                                         AND NVL(CommSettlementDate, CreatedAt) <= :Threshold",
                 new { Threshold = threshold },
                 transaction)).ToList());
+    }
+
+    public async Task<decimal> GetCompletedSpentBeforeAsync(string customerId, DateTime cutoff, IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            await connection.ExecuteScalarAsync<decimal>(
+                @"SELECT NVL(SUM(FinalAmount), 0) FROM Biz_Orders
+                  WHERE CustomerId = :CustomerId
+                    AND OrderStatus = 'COMPLETED'
+                    AND NVL(UpdatedAt, CreatedAt) < :Cutoff",
+                new { CustomerId = customerId, Cutoff = cutoff }, transaction));
     }
 
     public async Task<int> CountOrdersAsync(
@@ -93,12 +158,15 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 $@"SELECT o.OrderId,
                           o.OrderNo,
                           o.CustomerId,
+                          o.CheckoutBatchId,
+                          o.PromoterId,
                           c.CustomerName,
                           o.FinalAmount,
                           o.OrderStatus,
                           COUNT(d.OrderDetailId) AS ItemCount,
                           COUNT(DISTINCT d.SupplierId) AS SupplierCount,
                           o.CreatedAt
+                          ,o.PaymentExpiresAt
                    FROM Biz_Orders o
                    JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
                    LEFT JOIN Biz_OrderDetails d ON d.OrderId = o.OrderId
@@ -106,10 +174,13 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                    GROUP BY o.OrderId,
                             o.OrderNo,
                             o.CustomerId,
+                            o.CheckoutBatchId,
+                            o.PromoterId,
                             c.CustomerName,
                             o.FinalAmount,
                             o.OrderStatus,
-                            o.CreatedAt
+                            o.CreatedAt,
+                            o.PaymentExpiresAt
                    ORDER BY o.CreatedAt DESC, o.OrderId DESC
                    OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY",
                 CreateOrderQueryParameters(request, offset),
@@ -125,6 +196,8 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 @"SELECT o.OrderId,
                          o.OrderNo,
                          o.CustomerId,
+                         o.CheckoutBatchId,
+                         o.PromoterId,
                          o.AddressId,
                          c.CustomerName,
                          o.ReceiverName,
@@ -135,7 +208,10 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                          o.FreightAmount,
                          o.FinalAmount,
                          o.PointsEarned,
+                         o.PointsUsed,
+                         o.PointsDiscountAmount,
                          o.OrderStatus,
+                         o.PaymentExpiresAt,
                          o.CreatedAt,
                          o.UpdatedAt
                   FROM Biz_Orders o
@@ -218,14 +294,61 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
         var sql = @"
             INSERT INTO Biz_OrderDetails (
                 OrderDetailId, OrderId, ProductId, ProductName,
-                Quantity, UnitPrice, SubTotal, SupplierId)
+                Quantity, UnitPrice, SubTotal, SupplierId, ReceiptStatus)
             VALUES (
                 :OrderDetailId, :OrderId, :ProductId, :ProductName,
-                :Quantity, :UnitPrice, :SubTotal, :SupplierId)";
+                :Quantity, :UnitPrice, :SubTotal, :SupplierId, :ReceiptStatus)";
         await WithConnectionAsync(transaction, async connection =>
         {
             await connection.ExecuteAsync(sql, details, transaction);
         });
+    }
+
+    public async Task<bool> TryConfirmDetailReceiptAsync(
+        string orderDetailId,
+        string orderId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+        {
+            var affected = await connection.ExecuteAsync(
+                @"UPDATE Biz_OrderDetails
+                  SET ReceiptStatus = 'RECEIVED', ReceivedAt = :ReceivedAt
+                  WHERE OrderDetailId = :OrderDetailId
+                    AND OrderId = :OrderId
+                    AND NVL(ReceiptStatus, 'PENDING') = 'PENDING'",
+                new { OrderDetailId = orderDetailId, OrderId = orderId, ReceivedAt = DateTime.Now },
+                transaction);
+            return affected == 1;
+        });
+    }
+
+    public async Task<bool> HasUnreceivedDetailsExceptAsync(
+        string orderId,
+        string excludedOrderDetailId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            await connection.ExecuteScalarAsync<int>(
+                @"SELECT COUNT(1) FROM Biz_OrderDetails
+                  WHERE OrderId = :OrderId
+                    AND OrderDetailId <> :ExcludedOrderDetailId
+                    AND NVL(ReceiptStatus, 'PENDING') = 'PENDING'",
+                new { OrderId = orderId, ExcludedOrderDetailId = excludedOrderDetailId },
+                transaction) > 0);
+    }
+
+    public async Task<bool> UpdatePointsEarnedAsync(
+        string orderId,
+        int pointsEarned,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            await connection.ExecuteAsync(
+                @"UPDATE Biz_Orders SET PointsEarned = :PointsEarned, UpdatedAt = SYSDATE
+                  WHERE OrderId = :OrderId",
+                new { OrderId = orderId, PointsEarned = pointsEarned },
+                transaction) == 1);
     }
 
     private static string CreateOrderFilterSql()

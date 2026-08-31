@@ -19,4 +19,8 @@ public interface IPointRepository
     Task<CrmMemberLevel?> GetLevelForSpentAsync(
         decimal totalSpent,
         IDbTransaction? transaction = null);
+
+    Task<List<CrmMemberLevelHistory>> GetMemberLevelHistoryAsync(string customerId);
+    Task<bool> HasMemberLevelHistoryAsync(string customerId, DateTime settlementMonth, IDbTransaction transaction);
+    Task InsertMemberLevelHistoryAsync(CrmMemberLevelHistory history, IDbTransaction transaction);
 }

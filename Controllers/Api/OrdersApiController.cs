@@ -25,6 +25,7 @@ public sealed class OrdersApiController(
             {
                 order.OrderId,
                 order.OrderNo,
+                order.CheckoutBatchId,
                 order.CustomerId,
                 order.CustomerName,
                 order.FinalAmount,
@@ -36,6 +37,35 @@ public sealed class OrdersApiController(
             result.TotalCount,
             result.TotalPages
         });
+    }
+
+    [HttpGet("batches/{checkoutBatchId}")]
+    public async Task<IActionResult> GetCheckoutBatch(string checkoutBatchId)
+    {
+        var customerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(customerId)) return ApiUnauthorized();
+
+        var result = await orderService.GetCheckoutBatchAsync(checkoutBatchId, customerId);
+        return result == null ? ApiNotFound("结算批次不存在") : Ok(result);
+    }
+
+    [HttpPost("batches/{checkoutBatchId}/pay")]
+    public async Task<IActionResult> PayCheckoutBatch(
+        string checkoutBatchId,
+        CheckoutBatchPaymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var customerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(customerId)) return ApiUnauthorized();
+
+        var result = await orderService.PayCheckoutBatchAsync(
+            checkoutBatchId,
+            customerId,
+            request,
+            cancellationToken);
+        return result.IsExpired
+            ? Conflict(new { message = "支付已超过15分钟，整个结算批次已关闭", result })
+            : Ok(result);
     }
 
     [HttpGet("{orderId}")]
@@ -59,6 +89,7 @@ public sealed class OrdersApiController(
                 order.OrderId,
                 order.OrderNo,
                 order.CustomerId,
+                order.CheckoutBatchId,
                 order.PromoterId,
                 order.AddressId,
                 order.ReceiverName,
@@ -69,7 +100,10 @@ public sealed class OrdersApiController(
                 order.FreightAmount,
                 order.FinalAmount,
                 order.PointsEarned,
+                order.PointsUsed,
+                order.PointsDiscountAmount,
                 order.OrderStatus,
+                order.PaymentExpiresAt,
                 order.CreatedAt,
                 order.UpdatedAt
             },
@@ -82,7 +116,11 @@ public sealed class OrdersApiController(
                 item.ProductName,
                 item.Quantity,
                 item.UnitPrice,
-                item.SubTotal
+                item.SubTotal,
+                item.ReceiptStatus,
+                item.ReceivedAt,
+                canConfirmReceipt = order.OrderStatus == OrderStatusCodes.Shipped &&
+                    !string.Equals(item.ReceiptStatus, "RECEIVED", StringComparison.Ordinal)
             }),
             detail.CanComplete,
             detail.CanCancel,
@@ -100,22 +138,10 @@ public sealed class OrdersApiController(
         if (!string.Equals(request.CustomerId, signedInCustomerId, StringComparison.Ordinal))
             return ApiForbidden();
 
-        var result = await orderService.CreateOrderAsync(
+        var result = await orderService.CreateCheckoutBatchAsync(
             request,
             cancellationToken);
-        return CreatedAtAction(
-            nameof(GetOrder),
-            new { orderId = result.OrderId },
-            new
-            {
-                result.OrderId,
-                result.OrderNo,
-                result.GoodsAmount,
-                result.DiscountAmount,
-                result.FreightAmount,
-                result.FinalAmount,
-                result.PointsEarned
-            });
+        return StatusCode(StatusCodes.Status201Created, result);
     }
 
     [HttpPost("{orderId}/transition")]
@@ -124,6 +150,8 @@ public sealed class OrdersApiController(
         OrderTransitionRequest request,
         CancellationToken cancellationToken)
     {
+        if (request.TargetStatus == OrderStatus.Completed)
+            return BadRequest(new { message = "请在订单详情中按商品分别确认收货" });
         var authorizationError = await AuthorizeOrderAsync(orderId);
         if (authorizationError != null) return authorizationError;
 
@@ -143,6 +171,25 @@ public sealed class OrdersApiController(
         if (authorizationError != null) return authorizationError;
 
         await orderService.CancelOrderAsync(orderId, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("{orderId}/items/{orderDetailId}/confirm-receipt")]
+    public async Task<IActionResult> ConfirmItemReceipt(
+        string orderId,
+        string orderDetailId,
+        CancellationToken cancellationToken)
+    {
+        var customerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(customerId)) return ApiUnauthorized();
+        var authorizationError = await AuthorizeOrderAsync(orderId);
+        if (authorizationError != null) return authorizationError;
+
+        await orderService.ConfirmOrderItemReceiptAsync(
+            orderId,
+            orderDetailId,
+            customerId,
+            cancellationToken);
         return NoContent();
     }
 

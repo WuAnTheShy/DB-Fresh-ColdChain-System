@@ -14,6 +14,7 @@ internal static class OrderLifecycleScenarioTests
             ("下单使用运费契约并保存地址快照", CreateOrderUsesFreightAndAddressSnapshotAsync),
             ("已支付订单发货时同步创建物流", PaidOrderShipsAsync),
             ("已发货订单完成时触发佣金登记", ShippedOrderCompletesAsync),
+            ("已发货商品逐项确认且最后一项自动完成子订单", ItemReceiptCompletesAfterLastItemAsync),
             ("非法状态跳转被拒绝并回滚", InvalidTransitionRollsBackAsync),
             ("佣金登记失败时订单完成回滚", CommissionFailureRollsBackAsync),
             ("取消订单归还库存和营销资产", CancellationCompensatesAssetsAsync),
@@ -137,6 +138,33 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal("PROM9", commission.promoterID);
         AssertEx.Equal(130m, commission.finalAmount);
         AssertCommitted(context);
+    }
+
+    private static async Task ItemReceiptCompletesAfterLastItemAsync()
+    {
+        var context = TestContext.Create();
+        context.CustomerRepository.Customer.PromoterId = "customer-promoter";
+        SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-ITEM-RECEIPT");
+        context.OrderRepository.Orders[0].PromoterId = "order-promoter";
+
+        await context.Service.ConfirmOrderItemReceiptAsync(
+            TestIds.Order,
+            $"{TestIds.Order}-detail-1",
+            TestIds.Customer);
+
+        AssertEx.Equal("RECEIVED", context.OrderRepository.Details[0].ReceiptStatus);
+        AssertEx.Equal(OrderStatusCodes.Shipped, context.OrderRepository.Orders[0].OrderStatus);
+        AssertEx.Equal(0, context.CommissionService.CompletedOrders.Count);
+
+        await context.Service.ConfirmOrderItemReceiptAsync(
+            TestIds.Order,
+            $"{TestIds.Order}-detail-2",
+            TestIds.Customer);
+
+        AssertEx.True(context.OrderRepository.Details.All(detail => detail.ReceiptStatus == "RECEIVED"));
+        AssertEx.Equal(OrderStatusCodes.Completed, context.OrderRepository.Orders[0].OrderStatus);
+        AssertEx.Equal(1, context.CommissionService.CompletedOrders.Count);
+        AssertEx.Equal("order-promoter", context.CommissionService.CompletedOrders[0].promoterID);
     }
 
     private static async Task InvalidTransitionRollsBackAsync()

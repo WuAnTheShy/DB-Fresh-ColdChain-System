@@ -9,6 +9,8 @@ namespace FreshColdChain.Repositories;
 /// </summary>
 public class PointRepository : B_BaseRepository, IPointRepository
 {
+    private const string ConsumerLevelFilter =
+        "('00000000000000000000000000000001','MEMBER_LEVEL_1','MEMBER_LEVEL_500','MEMBER_LEVEL_2000','MEMBER_LEVEL_5000')";
     public PointRepository(IConfiguration configuration) : base(configuration) { }
 
     /// <summary>写入积分流水（防篡改审计）</summary>
@@ -55,7 +57,7 @@ public class PointRepository : B_BaseRepository, IPointRepository
     {
         return await WithConnectionAsync(transaction, async connection =>
             (await connection.QueryAsync<CrmMemberLevel>(
-                "SELECT * FROM Crm_MemberLevels ORDER BY MinSpent ASC",
+                $"SELECT * FROM Crm_MemberLevels WHERE MemberLevelId IN {ConsumerLevelFilter} ORDER BY MinSpent ASC",
                 transaction: transaction)).ToList());
     }
 
@@ -66,8 +68,8 @@ public class PointRepository : B_BaseRepository, IPointRepository
     {
         return await WithConnectionAsync(transaction, connection =>
             connection.QueryFirstOrDefaultAsync<CrmMemberLevel>(
-                @"SELECT * FROM Crm_MemberLevels
-                  WHERE MemberLevelId = :MemberLevelId",
+                $@"SELECT * FROM Crm_MemberLevels
+                  WHERE MemberLevelId = :MemberLevelId AND MemberLevelId IN {ConsumerLevelFilter}",
                 new { MemberLevelId = memberLevelId },
                 transaction));
     }
@@ -79,11 +81,40 @@ public class PointRepository : B_BaseRepository, IPointRepository
     {
         return await WithConnectionAsync(transaction, connection =>
             connection.QueryFirstOrDefaultAsync<CrmMemberLevel>(
-                @"SELECT * FROM Crm_MemberLevels
-                  WHERE MinSpent <= :TotalSpent
+                $@"SELECT * FROM Crm_MemberLevels
+                  WHERE MinSpent <= :TotalSpent AND MemberLevelId IN {ConsumerLevelFilter}
                   ORDER BY MinSpent DESC, MemberLevelId DESC
                   FETCH FIRST 1 ROWS ONLY",
                 new { TotalSpent = totalSpent },
                 transaction));
     }
+
+    public async Task<List<CrmMemberLevelHistory>> GetMemberLevelHistoryAsync(string customerId)
+    {
+        return await WithConnectionAsync(null, async connection =>
+            (await connection.QueryAsync<CrmMemberLevelHistory>(
+                @"SELECT h.HistoryId, h.CustomerId, h.MemberLevelId, l.LevelName,
+                         h.QualifiedSpent, h.SettlementMonth, h.CreatedAt
+                  FROM Crm_MemberLevelHistories h
+                  JOIN Crm_MemberLevels l ON l.MemberLevelId = h.MemberLevelId
+                  WHERE h.CustomerId = :CustomerId
+                  ORDER BY h.SettlementMonth DESC, h.CreatedAt DESC",
+                new { CustomerId = customerId })).ToList());
+    }
+
+    public async Task<bool> HasMemberLevelHistoryAsync(string customerId, DateTime settlementMonth, IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            await connection.ExecuteScalarAsync<int>(
+                @"SELECT COUNT(1) FROM Crm_MemberLevelHistories
+                  WHERE CustomerId = :CustomerId AND SettlementMonth = :SettlementMonth",
+                new { CustomerId = customerId, SettlementMonth = settlementMonth }, transaction) > 0);
+    }
+
+    public Task InsertMemberLevelHistoryAsync(CrmMemberLevelHistory history, IDbTransaction transaction) =>
+        WithConnectionAsync(transaction, connection => connection.ExecuteAsync(
+            @"INSERT INTO Crm_MemberLevelHistories
+                 (HistoryId, CustomerId, MemberLevelId, QualifiedSpent, SettlementMonth, CreatedAt)
+              VALUES (:HistoryId, :CustomerId, :MemberLevelId, :QualifiedSpent, :SettlementMonth, SYSDATE)",
+            history, transaction));
 }

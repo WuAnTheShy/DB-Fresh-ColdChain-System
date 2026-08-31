@@ -124,7 +124,7 @@ async function logout() {
 }
 
 .header-primary {
-  background: var(--header);
+  background: var(--brand);
   color: #fff;
 }
 
@@ -288,7 +288,7 @@ async function logout() {
 }
 
 .header-secondary {
-  background: var(--header-soft);
+  background: var(--brand);
   color: #f5f7f6;
 }
 
@@ -325,7 +325,7 @@ async function logout() {
 
 .mobile-menu {
   --bs-offcanvas-width: 290px;
-  background: var(--header);
+  background: var(--brand);
   color: #fff;
 }
 

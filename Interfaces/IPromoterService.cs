@@ -33,6 +33,12 @@ namespace FreshColdChain.Interfaces
         // 查询消费者已绑定的团长ID列表（B组搜索页判断是否已绑定）
         Task<List<string>> GetBoundPromoterIdsAsync(string customerId);
 
+        // 消费者取消关注团长；关系不存在时按幂等成功处理。
+        Task<Result> UnbindCustomerFromPromoterAsync(
+            string customerId,
+            string promoterId,
+            CancellationToken cancellationToken = default);
+
         // 查询绑定了指定团长的消费者列表（团长端「我的消费者」实时读 CRM_PCR）
         Task<List<GroupC_CrmPCRelation>> GetBoundCustomersByPromoterAsync(string promoterId);
     }

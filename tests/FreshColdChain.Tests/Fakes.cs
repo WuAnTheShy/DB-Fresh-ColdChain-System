@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.CrossGroup_C;
+using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
 using FreshColdChain.Services;
 using Microsoft.AspNetCore.Identity;
@@ -34,7 +35,10 @@ internal sealed class TestContext
         InventoryService = new FakeInventoryService();
         LogisticsService = new FakeLogisticsService();
         CommissionService = new FakeCommissionService();
+        PromoterService = new FakePromoterService();
+        PaymentRepository = new FakePaymentRepository();
         TransactionManager = new FakeTransactionManager();
+        AuthenticationState = new CustomerAuthenticationStateService();
         Service = new OrderService(
             OrderRepository,
             CustomerRepository,
@@ -43,12 +47,15 @@ internal sealed class TestContext
             InventoryService,
             LogisticsService,
             CommissionService,
-            TransactionManager);
+            TransactionManager,
+            PromoterService,
+            PaymentRepository);
         CustomerService = new CustomerService(
             CustomerRepository,
             PointRepository,
             TransactionManager,
-            new PasswordHasher<CrmCustomer>());
+            new PasswordHasher<CrmCustomer>(),
+            AuthenticationState);
         CouponService = new CouponService(
             CouponRepository,
             CustomerRepository,
@@ -62,7 +69,10 @@ internal sealed class TestContext
     public FakeInventoryService InventoryService { get; }
     public FakeLogisticsService LogisticsService { get; }
     public FakeCommissionService CommissionService { get; }
+    public FakePromoterService PromoterService { get; }
+    public FakePaymentRepository PaymentRepository { get; }
     public FakeTransactionManager TransactionManager { get; }
+    public CustomerAuthenticationStateService AuthenticationState { get; }
     public OrderService Service { get; }
     public CustomerService CustomerService { get; }
     public CouponService CouponService { get; }
@@ -165,6 +175,29 @@ internal sealed class FakeOrderRepository : IOrderRepository
         return GetByIdAsync(orderId, transaction);
     }
 
+    public Task<List<BizOrder>> GetByCheckoutBatchAsync(
+        string checkoutBatchId,
+        string customerId,
+        IDbTransaction? transaction = null) => Task.FromResult(Orders
+        .Where(order => order.CheckoutBatchId == checkoutBatchId && order.CustomerId == customerId)
+        .OrderBy(order => order.OrderId)
+        .ToList());
+
+    public Task<List<BizOrder>> GetByCheckoutBatchForUpdateAsync(
+        string checkoutBatchId,
+        string customerId,
+        IDbTransaction transaction) => GetByCheckoutBatchAsync(checkoutBatchId, customerId, transaction);
+
+    public Task<List<BizOrder>> GetByCheckoutBatchForUpdateAsync(
+        string checkoutBatchId,
+        IDbTransaction transaction) => Task.FromResult(Orders
+        .Where(order => order.CheckoutBatchId == checkoutBatchId)
+        .OrderBy(order => order.OrderId)
+        .ToList());
+
+    public Task<List<string>> GetExpiredPendingCheckoutBatchIdsAsync(DateTime now, IDbTransaction? transaction = null) =>
+        Task.FromResult(Orders.Where(order => order.OrderStatus == OrderStatusCodes.PendingPayment && order.PaymentExpiresAt <= now && !string.IsNullOrWhiteSpace(order.CheckoutBatchId)).Select(order => order.CheckoutBatchId!).Distinct().ToList());
+
     public Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
         DateTime threshold,
         IDbTransaction? transaction = null)
@@ -177,6 +210,9 @@ internal sealed class FakeOrderRepository : IOrderRepository
             .Select(CloneOrder)
             .ToList());
     }
+
+    public Task<decimal> GetCompletedSpentBeforeAsync(string customerId, DateTime cutoff, IDbTransaction? transaction = null) =>
+        Task.FromResult(Orders.Where(order => order.CustomerId == customerId && order.OrderStatus == OrderStatusCodes.Completed && (order.UpdatedAt ?? order.CreatedAt) < cutoff).Sum(order => order.FinalAmount));
 
     public Task<int> CountOrdersAsync(
         OrderQueryRequest request,
@@ -243,6 +279,8 @@ internal sealed class FakeOrderRepository : IOrderRepository
                 FreightAmount = order.FreightAmount,
                 FinalAmount = order.FinalAmount,
                 PointsEarned = order.PointsEarned,
+                PointsUsed = order.PointsUsed,
+                PointsDiscountAmount = order.PointsDiscountAmount,
                 OrderStatus = order.OrderStatus,
                 CreatedAt = order.CreatedAt,
                 UpdatedAt = order.UpdatedAt
@@ -309,6 +347,42 @@ internal sealed class FakeOrderRepository : IOrderRepository
         return Task.CompletedTask;
     }
 
+    public Task<bool> TryConfirmDetailReceiptAsync(
+        string orderDetailId,
+        string orderId,
+        IDbTransaction transaction)
+    {
+        var detail = Details.SingleOrDefault(item =>
+            item.OrderDetailId == orderDetailId && item.OrderId == orderId);
+        if (detail == null || detail.ReceiptStatus == "RECEIVED")
+            return Task.FromResult(false);
+        Stage(transaction, () =>
+        {
+            detail.ReceiptStatus = "RECEIVED";
+            detail.ReceivedAt = DateTime.Now;
+        });
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> HasUnreceivedDetailsExceptAsync(
+        string orderId,
+        string excludedOrderDetailId,
+        IDbTransaction transaction) => Task.FromResult(Details.Any(detail =>
+            detail.OrderId == orderId &&
+            detail.OrderDetailId != excludedOrderDetailId &&
+            detail.ReceiptStatus != "RECEIVED"));
+
+    public Task<bool> UpdatePointsEarnedAsync(
+        string orderId,
+        int pointsEarned,
+        IDbTransaction transaction)
+    {
+        var order = Orders.SingleOrDefault(item => item.OrderId == orderId);
+        if (order == null) return Task.FromResult(false);
+        Stage(transaction, () => order.PointsEarned = pointsEarned);
+        return Task.FromResult(true);
+    }
+
     private static BizOrderDetail CloneDetail(BizOrderDetail detail)
     {
         return new BizOrderDetail
@@ -320,7 +394,9 @@ internal sealed class FakeOrderRepository : IOrderRepository
             Quantity = detail.Quantity,
             UnitPrice = detail.UnitPrice,
             SubTotal = detail.SubTotal,
-            SupplierId = detail.SupplierId
+            SupplierId = detail.SupplierId,
+            ReceiptStatus = detail.ReceiptStatus,
+            ReceivedAt = detail.ReceivedAt
         };
     }
 
@@ -331,6 +407,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
             OrderId = order.OrderId,
             OrderNo = order.OrderNo,
             CustomerId = order.CustomerId,
+            CheckoutBatchId = order.CheckoutBatchId,
             PromoterId = order.PromoterId,
             AddressId = order.AddressId,
             ReceiverName = order.ReceiverName,
@@ -344,7 +421,10 @@ internal sealed class FakeOrderRepository : IOrderRepository
             CommBonusAmount = order.CommBonusAmount,
             CommSettlementDate = order.CommSettlementDate,
             PointsEarned = order.PointsEarned,
+            PointsUsed = order.PointsUsed,
+            PointsDiscountAmount = order.PointsDiscountAmount,
             OrderStatus = order.OrderStatus,
+            PaymentExpiresAt = order.PaymentExpiresAt,
             CreatedAt = order.CreatedAt,
             UpdatedAt = order.UpdatedAt
         };
@@ -447,6 +527,31 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         return Task.FromResult(customer == null ? null : CloneCustomer(customer));
     }
 
+    public Task<CrmCustomer?> GetByPhoneForUpdateAsync(
+        string phone,
+        IDbTransaction transaction)
+    {
+        return GetByPhoneAsync(phone, transaction);
+    }
+
+    public Task<bool> UpdatePasswordHashAsync(
+        string customerId,
+        string passwordHash,
+        IDbTransaction transaction)
+    {
+        var customer = new[] { Customer }
+            .Concat(CreatedCustomers)
+            .SingleOrDefault(item => item.CustomerId == customerId);
+        if (customer == null) return Task.FromResult(false);
+
+        Stage(transaction, () =>
+        {
+            customer.PasswordHash = passwordHash;
+            customer.UpdatedAt = DateTime.Now;
+        });
+        return Task.FromResult(true);
+    }
+
     public Task<CrmCustomer?> GetByIdForUpdateAsync(
         string customerId,
         IDbTransaction transaction)
@@ -515,6 +620,9 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         return Task.FromResult(list);
     }
 
+    public Task<List<CrmCustomer>> GetAllCustomersAsync(IDbTransaction? transaction = null) =>
+        Task.FromResult(new List<CrmCustomer> { CloneCustomer(Customer) }.Concat(CreatedCustomers.Select(CloneCustomer)).ToList());
+
     public Task<bool> UpdateProfileAsync(
         CustomerProfileUpdateRequest request,
         IDbTransaction? transaction = null)
@@ -546,6 +654,12 @@ internal sealed class FakeCustomerRepository : ICustomerRepository
         IDbTransaction? transaction = null)
     {
         Stage(transaction, () => Customer.TotalSpent += addAmount);
+        return Task.CompletedTask;
+    }
+
+    public Task SetTotalSpentAsync(string customerId, decimal totalSpent, IDbTransaction transaction)
+    {
+        Stage(transaction, () => Customer.TotalSpent = totalSpent);
         return Task.CompletedTask;
     }
 
@@ -748,6 +862,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
         }
     ];
     public List<MktCouponRecord> Records { get; } = [];
+    private Dictionary<string, MktCouponUsage> PendingUsages { get; } = [];
 
     public Task<List<MktCouponRecord>> GetUserCouponsAsync(
         string customerId,
@@ -788,6 +903,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
             {
                 CouponId = coupon.CouponId,
                 CouponName = coupon.CouponName,
+                CouponType = coupon.CouponType,
                 MinOrderAmount = coupon.MinOrderAmount,
                 DiscountAmount = coupon.DiscountAmount,
                 RemainingQuantity = coupon.RemainingQuantity,
@@ -817,6 +933,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
                 RecordId = record.RecordId,
                 CouponId = coupon.CouponId,
                 CouponName = coupon.CouponName,
+                CouponType = coupon.CouponType,
                 MinOrderAmount = coupon.MinOrderAmount,
                 DiscountAmount = coupon.DiscountAmount,
                 EndTime = coupon.EndTime
@@ -840,6 +957,15 @@ internal sealed class FakeCouponRepository : ICouponRepository
         string couponId,
         IDbTransaction? transaction = null)
     {
+        var coupon = Coupons.Single(item => item.CouponId == couponId);
+        PendingUsages[recordId] = new MktCouponUsage
+        {
+            RecordId = recordId,
+            CouponId = couponId,
+            CouponName = coupon.CouponName,
+            CouponType = coupon.CouponType,
+            DiscountAmount = coupon.DiscountAmount
+        };
         Stage(transaction, () => Records.Add(new MktCouponRecord
         {
             RecordId = recordId,
@@ -859,7 +985,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
     {
         var coupon = UsableCoupon?.RecordId == recordId
             ? UsableCoupon
-            : null;
+            : PendingUsages.GetValueOrDefault(recordId);
         return Task.FromResult(coupon);
     }
 
@@ -869,7 +995,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
         string orderId,
         IDbTransaction transaction)
     {
-        if (UsableCoupon?.RecordId != recordId)
+        if (UsableCoupon?.RecordId != recordId && !PendingUsages.ContainsKey(recordId))
             return Task.FromResult(false);
 
         ((FakeOrderTransaction)transaction).Stage(() => CouponUsed = true);
@@ -922,6 +1048,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
         {
             CouponId = coupon.CouponId,
             CouponName = coupon.CouponName,
+            CouponType = coupon.CouponType,
             MinOrderAmount = coupon.MinOrderAmount,
             DiscountAmount = coupon.DiscountAmount,
             TotalQuantity = coupon.TotalQuantity,
@@ -958,6 +1085,7 @@ internal sealed class FakeCouponRepository : ICouponRepository
 internal sealed class FakePointRepository : IPointRepository
 {
     public List<CrmPointLog> Logs { get; } = [];
+    public List<CrmMemberLevelHistory> Histories { get; } = [];
     public bool ThrowOnInsert { get; set; }
     public List<CrmMemberLevel> Levels { get; } =
     [
@@ -1045,6 +1173,18 @@ internal sealed class FakePointRepository : IPointRepository
         return Task.FromResult(level == null ? null : CloneLevel(level));
     }
 
+    public Task<List<CrmMemberLevelHistory>> GetMemberLevelHistoryAsync(string customerId) =>
+        Task.FromResult(Histories.Where(item => item.CustomerId == customerId).OrderByDescending(item => item.SettlementMonth).ToList());
+
+    public Task<bool> HasMemberLevelHistoryAsync(string customerId, DateTime settlementMonth, IDbTransaction transaction) =>
+        Task.FromResult(Histories.Any(item => item.CustomerId == customerId && item.SettlementMonth == settlementMonth));
+
+    public Task InsertMemberLevelHistoryAsync(CrmMemberLevelHistory history, IDbTransaction transaction)
+    {
+        ((FakeOrderTransaction)transaction).Stage(() => Histories.Add(history));
+        return Task.CompletedTask;
+    }
+
     private static CrmMemberLevel CloneLevel(CrmMemberLevel level)
     {
         return new CrmMemberLevel
@@ -1116,6 +1256,7 @@ internal sealed class FakeLogisticsService : ILogisticsService
     public Exception? ShipmentExceptionToThrow { get; set; }
     public List<string> ShippedOrderIds { get; } = [];
     public FreightCalculationRequest? LastFreightRequest { get; private set; }
+    public List<FreightCalculationRequest> FreightRequests { get; } = [];
 
     public Task<decimal> CalculateFreightAsync(
         FreightCalculationRequest request,
@@ -1123,6 +1264,7 @@ internal sealed class FakeLogisticsService : ILogisticsService
         CancellationToken cancellationToken = default)
     {
         LastFreightRequest = request;
+        FreightRequests.Add(request);
         return Task.FromResult(FreightAmount);
     }
 
@@ -1181,6 +1323,87 @@ internal sealed class FakeCommissionService : ICommissionService
     {
         return Task.FromResult(new Result { IsSuccess = true });
     }
+}
+
+internal sealed class FakePaymentRepository : IPaymentRepository
+{
+    public List<GroupC_FinPaymentRecord> Records { get; } = [];
+    public bool ThrowOnInsert { get; set; }
+
+    public Task GroupC_AddPaymentRecordAsync(
+        GroupC_FinPaymentRecord finPaymentRecord,
+        IDbTransaction? transaction = null)
+    {
+        if (ThrowOnInsert) throw new InvalidOperationException("支付流水写入失败");
+        var copy = new GroupC_FinPaymentRecord
+        {
+            PayId = finPaymentRecord.PayId,
+            OrderId = finPaymentRecord.OrderId,
+            PayMethod = finPaymentRecord.PayMethod,
+            TransactionNo = finPaymentRecord.TransactionNo,
+            PayAmount = finPaymentRecord.PayAmount,
+            Status = finPaymentRecord.Status,
+            PayTime = finPaymentRecord.PayTime,
+            Remark = finPaymentRecord.Remark
+        };
+        if (transaction is FakeOrderTransaction fakeTransaction)
+            fakeTransaction.Stage(() => Records.Add(copy));
+        else
+            Records.Add(copy);
+        return Task.CompletedTask;
+    }
+
+    public Task<List<GroupC_FinPaymentRecord>> SearchAsync(
+        DateTime? startTime,
+        DateTime? endTime,
+        string? orderId,
+        string? status,
+        IDbTransaction? transaction = null) => Task.FromResult(Records.ToList());
+}
+
+internal sealed class FakePromoterService : IPromoterService
+{
+    public List<string> BoundPromoterIds { get; } = ["promoter-1", "promoter-2"];
+
+    public Task<GroupC_PagedResult<GroupC_AvailablePromoterDto>> GetAvailablePromotersAsync(
+        GroupC_AvailablePromoterQuery query,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new GroupC_PagedResult<GroupC_AvailablePromoterDto>());
+
+    public Task<GroupC_PromoterBasicInfoDto?> GetPromoterBasicInfoAsync(
+        string promoterId,
+        CancellationToken cancellationToken = default) => Task.FromResult<GroupC_PromoterBasicInfoDto?>(null);
+
+    public Task<List<string>> GetActiveSupplierIdsAsync(string promoterId) => Task.FromResult(new List<string>());
+
+    public Task<Dictionary<string, bool>> ValidateSuppliersAsync(string promoterId, List<string> supplierIds) =>
+        Task.FromResult(supplierIds.ToDictionary(id => id, _ => true, StringComparer.Ordinal));
+
+    public Task<Result> BindCustomerToPromoterAsync(
+        string customerId,
+        string promoterId,
+        IDbTransaction? transaction = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!BoundPromoterIds.Contains(promoterId, StringComparer.Ordinal))
+            BoundPromoterIds.Add(promoterId);
+        return Task.FromResult(new Result { IsSuccess = true });
+    }
+
+    public Task<List<string>> GetBoundPromoterIdsAsync(string customerId) =>
+        Task.FromResult(BoundPromoterIds.ToList());
+
+    public Task<Result> UnbindCustomerFromPromoterAsync(
+        string customerId,
+        string promoterId,
+        CancellationToken cancellationToken = default)
+    {
+        BoundPromoterIds.Remove(promoterId);
+        return Task.FromResult(new Result { IsSuccess = true });
+    }
+
+    public Task<List<GroupC_CrmPCRelation>> GetBoundCustomersByPromoterAsync(string promoterId) =>
+        Task.FromResult(new List<GroupC_CrmPCRelation>());
 }
 
 internal sealed class FakeDbConnection : IDbConnection

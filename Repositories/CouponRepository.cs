@@ -61,6 +61,7 @@ public class CouponRepository : B_BaseRepository, ICouponRepository
             (await connection.QueryAsync<ClaimableCouponItem>(
                 @"SELECT c.CouponId,
                          c.CouponName,
+                         c.CouponType,
                          c.MinOrderAmount,
                          c.DiscountAmount,
                          c.RemainingQuantity,
@@ -89,6 +90,7 @@ public class CouponRepository : B_BaseRepository, ICouponRepository
                 @"SELECT r.RecordId,
                          r.CouponId,
                          c.CouponName,
+                         c.CouponType,
                          c.MinOrderAmount,
                          c.DiscountAmount,
                          c.EndTime
@@ -150,7 +152,7 @@ public class CouponRepository : B_BaseRepository, ICouponRepository
     {
         return await WithConnectionAsync(transaction, connection =>
             connection.QueryFirstOrDefaultAsync<MktCouponUsage>(
-                @"SELECT r.RecordId, r.CouponId, c.CouponName, c.DiscountAmount
+                @"SELECT r.RecordId, r.CouponId, c.CouponName, c.CouponType, c.DiscountAmount
                   FROM Mkt_CouponRecords r
                   JOIN Mkt_Coupons c ON r.CouponId = c.CouponId
                   WHERE r.RecordId = :RecordId
