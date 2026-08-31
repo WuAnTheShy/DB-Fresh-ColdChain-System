@@ -9,16 +9,16 @@ import { useShop } from '../state/shop'
 
 const router = useRouter()
 const { customerId } = useCustomerContext()
-const { cartItems, cartSubtotal, clearCart, setLastOrder } = useShop()
+const { selectedCartItems, selectedCartCount, selectedCartSubtotal, removeCartItems, setLastOrder } = useShop()
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
 const addresses = ref([])
 const coupons = ref([])
-const form = reactive({ addressId: '', couponRecordId: '', deliveryWindow: '明日 14:00-18:00', substitution: 'refund' })
+const form = reactive({ addressId: '', couponRecordId: '' })
 const groups = computed(() => {
   const map = new Map()
-  cartItems.value.forEach((item) => {
+  selectedCartItems.value.forEach((item) => {
     if (!map.has(item.leaderId)) map.set(item.leaderId, { leader: item.leader, items: [] })
     map.get(item.leaderId).items.push(item)
   })
@@ -41,12 +41,12 @@ async function loadAssets() {
 }
 
 async function submit() {
-  if (!cartItems.value.length) return
+  if (!selectedCartItems.value.length) return
   saving.value = true
   error.value = ''
   try {
     const merged = new Map()
-    cartItems.value.forEach((item) => merged.set(item.productId, (merged.get(item.productId) ?? 0) + item.quantity))
+    selectedCartItems.value.forEach((item) => merged.set(item.productId, (merged.get(item.productId) ?? 0) + item.quantity))
     const result = await api.createOrder({
       customerId: customerId.value,
       addressId: form.addressId,
@@ -54,7 +54,7 @@ async function submit() {
       items: [...merged].map(([productId, quantity]) => ({ productId, quantity })),
     })
     setLastOrder({ ...result, leaderGroups: groups.value.map((group) => ({ leaderId: group.leader.id, leaderName: group.leader.name })) })
-    clearCart()
+    removeCartItems(selectedCartItems.value.map((item) => item.productId))
     router.push(`/order-success/${result.orderId}`)
   } catch (requestError) {
     error.value = requestError.message
@@ -70,10 +70,16 @@ onMounted(loadAssets)
   <div class="store-container page-space checkout-page">
     <StoreBreadcrumb :items="[{ label: '购物车', to: '/cart' }, { label: '确认订单' }]" />
     <h1 class="checkout-title">确认订单</h1>
+    <section v-if="selectedCartItems.length" class="checkout-batch-overview" aria-label="结算批次概览">
+      <div><span>本次结算批次</span><strong>{{ groups.length }} 个团长子订单</strong></div>
+      <div><span>已选商品</span><strong>{{ selectedCartCount }} 件</strong></div>
+      <div><span>商品总额</span><strong>¥{{ selectedCartSubtotal.toFixed(2) }}</strong></div>
+      <small>提交后按团长拆分订单；整个批次库存充足时才能确认下单</small>
+    </section>
     <div v-if="error" class="alert alert-danger" role="alert">{{ error }}</div>
     <div v-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在准备结算信息</div>
 
-    <form v-else-if="cartItems.length" class="checkout-layout" @submit.prevent="submit">
+    <form v-else-if="selectedCartItems.length" class="checkout-layout" @submit.prevent="submit">
       <div class="checkout-sections">
         <section class="checkout-section">
           <div class="checkout-section-title"><MapPin :size="21" /><div><h2>收货地址</h2></div><RouterLink to="/addresses">管理地址<ChevronRight :size="15" /></RouterLink></div>
@@ -88,7 +94,7 @@ onMounted(loadAssets)
 
         <section class="checkout-section">
           <div class="checkout-section-title"><Truck :size="21" /><div><h2>配送安排</h2></div></div>
-          <div class="checkout-form-grid"><label><span>配送时间</span><select v-model="form.deliveryWindow" class="form-select"><option>明日 09:00-12:00</option><option>明日 14:00-18:00</option><option>后日 09:00-12:00</option></select></label><label><span>缺货处理</span><select v-model="form.substitution" class="form-select"><option value="refund">缺货商品直接退款</option><option value="contact">由商家联系确认</option><option value="replace">接受同价替代商品</option></select></label></div>
+          <div class="delivery-policy"><Truck :size="18" /><span><strong>平台统一安排冷链配送</strong><small>本批次不可选择配送时间；任一商品缺货时，整个结算批次无法确认下单。</small></span></div>
         </section>
 
         <section class="checkout-section">
@@ -107,8 +113,8 @@ onMounted(loadAssets)
 
       <aside class="checkout-summary">
         <h2>付款明细</h2>
-        <dl><div><dt>商品金额</dt><dd>¥{{ cartSubtotal.toFixed(2) }}</dd></div><div><dt>优惠券</dt><dd>提交后确认</dd></div><div><dt>冷链运费</dt><dd>提交后确认</dd></div></dl>
-        <div class="summary-total-row"><span>预计金额</span><strong>¥{{ cartSubtotal.toFixed(2) }}</strong></div>
+        <dl><div><dt>商品金额</dt><dd>¥{{ selectedCartSubtotal.toFixed(2) }}</dd></div><div><dt>团长子订单</dt><dd>{{ groups.length }} 个</dd></div><div><dt>优惠券</dt><dd>提交后确认</dd></div><div><dt>冷链运费</dt><dd>按团长分别计算</dd></div></dl>
+        <div class="summary-total-row"><span>预计金额</span><strong>¥{{ selectedCartSubtotal.toFixed(2) }}</strong></div>
         <button class="btn btn-buy w-100 checkout-button" type="submit" :disabled="saving || !form.addressId"><span v-if="saving" class="spinner-border spinner-border-sm"></span><template v-else>提交订单</template></button>
         <small><ShieldCheck :size="14" />提交即表示确认订单信息和配送安排</small>
       </aside>
@@ -120,6 +126,11 @@ onMounted(loadAssets)
 
 <style scoped>
 .checkout-title { margin: 0 0 18px; font-size: 25px; font-weight: 800; }
+.checkout-batch-overview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-bottom: 14px; overflow: hidden; border: 1px solid #b8d4c8; border-radius: 8px; background: #b8d4c8; }
+.checkout-batch-overview > div { display: flex; min-height: 72px; flex-direction: column; justify-content: center; padding: 12px 16px; background: #f2f8f5; }
+.checkout-batch-overview span { color: var(--muted); font-size: 10px; }
+.checkout-batch-overview strong { margin-top: 4px; color: var(--ink); font-size: 16px; }
+.checkout-batch-overview > small { grid-column: 1 / -1; padding: 9px 15px; background: #fff8e8; color: #765d1b; font-size: 10px; }
 .checkout-sections { display: flex; min-width: 0; flex-direction: column; gap: 14px; }
 .checkout-section { padding: 18px; border: 1px solid var(--line); background: #fff; }
 .checkout-section-title { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 15px; color: var(--brand); }
@@ -139,6 +150,10 @@ onMounted(loadAssets)
 .checkout-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .checkout-form-grid label { display: flex; flex-direction: column; gap: 6px; }
 .checkout-form-grid label > span { color: #4d5953; font-size: 10px; font-weight: 700; }
+.delivery-policy { display: flex; align-items: flex-start; gap: 10px; padding: 13px; border: 1px solid #d5e5dd; background: #f7faf8; color: var(--brand); }
+.delivery-policy > span { display: flex; flex-direction: column; }
+.delivery-policy strong { color: var(--ink); font-size: 11px; }
+.delivery-policy small { margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.5; }
 .checkout-leader-group { margin-bottom: 10px; border: 1px solid var(--line); }
 .checkout-leader-group:last-child { margin-bottom: 0; }
 .checkout-leader-group > header { display: flex; min-height: 45px; align-items: center; gap: 6px; padding: 0 12px; background: #f3f8f6; }
@@ -164,6 +179,8 @@ onMounted(loadAssets)
 .checkout-summary > small { display: flex; align-items: flex-start; gap: 4px; margin-top: 11px; color: var(--muted); font-size: 9px; line-height: 1.45; }
 
 @media (max-width: 767.98px) {
+  .checkout-batch-overview { grid-template-columns: 1fr; }
+  .checkout-batch-overview > small { grid-column: auto; }
   .address-choice-grid, .checkout-form-grid { grid-template-columns: 1fr; }
   .checkout-item { grid-template-columns: 48px minmax(0, 1fr) 55px; }
   .checkout-item > img { width: 48px; height: 48px; }

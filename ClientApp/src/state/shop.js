@@ -118,7 +118,12 @@ const cart = reactive(Array.isArray(rawCart)
   ? rawCart.map((item) => {
       const productId = normalizeProductId(item.productId)
       const product = products.find((entry) => entry.id === productId)
-      return { ...item, productId, leaderId: product?.leaderId ?? String(item.leaderId ?? '') }
+      return {
+        ...item,
+        productId,
+        leaderId: product?.leaderId ?? String(item.leaderId ?? ''),
+        selected: item.selected !== false,
+      }
     })
   : [])
 const rushCounts = reactive(Object.fromEntries(products.map((product) => [
@@ -211,7 +216,12 @@ function addToCart(productId, quantity = 1) {
   if (existing) {
     existing.quantity = Math.min(product.stock, existing.quantity + Number(quantity || 1))
   } else {
-    cart.push({ productId: product.id, leaderId: leader.id, quantity: Math.max(1, Number(quantity || 1)) })
+    cart.push({
+      productId: product.id,
+      leaderId: leader.id,
+      quantity: Math.max(1, Number(quantity || 1)),
+      selected: true,
+    })
   }
   selectedLeaderId.value = leader.id
   sessionStorage.setItem('freshMall.leaderId', String(leader.id))
@@ -233,6 +243,33 @@ function removeFromCart(productId) {
   persistCart()
 }
 
+function setCartItemSelected(productId, selected) {
+  const item = cart.find((entry) => entry.productId === normalizeProductId(productId))
+  if (!item) return
+  item.selected = Boolean(selected)
+  persistCart()
+}
+
+function setLeaderCartSelected(leaderId, selected) {
+  cart
+    .filter((item) => item.leaderId === String(leaderId))
+    .forEach((item) => { item.selected = Boolean(selected) })
+  persistCart()
+}
+
+function setAllCartSelected(selected) {
+  cart.forEach((item) => { item.selected = Boolean(selected) })
+  persistCart()
+}
+
+function removeCartItems(productIds) {
+  const ids = new Set(productIds.map(normalizeProductId))
+  for (let index = cart.length - 1; index >= 0; index--) {
+    if (ids.has(cart[index].productId)) cart.splice(index, 1)
+  }
+  persistCart()
+}
+
 function clearCart() {
   cart.splice(0, cart.length)
   persistCart()
@@ -249,6 +286,7 @@ export function useShop() {
     product: productById(item.productId),
     leader: leaderById(item.leaderId),
   })).filter((item) => item.product && item.leader))
+  const selectedCartItems = computed(() => cartItems.value.filter((item) => item.selected))
 
   return {
     categories,
@@ -256,8 +294,11 @@ export function useShop() {
     products,
     cart,
     cartItems,
+    selectedCartItems,
     cartCount: computed(() => cart.reduce((sum, item) => sum + item.quantity, 0)),
     cartSubtotal: computed(() => cartItems.value.reduce((sum, item) => sum + item.product.price * item.quantity, 0)),
+    selectedCartCount: computed(() => selectedCartItems.value.reduce((sum, item) => sum + item.quantity, 0)),
+    selectedCartSubtotal: computed(() => selectedCartItems.value.reduce((sum, item) => sum + item.product.price * item.quantity, 0)),
     selectedLeaderId,
     followedLeaderIds,
     followingLoading,
@@ -273,6 +314,10 @@ export function useShop() {
     addToCart,
     updateQuantity,
     removeFromCart,
+    setCartItemSelected,
+    setLeaderCartSelected,
+    setAllCartSelected,
+    removeCartItems,
     clearCart,
     setLastOrder,
   }
