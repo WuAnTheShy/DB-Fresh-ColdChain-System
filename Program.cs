@@ -55,13 +55,15 @@ builder.Services.AddScoped<IPricingService, PricingService>();
 // B组
 builder.Services.AddScoped<IOrderTransactionManager, OracleOrderTransactionManager>();
 builder.Services.AddScoped<IPasswordHasher<CrmCustomer>, PasswordHasher<CrmCustomer>>();
-builder.Services.AddScoped<IInventoryService, DummyInventoryService>();
-builder.Services.AddScoped<ILogisticsService, DummyLogisticsService>();
+builder.Services.AddScoped<IInventoryService, GroupAInventoryServiceAdapter>();
+builder.Services.AddScoped<ILogisticsService, GroupALogisticsServiceAdapter>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddSingleton<CustomerAuthenticationStateService>();
 builder.Services.AddScoped<ICouponService, CouponService>();
+builder.Services.AddScoped<IConsumerMessageService, ConsumerMessageService>();
 builder.Services.AddScoped<IGroupCInterface, GroupCInterfaceService>();
+builder.Services.AddScoped<IGroupCPromoterCatalogService, GroupCPromoterCatalogService>();
 builder.Services.AddScoped<GroupBDailyMaintenanceService>();
 builder.Services.AddHostedService<GroupBDailyCheckHostedService>();
 builder.Services.AddHostedService<GroupBCheckoutExpiryHostedService>();
