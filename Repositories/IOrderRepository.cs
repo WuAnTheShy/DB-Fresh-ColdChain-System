@@ -31,6 +31,8 @@ public interface IOrderRepository
         DateTime now,
         IDbTransaction? transaction = null);
 
+    Task<List<BizOrder>> GetShippedOrdersBeforeAsync(DateTime threshold, IDbTransaction? transaction = null);
+
     Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
         DateTime threshold,
         IDbTransaction? transaction = null);

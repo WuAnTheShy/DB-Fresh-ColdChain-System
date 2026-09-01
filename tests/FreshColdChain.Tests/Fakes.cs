@@ -198,6 +198,9 @@ internal sealed class FakeOrderRepository : IOrderRepository
     public Task<List<string>> GetExpiredPendingCheckoutBatchIdsAsync(DateTime now, IDbTransaction? transaction = null) =>
         Task.FromResult(Orders.Where(order => order.OrderStatus == OrderStatusCodes.PendingPayment && order.PaymentExpiresAt <= now && !string.IsNullOrWhiteSpace(order.CheckoutBatchId)).Select(order => order.CheckoutBatchId!).Distinct().ToList());
 
+    public Task<List<BizOrder>> GetShippedOrdersBeforeAsync(DateTime threshold, IDbTransaction? transaction = null) =>
+        Task.FromResult(Orders.Where(order => order.OrderStatus == OrderStatusCodes.Shipped && (order.UpdatedAt ?? order.CreatedAt) <= threshold).Select(CloneOrder).ToList());
+
     public Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
         DateTime threshold,
         IDbTransaction? transaction = null)

@@ -110,6 +110,15 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 new { Now = now }, transaction)).ToList());
     }
 
+    public async Task<List<BizOrder>> GetShippedOrdersBeforeAsync(DateTime threshold, IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<BizOrder>(
+                @"SELECT * FROM Biz_Orders WHERE OrderStatus = 'SHIPPED'
+                    AND NVL(UpdatedAt, CreatedAt) <= :Threshold",
+                new { Threshold = threshold }, transaction)).ToList());
+    }
+
     public async Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
         DateTime threshold,
         IDbTransaction? transaction = null)

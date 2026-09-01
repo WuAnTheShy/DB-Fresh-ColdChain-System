@@ -66,7 +66,6 @@ export const api = {
     method: 'POST',
     body: jsonBody(payload),
   }),
-<<<<<<< HEAD
   sendCustomerPasswordResetCode: (payload) => request('/api/auth/customer/password-reset/code', {
     method: 'POST',
     body: jsonBody(payload),
@@ -75,8 +74,6 @@ export const api = {
     method: 'POST',
     body: jsonBody(payload),
   }),
-=======
->>>>>>> origin/dev-groupC
   logoutCustomer: () => request('/api/auth/customer/logout', {
     method: 'POST',
   }),

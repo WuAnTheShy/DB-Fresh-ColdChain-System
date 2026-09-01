@@ -28,6 +28,8 @@ public interface IOrderService
 
     Task<int> ExpirePendingCheckoutBatchesAsync(CancellationToken cancellationToken = default);
 
+    Task<int> AutoConfirmShippedOrdersAsync(CancellationToken cancellationToken = default);
+
     Task<OrderListViewModel> GetOrdersAsync(OrderQueryRequest request);
 
     Task<OrderDetailViewModel?> GetOrderDetailAsync(string orderId);

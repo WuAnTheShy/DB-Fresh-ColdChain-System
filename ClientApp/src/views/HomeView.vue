@@ -1,5 +1,6 @@
 <script setup>
 import { Clock3, ShieldCheck, Snowflake, Truck } from '@lucide/vue'
+import ProductCard from '../components/ProductCard.vue'
 import { useShop } from '../state/shop'
 
 const { categories, products } = useShop()
@@ -47,16 +48,12 @@ const { categories, products } = useShop()
       </div>
     </section>
 
-<<<<<<< HEAD
     <section class="home-section amazon-home-panel store-container" aria-labelledby="all-products-title">
       <div class="section-title-row"><div><h2 id="all-products-title">今日推荐</h2></div></div>
       <div class="product-grid">
         <ProductCard v-for="product in products" :key="product.id" :product="product" />
       </div>
     </section>
-
-=======
->>>>>>> origin/dev-groupC
   </div>
 </template>
 
