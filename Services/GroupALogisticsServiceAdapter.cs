@@ -7,12 +7,12 @@ using FreshColdChain.Repositories;
 namespace FreshColdChain.Services;
 
 /// <summary>
-/// 将 A 组真实冷链报价、FEFO 发货与溯源实现适配为 B 组订单契约。
+/// 将 A 组公开的冷链服务适配为 B 组订单履约契约。
+/// 运费、FEFO 扣减、发货单与溯源查询全部由 A 组服务完成。
 /// </summary>
 public sealed class GroupALogisticsServiceAdapter(
     IUnitOfWork unitOfWork,
-    IColdChainLogisticsService coldChainLogisticsService,
-    ILogExpressDeliveryRepository deliveryRepository) : ILogisticsService
+    IColdChainLogisticsService coldChainLogisticsService) : ILogisticsService
 {
     public async Task<decimal> CalculateFreightAsync(
         FreightCalculationRequest request,
@@ -37,6 +37,7 @@ public sealed class GroupALogisticsServiceAdapter(
             }).ToList()
         });
 
+        cancellationToken.ThrowIfCancellationRequested();
         if (!response.IsSuccess || response.Data == null)
             throw new OrderBusinessException($"冷链运费计算失败：{response.Message}");
         if (response.Data.FreightAmount < 0)
@@ -75,6 +76,7 @@ public sealed class GroupALogisticsServiceAdapter(
                     .ToList()
             });
 
+            cancellationToken.ThrowIfCancellationRequested();
             if (!response.IsSuccess || response.Data == null)
                 throw new OrderBusinessException($"冷链发货失败：{response.Message}");
         }
@@ -86,23 +88,30 @@ public sealed class GroupALogisticsServiceAdapter(
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var deliveries = await deliveryRepository.GetByOrderIdAsync(orderId);
-        var bySupplier = deliveries
-            .GroupBy(delivery => delivery.SupplierID, StringComparer.Ordinal)
+        var response = await coldChainLogisticsService.GetTraceabilityByOrderAsync(orderId);
+        if (!response.IsSuccess)
+        {
+            if (response.Code == 404)
+                return CreatePendingStatuses(supplierIds);
+            throw new OrderBusinessException($"冷链履约状态查询失败：{response.Message}");
+        }
+
+        var traces = response.Data ?? [];
+        var bySupplier = traces
+            .GroupBy(trace => trace.SupplierID, StringComparer.Ordinal)
             .ToDictionary(
                 group => group.Key,
-                group => group.OrderByDescending(delivery => delivery.ShippedAt).First(),
+                group => group.OrderByDescending(trace => trace.ShippedAt).First(),
                 StringComparer.Ordinal);
-
         return supplierIds
             .Distinct(StringComparer.Ordinal)
             .OrderBy(supplierId => supplierId, StringComparer.Ordinal)
-            .Select(supplierId => bySupplier.TryGetValue(supplierId, out var delivery)
+            .Select(supplierId => bySupplier.TryGetValue(supplierId, out var trace)
                 ? new SupplierFulfillmentStatus
                 {
                     SupplierId = supplierId,
-                    StatusName = delivery.LogisticsStatus,
-                    TrackingNo = delivery.TrackingNo
+                    StatusName = trace.LogisticsStatus,
+                    TrackingNo = trace.TrackingNo
                 }
                 : new SupplierFulfillmentStatus
                 {
@@ -111,4 +120,16 @@ public sealed class GroupALogisticsServiceAdapter(
                 })
             .ToList();
     }
+
+    private static IReadOnlyList<SupplierFulfillmentStatus> CreatePendingStatuses(
+        IReadOnlyList<string> supplierIds) =>
+        supplierIds
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(supplierId => supplierId, StringComparer.Ordinal)
+            .Select(supplierId => new SupplierFulfillmentStatus
+            {
+                SupplierId = supplierId,
+                StatusName = "待发货"
+            })
+            .ToList();
 }

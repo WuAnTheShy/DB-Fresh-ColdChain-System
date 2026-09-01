@@ -1,74 +1,62 @@
 using System.Data;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services;
 
 /// <summary>
-/// A 组库存能力对 B 组订单契约的正式适配。
-/// 所有库存锁定与释放均复用 B 组传入的 Oracle 事务。
+/// 将 A 组公开的商品、库存和供应商服务适配为 B 组下单校验契约。
+/// B 组不直接依赖 A 组 Repository，也不在下单阶段写入 A 组库存表。
 /// </summary>
 public sealed class GroupAInventoryServiceAdapter(
     IUnitOfWork unitOfWork,
-    IProductRepository productRepository,
-    IStockSummaryRepository stockSummaryRepository) : IInventoryService
+    IProductInventoryService productInventoryService,
+    ISupplierService supplierService) : IGroupAInventoryGateway
 {
-    public async Task<IReadOnlyList<InventoryProductSnapshot>> ReserveAsync(
-        IReadOnlyList<InventoryReservationItem> items,
+    public async Task<IReadOnlyList<InventoryProductSnapshot>> CheckAvailabilityAsync(
+        IReadOnlyList<InventoryAvailabilityItem> items,
         IDbTransaction transaction,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(transaction);
         if (items.Count == 0)
-            throw new OrderBusinessException("库存预留商品不能为空");
+            throw new OrderBusinessException("库存校验商品不能为空");
 
         unitOfWork.AttachExternalTransaction(transaction);
-        var normalized = items
-            .GroupBy(item => item.ProductId?.Trim() ?? string.Empty, StringComparer.Ordinal)
-            .Select(group => new InventoryReservationItem
-            {
-                ProductId = group.Key,
-                Quantity = checked(group.Sum(item => item.Quantity))
-            })
-            .OrderBy(item => item.ProductId, StringComparer.Ordinal)
-            .ToList();
-
+        var normalized = Normalize(items);
+        var suppliers = await GetActiveSuppliersAsync(cancellationToken);
         var snapshots = new List<InventoryProductSnapshot>(normalized.Count);
+
         foreach (var item in normalized)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.IsNullOrWhiteSpace(item.ProductId) || item.Quantity is <= 0 or > 9999)
-                throw new OrderBusinessException("库存预留商品或数量无效");
+            var productResponse = await productInventoryService.GetProductByIdAsync(item.ProductId);
+            if (!productResponse.IsSuccess || productResponse.Data == null)
+                throw new OrderBusinessException($"商品 {item.ProductId} 不存在或不可查询：{productResponse.Message}");
 
-            var product = await productRepository.GetByIdAsync(item.ProductId)
-                ?? throw new OrderBusinessException($"商品 {item.ProductId} 不存在");
+            var product = productResponse.Data;
             if (!string.Equals(product.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
                 throw new OrderBusinessException($"商品“{product.ProductName}”已下架");
-            if (string.IsNullOrWhiteSpace(product.SupplierID))
-                throw new OrderBusinessException($"商品“{product.ProductName}”缺少供应商");
             if (product.DefaultPrice <= 0)
                 throw new OrderBusinessException($"商品“{product.ProductName}”价格无效");
 
-            var stock = await stockSummaryRepository.GetByProductIdForUpdateAsync(item.ProductId)
-                ?? throw new OrderBusinessException($"商品“{product.ProductName}”缺少库存汇总");
-            if (stock.AvailableQty < item.Quantity)
+            var inventoryResponse = await productInventoryService.GetInventoryAsync(item.ProductId);
+            if (!inventoryResponse.IsSuccess || inventoryResponse.Data == null)
+                throw new OrderBusinessException($"商品“{product.ProductName}”缺少库存信息：{inventoryResponse.Message}");
+            if (inventoryResponse.Data.AvailableQty < item.Quantity)
             {
                 throw new OrderBusinessException(
-                    $"商品“{product.ProductName}”库存不足，当前可用 {stock.AvailableQty}");
+                    $"商品“{product.ProductName}”库存不足，当前可用 {inventoryResponse.Data.AvailableQty}");
             }
-
-            stock.LockedQty = checked(stock.LockedQty + item.Quantity);
-            stock.AvailableQty = stock.TotalQty - stock.LockedQty;
-            stock.UpdateTime = DateTime.Now;
-            stockSummaryRepository.Update(stock);
 
             snapshots.Add(new InventoryProductSnapshot
             {
                 ProductId = product.ProductID,
                 ProductName = product.ProductName,
-                SupplierId = product.SupplierID,
+                SupplierId = ResolveSupplierId(product, suppliers),
                 UnitPrice = product.DefaultPrice
             });
         }
@@ -76,43 +64,70 @@ public sealed class GroupAInventoryServiceAdapter(
         return snapshots;
     }
 
-    public async Task ReleaseAsync(
-        FulfillmentOrderRequest request,
-        IDbTransaction transaction,
-        CancellationToken cancellationToken = default)
+    private async Task<IReadOnlyList<SupplierDto>> GetActiveSuppliersAsync(
+        CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(transaction);
-        unitOfWork.AttachExternalTransaction(transaction);
+        cancellationToken.ThrowIfCancellationRequested();
+        var response = await supplierService.GetAllSuppliersAsync();
+        if (!response.IsSuccess || response.Data == null)
+            throw new OrderBusinessException($"供应商目录查询失败：{response.Message}");
 
-        var items = request.Items
-            .GroupBy(item => item.ProductId, StringComparer.Ordinal)
-            .Select(group => new
-            {
-                ProductId = group.Key,
-                Quantity = checked(group.Sum(item => item.Quantity))
-            })
-            .OrderBy(item => item.ProductId, StringComparer.Ordinal)
+        return response.Data
+            .Where(supplier =>
+                string.Equals(supplier.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
             .ToList();
+    }
 
-        foreach (var item in items)
+    private static string ResolveSupplierId(
+        ProductDto product,
+        IReadOnlyList<SupplierDto> suppliers)
+    {
+        if (string.IsNullOrWhiteSpace(product.SupplierName))
+            throw new OrderBusinessException($"商品“{product.ProductName}”缺少供应商");
+
+        var matches = suppliers
+            .Where(supplier => string.Equals(
+                supplier.SupplierName,
+                product.SupplierName,
+                StringComparison.OrdinalIgnoreCase))
+            .Select(supplier => supplier.SupplierID)
+            .Where(supplierId => !string.IsNullOrWhiteSpace(supplierId))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        return matches.Count switch
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (string.IsNullOrWhiteSpace(item.ProductId) || item.Quantity <= 0)
-                throw new OrderBusinessException("释放库存的商品数据无效");
+            1 => matches[0],
+            0 => throw new OrderBusinessException(
+                $"商品“{product.ProductName}”的供应商未启用或不存在"),
+            _ => throw new OrderBusinessException(
+                $"商品“{product.ProductName}”的供应商名称不唯一，无法安全拆单")
+        };
+    }
 
-            var stock = await stockSummaryRepository.GetByProductIdForUpdateAsync(item.ProductId)
-                ?? throw new OrderBusinessException($"商品 {item.ProductId} 缺少库存汇总");
-            if (stock.LockedQty < item.Quantity)
-            {
-                throw new OrderBusinessException(
-                    $"商品 {item.ProductId} 的预留库存不足，无法释放订单 {request.OrderId}");
-            }
-
-            stock.LockedQty -= item.Quantity;
-            stock.AvailableQty = stock.TotalQty - stock.LockedQty;
-            stock.UpdateTime = DateTime.Now;
-            stockSummaryRepository.Update(stock);
+    private static IReadOnlyList<InventoryAvailabilityItem> Normalize(
+        IReadOnlyList<InventoryAvailabilityItem> items)
+    {
+        try
+        {
+            return items
+                .GroupBy(item => item.ProductId?.Trim() ?? string.Empty, StringComparer.Ordinal)
+                .Select(group => new InventoryAvailabilityItem
+                {
+                    ProductId = group.Key,
+                    Quantity = checked(group.Sum(item => item.Quantity))
+                })
+                .OrderBy(item => item.ProductId, StringComparer.Ordinal)
+                .Select(item =>
+                {
+                    if (string.IsNullOrWhiteSpace(item.ProductId) || item.Quantity is <= 0 or > 9999)
+                        throw new OrderBusinessException("库存校验商品或数量无效");
+                    return item;
+                })
+                .ToList();
+        }
+        catch (OverflowException)
+        {
+            throw new OrderBusinessException("商品数量超出允许范围");
         }
     }
 }

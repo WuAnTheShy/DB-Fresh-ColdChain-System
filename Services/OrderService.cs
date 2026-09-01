@@ -17,7 +17,7 @@ public sealed class OrderService : IOrderService
     private readonly ICustomerRepository _customerRepo;
     private readonly ICouponRepository _couponRepo;
     private readonly IPointRepository _pointRepo;
-    private readonly IInventoryService _inventoryService;
+    private readonly IGroupAInventoryGateway _inventoryService;
     private readonly ILogisticsService _logisticsService;
     private readonly ICommissionService _commissionService;
     private readonly IOrderTransactionManager _transactionManager;
@@ -36,7 +36,7 @@ public sealed class OrderService : IOrderService
         ICustomerRepository customerRepo,
         ICouponRepository couponRepo,
         IPointRepository pointRepo,
-        IInventoryService inventoryService,
+        IGroupAInventoryGateway inventoryService,
         ILogisticsService logisticsService,
         ICommissionService commissionService,
         IOrderTransactionManager transactionManager,
@@ -135,15 +135,6 @@ public sealed class OrderService : IOrderService
                         transaction);
                     if (!changed)
                         throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
-                    await _inventoryService.ReleaseAsync(
-                        new FulfillmentOrderRequest
-                        {
-                            OrderId = order.OrderId,
-                            Items = CreateFulfillmentItems(
-                                await _orderRepo.GetDetailsAsync(order.OrderId, transaction))
-                        },
-                        transaction,
-                        cancellationToken);
                 }
                 var pointsToRestore = orders.Sum(order => order.PointsUsed);
                 if (pointsToRestore > 0)
@@ -251,7 +242,7 @@ public sealed class OrderService : IOrderService
         });
     }
 
-    /// <summary>后台主动关闭已超过15分钟未支付的整个结算批次，并释放库存、归还冻结积分。</summary>
+    /// <summary>后台主动关闭已超过15分钟未支付的整个结算批次，并归还冻结积分。</summary>
     public async Task<int> ExpirePendingCheckoutBatchesAsync(CancellationToken cancellationToken = default)
     {
         var batchIds = await _orderRepo.GetExpiredPendingCheckoutBatchIdsAsync(DateTime.Now);
@@ -275,11 +266,6 @@ public sealed class OrderService : IOrderService
                 {
                     if (!await _orderRepo.TryUpdateStatusAsync(order.OrderId, OrderStatus.PendingPayment, OrderStatus.Cancelled, transaction))
                         throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
-                    await _inventoryService.ReleaseAsync(new FulfillmentOrderRequest
-                    {
-                        OrderId = order.OrderId,
-                        Items = CreateFulfillmentItems(await _orderRepo.GetDetailsAsync(order.OrderId, transaction))
-                    }, transaction, cancellationToken);
                 }
                 var pointsToRestore = orders.Sum(order => order.PointsUsed);
                 if (pointsToRestore > 0)
@@ -374,12 +360,12 @@ public sealed class OrderService : IOrderService
                     transaction)
                 ?? throw new OrderBusinessException("收货地址不存在或不属于当前消费者");
 
-            var reservationItems = batchItems.Select(item => new InventoryReservationItem
+            var reservationItems = batchItems.Select(item => new InventoryAvailabilityItem
             {
                 ProductId = item.ProductId,
                 Quantity = item.Quantity
             }).ToList();
-            var snapshots = await _inventoryService.ReserveAsync(
+            var snapshots = await _inventoryService.CheckAvailabilityAsync(
                 reservationItems,
                 transaction,
                 cancellationToken);
@@ -604,7 +590,7 @@ public sealed class OrderService : IOrderService
                 ?? throw new OrderBusinessException(
                     "收货地址不存在或不属于当前消费者");
 
-            var productSnapshots = await _inventoryService.ReserveAsync(
+            var productSnapshots = await _inventoryService.CheckAvailabilityAsync(
                 reservationItems,
                 transaction,
                 cancellationToken);
@@ -838,13 +824,6 @@ public sealed class OrderService : IOrderService
                 currentStatus,
                 OrderStatus.Cancelled);
 
-            await _inventoryService.ReleaseAsync(
-                CreateFulfillmentOrderRequest(
-                    context.Order,
-                    context.Details),
-                transaction,
-                cancellationToken);
-
             var currentPoints = context.Customer.Points;
             if (context.Order.PointsUsed > 0)
             {
@@ -955,16 +934,6 @@ public sealed class OrderService : IOrderService
                     transaction))
             {
                 throw new OrderBusinessException("退款积分流水已存在但订单状态不一致");
-            }
-
-            if (currentStatus == OrderStatus.Paid)
-            {
-                await _inventoryService.ReleaseAsync(
-                    CreateFulfillmentOrderRequest(
-                        context.Order,
-                        context.Details),
-                    transaction,
-                    cancellationToken);
             }
 
             var requestedDeduction = Math.Min(
@@ -1248,7 +1217,7 @@ public sealed class OrderService : IOrderService
             .ToList();
     }
 
-    private static IReadOnlyList<InventoryReservationItem> ValidateAndNormalizeRequest(
+    private static IReadOnlyList<InventoryAvailabilityItem> ValidateAndNormalizeRequest(
         CreateOrderRequest request)
     {
         if (!GroupBIds.IsValid(request.CustomerId))
@@ -1288,7 +1257,7 @@ public sealed class OrderService : IOrderService
 
         return quantities
             .OrderBy(pair => pair.Key, StringComparer.Ordinal)
-            .Select(pair => new InventoryReservationItem
+            .Select(pair => new InventoryAvailabilityItem
             {
                 ProductId = pair.Key,
                 Quantity = pair.Value
@@ -1385,7 +1354,7 @@ public sealed class OrderService : IOrderService
     }
 
     private static List<BizOrderDetail> CreateTrustedDetails(
-        IReadOnlyList<InventoryReservationItem> reservationItems,
+        IReadOnlyList<InventoryAvailabilityItem> reservationItems,
         IReadOnlyList<InventoryProductSnapshot> productSnapshots)
     {
         if (productSnapshots.Count != reservationItems.Count)

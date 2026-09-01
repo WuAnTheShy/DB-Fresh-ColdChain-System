@@ -1206,15 +1206,13 @@ internal sealed class FakePointRepository : IPointRepository
     }
 }
 
-internal sealed class FakeInventoryService : IInventoryService
+internal sealed class FakeInventoryService : IGroupAInventoryGateway
 {
     public Exception? ExceptionToThrow { get; set; }
-    public Exception? ReleaseExceptionToThrow { get; set; }
-    public IReadOnlyList<InventoryReservationItem> LastItems { get; private set; } = [];
-    public List<string> ReleasedOrderIds { get; } = [];
+    public IReadOnlyList<InventoryAvailabilityItem> LastItems { get; private set; } = [];
 
-    public Task<IReadOnlyList<InventoryProductSnapshot>> ReserveAsync(
-        IReadOnlyList<InventoryReservationItem> items,
+    public Task<IReadOnlyList<InventoryProductSnapshot>> CheckAvailabilityAsync(
+        IReadOnlyList<InventoryAvailabilityItem> items,
         IDbTransaction transaction,
         CancellationToken cancellationToken = default)
     {
@@ -1242,19 +1240,6 @@ internal sealed class FakeInventoryService : IInventoryService
         }).ToList();
 
         return Task.FromResult<IReadOnlyList<InventoryProductSnapshot>>(snapshots);
-    }
-
-    public Task ReleaseAsync(
-        FulfillmentOrderRequest request,
-        IDbTransaction transaction,
-        CancellationToken cancellationToken = default)
-    {
-        if (ReleaseExceptionToThrow != null)
-            throw ReleaseExceptionToThrow;
-
-        ((FakeOrderTransaction)transaction).Stage(
-            () => ReleasedOrderIds.Add(request.OrderId));
-        return Task.CompletedTask;
     }
 }
 

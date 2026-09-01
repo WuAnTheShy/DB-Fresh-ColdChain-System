@@ -18,7 +18,7 @@ internal static class OrderServiceScenarioTests
             ("结算积分最多抵扣10%且支付后按实付商品金额累计", CheckoutPointsRedeemAndEarnAsync),
             ("自动领取一张普通券并叠加一张特殊券", AutoClaimNormalAndSpecialCouponsAsync),
             ("支付流水失败时整个批次回滚", CheckoutBatchPaymentFailureRollsBackAsync),
-            ("超过15分钟关闭整个结算批次并释放库存", ExpiredCheckoutBatchClosesAsync),
+            ("超过15分钟关闭整个结算批次并归还积分", ExpiredCheckoutBatchClosesAsync),
             ("库存不足时回滚且不创建订单", InsufficientStockRollsBackAsync),
             ("优惠券无效时回滚且不创建订单", InvalidCouponRollsBackAsync),
             ("积分流水失败时回滚全部已暂存变更", PointLogFailureRollsBackEverythingAsync)
@@ -165,7 +165,6 @@ internal static class OrderServiceScenarioTests
 
         AssertEx.True(result.IsExpired);
         AssertEx.True(context.OrderRepository.Orders.All(order => order.OrderStatus == OrderStatusCodes.Cancelled));
-        AssertEx.Equal(2, context.InventoryService.ReleasedOrderIds.Count);
         AssertEx.Equal(0, context.PaymentRepository.Records.Count);
     }
 
