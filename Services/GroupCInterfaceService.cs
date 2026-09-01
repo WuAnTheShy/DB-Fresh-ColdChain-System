@@ -3,10 +3,10 @@ using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Repositories;
 
-namespace FreshColdChain.Services;
-
-public sealed class GroupCInterfaceService : IGroupCInterface
+namespace FreshColdChain.Services
 {
+    public sealed class GroupCInterfaceService : IGroupCInterface
+    {
     private static readonly TimeSpan RefundWindow = TimeSpan.FromDays(14);
 
     private readonly ICustomerRepository _customerRepository;
@@ -252,283 +252,127 @@ public sealed class GroupCInterfaceService : IGroupCInterface
             ? parsed
             : 0m;
     }
-
-}
-
-public sealed class GroupBDailyMaintenanceService
-{
-    private static readonly TimeSpan RefundWindow = TimeSpan.FromDays(14);
-
-    private readonly IOrderRepository _orderRepository;
-    private readonly ICustomerRepository _customerRepository;
-    private readonly IPointRepository _pointRepository;
-    private readonly IPromoterRepository _promoterRepository;
-    private readonly IGroupCInterface _groupCInterface;
-    private readonly IOrderTransactionManager _transactionManager;
-    private readonly ILogger<GroupBDailyMaintenanceService> _logger;
-
-    public GroupBDailyMaintenanceService(
-        IOrderRepository orderRepository,
-        ICustomerRepository customerRepository,
-        IPointRepository pointRepository,
-        IPromoterRepository promoterRepository,
-        IGroupCInterface groupCInterface,
-        IOrderTransactionManager transactionManager,
-        ILogger<GroupBDailyMaintenanceService> logger)
-    {
-        _orderRepository = orderRepository;
-        _customerRepository = customerRepository;
-        _pointRepository = pointRepository;
-        _promoterRepository = promoterRepository;
-        _groupCInterface = groupCInterface;
-        _transactionManager = transactionManager;
-        _logger = logger;
-    }
-
-    public async Task RunDailyChecksAsync(CancellationToken cancellationToken = default)
-    {
-        await RunOrderExpiryCheckAsync(cancellationToken);
-        await RunBindingExpiryCheckAsync(cancellationToken);
-        await RunMonthlyMemberLevelSettlementAsync(cancellationToken);
-    }
-
-    public async Task RunOrderExpiryCheckAsync(CancellationToken cancellationToken = default)
-    {
-        var threshold = DateTime.Now.AddDays(-14);
-        var orders = await _orderRepository.GetOrdersForCommissionExpiryAsync(threshold);
-
-        foreach (var order in orders)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            await _transactionManager.ExecuteAsync(async transaction =>
-            {
-                var lockedOrder = await _orderRepository.GetByIdForUpdateAsync(order.OrderId, transaction);
-                if (lockedOrder == null)
-                    return;
-
-                var referenceTime = lockedOrder.CommSettlementDate ?? lockedOrder.CreatedAt;
-                if (DateTime.Now - referenceTime < RefundWindow)
-                    return;
-
-                var promoterId = lockedOrder.PromoterId?.ToString() ?? string.Empty;
-                if (lockedOrder.OrderStatus == OrderStatusCodes.Paid)
-                {
-                    var commission = await _groupCInterface.CommissionSettlementAsync(
-                        new CommissionSettlementInput
-                        {
-                            PromoterID = promoterId,
-                            FinalAmount = (double)lockedOrder.FinalAmount,
-                            GoodsAmount = (double)lockedOrder.TotalAmount
-                        },
-                        cancellationToken);
-
-                    if (!string.IsNullOrWhiteSpace(promoterId) && int.TryParse(promoterId, out var parsedPromoterId))
-                    {
-                        if (!await _promoterRepository.TryAddPendingCommissionAsync(
-                            parsedPromoterId,
-                            (decimal)commission.CommBaseAmount,
-                            (decimal)commission.CommBonusAmount,
-                            lockedOrder.TotalAmount,
-                            transaction))
-                        {
-                            throw new OrderBusinessException("订单待结算佣金写回失败");
-                        }
-                    }
-
-                    if (!await _orderRepository.TryUpdateCommissionSettlementAsync(
-                        lockedOrder.OrderId,
-                        (decimal)commission.CommBaseAmount,
-                        (decimal)commission.CommBonusAmount,
-                        commission.CommSettlementDate,
-                        transaction))
-                    {
-                        throw new OrderBusinessException("订单佣金结算写回失败");
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(promoterId))
-                    {
-                        await _groupCInterface.ActivatePromoterMoneyAsync(
-                            new ActivatePromoterMoneyInput
-                            {
-                                PromoterID = promoterId,
-                                CommBaseAmount = commission.CommBaseAmount,
-                                CommBonusAmount = commission.CommBonusAmount
-                            },
-                            transaction,
-                            cancellationToken);
-                    }
-                }
-                else if (lockedOrder.OrderStatus == OrderStatusCodes.Shipped)
-                {
-                    if (!string.IsNullOrWhiteSpace(promoterId))
-                    {
-                        await _groupCInterface.ActivatePromoterMoneyAsync(
-                            new ActivatePromoterMoneyInput
-                            {
-                                PromoterID = promoterId,
-                                CommBaseAmount = (double)(lockedOrder.CommBaseAmount ?? 0m),
-                                CommBonusAmount = (double)(lockedOrder.CommBonusAmount ?? 0m)
-                            },
-                            transaction,
-                            cancellationToken);
-                    }
-                }
-
-                if (!await _orderRepository.TryUpdateStatusAsync(
-                    lockedOrder.OrderId,
-                    OrderStatusCodes.Parse(lockedOrder.OrderStatus),
-                    OrderStatus.Completed,
-                    transaction))
-                {
-                    throw new OrderBusinessException("订单退款期状态更新失败");
-                }
-            });
-        }
-    }
-
-    public async Task RunBindingExpiryCheckAsync(CancellationToken cancellationToken = default)
-    {
-        var expiredCustomers = await _customerRepository.GetCustomersWithExpiredBindingsAsync(DateTime.Now);
-        foreach (var customer in expiredCustomers)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            await _transactionManager.ExecuteAsync(async transaction =>
-            {
-                var lockedCustomer = await _customerRepository.GetByIdForUpdateAsync(customer.CustomerId, transaction);
-                if (lockedCustomer == null || lockedCustomer.BindExpireTime == null)
-                    return;
-
-                if (lockedCustomer.BindExpireTime > DateTime.Now)
-                    return;
-
-                if (!await _customerRepository.UpdateBindingAsync(
-                    lockedCustomer.CustomerId,
-                    null,
-                    null,
-                    lockedCustomer.GrowthValue,
-                    transaction))
-                {
-                    throw new GroupBBusinessException("消费者团长绑定清理失败");
-                }
-            });
-        }
-    }
-
-    /// <summary>每月1日以前一月末为截止点，以已完结订单累计金额重新定级并留痕。</summary>
-    public async Task RunMonthlyMemberLevelSettlementAsync(CancellationToken cancellationToken = default)
-    {
-        var today = DateTime.Today;
-        if (today.Day != 1)
-            return;
-
-        var settlementMonth = new DateTime(today.Year, today.Month, 1);
-        var customers = await _customerRepository.GetAllCustomersAsync();
-        foreach (var customer in customers)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            await _transactionManager.ExecuteAsync(async transaction =>
-            {
-                if (await _pointRepository.HasMemberLevelHistoryAsync(customer.CustomerId, settlementMonth, transaction))
-                    return;
-                var locked = await _customerRepository.GetByIdForUpdateAsync(customer.CustomerId, transaction);
-                if (locked == null)
-                    return;
-                var spent = await _orderRepository.GetCompletedSpentBeforeAsync(customer.CustomerId, settlementMonth, transaction);
-                var level = await _pointRepository.GetLevelForSpentAsync(spent, transaction);
-                if (level == null)
-                    throw new GroupBBusinessException("会员等级配置不完整");
-                await _customerRepository.SetTotalSpentAsync(customer.CustomerId, spent, transaction);
-                await _customerRepository.UpdateMemberLevelAsync(customer.CustomerId, level.MemberLevelId, transaction);
-                await _pointRepository.InsertMemberLevelHistoryAsync(new CrmMemberLevelHistory
-                {
-                    HistoryId = GroupBIds.NewId(), CustomerId = customer.CustomerId,
-                    MemberLevelId = level.MemberLevelId, QualifiedSpent = spent,
-                    SettlementMonth = settlementMonth
-                }, transaction);
-            });
-        }
     }
 }
 
-public sealed class GroupBDailyCheckHostedService : BackgroundService
+namespace FreshColdChain.Interfaces
 {
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<GroupBDailyCheckHostedService> _logger;
-
-    public GroupBDailyCheckHostedService(
-        IServiceScopeFactory scopeFactory,
-        ILogger<GroupBDailyCheckHostedService> logger)
+    public interface IGroupCInterface
     {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
-    }
+    Task<CustomerAccount[]> FindCustomerAccountInfoAsync(
+        string customerID,
+        CancellationToken cancellationToken = default);
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromDays(1));
+    Task<CustomerAccount[]> FindCustomerAccountInfoByOpenIdAsync(
+        string openID,
+        CancellationToken cancellationToken = default);
 
-        await RunOnceAsync(stoppingToken);
-        while (await timer.WaitForNextTickAsync(stoppingToken))
-        {
-            await RunOnceAsync(stoppingToken);
-        }
-    }
+    Task<CustomerAccount[]> FindCustomerAccountInfoByPhoneAsync(
+        string phone,
+        CancellationToken cancellationToken = default);
 
-    private async Task RunOnceAsync(CancellationToken stoppingToken)
-    {
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var maintenance = scope.ServiceProvider.GetRequiredService<GroupBDailyMaintenanceService>();
-            await maintenance.RunDailyChecksAsync(stoppingToken);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "每日团长与订单巡检执行失败");
-        }
+    Task<CustomerAccount[]> FindCustomerAccountInfoByBoundPromoterIdAsync(
+        string boundPromoterID,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> WriteTableChangeLogAsync(
+        TableChangeLogInput input,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> AuditOrderAsync(
+        AuditOrderInput input,
+        CancellationToken cancellationToken = default);
+
+    Task<CommissionInfo> CommissionSettlementAsync(
+        CommissionSettlementInput input,
+        CancellationToken cancellationToken = default);
+
+    Task PaymentRecordReactionAsync(
+        PaymentRecordReactionInput input,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> RefundRollbackMoneyAsync(
+        RefundRollbackMoneyInput input,
+        IDbTransaction? transaction = null,
+        CancellationToken cancellationToken = default);
+
+    Task<PromBind> FindPromoterInfoAsync(
+        string inviteCode,
+        string promoterName,
+        CancellationToken cancellationToken = default);
+
+    Task ActivatePromoterMoneyAsync(
+        ActivatePromoterMoneyInput input,
+        IDbTransaction? transaction = null,
+        CancellationToken cancellationToken = default);
     }
 }
 
-/// <summary>独立于每日巡检的短周期任务，确保超时结算批次及时释放库存。</summary>
-public sealed class GroupBCheckoutExpiryHostedService : BackgroundService
+namespace FreshColdChain.Models
 {
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ILogger<GroupBCheckoutExpiryHostedService> _logger;
-
-    public GroupBCheckoutExpiryHostedService(
-        IServiceScopeFactory scopeFactory,
-        ILogger<GroupBCheckoutExpiryHostedService> logger)
+    public sealed class TableChangeLogInput
     {
-        _scopeFactory = scopeFactory;
-        _logger = logger;
-    }
+    public string? TableName { get; set; }
+    public string? ActionType { get; set; }
+    public string? OldValue { get; set; }
+    public string? NewValue { get; set; }
+    public string? OperatorType { get; set; }
+}
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
-        await ExpireAsync(stoppingToken);
-        while (await timer.WaitForNextTickAsync(stoppingToken))
-            await ExpireAsync(stoppingToken);
-    }
+public sealed class AuditOrderInput
+{
+    public List<AuditOrderItem> GoodsList { get; set; } = [];
+}
 
-    private async Task ExpireAsync(CancellationToken stoppingToken)
+public sealed class AuditOrderItem
+{
+    public int ProductID { get; set; }
+    public int Quantity { get; set; }
+}
+
+public sealed class CommissionSettlementInput
+{
+    public string PromoterID { get; set; } = string.Empty;
+    public double FinalAmount { get; set; }
+    public double GoodsAmount { get; set; }
+}
+
+public sealed class CommissionInfo
+{
+    public double CommBaseAmount { get; set; }
+    public double CommBonusAmount { get; set; }
+    public DateTime CommSettlementDate { get; set; } = DateTime.Now;
+}
+
+public sealed class PaymentRecordReactionInput
+{
+    public string OrderID { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string PayMethod { get; set; } = string.Empty;
+}
+
+public sealed class RefundRollbackMoneyInput
+{
+    public string Status { get; set; } = string.Empty;
+    public string PromoterID { get; set; } = string.Empty;
+    public string? CommBaseAmount { get; set; }
+    public string? CommBonusAmount { get; set; }
+    public double? GoodsAmount { get; set; }
+}
+
+public sealed class PromBind
+{
+    public bool IsValid { get; set; }
+    public string? BoundPromoterID { get; set; }
+    public DateTime? BindExpireTime { get; set; }
+    public string? Avatar { get; set; }
+    public string? AvatarUrl { get; set; }
+}
+
+    public sealed class ActivatePromoterMoneyInput
     {
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var orderService = scope.ServiceProvider.GetRequiredService<IOrderService>();
-            await orderService.ExpirePendingCheckoutBatchesAsync(stoppingToken);
-            await orderService.AutoConfirmShippedOrdersAsync(stoppingToken);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "超时结算批次关闭任务执行失败");
-        }
+        public string PromoterID { get; set; } = string.Empty;
+        public double CommBaseAmount { get; set; }
+        public double CommBonusAmount { get; set; }
     }
 }
