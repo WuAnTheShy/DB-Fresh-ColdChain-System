@@ -1,4 +1,5 @@
 <script setup>
+import { Apple, Beef, Fish, Leaf, Milk, ShoppingBasket } from '@lucide/vue'
 import { computed } from 'vue'
 import { useShop } from '../state/shop'
 import { useCustomerContext } from '../state/customer'
@@ -11,6 +12,20 @@ const { categories, leaderById, isLeaderFollowed } = useShop()
 const { isAuthenticated } = useCustomerContext()
 const activeLeader = computed(() => leaderById(props.product.leaderId))
 const category = computed(() => categories.find((item) => item.slug === props.product.category))
+
+// 品类标识：不同图标 + 颜色 + 背景填充圆角
+const categoryStyles = [
+  { pattern: /果|fruit/i, icon: Apple, color: '#e2574c', bg: '#fdeceb' },
+  { pattern: /菜|豆|vegetable/i, icon: Leaf, color: '#2e9e5b', bg: '#e9f7ef' },
+  { pattern: /肉|禽|蛋|meat|egg/i, icon: Beef, color: '#c2571a', bg: '#fbeee6' },
+  { pattern: /海|水产|fish|seafood/i, icon: Fish, color: '#2463a7', bg: '#e8f0fb' },
+  { pattern: /乳|奶|烘焙|dairy|bakery/i, icon: Milk, color: '#b8860b', bg: '#fdf6e8' },
+]
+const defaultCategoryStyle = { icon: ShoppingBasket, color: '#6b7280', bg: '#f1f2f2' }
+const categoryStyle = computed(() => {
+  const name = String(props.product.category ?? '')
+  return categoryStyles.find((item) => item.pattern.test(name)) ?? defaultCategoryStyle
+})
 const productLink = computed(() => `/products/${props.product.id}`)
 const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(props.product.leaderId))
 
@@ -37,7 +52,10 @@ function displayPrice(value) {
         </p>
 
         <div class="product-card-meta">
-          <span>{{ product.category }}</span>
+          <span class="product-category-badge" :style="{ color: categoryStyle.color, background: categoryStyle.bg }">
+            <component :is="categoryStyle.icon" :size="13" />
+            {{ product.category }}
+          </span>
           <span :class="`product-storage storage-type-${(product.storageType || 'CHILLED').toLowerCase()}`">{{ product.storage }}</span>
         </div>
 
@@ -174,6 +192,18 @@ function displayPrice(value) {
   justify-content: space-between;
   gap: 10px;
   margin-top: 10px;
+}
+
+.product-category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 /* 温控颜色区分：冷藏=蓝 / 冷冻=冰蓝 / 常温=暖橙 */

@@ -1,5 +1,5 @@
 <script setup>
-import { BadgeCheck, Check, ChevronRight, Clock3, LockKeyhole, MapPin, PackageCheck, ShieldCheck, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
+import { Apple, BadgeCheck, Beef, Check, ChevronRight, Clock3, Fish, Leaf, LockKeyhole, MapPin, Milk, PackageCheck, ShieldCheck, ShoppingBasket, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
@@ -21,6 +21,20 @@ const related = computed(() => products.filter((item) => item.id !== String(prop
 const authLink = computed(() => ({ name: 'auth', query: { redirect: route.fullPath } }))
 const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(product.value?.leaderId))
 const followLink = computed(() => canViewPrice.value ? null : `/leaders/${leader.value?.id ?? ''}`)
+
+// 与商品卡片一致的品类标识：不同图标 + 颜色 + 背景填充圆角
+const categoryStyles = [
+  { pattern: /果|fruit/i, icon: Apple, color: '#e2574c', bg: '#fdeceb' },
+  { pattern: /菜|豆|vegetable/i, icon: Leaf, color: '#2e9e5b', bg: '#e9f7ef' },
+  { pattern: /肉|禽|蛋|meat|egg/i, icon: Beef, color: '#c2571a', bg: '#fbeee6' },
+  { pattern: /海|水产|fish|seafood/i, icon: Fish, color: '#2463a7', bg: '#e8f0fb' },
+  { pattern: /乳|奶|烘焙|dairy|bakery/i, icon: Milk, color: '#b8860b', bg: '#fdf6e8' },
+]
+const defaultCategoryStyle = { icon: ShoppingBasket, color: '#6b7280', bg: '#f1f2f2' }
+const categoryStyle = computed(() => {
+  const name = String(product.value?.category ?? '')
+  return categoryStyles.find((item) => item.pattern.test(name)) ?? defaultCategoryStyle
+})
 
 watch([() => props.id, catalogLoaded], () => {
   if (catalogLoaded.value && !product.value) router.replace('/search')
@@ -51,14 +65,17 @@ function buyNow() {
         <div class="product-main-image"><img :src="product.image" :alt="product.name"
             @error="$event.target.src = product.fallbackImage" /><span
             :class="`storage-badge storage-badge-${product.storageType.toLowerCase()}`">
-            <Snowflake :size="14" />{{ product.storage }}
+            {{ product.storage }}
           </span></div>
         <div class="product-thumb active"><img :src="product.image" alt="商品主图缩略图"
             @error="$event.target.src = product.fallbackImage" /></div>
       </div>
 
       <div class="product-info-column">
-        <span class="detail-deal-label">团长精选 · 冷链直送</span>
+        <span class="detail-category-badge" :style="{ color: categoryStyle.color, background: categoryStyle.bg }">
+          <component :is="categoryStyle.icon" :size="14" />
+          {{ product.category }}
+        </span>
         <h1>{{ product.name }}</h1>
         <p class="detail-summary">{{ product.summary }}</p>
         <div class="detail-leader-panel">
@@ -238,15 +255,16 @@ function buyNow() {
   min-width: 0;
 }
 
-.detail-deal-label {
+.detail-category-badge {
   display: inline-flex;
+  align-items: center;
+  gap: 5px;
   margin-bottom: 9px;
-  padding: 4px 7px;
-  border-radius: 3px;
-  background: #fce9e7;
-  color: var(--danger);
-  font-size: 10px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
   font-weight: 750;
+  line-height: 1;
 }
 
 .product-info-column h1 {
