@@ -88,4 +88,5 @@ public sealed class GroupCPromoterProductValidation
 {
     public string ProductId { get; init; } = string.Empty;
     public bool IsAllowed { get; init; }
+    public decimal? SalePrice { get; init; }
 }

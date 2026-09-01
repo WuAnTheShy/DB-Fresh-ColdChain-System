@@ -17,12 +17,13 @@ public sealed class OrderService : IOrderService
     private readonly ICustomerRepository _customerRepo;
     private readonly ICouponRepository _couponRepo;
     private readonly IPointRepository _pointRepo;
-    private readonly IInventoryService _inventoryService;
+    private readonly IGroupAInventoryGateway _inventoryService;
     private readonly ILogisticsService _logisticsService;
     private readonly ICommissionService _commissionService;
     private readonly IOrderTransactionManager _transactionManager;
     private readonly IPromoterService? _promoterService;
-    private readonly IPaymentRepository? _paymentRepository;
+    private readonly IPaymentService? _paymentService;
+    private readonly IGroupCPromoterCatalogService? _promoterCatalogService;
 
     private static readonly IReadOnlySet<string> SupportedBanks = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -35,12 +36,13 @@ public sealed class OrderService : IOrderService
         ICustomerRepository customerRepo,
         ICouponRepository couponRepo,
         IPointRepository pointRepo,
-        IInventoryService inventoryService,
+        IGroupAInventoryGateway inventoryService,
         ILogisticsService logisticsService,
         ICommissionService commissionService,
         IOrderTransactionManager transactionManager,
         IPromoterService? promoterService = null,
-        IPaymentRepository? paymentRepository = null)
+        IPaymentService? paymentService = null,
+        IGroupCPromoterCatalogService? promoterCatalogService = null)
     {
         _orderRepo = orderRepo;
         _customerRepo = customerRepo;
@@ -51,7 +53,8 @@ public sealed class OrderService : IOrderService
         _commissionService = commissionService;
         _transactionManager = transactionManager;
         _promoterService = promoterService;
-        _paymentRepository = paymentRepository;
+        _paymentService = paymentService;
+        _promoterCatalogService = promoterCatalogService;
     }
 
     public async Task<CheckoutBatchSummary?> GetCheckoutBatchAsync(
@@ -75,7 +78,7 @@ public sealed class OrderService : IOrderService
         ArgumentNullException.ThrowIfNull(request);
         if (!GroupBIds.IsValid(checkoutBatchId) || !GroupBIds.IsValid(customerId))
             throw new OrderBusinessException("结算批次不存在");
-        if (_paymentRepository == null)
+        if (_paymentService == null)
             throw new OrderBusinessException("支付流水服务未配置");
 
         var paymentMethod = request.PaymentMethod?.Trim().ToUpperInvariant() ?? string.Empty;
@@ -132,15 +135,6 @@ public sealed class OrderService : IOrderService
                         transaction);
                     if (!changed)
                         throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
-                    await _inventoryService.ReleaseAsync(
-                        new FulfillmentOrderRequest
-                        {
-                            OrderId = order.OrderId,
-                            Items = CreateFulfillmentItems(
-                                await _orderRepo.GetDetailsAsync(order.OrderId, transaction))
-                        },
-                        transaction,
-                        cancellationToken);
                 }
                 var pointsToRestore = orders.Sum(order => order.PointsUsed);
                 if (pointsToRestore > 0)
@@ -193,21 +187,26 @@ public sealed class OrderService : IOrderService
                     transaction))
                     throw new OrderBusinessException("订单积分入账失败，请重试");
 
-                await _paymentRepository.GroupC_AddPaymentRecordAsync(
-                    new GroupC_FinPaymentRecord
+                var paymentResult = await _paymentService.CreatePaymentRecord(
+                    new PaymentRequest
                     {
-                        PayId = $"PAY_{Guid.NewGuid():N}",
-                        OrderId = order.OrderId,
-                        PayMethod = paymentMethod == CheckoutPaymentMethods.BankCard
+                        orderID = order.OrderId,
+                        payMethod = paymentMethod == CheckoutPaymentMethods.BankCard
                             ? $"{paymentMethod}:{bankName}"
                             : paymentMethod,
-                        TransactionNo = transactionNo,
-                        PayAmount = order.FinalAmount,
-                        Status = "Success",
-                        PayTime = DateTime.Now,
-                        Remark = "SIMULATED"
+                        transactionNo = transactionNo,
+                        payAmount = order.FinalAmount,
+                        status = "Success"
                     },
-                    transaction);
+                    transaction,
+                    cancellationToken);
+                if (!paymentResult.IsSuccess)
+                {
+                    throw new OrderBusinessException(
+                        string.IsNullOrWhiteSpace(paymentResult.ErrorMessage)
+                            ? "支付流水写入失败"
+                            : paymentResult.ErrorMessage);
+                }
             }
 
             if (totalPointsEarned > 0)
@@ -225,6 +224,11 @@ public sealed class OrderService : IOrderService
                 }, transaction);
             }
 
+            await UpdateCustomerSpentAndLevelAsync(
+                customer,
+                orders.Sum(order => order.FinalAmount),
+                transaction);
+
             return new CheckoutBatchPaymentResult
             {
                 CheckoutBatchId = checkoutBatchId,
@@ -238,7 +242,7 @@ public sealed class OrderService : IOrderService
         });
     }
 
-    /// <summary>后台主动关闭已超过15分钟未支付的整个结算批次，并释放库存、归还冻结积分。</summary>
+    /// <summary>后台主动关闭已超过15分钟未支付的整个结算批次，并归还冻结积分。</summary>
     public async Task<int> ExpirePendingCheckoutBatchesAsync(CancellationToken cancellationToken = default)
     {
         var batchIds = await _orderRepo.GetExpiredPendingCheckoutBatchIdsAsync(DateTime.Now);
@@ -262,11 +266,6 @@ public sealed class OrderService : IOrderService
                 {
                     if (!await _orderRepo.TryUpdateStatusAsync(order.OrderId, OrderStatus.PendingPayment, OrderStatus.Cancelled, transaction))
                         throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
-                    await _inventoryService.ReleaseAsync(new FulfillmentOrderRequest
-                    {
-                        OrderId = order.OrderId,
-                        Items = CreateFulfillmentItems(await _orderRepo.GetDetailsAsync(order.OrderId, transaction))
-                    }, transaction, cancellationToken);
                 }
                 var pointsToRestore = orders.Sum(order => order.PointsUsed);
                 if (pointsToRestore > 0)
@@ -309,13 +308,10 @@ public sealed class OrderService : IOrderService
                         throw new OrderBusinessException("自动确认收货时商品状态已变化");
                 }
 
-                await _commissionService.RegisterCompletedOrderAsync(new CommissionOrderRequest
-                {
-                    orderID = context.Order.OrderId,
-                    promoterID = context.Order.PromoterId ?? context.Customer.PromoterId,
-                    finalAmount = context.Order.FinalAmount,
-                    goodsAmount = context.Order.TotalAmount
-                }, transaction, cancellationToken);
+                await RegisterCompletedOrderCommissionAsync(
+                    context,
+                    transaction,
+                    cancellationToken);
                 if (!await _orderRepo.TryUpdateStatusAsync(
                     context.Order.OrderId, OrderStatus.Shipped, OrderStatus.Completed, transaction))
                     throw new OrderBusinessException("自动确认收货时订单状态已变化");
@@ -364,16 +360,20 @@ public sealed class OrderService : IOrderService
                     transaction)
                 ?? throw new OrderBusinessException("收货地址不存在或不属于当前消费者");
 
-            var reservationItems = batchItems.Select(item => new InventoryReservationItem
+            var reservationItems = batchItems.Select(item => new InventoryAvailabilityItem
             {
                 ProductId = item.ProductId,
                 Quantity = item.Quantity
             }).ToList();
-            var snapshots = await _inventoryService.ReserveAsync(
+            var snapshots = await _inventoryService.CheckAvailabilityAsync(
                 reservationItems,
                 transaction,
                 cancellationToken);
-            var details = CreateTrustedDetails(reservationItems, snapshots);
+            var pricedSnapshots = await ValidatePromoterProductsAndApplyPricingAsync(
+                batchItems,
+                snapshots,
+                cancellationToken);
+            var details = CreateTrustedDetails(reservationItems, pricedSnapshots);
             var itemsByProductId = batchItems.ToDictionary(
                 item => item.ProductId,
                 StringComparer.Ordinal);
@@ -523,7 +523,7 @@ public sealed class OrderService : IOrderService
                 }, transaction);
             }
 
-            var snapshotsById = snapshots.ToDictionary(
+            var snapshotsById = pricedSnapshots.ToDictionary(
                 snapshot => snapshot.ProductId,
                 StringComparer.Ordinal);
             var priceChanges = batchItems
@@ -590,7 +590,7 @@ public sealed class OrderService : IOrderService
                 ?? throw new OrderBusinessException(
                     "收货地址不存在或不属于当前消费者");
 
-            var productSnapshots = await _inventoryService.ReserveAsync(
+            var productSnapshots = await _inventoryService.CheckAvailabilityAsync(
                 reservationItems,
                 transaction,
                 cancellationToken);
@@ -679,6 +679,11 @@ public sealed class OrderService : IOrderService
                     OrderId = orderId
                 }, transaction);
             }
+
+            await UpdateCustomerSpentAndLevelAsync(
+                customer,
+                finalAmount,
+                transaction);
 
             return new CreateOrderResult
             {
@@ -786,14 +791,8 @@ public sealed class OrderService : IOrderService
             }
             else
             {
-                await _commissionService.RegisterCompletedOrderAsync(
-                    new CommissionOrderRequest
-                    {
-                        orderID = context.Order.OrderId,
-                        promoterID = context.Order.PromoterId ?? context.Customer.PromoterId,
-                        finalAmount = context.Order.FinalAmount,
-                        goodsAmount = context.Order.TotalAmount
-                    },
+                await RegisterCompletedOrderCommissionAsync(
+                    context,
                     transaction,
                     cancellationToken);
             }
@@ -824,13 +823,6 @@ public sealed class OrderService : IOrderService
             OrderStateMachine.EnsureTransition(
                 currentStatus,
                 OrderStatus.Cancelled);
-
-            await _inventoryService.ReleaseAsync(
-                CreateFulfillmentOrderRequest(
-                    context.Order,
-                    context.Details),
-                transaction,
-                cancellationToken);
 
             var currentPoints = context.Customer.Points;
             if (context.Order.PointsUsed > 0)
@@ -878,6 +870,11 @@ public sealed class OrderService : IOrderService
             _ = await _couponRepo.RestoreCouponForCancelledOrderAsync(
                 context.Order.OrderId,
                 context.Customer.CustomerId,
+                transaction);
+
+            await UpdateCustomerSpentAndLevelAsync(
+                context.Customer,
+                -context.Order.FinalAmount,
                 transaction);
 
             if (!await _orderRepo.TryUpdateStatusAsync(
@@ -939,16 +936,6 @@ public sealed class OrderService : IOrderService
                 throw new OrderBusinessException("退款积分流水已存在但订单状态不一致");
             }
 
-            if (currentStatus == OrderStatus.Paid)
-            {
-                await _inventoryService.ReleaseAsync(
-                    CreateFulfillmentOrderRequest(
-                        context.Order,
-                        context.Details),
-                    transaction,
-                    cancellationToken);
-            }
-
             var requestedDeduction = Math.Min(
                 pointsToDeduct,
                 context.Order.PointsEarned);
@@ -973,6 +960,11 @@ public sealed class OrderService : IOrderService
                     OrderId = orderId
                 }, transaction);
             }
+
+            await UpdateCustomerSpentAndLevelAsync(
+                context.Customer,
+                -context.Order.FinalAmount,
+                transaction);
 
             if (!await _orderRepo.TryUpdateStatusAsync(
                 orderId,
@@ -1084,6 +1076,36 @@ public sealed class OrderService : IOrderService
         return await _pointRepo.GetLevelForSpentAsync(customer.TotalSpent);
     }
 
+    private async Task UpdateCustomerSpentAndLevelAsync(
+        CrmCustomer customer,
+        decimal changeAmount,
+        IDbTransaction transaction)
+    {
+        var newTotalSpent = Math.Max(0m, customer.TotalSpent + changeAmount);
+        await _customerRepo.SetTotalSpentAsync(
+            customer.CustomerId,
+            newTotalSpent,
+            transaction);
+
+        var level = await _pointRepo.GetLevelForSpentAsync(
+            newTotalSpent,
+            transaction);
+        if (level != null &&
+            !string.Equals(
+                customer.MemberLevelId,
+                level.MemberLevelId,
+                StringComparison.Ordinal))
+        {
+            await _customerRepo.UpdateMemberLevelAsync(
+                customer.CustomerId,
+                level.MemberLevelId,
+                transaction);
+            customer.MemberLevelId = level.MemberLevelId;
+        }
+
+        customer.TotalSpent = newTotalSpent;
+    }
+
     public async Task ConfirmOrderItemReceiptAsync(
         string orderId,
         string orderDetailId,
@@ -1123,14 +1145,8 @@ public sealed class OrderService : IOrderService
                 return;
             }
 
-            await _commissionService.RegisterCompletedOrderAsync(
-                new CommissionOrderRequest
-                {
-                    orderID = context.Order.OrderId,
-                    promoterID = context.Order.PromoterId ?? context.Customer.PromoterId,
-                    finalAmount = context.Order.FinalAmount,
-                    goodsAmount = context.Order.TotalAmount
-                },
+            await RegisterCompletedOrderCommissionAsync(
+                context,
                 transaction,
                 cancellationToken);
             if (!await _orderRepo.TryUpdateStatusAsync(
@@ -1201,7 +1217,7 @@ public sealed class OrderService : IOrderService
             .ToList();
     }
 
-    private static IReadOnlyList<InventoryReservationItem> ValidateAndNormalizeRequest(
+    private static IReadOnlyList<InventoryAvailabilityItem> ValidateAndNormalizeRequest(
         CreateOrderRequest request)
     {
         if (!GroupBIds.IsValid(request.CustomerId))
@@ -1241,7 +1257,7 @@ public sealed class OrderService : IOrderService
 
         return quantities
             .OrderBy(pair => pair.Key, StringComparer.Ordinal)
-            .Select(pair => new InventoryReservationItem
+            .Select(pair => new InventoryAvailabilityItem
             {
                 ProductId = pair.Key,
                 Quantity = pair.Value
@@ -1249,8 +1265,96 @@ public sealed class OrderService : IOrderService
             .ToList();
     }
 
+    private async Task<IReadOnlyList<InventoryProductSnapshot>>
+        ValidatePromoterProductsAndApplyPricingAsync(
+            IReadOnlyList<BatchOrderItem> batchItems,
+            IReadOnlyList<InventoryProductSnapshot> snapshots,
+            CancellationToken cancellationToken)
+    {
+        if (_promoterCatalogService == null)
+            throw new OrderBusinessException("团长商品目录服务未配置，暂时无法结算");
+
+        var snapshotMap = snapshots.ToDictionary(
+            snapshot => snapshot.ProductId,
+            StringComparer.Ordinal);
+        var validated = new Dictionary<string, InventoryProductSnapshot>(StringComparer.Ordinal);
+
+        foreach (var promoterGroup in batchItems
+                     .GroupBy(item => item.PromoterId, StringComparer.Ordinal)
+                     .OrderBy(group => group.Key, StringComparer.Ordinal))
+        {
+            var candidates = promoterGroup.Select(item =>
+            {
+                if (!snapshotMap.TryGetValue(item.ProductId, out var snapshot))
+                    throw new OrderBusinessException($"库存服务未返回商品 {item.ProductId}");
+                return new GroupCPromoterProductCandidate
+                {
+                    ProductId = item.ProductId,
+                    SupplierId = snapshot.SupplierId
+                };
+            }).ToList();
+            var validations = await _promoterCatalogService.ValidatePromoterProductsAsync(
+                promoterGroup.Key,
+                candidates,
+                cancellationToken);
+            var validationMap = validations.ToDictionary(
+                validation => validation.ProductId,
+                StringComparer.Ordinal);
+
+            foreach (var candidate in candidates)
+            {
+                if (!validationMap.TryGetValue(candidate.ProductId, out var validation) ||
+                    !validation.IsAllowed)
+                {
+                    throw new OrderBusinessException(
+                        $"团长 {promoterGroup.Key} 无权销售商品 {candidate.ProductId}");
+                }
+
+                var source = snapshotMap[candidate.ProductId];
+                var salePrice = validation.SalePrice ?? source.UnitPrice;
+                if (salePrice <= 0 || salePrice > MaxOrderAmount)
+                    throw new OrderBusinessException($"商品 {candidate.ProductId} 的团长售价无效");
+                validated[candidate.ProductId] = new InventoryProductSnapshot
+                {
+                    ProductId = source.ProductId,
+                    ProductName = source.ProductName,
+                    SupplierId = source.SupplierId,
+                    UnitPrice = salePrice
+                };
+            }
+        }
+
+        if (validated.Count != snapshots.Count)
+            throw new OrderBusinessException("团长商品校验结果不完整");
+        return snapshots.Select(snapshot => validated[snapshot.ProductId]).ToList();
+    }
+
+    private async Task RegisterCompletedOrderCommissionAsync(
+        LockedOrderContext context,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var result = await _commissionService.RegisterCompletedOrderAsync(
+            new CommissionOrderRequest
+            {
+                orderID = context.Order.OrderId,
+                promoterID = context.Order.PromoterId ?? context.Customer.PromoterId,
+                finalAmount = context.Order.FinalAmount,
+                goodsAmount = context.Order.TotalAmount
+            },
+            transaction,
+            cancellationToken);
+        if (!result.IsSuccess)
+        {
+            throw new OrderBusinessException(
+                string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? "佣金登记失败"
+                    : result.ErrorMessage);
+        }
+    }
+
     private static List<BizOrderDetail> CreateTrustedDetails(
-        IReadOnlyList<InventoryReservationItem> reservationItems,
+        IReadOnlyList<InventoryAvailabilityItem> reservationItems,
         IReadOnlyList<InventoryProductSnapshot> productSnapshots)
     {
         if (productSnapshots.Count != reservationItems.Count)

@@ -36,7 +36,9 @@ internal sealed class TestContext
         LogisticsService = new FakeLogisticsService();
         CommissionService = new FakeCommissionService();
         PromoterService = new FakePromoterService();
+        PromoterCatalogService = new FakePromoterCatalogService();
         PaymentRepository = new FakePaymentRepository();
+        PaymentService = new FakePaymentService(PaymentRepository);
         TransactionManager = new FakeTransactionManager();
         AuthenticationState = new CustomerAuthenticationStateService();
         Service = new OrderService(
@@ -49,7 +51,8 @@ internal sealed class TestContext
             CommissionService,
             TransactionManager,
             PromoterService,
-            PaymentRepository);
+            PaymentService,
+            PromoterCatalogService);
         CustomerService = new CustomerService(
             CustomerRepository,
             PointRepository,
@@ -70,7 +73,9 @@ internal sealed class TestContext
     public FakeLogisticsService LogisticsService { get; }
     public FakeCommissionService CommissionService { get; }
     public FakePromoterService PromoterService { get; }
+    public FakePromoterCatalogService PromoterCatalogService { get; }
     public FakePaymentRepository PaymentRepository { get; }
+    public FakePaymentService PaymentService { get; }
     public FakeTransactionManager TransactionManager { get; }
     public CustomerAuthenticationStateService AuthenticationState { get; }
     public OrderService Service { get; }
@@ -1201,15 +1206,13 @@ internal sealed class FakePointRepository : IPointRepository
     }
 }
 
-internal sealed class FakeInventoryService : IInventoryService
+internal sealed class FakeInventoryService : IGroupAInventoryGateway
 {
     public Exception? ExceptionToThrow { get; set; }
-    public Exception? ReleaseExceptionToThrow { get; set; }
-    public IReadOnlyList<InventoryReservationItem> LastItems { get; private set; } = [];
-    public List<string> ReleasedOrderIds { get; } = [];
+    public IReadOnlyList<InventoryAvailabilityItem> LastItems { get; private set; } = [];
 
-    public Task<IReadOnlyList<InventoryProductSnapshot>> ReserveAsync(
-        IReadOnlyList<InventoryReservationItem> items,
+    public Task<IReadOnlyList<InventoryProductSnapshot>> CheckAvailabilityAsync(
+        IReadOnlyList<InventoryAvailabilityItem> items,
         IDbTransaction transaction,
         CancellationToken cancellationToken = default)
     {
@@ -1237,19 +1240,6 @@ internal sealed class FakeInventoryService : IInventoryService
         }).ToList();
 
         return Task.FromResult<IReadOnlyList<InventoryProductSnapshot>>(snapshots);
-    }
-
-    public Task ReleaseAsync(
-        FulfillmentOrderRequest request,
-        IDbTransaction transaction,
-        CancellationToken cancellationToken = default)
-    {
-        if (ReleaseExceptionToThrow != null)
-            throw ReleaseExceptionToThrow;
-
-        ((FakeOrderTransaction)transaction).Stage(
-            () => ReleasedOrderIds.Add(request.OrderId));
-        return Task.CompletedTask;
     }
 }
 
@@ -1304,6 +1294,7 @@ internal sealed class FakeLogisticsService : ILogisticsService
 internal sealed class FakeCommissionService : ICommissionService
 {
     public Exception? ExceptionToThrow { get; set; }
+    public bool ReturnFailure { get; set; }
     public List<CommissionOrderRequest> CompletedOrders { get; } = [];
 
     public Task<CommissionResult> RegisterCompletedOrderAsync(
@@ -1313,6 +1304,14 @@ internal sealed class FakeCommissionService : ICommissionService
     {
         if (ExceptionToThrow != null)
             throw ExceptionToThrow;
+        if (ReturnFailure)
+        {
+            return Task.FromResult(new CommissionResult
+            {
+                IsSuccess = false,
+                ErrorMessage = "模拟佣金登记失败"
+            });
+        }
 
         ((FakeOrderTransaction)transaction).Stage(
             () => CompletedOrders.Add(request));
@@ -1364,6 +1363,42 @@ internal sealed class FakePaymentRepository : IPaymentRepository
         IDbTransaction? transaction = null) => Task.FromResult(Records.ToList());
 }
 
+internal sealed class FakePaymentService(FakePaymentRepository repository) : IPaymentService
+{
+    public async Task<Result> CreatePaymentRecord(
+        PaymentRequest paymentRequest,
+        IDbTransaction? transaction = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await repository.GroupC_AddPaymentRecordAsync(new GroupC_FinPaymentRecord
+            {
+                PayId = $"PAY_{Guid.NewGuid():N}",
+                OrderId = paymentRequest.orderID ?? string.Empty,
+                PayMethod = paymentRequest.payMethod ?? string.Empty,
+                TransactionNo = paymentRequest.transactionNo,
+                PayAmount = paymentRequest.payAmount,
+                Status = paymentRequest.status ?? string.Empty,
+                PayTime = DateTime.Now,
+                Remark = "SIMULATED"
+            }, transaction);
+            return new Result { IsSuccess = true };
+        }
+        catch (Exception exception)
+        {
+            return new Result { IsSuccess = false, ErrorMessage = exception.Message };
+        }
+    }
+
+    public Task<List<GroupC_FinPaymentRecord>> SearchPaymentsAsync(
+        DateTime? startTime,
+        DateTime? endTime,
+        string? orderId,
+        string? status) =>
+        repository.SearchAsync(startTime, endTime, orderId, status);
+}
+
 internal sealed class FakePromoterService : IPromoterService
 {
     public List<string> BoundPromoterIds { get; } = ["promoter-1", "promoter-2"];
@@ -1407,6 +1442,52 @@ internal sealed class FakePromoterService : IPromoterService
 
     public Task<List<GroupC_CrmPCRelation>> GetBoundCustomersByPromoterAsync(string promoterId) =>
         Task.FromResult(new List<GroupC_CrmPCRelation>());
+
+    public Task<Result> UpdatePromoterAvatarAsync(string promoterId, string? avatar) =>
+        Task.FromResult(new Result { IsSuccess = true });
+}
+
+internal sealed class FakePromoterCatalogService : IGroupCPromoterCatalogService
+{
+    public HashSet<string> DisallowedProductIds { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, decimal> PromoterPrices { get; } = new(StringComparer.Ordinal);
+
+    public Task<GroupCPromoterSearchResult> SearchAvailablePromotersAsync(
+        GroupCPromoterSearchRequest request,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new GroupCPromoterSearchResult());
+
+    public Task<GroupCPromoterSummary?> GetPromoterAsync(
+        string promoterId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<GroupCPromoterSummary?>(new GroupCPromoterSummary
+        {
+            PromoterId = promoterId,
+            PromoterName = "测试团长",
+            AccountStatus = "ACTIVE"
+        });
+
+    public Task<IReadOnlyList<string>> GetCooperatingSupplierIdsAsync(
+        string promoterId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<string>>(["SUP1", "SUP2"]);
+
+    public Task<IReadOnlyList<GroupCPromoterProductValidation>> ValidatePromoterProductsAsync(
+        string promoterId,
+        IReadOnlyList<GroupCPromoterProductCandidate> products,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<GroupCPromoterProductValidation>>(products
+            .Select(product =>
+            {
+                var hasPrice = PromoterPrices.TryGetValue(product.ProductId, out var price);
+                return new GroupCPromoterProductValidation
+                {
+                    ProductId = product.ProductId,
+                    IsAllowed = !DisallowedProductIds.Contains(product.ProductId),
+                    SalePrice = hasPrice ? price : null
+                };
+            })
+            .ToList());
 }
 
 internal sealed class FakeDbConnection : IDbConnection

@@ -11,12 +11,14 @@ internal static class OrderServiceScenarioTests
         {
             ("正常下单提交订单、优惠券和双倍积分", SuccessfulOrderCommitsAsync),
             ("结算批次按团长原子拆单并分别计算运费", CheckoutBatchSplitsByPromoterAsync),
+            ("结算采用C组团长商品售价", CheckoutUsesPromoterCatalogPriceAsync),
+            ("团长无销售权时结算整体回滚", CheckoutRejectsUnauthorizedPromoterProductAsync),
             ("批次任一商品缺货时不创建任何子订单", CheckoutBatchStockFailureRollsBackAsync),
             ("模拟支付一次性支付整个结算批次", CheckoutBatchPaymentPaysAllOrdersAsync),
             ("结算积分最多抵扣10%且支付后按实付商品金额累计", CheckoutPointsRedeemAndEarnAsync),
             ("自动领取一张普通券并叠加一张特殊券", AutoClaimNormalAndSpecialCouponsAsync),
             ("支付流水失败时整个批次回滚", CheckoutBatchPaymentFailureRollsBackAsync),
-            ("超过15分钟关闭整个结算批次并释放库存", ExpiredCheckoutBatchClosesAsync),
+            ("超过15分钟关闭整个结算批次并归还积分", ExpiredCheckoutBatchClosesAsync),
             ("库存不足时回滚且不创建订单", InsufficientStockRollsBackAsync),
             ("优惠券无效时回滚且不创建订单", InvalidCouponRollsBackAsync),
             ("积分流水失败时回滚全部已暂存变更", PointLogFailureRollsBackEverythingAsync)
@@ -136,7 +138,7 @@ internal static class OrderServiceScenarioTests
         SeedPendingBatch(context, DateTime.Now.AddMinutes(15));
         context.PaymentRepository.ThrowOnInsert = true;
 
-        await AssertEx.ThrowsAsync<InvalidOperationException>(() =>
+        await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
             context.Service.PayCheckoutBatchAsync(
                 "batch-1",
                 TestIds.Customer,
@@ -163,7 +165,6 @@ internal static class OrderServiceScenarioTests
 
         AssertEx.True(result.IsExpired);
         AssertEx.True(context.OrderRepository.Orders.All(order => order.OrderStatus == OrderStatusCodes.Cancelled));
-        AssertEx.Equal(2, context.InventoryService.ReleasedOrderIds.Count);
         AssertEx.Equal(0, context.PaymentRepository.Records.Count);
     }
 
@@ -223,6 +224,57 @@ internal static class OrderServiceScenarioTests
         AssertEx.True(context.OrderRepository.Orders.All(order => order.CheckoutBatchId == result.CheckoutBatchId));
         AssertEx.True(context.OrderRepository.Orders.All(order => order.OrderStatus == OrderStatusCodes.PendingPayment));
         AssertEx.Equal(2, context.OrderRepository.Orders.Select(order => order.PromoterId).Distinct().Count());
+    }
+
+    private static async Task CheckoutUsesPromoterCatalogPriceAsync()
+    {
+        var context = TestContext.Create();
+        context.PromoterCatalogService.PromoterPrices["P1"] = 45m;
+
+        var result = await context.Service.CreateCheckoutBatchAsync(new CreateOrderRequest
+        {
+            CustomerId = TestIds.Customer,
+            AddressId = TestIds.Address1,
+            Items =
+            [
+                new()
+                {
+                    ProductId = "P1",
+                    PromoterId = "promoter-1",
+                    Quantity = 2,
+                    ClientUnitPrice = 50m
+                }
+            ]
+        });
+
+        AssertEx.Equal(90m, result.GoodsAmount);
+        AssertEx.Equal(45m, context.OrderRepository.Details.Single().UnitPrice);
+        AssertEx.Equal(1, result.PriceChanges.Count);
+        AssertEx.Equal(45m, result.PriceChanges.Single().LatestPrice);
+    }
+
+    private static async Task CheckoutRejectsUnauthorizedPromoterProductAsync()
+    {
+        var context = TestContext.Create();
+        context.PromoterCatalogService.DisallowedProductIds.Add("P1");
+
+        await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
+            context.Service.CreateCheckoutBatchAsync(new CreateOrderRequest
+            {
+                CustomerId = TestIds.Customer,
+                AddressId = TestIds.Address1,
+                Items =
+                [
+                    new()
+                    {
+                        ProductId = "P1",
+                        PromoterId = "promoter-1",
+                        Quantity = 1
+                    }
+                ]
+            }));
+
+        AssertRolledBackWithoutAssets(context);
     }
 
     private static async Task CheckoutBatchStockFailureRollsBackAsync()

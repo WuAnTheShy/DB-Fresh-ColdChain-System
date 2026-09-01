@@ -45,7 +45,7 @@ npm install        # 仅首次需要
 npm run dev
 ```
 
-- 前端开发服务器监听 **http://localhost:5173**，浏览器打开 **http://localhost:5173/app/**
+- 前端开发服务器监听 **http://localhost:8080**，浏览器打开 **http://localhost:8080/app/**
 - 开发模式下 `/api` 请求会自动代理到后端
 
 > **端口说明**：后端默认监听 `5064`（见 `Properties/launchSettings.json`），前端 `ClientApp/vite.config.js` 的 `/api` 代理已同步指向 `http://localhost:5064`。若改动后端端口，请同步修改 vite 代理后重启前端。
@@ -56,7 +56,7 @@ npm run dev
 
 ### 1. 初始化表结构与数据
 
-将 `groupB_ddl.sql` 在 Oracle 中执行（建议使用隔离 schema），其中包含 B 组 8 张表及最小演示数据（含演示消费者）。
+全新 schema 执行 `groupB_ddl.sql`，其中包含 B 组 8 张核心表、1 张会员定级历史扩展表及最小演示数据。已有 schema 不要重复执行基础脚本，应按文件名顺序执行 `migrations/` 中尚未应用的 B 组增量脚本；其中 `20260831_add_coupon_type.sql` 补齐结算所需的优惠券类型列。
 
 ### 2. 连接串配置
 
@@ -92,8 +92,8 @@ dotnet run --project FreshColdChain.csproj --profile http
 
 | 项目 | 说明 |
 | --- | --- |
-| 访问地址 | `http://localhost:5173/app/`（前端 dev 模式）或 `http://localhost:5064/app/`（生产构建产物） |
-| 登录/注册 | `http://localhost:5173/app/auth` |
+| 访问地址 | `http://localhost:8080/app/`（前端 dev 模式）或 `http://localhost:5064/app/`（生产构建产物） |
+| 登录/注册 | `http://localhost:8080/app/auth` |
 | 功能 | 商品浏览/搜索、关注团长、购物车、结算下单、订单跟踪、退款、优惠券、积分、会员等级、消息中心 |
 | 演示账号 | 手机号 `13800138000`，密码 `FreshB2026!`（数据在 `groupB_ddl.sql` 中） |
 | 说明 | 消费者为独立 SPA，依赖后端 API；未登录时访问购物车/订单等页面会自动跳转登录 |
@@ -138,7 +138,7 @@ dotnet run --project FreshColdChain.csproj --profile http   # 运行（端口 50
 # 前端
 cd ClientApp
 npm install                                    # 安装依赖
-npm run dev                                    # 开发模式（端口 5173）
+npm run dev                                    # 开发模式（端口 8080）
 npm run build                                  # 生产构建，产物输出到 wwwroot/app
 npm run preview                                # 预览生产构建
 
@@ -154,7 +154,7 @@ dotnet run --project tests/FreshColdChain.Tests/FreshColdChain.Tests.csproj --no
 DB-Fresh-ColdChain-System/
 ├── Controllers/          # MVC + API 控制器（Account / Promoters / Suppliers / Admins / Api 等）
 ├── Views/                # 团长、供应商、管理员、角色选择等 Razor 视图
-├── ClientApp/            # 消费者端 Vue3 + Vite SPA（dev 端口 5173，产物输出 wwwroot/app）
+├── ClientApp/            # 消费者端 Vue3 + Vite SPA（dev 端口 8080，产物输出 wwwroot/app）
 ├── Services/             # 业务服务层（订单、客户、优惠券、佣金、结算等）
 ├── Repositories/         # Dapper 数据访问层
 ├── Interfaces/           # 服务/仓库接口
@@ -171,8 +171,8 @@ DB-Fresh-ColdChain-System/
 
 | 问题 | 解决方式 |
 | --- | --- |
-| 前端打开 `5173/app/` 但接口报 500/连不上 | 确认后端已启动且端口与 `vite.config.js` 代理一致（5213 或 5064，见上文"端口说明"） |
+| 前端打开 `8080/app/` 但接口报 500/连不上 | 确认后端已启动且端口与 `vite.config.js` 代理一致（5213 或 5064，见上文"端口说明"） |
 | 登录提示数据库错误 | 检查 Oracle 是否可访问、连接串是否正确、`groupB_ddl.sql` 是否已执行 |
 | `dotnet run` 报缺少 .NET SDK | 安装 .NET 10 SDK，`dotnet --list-sdks` 确认 |
-| 后端启动后 `/app/` 404 | 先 `cd ClientApp && npm run build` 生成前端产物，或直接使用前端 dev 模式 `5173/app/` |
+| 后端启动后 `/app/` 404 | 先 `cd ClientApp && npm run build` 生成前端产物，或直接使用前端 dev 模式 `8080/app/` |
 | 团长/管理员注册后无法登录 | 注册的团长需要管理员在后台审核通过；管理员账号按需由数据初始化 |

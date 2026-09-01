@@ -11,6 +11,40 @@ $tables = [ordered]@{
     Crm_PointLogs     = 'PointLogId'
     Biz_Orders        = 'OrderId'
     Biz_OrderDetails  = 'OrderDetailId'
+    Crm_MemberLevelHistories = 'HistoryId'
+}
+
+$requiredColumns = [ordered]@{
+    Mkt_Coupons = @('CouponType')
+    Biz_Orders = @(
+        'CheckoutBatchId',
+        'PointsUsed',
+        'PointsDiscountAmount',
+        'PaymentExpiresAt'
+    )
+    Biz_OrderDetails = @('ReceiptStatus', 'ReceivedAt')
+    Crm_MemberLevelHistories = @(
+        'CustomerId',
+        'MemberLevelId',
+        'QualifiedSpent',
+        'SettlementMonth'
+    )
+}
+
+foreach ($table in $requiredColumns.Keys) {
+    $tablePattern = "(?is)CREATE\s+TABLE\s+$([regex]::Escape($table))\s*\((?<body>.*?)\);"
+    $body = [regex]::Match($ddl, $tablePattern).Groups['body'].Value
+    foreach ($column in $requiredColumns[$table]) {
+        if (-not [regex]::IsMatch($body, "(?im)^\s*$([regex]::Escape($column))\s+")) {
+            throw "缺少 B 组必需列：$table.$column"
+        }
+    }
+}
+
+if (-not [regex]::IsMatch(
+        $ddl,
+        '(?is)CONSTRAINT\s+FK_MLH_Level\s+FOREIGN\s+KEY\s*\(MemberLevelId\)\s+REFERENCES\s+Crm_MemberLevels')) {
+    throw '会员定级历史缺少会员等级外键'
 }
 
 foreach ($entry in $tables.GetEnumerator()) {
@@ -41,4 +75,4 @@ if ([regex]::IsMatch($ddl, $foreignTablePattern)) {
     throw 'B 组 DDL 不得创建 C 组负责的表'
 }
 
-Write-Output "PASS B组DDL：8张表主键、演示数据和职责边界检查通过"
+Write-Output "PASS B组DDL：8张核心表、1张定级历史扩展表、必需列、演示数据和职责边界检查通过"

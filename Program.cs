@@ -4,7 +4,6 @@ using FreshColdChain.Repositories;
 using FreshColdChain.Services;
 using FreshColdChain.Services.Supplier;
 using FreshColdChainSystem.Repositories;
-using Microsoft.AspNetCore.Identity;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,15 +26,8 @@ builder.Services.AddScoped<ILogFreightTemplateRepository, LogFreightTemplateRepo
 builder.Services.AddScoped<ILogExpressDeliveryRepository, LogExpressDeliveryRepository>();
 builder.Services.AddScoped<ILogFulfillmentBatchItemRepository, LogFulfillmentBatchItemRepository>();
 
-// B组
-builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
-builder.Services.AddScoped<ICouponRepository, CouponRepository>();
-builder.Services.AddScoped<IConsumerMessageRepository, ConsumerMessageRepository>();
-builder.Services.AddScoped<IPointRepository, PointRepository>();
-builder.Services.AddScoped<IPromoterRepository, PromoterRepository>();
-
 // C组
+builder.Services.AddScoped<IPromoterRepository, PromoterRepository>();
 builder.Services.AddScoped<IRefundRepository, RefundRepository>();
 builder.Services.AddScoped<ICommissionRepository, CommissionRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
@@ -53,18 +45,7 @@ builder.Services.AddScoped<IColdChainLogisticsService, ColdChainLogisticsService
 builder.Services.AddScoped<IPricingService, PricingService>();
 
 // B组
-builder.Services.AddScoped<IOrderTransactionManager, OracleOrderTransactionManager>();
-builder.Services.AddScoped<IPasswordHasher<CrmCustomer>, PasswordHasher<CrmCustomer>>();
-builder.Services.AddScoped<IInventoryService, DummyInventoryService>();
-builder.Services.AddScoped<ILogisticsService, DummyLogisticsService>();
-builder.Services.AddScoped<IOrderService, OrderService>();
-builder.Services.AddScoped<ICustomerService, CustomerService>();
-builder.Services.AddSingleton<CustomerAuthenticationStateService>();
-builder.Services.AddScoped<ICouponService, CouponService>();
-builder.Services.AddScoped<IGroupCInterface, GroupCInterfaceService>();
-builder.Services.AddScoped<GroupBDailyMaintenanceService>();
-builder.Services.AddHostedService<GroupBDailyCheckHostedService>();
-builder.Services.AddHostedService<GroupBCheckoutExpiryHostedService>();
+builder.Services.AddGroupBModule();
 
 // C组
 builder.Services.AddScoped<AccountService>();
@@ -84,8 +65,6 @@ builder.Services.AddControllersWithViews()
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(
             new JsonStringEnumConverter(allowIntegerValues: false)));
-builder.Services.AddScoped<FreshColdChain.Controllers.Api.GroupBApiExceptionFilter>();
-
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {

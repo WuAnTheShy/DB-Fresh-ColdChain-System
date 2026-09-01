@@ -68,6 +68,7 @@ CREATE INDEX IX_Address_Customer
 CREATE TABLE Mkt_Coupons (
     CouponId         VARCHAR2(36)   PRIMARY KEY,
     CouponName       VARCHAR2(100)  NOT NULL,
+    CouponType       VARCHAR2(20)   DEFAULT 'NORMAL' NOT NULL, -- NORMAL/SPECIAL
     MinOrderAmount   NUMBER(10,2)   DEFAULT 0,
     DiscountAmount   NUMBER(10,2)   NOT NULL,
     TotalQuantity    NUMBER         NOT NULL,
@@ -84,7 +85,8 @@ CREATE TABLE Mkt_Coupons (
         AND RemainingQuantity <= TotalQuantity
     ),
     CONSTRAINT CK_Coupon_Time CHECK (EndTime > StartTime),
-    CONSTRAINT CK_Coupon_Status CHECK (Status IN (0, 1))
+    CONSTRAINT CK_Coupon_Status CHECK (Status IN (0, 1)),
+    CONSTRAINT CK_Coupon_Type CHECK (CouponType IN ('NORMAL', 'SPECIAL'))
 );
 
 -- 5. Mkt_CouponRecords - 用户领券/用券记录
@@ -119,6 +121,23 @@ CREATE TABLE Crm_PointLogs (
 
 CREATE INDEX IX_PointLog_CustomerOrderType
     ON Crm_PointLogs (CustomerId, OrderId, ChangeType);
+
+-- B 组扩展表. Crm_MemberLevelHistories - 消费者每月定级历史
+CREATE TABLE Crm_MemberLevelHistories (
+    HistoryId        VARCHAR2(36) PRIMARY KEY,
+    CustomerId       VARCHAR2(36) NOT NULL,
+    MemberLevelId    VARCHAR2(36) NOT NULL,
+    QualifiedSpent   NUMBER(12,2) NOT NULL,
+    SettlementMonth  DATE NOT NULL,
+    CreatedAt        DATE DEFAULT SYSDATE NOT NULL,
+    CONSTRAINT FK_MLH_Customer FOREIGN KEY (CustomerId) REFERENCES Crm_Customers(CustomerId),
+    CONSTRAINT FK_MLH_Level FOREIGN KEY (MemberLevelId) REFERENCES Crm_MemberLevels(MemberLevelId),
+    CONSTRAINT UQ_MLH_CustomerMonth UNIQUE (CustomerId, SettlementMonth),
+    CONSTRAINT CK_MLH_QualifiedSpent CHECK (QualifiedSpent >= 0)
+);
+
+CREATE INDEX IX_MLH_CustomerMonth
+    ON Crm_MemberLevelHistories (CustomerId, SettlementMonth DESC);
 
 -- 7. Biz_Orders - 订单主表
 CREATE TABLE Biz_Orders (
@@ -183,6 +202,9 @@ CREATE TABLE Biz_OrderDetails (
     CONSTRAINT FK_Detail_Order FOREIGN KEY (OrderId) REFERENCES Biz_Orders(OrderId)
 );
 
+CREATE INDEX IX_OrderDetail_OrderReceipt
+    ON Biz_OrderDetails (OrderId, ReceiptStatus);
+
 -- 订单表创建后补充两条可选订单关联外键。
 ALTER TABLE Mkt_CouponRecords ADD CONSTRAINT FK_CouponRec_Order
     FOREIGN KEY (OrderId) REFERENCES Biz_Orders(OrderId);
@@ -191,7 +213,7 @@ ALTER TABLE Crm_PointLogs ADD CONSTRAINT FK_PointLog_Order
     FOREIGN KEY (OrderId) REFERENCES Biz_Orders(OrderId);
 
 -- ============================================================
--- B 组最小可联调演示数据（覆盖本组 8 张表）
+-- B 组最小可联调演示数据（覆盖 8 张核心表和 1 张定级历史扩展表）
 -- 演示消费者：13800138000 / FreshB2026!
 -- ============================================================
 
@@ -201,11 +223,19 @@ VALUES ('00000000000000000000000000000001', '普通会员', 0, 1, 1);
 
 INSERT INTO Crm_MemberLevels (
     MemberLevelId, LevelName, MinSpent, DiscountRate, PointsMultiplier)
-VALUES ('00000000000000000000000000000002', '银卡会员', 1000, 0.98, 2);
+VALUES ('MEMBER_LEVEL_1', '白银贵宾', 1, 1, 1);
 
 INSERT INTO Crm_MemberLevels (
     MemberLevelId, LevelName, MinSpent, DiscountRate, PointsMultiplier)
-VALUES ('00000000000000000000000000000003', '金卡会员', 5000, 0.95, 3);
+VALUES ('MEMBER_LEVEL_500', '黄金贵宾', 500, 1, 1);
+
+INSERT INTO Crm_MemberLevels (
+    MemberLevelId, LevelName, MinSpent, DiscountRate, PointsMultiplier)
+VALUES ('MEMBER_LEVEL_2000', '铂金贵宾', 2000, 1, 1);
+
+INSERT INTO Crm_MemberLevels (
+    MemberLevelId, LevelName, MinSpent, DiscountRate, PointsMultiplier)
+VALUES ('MEMBER_LEVEL_5000', '钻石贵宾', 5000, 1, 1);
 
 INSERT INTO Crm_Customers (
     CustomerId, CustomerName, Phone, Email, PasswordHash, MemberLevelId,
@@ -214,7 +244,15 @@ VALUES (
     '10000000000000000000000000000001', 'B组演示消费者', '13800138000',
     'groupb-demo@example.com',
     'AQAAAAIAAYagAAAAELZ+JUYKNB5uhEWheNPT8V/P2ZU/5gCHQxkXY/P1OOizxu3qpbZoMEccZ7Pgs+EwKg==',
-    '00000000000000000000000000000001', 160, 16, 0, SYSDATE);
+    'MEMBER_LEVEL_1', 160, 16, 0, SYSDATE);
+
+INSERT INTO Crm_MemberLevelHistories (
+    HistoryId, CustomerId, MemberLevelId, QualifiedSpent, SettlementMonth,
+    CreatedAt)
+VALUES (
+    '80000000000000000000000000000001',
+    '10000000000000000000000000000001',
+    'MEMBER_LEVEL_1', 160, TRUNC(SYSDATE, 'MM'), SYSDATE);
 
 INSERT INTO Crm_UserAddresses (
     AddressId, CustomerId, ReceiverName, Phone, Province, City, District,
@@ -226,10 +264,10 @@ VALUES (
     '文三路演示园区1号', 1, SYSDATE);
 
 INSERT INTO Mkt_Coupons (
-    CouponId, CouponName, MinOrderAmount, DiscountAmount, TotalQuantity,
+    CouponId, CouponName, CouponType, MinOrderAmount, DiscountAmount, TotalQuantity,
     RemainingQuantity, StartTime, EndTime, Status)
 VALUES (
-    '30000000000000000000000000000001', '新人满100减20', 100, 20,
+    '30000000000000000000000000000001', '新人满100减20', 'NORMAL', 100, 20,
     100, 99, SYSDATE - 1, SYSDATE + 30, 1);
 
 INSERT INTO Biz_Orders (
