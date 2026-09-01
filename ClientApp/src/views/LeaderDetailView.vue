@@ -1,19 +1,52 @@
 <script setup>
 import { BadgeCheck, Heart, MapPin, PackageCheck, UsersRound } from '@lucide/vue'
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
+import { useCustomerContext } from '../state/customer'
 
 const props = defineProps({ id: { type: String, required: true } })
+const route = useRoute()
 const router = useRouter()
-const { leaderById, products, isLeaderFollowed, toggleLeaderFollow } = useShop()
+const { cart, leaderById, products, leadersLoading, leadersError, loadLeaders, loadCatalog, isLeaderFollowed, setLeaderFollowed } = useShop()
+const { customerId, isAuthenticated } = useCustomerContext()
 const leader = computed(() => leaderById(props.id))
-const leaderProducts = computed(() => products.filter((product) => product.leaderIds.includes(Number(props.id))))
+const leaderProducts = computed(() => products.filter((product) => product.leaderId === String(props.id)))
 const followed = computed(() => isLeaderFollowed(props.id))
+const followPending = ref(false)
+const followError = ref('')
 
-if (!leader.value) router.replace('/search')
+onMounted(async () => {
+  try {
+    await Promise.all([loadLeaders(), loadCatalog()])
+    if (!leader.value) await router.replace('/search')
+  } catch {
+    // 页面保留加载失败状态，允许消费者重试。
+  }
+})
+
+async function handleFollow() {
+  if (!isAuthenticated.value) {
+    router.push({ name: 'auth', query: { redirect: route.fullPath } })
+    return
+  }
+  followError.value = ''
+  if (followed.value && cart.some((item) => item.leaderId === leader.value.id)) {
+    followError.value = '购物车中仍有该团长的商品，请先清空相关商品后再取消关注'
+    return
+  }
+
+  followPending.value = true
+  try {
+    await setLeaderFollowed(customerId.value, leader.value.id, !followed.value)
+  } catch (error) {
+    followError.value = error.message
+  } finally {
+    followPending.value = false
+  }
+}
 </script>
 
 <template>
@@ -33,24 +66,31 @@ if (!leader.value) router.replace('/search')
           <p>{{ leader.description }}</p>
           <span class="leader-area"><MapPin :size="16" />{{ leader.area }}</span>
         </div>
-        <button class="btn leader-follow-button" :class="followed ? 'btn-light' : 'btn-buy'" type="button" @click="toggleLeaderFollow(leader.id)">
-          <Heart :size="17" :fill="followed ? 'currentColor' : 'none'" />{{ followed ? '取消关注' : '关注团长' }}
+        <button class="btn leader-follow-button" :class="followed ? 'btn-light' : 'btn-buy'" type="button" :disabled="followPending" @click="handleFollow">
+          <Heart :size="17" :fill="followed ? 'currentColor' : 'none'" />{{ !isAuthenticated ? '登录后关注' : followed ? '取消关注' : '关注团长' }}
         </button>
       </div>
     </section>
 
+    <div v-if="followError" class="store-container leader-follow-alert alert alert-warning" role="alert">{{ followError }}</div>
+
     <div class="store-container leader-stat-row">
       <div><PackageCheck :size="20" /><span><strong>{{ leaderProducts.length }}</strong><small>正在带货</small></span></div>
-      <div><UsersRound :size="20" /><span><strong>{{ leader.following + (followed ? 1 : 0) }}</strong><small>社区关注</small></span></div>
+      <div><UsersRound :size="20" /><span><strong>{{ followed ? '已关注' : '未关注' }}</strong><small>当前关注状态</small></span></div>
       <div><BadgeCheck :size="20" /><span><strong>已认证</strong><small>平台团长资质</small></span></div>
     </div>
 
     <div class="store-container home-section">
       <div class="section-title-row"><div><h2>{{ leader.name }}团长正在带货</h2></div></div>
       <div class="product-grid">
-        <ProductCard v-for="product in leaderProducts" :key="product.id" :product="product" :leader-id="leader.id" />
+        <ProductCard v-for="product in leaderProducts" :key="product.id" :product="product" />
       </div>
     </div>
+  </div>
+  <div v-else-if="leadersLoading" class="store-container page-space leader-detail-state" role="status">正在读取团长信息…</div>
+  <div v-else-if="leadersError" class="store-container page-space leader-detail-state" role="alert">
+    <span>{{ leadersError }}</span>
+    <button class="btn btn-outline-secondary" type="button" @click="loadLeaders(true)">重新加载</button>
   </div>
 </template>
 
@@ -66,12 +106,14 @@ if (!leader.value) router.replace('/search')
 .leader-profile-copy p { max-width: 650px; margin: 0 0 13px; color: #e0e7e3; font-size: 13px; line-height: 1.65; }
 .leader-area { display: inline-flex; align-items: center; gap: 5px; color: #c9d4cf; font-size: 11px; }
 .leader-follow-button { min-width: 120px; }
+.leader-follow-alert { margin-top: 14px; margin-bottom: 0; font-size: 12px; }
 .leader-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-top: 0; background: #fff; }
 .leader-stat-row > div { display: flex; min-height: 76px; align-items: center; justify-content: center; gap: 9px; border-right: 1px solid var(--line); color: var(--brand); }
 .leader-stat-row > div:last-child { border-right: 0; }
 .leader-stat-row span { display: flex; flex-direction: column; }
 .leader-stat-row strong { color: var(--ink); font-size: 14px; }
 .leader-stat-row small { color: var(--muted); font-size: 9px; }
+.leader-detail-state { display: flex; min-height: 240px; align-items: center; justify-content: center; gap: 12px; color: var(--muted); }
 
 @media (max-width: 767.98px) {
   .leader-profile-content { min-height: 330px; grid-template-columns: 82px 1fr; gap: 15px; padding: 25px 0; }

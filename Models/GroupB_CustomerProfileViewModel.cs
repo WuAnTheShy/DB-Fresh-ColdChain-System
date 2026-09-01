@@ -8,4 +8,5 @@ public sealed class CustomerProfileViewModel
     public required CrmCustomer Customer { get; init; }
     public CrmMemberLevel? MemberLevel { get; init; }
     public IReadOnlyList<CrmUserAddress> Addresses { get; init; } = [];
+    public IReadOnlyList<CrmMemberLevelHistory> MemberLevelHistory { get; init; } = [];
 }

@@ -13,6 +13,26 @@ public interface IOrderRepository
         string orderId,
         IDbTransaction transaction);
 
+    Task<List<BizOrder>> GetByCheckoutBatchAsync(
+        string checkoutBatchId,
+        string customerId,
+        IDbTransaction? transaction = null);
+
+    Task<List<BizOrder>> GetByCheckoutBatchForUpdateAsync(
+        string checkoutBatchId,
+        string customerId,
+        IDbTransaction transaction);
+
+    Task<List<BizOrder>> GetByCheckoutBatchForUpdateAsync(
+        string checkoutBatchId,
+        IDbTransaction transaction);
+
+    Task<List<string>> GetExpiredPendingCheckoutBatchIdsAsync(
+        DateTime now,
+        IDbTransaction? transaction = null);
+
+    Task<List<BizOrder>> GetShippedOrdersBeforeAsync(DateTime threshold, IDbTransaction? transaction = null);
+
     Task<List<BizOrder>> GetOrdersForCommissionExpiryAsync(
         DateTime threshold,
         IDbTransaction? transaction = null);
@@ -50,4 +70,21 @@ public interface IOrderRepository
     Task InsertDetailsAsync(
         IEnumerable<BizOrderDetail> details,
         IDbTransaction? transaction = null);
+
+    Task<decimal> GetCompletedSpentBeforeAsync(string customerId, DateTime cutoff, IDbTransaction? transaction = null);
+
+    Task<bool> TryConfirmDetailReceiptAsync(
+        string orderDetailId,
+        string orderId,
+        IDbTransaction transaction);
+
+    Task<bool> HasUnreceivedDetailsExceptAsync(
+        string orderId,
+        string excludedOrderDetailId,
+        IDbTransaction transaction);
+
+    Task<bool> UpdatePointsEarnedAsync(
+        string orderId,
+        int pointsEarned,
+        IDbTransaction transaction);
 }

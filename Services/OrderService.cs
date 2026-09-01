@@ -17,20 +17,32 @@ public sealed class OrderService : IOrderService
     private readonly ICustomerRepository _customerRepo;
     private readonly ICouponRepository _couponRepo;
     private readonly IPointRepository _pointRepo;
-    private readonly IInventoryService _inventoryService;
+    private readonly IGroupAInventoryGateway _inventoryService;
     private readonly ILogisticsService _logisticsService;
     private readonly ICommissionService _commissionService;
     private readonly IOrderTransactionManager _transactionManager;
+    private readonly IPromoterService? _promoterService;
+    private readonly IPaymentService? _paymentService;
+    private readonly IGroupCPromoterCatalogService? _promoterCatalogService;
+
+    private static readonly IReadOnlySet<string> SupportedBanks = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "中国工商银行", "中国农业银行", "中国银行", "中国建设银行",
+        "交通银行", "招商银行", "中国邮政储蓄银行", "浦发银行"
+    };
 
     public OrderService(
         IOrderRepository orderRepo,
         ICustomerRepository customerRepo,
         ICouponRepository couponRepo,
         IPointRepository pointRepo,
-        IInventoryService inventoryService,
+        IGroupAInventoryGateway inventoryService,
         ILogisticsService logisticsService,
         ICommissionService commissionService,
-        IOrderTransactionManager transactionManager)
+        IOrderTransactionManager transactionManager,
+        IPromoterService? promoterService = null,
+        IPaymentService? paymentService = null,
+        IGroupCPromoterCatalogService? promoterCatalogService = null)
     {
         _orderRepo = orderRepo;
         _customerRepo = customerRepo;
@@ -40,6 +52,514 @@ public sealed class OrderService : IOrderService
         _logisticsService = logisticsService;
         _commissionService = commissionService;
         _transactionManager = transactionManager;
+        _promoterService = promoterService;
+        _paymentService = paymentService;
+        _promoterCatalogService = promoterCatalogService;
+    }
+
+    public async Task<CheckoutBatchSummary?> GetCheckoutBatchAsync(
+        string checkoutBatchId,
+        string customerId)
+    {
+        if (!GroupBIds.IsValid(checkoutBatchId) || !GroupBIds.IsValid(customerId))
+            return null;
+
+        var orders = await _orderRepo.GetByCheckoutBatchAsync(checkoutBatchId, customerId);
+        if (orders.Count == 0) return null;
+        return CreateCheckoutBatchSummary(checkoutBatchId, orders);
+    }
+
+    public async Task<CheckoutBatchPaymentResult> PayCheckoutBatchAsync(
+        string checkoutBatchId,
+        string customerId,
+        CheckoutBatchPaymentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (!GroupBIds.IsValid(checkoutBatchId) || !GroupBIds.IsValid(customerId))
+            throw new OrderBusinessException("结算批次不存在");
+        if (_paymentService == null)
+            throw new OrderBusinessException("支付流水服务未配置");
+
+        var paymentMethod = request.PaymentMethod?.Trim().ToUpperInvariant() ?? string.Empty;
+        if (!CheckoutPaymentMethods.All.Contains(paymentMethod))
+            throw new OrderBusinessException("请选择微信、支付宝或银行卡支付");
+        var bankName = string.IsNullOrWhiteSpace(request.BankName) ? null : request.BankName.Trim();
+        if (paymentMethod == CheckoutPaymentMethods.BankCard &&
+            (bankName == null || !SupportedBanks.Contains(bankName)))
+        {
+            throw new OrderBusinessException("请选择支持的银行");
+        }
+        if (paymentMethod != CheckoutPaymentMethods.BankCard && bankName != null)
+            throw new OrderBusinessException("微信或支付宝支付无需选择银行");
+
+        return await _transactionManager.ExecuteAsync(async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var orders = await _orderRepo.GetByCheckoutBatchForUpdateAsync(
+                checkoutBatchId,
+                customerId,
+                transaction);
+            if (orders.Count == 0)
+                throw new OrderBusinessException("结算批次不存在或不属于当前消费者");
+
+            if (orders.All(order => order.OrderStatus == OrderStatusCodes.Paid))
+            {
+                return new CheckoutBatchPaymentResult
+                {
+                    CheckoutBatchId = checkoutBatchId,
+                    PaymentMethod = paymentMethod,
+                    BankName = bankName,
+                    PaidAmount = orders.Sum(order => order.FinalAmount),
+                    ChildOrderCount = orders.Count,
+                    PointsEarned = orders.Sum(order => order.PointsEarned),
+                    AlreadyPaid = true
+                };
+            }
+            if (orders.Any(order => order.OrderStatus != OrderStatusCodes.PendingPayment))
+                throw new OrderBusinessException("结算批次状态不一致，无法支付");
+
+            var customer = await _customerRepo.GetByIdForUpdateAsync(customerId, transaction)
+                ?? throw new OrderBusinessException("消费者不存在");
+
+            var expiresAt = orders.Min(order => order.PaymentExpiresAt)
+                ?? throw new OrderBusinessException("结算批次缺少支付截止时间");
+            if (expiresAt <= DateTime.Now)
+            {
+                foreach (var order in orders)
+                {
+                    var changed = await _orderRepo.TryUpdateStatusAsync(
+                        order.OrderId,
+                        OrderStatus.PendingPayment,
+                        OrderStatus.Cancelled,
+                        transaction);
+                    if (!changed)
+                        throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
+                }
+                var pointsToRestore = orders.Sum(order => order.PointsUsed);
+                if (pointsToRestore > 0)
+                {
+                    var restoredBalance = checked(customer.Points + pointsToRestore);
+                    await _customerRepo.UpdatePointsAsync(customerId, restoredBalance, transaction);
+                    await _pointRepo.InsertLogAsync(new CrmPointLog
+                    {
+                        PointLogId = GroupBIds.NewId(),
+                        CustomerId = customerId,
+                        ChangeAmount = pointsToRestore,
+                        BalanceAfter = restoredBalance,
+                        ChangeType = "ORDER_REDEEM_RESTORE",
+                        OrderId = orders[0].OrderId
+                    }, transaction);
+                }
+                return new CheckoutBatchPaymentResult
+                {
+                    CheckoutBatchId = checkoutBatchId,
+                    PaymentMethod = paymentMethod,
+                    BankName = bankName,
+                    ChildOrderCount = orders.Count,
+                    IsExpired = true
+                };
+            }
+
+            var transactionNo = $"SIM{DateTime.Now:yyyyMMddHHmmss}{Guid.NewGuid():N}"[..34];
+            var pointsEligibleAmount = orders.Sum(order =>
+                Math.Max(0m, order.FinalAmount - order.FreightAmount));
+            var totalPointsEarned = (int)Math.Floor(pointsEligibleAmount);
+            var remainingPointsEarned = totalPointsEarned;
+            for (var index = 0; index < orders.Count; index++)
+            {
+                var order = orders[index];
+                var orderEligibleAmount = Math.Max(0m, order.FinalAmount - order.FreightAmount);
+                var orderPointsEarned = index == orders.Count - 1
+                    ? remainingPointsEarned
+                    : Math.Min(remainingPointsEarned, (int)Math.Floor(orderEligibleAmount));
+                remainingPointsEarned -= orderPointsEarned;
+                var changed = await _orderRepo.TryUpdateStatusAsync(
+                    order.OrderId,
+                    OrderStatus.PendingPayment,
+                    OrderStatus.Paid,
+                    transaction);
+                if (!changed)
+                    throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
+                if (!await _orderRepo.UpdatePointsEarnedAsync(
+                    order.OrderId,
+                    orderPointsEarned,
+                    transaction))
+                    throw new OrderBusinessException("订单积分入账失败，请重试");
+
+                var paymentResult = await _paymentService.CreatePaymentRecord(
+                    new PaymentRequest
+                    {
+                        orderID = order.OrderId,
+                        payMethod = paymentMethod == CheckoutPaymentMethods.BankCard
+                            ? $"{paymentMethod}:{bankName}"
+                            : paymentMethod,
+                        transactionNo = transactionNo,
+                        payAmount = order.FinalAmount,
+                        status = "Success"
+                    },
+                    transaction,
+                    cancellationToken);
+                if (!paymentResult.IsSuccess)
+                {
+                    throw new OrderBusinessException(
+                        string.IsNullOrWhiteSpace(paymentResult.ErrorMessage)
+                            ? "支付流水写入失败"
+                            : paymentResult.ErrorMessage);
+                }
+            }
+
+            if (totalPointsEarned > 0)
+            {
+                var newPoints = checked(customer.Points + totalPointsEarned);
+                await _customerRepo.UpdatePointsAsync(customerId, newPoints, transaction);
+                await _pointRepo.InsertLogAsync(new CrmPointLog
+                {
+                    PointLogId = GroupBIds.NewId(),
+                    CustomerId = customerId,
+                    ChangeAmount = totalPointsEarned,
+                    BalanceAfter = newPoints,
+                    ChangeType = "ORDER_EARN",
+                    OrderId = orders[0].OrderId
+                }, transaction);
+            }
+
+            await UpdateCustomerSpentAndLevelAsync(
+                customer,
+                orders.Sum(order => order.FinalAmount),
+                transaction);
+
+            return new CheckoutBatchPaymentResult
+            {
+                CheckoutBatchId = checkoutBatchId,
+                TransactionNo = transactionNo,
+                PaymentMethod = paymentMethod,
+                BankName = bankName,
+                PaidAmount = orders.Sum(order => order.FinalAmount),
+                ChildOrderCount = orders.Count,
+                PointsEarned = totalPointsEarned
+            };
+        });
+    }
+
+    /// <summary>后台主动关闭已超过15分钟未支付的整个结算批次，并归还冻结积分。</summary>
+    public async Task<int> ExpirePendingCheckoutBatchesAsync(CancellationToken cancellationToken = default)
+    {
+        var batchIds = await _orderRepo.GetExpiredPendingCheckoutBatchIdsAsync(DateTime.Now);
+        var closed = 0;
+        foreach (var batchId in batchIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var expired = await _transactionManager.ExecuteAsync(async transaction =>
+            {
+                var orders = await _orderRepo.GetByCheckoutBatchForUpdateAsync(batchId, transaction);
+                if (orders.Count == 0 || orders.Any(order => order.OrderStatus != OrderStatusCodes.PendingPayment) ||
+                    orders.Min(order => order.PaymentExpiresAt) > DateTime.Now)
+                    return false;
+
+                var customerId = orders[0].CustomerId;
+                if (orders.Any(order => order.CustomerId != customerId))
+                    throw new OrderBusinessException("结算批次消费者数据不一致");
+                var customer = await _customerRepo.GetByIdForUpdateAsync(customerId, transaction)
+                    ?? throw new OrderBusinessException("消费者不存在");
+                foreach (var order in orders)
+                {
+                    if (!await _orderRepo.TryUpdateStatusAsync(order.OrderId, OrderStatus.PendingPayment, OrderStatus.Cancelled, transaction))
+                        throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
+                }
+                var pointsToRestore = orders.Sum(order => order.PointsUsed);
+                if (pointsToRestore > 0)
+                {
+                    var balance = checked(customer.Points + pointsToRestore);
+                    await _customerRepo.UpdatePointsAsync(customerId, balance, transaction);
+                    await _pointRepo.InsertLogAsync(new CrmPointLog
+                    {
+                        PointLogId = GroupBIds.NewId(), CustomerId = customerId,
+                        ChangeAmount = pointsToRestore, BalanceAfter = balance,
+                        ChangeType = "ORDER_REDEEM_RESTORE", OrderId = orders[0].OrderId
+                    }, transaction);
+                }
+                return true;
+            });
+            if (expired) closed++;
+        }
+        return closed;
+    }
+
+    /// <summary>发货满七天后自动确认子订单内全部商品收货，并完成订单。</summary>
+    public async Task<int> AutoConfirmShippedOrdersAsync(CancellationToken cancellationToken = default)
+    {
+        var candidates = await _orderRepo.GetShippedOrdersBeforeAsync(DateTime.Now.AddDays(-7));
+        var completed = 0;
+        foreach (var candidate in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var autoConfirmed = await _transactionManager.ExecuteAsync(async transaction =>
+            {
+                var context = await GetLockedOrderContextAsync(candidate.OrderId, transaction);
+                if (context.Order.OrderStatus != OrderStatusCodes.Shipped ||
+                    (context.Order.UpdatedAt ?? context.Order.CreatedAt) > DateTime.Now.AddDays(-7))
+                    return false;
+
+                foreach (var detail in context.Details.Where(detail =>
+                    !string.Equals(detail.ReceiptStatus, "RECEIVED", StringComparison.Ordinal)))
+                {
+                    if (!await _orderRepo.TryConfirmDetailReceiptAsync(detail.OrderDetailId, context.Order.OrderId, transaction))
+                        throw new OrderBusinessException("自动确认收货时商品状态已变化");
+                }
+
+                await RegisterCompletedOrderCommissionAsync(
+                    context,
+                    transaction,
+                    cancellationToken);
+                if (!await _orderRepo.TryUpdateStatusAsync(
+                    context.Order.OrderId, OrderStatus.Shipped, OrderStatus.Completed, transaction))
+                    throw new OrderBusinessException("自动确认收货时订单状态已变化");
+                return true;
+            });
+            if (autoConfirmed) completed++;
+        }
+        return completed;
+    }
+
+    /// <summary>
+    /// 将一次消费者结算按团长拆成多个待支付子订单。库存校验和全部子订单写入
+    /// 共用一个事务，任一商品缺货时整个批次回滚。
+    /// </summary>
+    public async Task<CreateCheckoutBatchResult> CreateCheckoutBatchAsync(
+        CreateOrderRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var batchItems = ValidateAndNormalizeBatchRequest(request);
+        if (_promoterService == null)
+            throw new OrderBusinessException("团长服务未配置，暂时无法结算");
+
+        var followedPromoterIds = (await _promoterService
+                .GetBoundPromoterIdsAsync(request.CustomerId))
+            .ToHashSet(StringComparer.Ordinal);
+        var missingFollow = batchItems
+            .Select(item => item.PromoterId)
+            .Distinct(StringComparer.Ordinal)
+            .FirstOrDefault(promoterId => !followedPromoterIds.Contains(promoterId));
+        if (missingFollow != null)
+            throw new OrderBusinessException("结算商品所属团长尚未关注，请刷新购物车后重试");
+
+        return await _transactionManager.ExecuteAsync(async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var customer = await _customerRepo.GetByIdForUpdateAsync(
+                    request.CustomerId,
+                    transaction)
+                ?? throw new OrderBusinessException("消费者不存在，无法创建结算批次");
+            var address = await _customerRepo.GetAddressAsync(
+                    request.CustomerId,
+                    request.AddressId,
+                    transaction)
+                ?? throw new OrderBusinessException("收货地址不存在或不属于当前消费者");
+
+            var reservationItems = batchItems.Select(item => new InventoryAvailabilityItem
+            {
+                ProductId = item.ProductId,
+                Quantity = item.Quantity
+            }).ToList();
+            var snapshots = await _inventoryService.CheckAvailabilityAsync(
+                reservationItems,
+                transaction,
+                cancellationToken);
+            var pricedSnapshots = await ValidatePromoterProductsAndApplyPricingAsync(
+                batchItems,
+                snapshots,
+                cancellationToken);
+            var details = CreateTrustedDetails(reservationItems, pricedSnapshots);
+            var itemsByProductId = batchItems.ToDictionary(
+                item => item.ProductId,
+                StringComparer.Ordinal);
+            var goodsAmount = details.Sum(detail => detail.SubTotal);
+            EnsureAmountFitsDatabase(goodsAmount);
+
+            var couponSelection = await ResolveCheckoutCouponsAsync(
+                request,
+                goodsAmount,
+                transaction);
+            var discountAmount = Math.Min(
+                couponSelection.Coupons.Sum(item => item.Usage.DiscountAmount),
+                goodsAmount);
+            if (request.PointsToUse < 0 || request.PointsToUse % 100 != 0)
+                throw new OrderBusinessException("抵扣积分必须为100的整数倍");
+            if (request.PointsToUse > customer.Points)
+                throw new OrderBusinessException("可用积分不足");
+            var maxPointsToUse = checked((int)Math.Floor(
+                Math.Max(0m, goodsAmount - discountAmount) * 0.10m) * 100);
+            if (request.PointsToUse > maxPointsToUse)
+                throw new OrderBusinessException($"本次最多可使用{maxPointsToUse}积分抵扣订单金额的10%");
+            var pointsDiscountAmount = request.PointsToUse / 100m;
+            var checkoutBatchId = GroupBIds.NewId();
+            var paymentExpiresAt = DateTime.Now.AddMinutes(15);
+            var groupedDetails = details
+                .GroupBy(detail => itemsByProductId[detail.ProductId].PromoterId)
+                .OrderBy(group => group.Key, StringComparer.Ordinal)
+                .ToList();
+
+            var remainingDiscount = discountAmount;
+            var remainingPointsDiscount = pointsDiscountAmount;
+            var remainingPointsUsed = request.PointsToUse;
+            var orderResults = new List<CreateOrderResult>(groupedDetails.Count);
+            for (var index = 0; index < groupedDetails.Count; index++)
+            {
+                var group = groupedDetails[index];
+                var groupDetails = group.ToList();
+                var groupGoodsAmount = groupDetails.Sum(detail => detail.SubTotal);
+                var groupDiscount = index == groupedDetails.Count - 1
+                    ? remainingDiscount
+                    : Math.Min(
+                        remainingDiscount,
+                        Math.Round(
+                            discountAmount * groupGoodsAmount / goodsAmount,
+                            2,
+                            MidpointRounding.AwayFromZero));
+                remainingDiscount -= groupDiscount;
+                var groupPointsDiscount = index == groupedDetails.Count - 1
+                    ? remainingPointsDiscount
+                    : Math.Min(
+                        remainingPointsDiscount,
+                        Math.Round(
+                            pointsDiscountAmount * (groupGoodsAmount - groupDiscount) /
+                            Math.Max(0.01m, goodsAmount - discountAmount),
+                            2,
+                            MidpointRounding.AwayFromZero));
+                var groupPointsUsed = index == groupedDetails.Count - 1
+                    ? remainingPointsUsed
+                    : Math.Min(remainingPointsUsed, (int)Math.Round(
+                        groupPointsDiscount * 100m,
+                        0,
+                        MidpointRounding.AwayFromZero));
+                remainingPointsDiscount -= groupPointsDiscount;
+                remainingPointsUsed -= groupPointsUsed;
+
+                var freightAmount = await _logisticsService.CalculateFreightAsync(
+                    new FreightCalculationRequest
+                    {
+                        CustomerId = customer.CustomerId,
+                        Province = address.Province,
+                        City = address.City,
+                        District = address.District,
+                        GoodsAmount = groupGoodsAmount,
+                        Items = CreateFulfillmentItems(groupDetails)
+                    },
+                    transaction,
+                    cancellationToken);
+                EnsureAmountFitsDatabase(freightAmount);
+                var finalAmount = groupGoodsAmount - groupDiscount - groupPointsDiscount + freightAmount;
+                EnsureAmountFitsDatabase(finalAmount);
+
+                var order = new BizOrder
+                {
+                    OrderId = GroupBIds.NewId(),
+                    OrderNo = GenerateOrderNo(),
+                    CustomerId = request.CustomerId,
+                    CheckoutBatchId = checkoutBatchId,
+                    PromoterId = group.Key,
+                    AddressId = request.AddressId,
+                    ReceiverName = address.ReceiverName,
+                    ReceiverPhone = address.Phone,
+                    ShippingAddress = CreateShippingAddress(address),
+                    TotalAmount = groupGoodsAmount,
+                    DiscountAmount = groupDiscount,
+                    FreightAmount = freightAmount,
+                    FinalAmount = finalAmount,
+                    PointsEarned = 0,
+                    PointsUsed = groupPointsUsed,
+                    PointsDiscountAmount = groupPointsDiscount,
+                    OrderStatus = OrderStatusCodes.PendingPayment,
+                    PaymentExpiresAt = paymentExpiresAt,
+                    CreatedAt = DateTime.Now
+                };
+
+                var orderId = await _orderRepo.CreateOrderAsync(order, transaction);
+                foreach (var detail in groupDetails)
+                    detail.OrderId = orderId;
+                await _orderRepo.InsertDetailsAsync(groupDetails, transaction);
+                orderResults.Add(new CreateOrderResult
+                {
+                    OrderId = orderId,
+                    OrderNo = order.OrderNo,
+                    GoodsAmount = groupGoodsAmount,
+                    DiscountAmount = groupDiscount,
+                    FreightAmount = freightAmount,
+                    FinalAmount = finalAmount,
+                    PointsEarned = 0,
+                    PointsUsed = groupPointsUsed,
+                    PointsDiscountAmount = groupPointsDiscount,
+                    SupplierGroups = CreateSupplierGroups(groupDetails)
+                });
+            }
+
+            foreach (var selectedCoupon in couponSelection.Coupons)
+            {
+                var couponUsed = await _couponRepo.TryUseCouponAsync(
+                    selectedCoupon.Usage.RecordId,
+                    request.CustomerId,
+                    orderResults[0].OrderId,
+                    transaction);
+                if (!couponUsed)
+                    throw new OrderBusinessException("优惠券已被使用，请重新选择");
+            }
+
+            if (request.PointsToUse > 0)
+            {
+                var newPoints = customer.Points - request.PointsToUse;
+                await _customerRepo.UpdatePointsAsync(customer.CustomerId, newPoints, transaction);
+                await _pointRepo.InsertLogAsync(new CrmPointLog
+                {
+                    PointLogId = GroupBIds.NewId(),
+                    CustomerId = customer.CustomerId,
+                    ChangeAmount = -request.PointsToUse,
+                    BalanceAfter = newPoints,
+                    ChangeType = "ORDER_REDEEM",
+                    OrderId = orderResults[0].OrderId
+                }, transaction);
+            }
+
+            var snapshotsById = pricedSnapshots.ToDictionary(
+                snapshot => snapshot.ProductId,
+                StringComparer.Ordinal);
+            var priceChanges = batchItems
+                .Where(item => item.ClientUnitPrice.HasValue &&
+                    item.ClientUnitPrice.Value != snapshotsById[item.ProductId].UnitPrice)
+                .Select(item => new OrderPriceChangeResult
+                {
+                    ProductId = item.ProductId,
+                    ProductName = snapshotsById[item.ProductId].ProductName,
+                    PreviousPrice = item.ClientUnitPrice!.Value,
+                    LatestPrice = snapshotsById[item.ProductId].UnitPrice
+                })
+                .ToList();
+
+            return new CreateCheckoutBatchResult
+            {
+                CheckoutBatchId = checkoutBatchId,
+                PaymentExpiresAt = paymentExpiresAt,
+                GoodsAmount = orderResults.Sum(order => order.GoodsAmount),
+                DiscountAmount = orderResults.Sum(order => order.DiscountAmount),
+                FreightAmount = orderResults.Sum(order => order.FreightAmount),
+                FinalAmount = orderResults.Sum(order => order.FinalAmount),
+                PointsUsed = request.PointsToUse,
+                PointsDiscountAmount = pointsDiscountAmount,
+                Orders = orderResults,
+                PriceChanges = priceChanges,
+                AppliedCoupons = couponSelection.Coupons.Select(item => new AppliedCouponResult
+                {
+                    RecordId = item.Usage.RecordId,
+                    CouponName = item.Usage.CouponName,
+                    CouponType = IsSpecialCoupon(item.Usage.CouponType) ? "SPECIAL" : "NORMAL",
+                    DiscountAmount = item.Usage.DiscountAmount,
+                    WasAutoClaimed = item.WasAutoClaimed
+                }).ToList()
+            };
+        });
     }
 
     /// <summary>
@@ -70,7 +590,7 @@ public sealed class OrderService : IOrderService
                 ?? throw new OrderBusinessException(
                     "收货地址不存在或不属于当前消费者");
 
-            var productSnapshots = await _inventoryService.ReserveAsync(
+            var productSnapshots = await _inventoryService.CheckAvailabilityAsync(
                 reservationItems,
                 transaction,
                 cancellationToken);
@@ -160,22 +680,10 @@ public sealed class OrderService : IOrderService
                 }, transaction);
             }
 
-            await _customerRepo.UpdateTotalSpentAsync(
-                customer.CustomerId,
+            await UpdateCustomerSpentAndLevelAsync(
+                customer,
                 finalAmount,
                 transaction);
-            var newTotalSpent = customer.TotalSpent + finalAmount;
-            var qualifiedLevel = await _pointRepo.GetLevelForSpentAsync(
-                newTotalSpent,
-                transaction);
-            if (qualifiedLevel != null &&
-                qualifiedLevel.MemberLevelId != customer.MemberLevelId)
-            {
-                await _customerRepo.UpdateMemberLevelAsync(
-                    customer.CustomerId,
-                    qualifiedLevel.MemberLevelId,
-                    transaction);
-            }
 
             return new CreateOrderResult
             {
@@ -283,14 +791,8 @@ public sealed class OrderService : IOrderService
             }
             else
             {
-                await _commissionService.RegisterCompletedOrderAsync(
-                    new CommissionOrderRequest
-                    {
-                        orderID = context.Order.OrderId,
-                        promoterID = context.Customer.PromoterId,
-                        finalAmount = context.Order.FinalAmount,
-                        goodsAmount = context.Order.TotalAmount
-                    },
+                await RegisterCompletedOrderCommissionAsync(
+                    context,
                     transaction,
                     cancellationToken);
             }
@@ -322,22 +824,34 @@ public sealed class OrderService : IOrderService
                 currentStatus,
                 OrderStatus.Cancelled);
 
-            await _inventoryService.ReleaseAsync(
-                CreateFulfillmentOrderRequest(
-                    context.Order,
-                    context.Details),
-                transaction,
-                cancellationToken);
+            var currentPoints = context.Customer.Points;
+            if (context.Order.PointsUsed > 0)
+            {
+                currentPoints = checked(currentPoints + context.Order.PointsUsed);
+                await _customerRepo.UpdatePointsAsync(
+                    context.Customer.CustomerId,
+                    currentPoints,
+                    transaction);
+                await _pointRepo.InsertLogAsync(new CrmPointLog
+                {
+                    PointLogId = GroupBIds.NewId(),
+                    CustomerId = context.Customer.CustomerId,
+                    ChangeAmount = context.Order.PointsUsed,
+                    BalanceAfter = currentPoints,
+                    ChangeType = "ORDER_REDEEM_RESTORE",
+                    OrderId = context.Order.OrderId
+                }, transaction);
+            }
 
             if (context.Order.PointsEarned > 0)
             {
-                if (context.Customer.Points < context.Order.PointsEarned)
+                if (currentPoints < context.Order.PointsEarned)
                 {
                     throw new OrderBusinessException(
                         "当前积分不足以撤销该订单奖励，请联系管理员处理");
                 }
 
-                var newPoints = context.Customer.Points - context.Order.PointsEarned;
+                var newPoints = currentPoints - context.Order.PointsEarned;
                 await _customerRepo.UpdatePointsAsync(
                     context.Customer.CustomerId,
                     newPoints,
@@ -353,33 +867,15 @@ public sealed class OrderService : IOrderService
                 }, transaction);
             }
 
-            if (!await _customerRepo.TrySubtractTotalSpentAsync(
-                context.Customer.CustomerId,
-                context.Order.FinalAmount,
-                transaction))
-            {
-                throw new OrderBusinessException(
-                    "累计消费金额不足以撤销该订单，请联系管理员处理");
-            }
-
             _ = await _couponRepo.RestoreCouponForCancelledOrderAsync(
                 context.Order.OrderId,
                 context.Customer.CustomerId,
                 transaction);
 
-            var newTotalSpent =
-                context.Customer.TotalSpent - context.Order.FinalAmount;
-            var qualifiedLevel = await _pointRepo.GetLevelForSpentAsync(
-                newTotalSpent,
+            await UpdateCustomerSpentAndLevelAsync(
+                context.Customer,
+                -context.Order.FinalAmount,
                 transaction);
-            if (qualifiedLevel != null &&
-                qualifiedLevel.MemberLevelId != context.Customer.MemberLevelId)
-            {
-                await _customerRepo.UpdateMemberLevelAsync(
-                    context.Customer.CustomerId,
-                    qualifiedLevel.MemberLevelId,
-                    transaction);
-            }
 
             if (!await _orderRepo.TryUpdateStatusAsync(
                 orderId,
@@ -440,16 +936,6 @@ public sealed class OrderService : IOrderService
                 throw new OrderBusinessException("退款积分流水已存在但订单状态不一致");
             }
 
-            if (currentStatus == OrderStatus.Paid)
-            {
-                await _inventoryService.ReleaseAsync(
-                    CreateFulfillmentOrderRequest(
-                        context.Order,
-                        context.Details),
-                    transaction,
-                    cancellationToken);
-            }
-
             var requestedDeduction = Math.Min(
                 pointsToDeduct,
                 context.Order.PointsEarned);
@@ -475,6 +961,11 @@ public sealed class OrderService : IOrderService
                 }, transaction);
             }
 
+            await UpdateCustomerSpentAndLevelAsync(
+                context.Customer,
+                -context.Order.FinalAmount,
+                transaction);
+
             if (!await _orderRepo.TryUpdateStatusAsync(
                 orderId,
                 currentStatus,
@@ -482,6 +973,24 @@ public sealed class OrderService : IOrderService
                 transaction))
             {
                 throw new OrderBusinessException("订单状态已变化，请刷新后重试");
+            }
+
+            // 同一结算批次的所有团长子订单均完成整单退款后，再归还本批次使用的券。
+            if (!string.IsNullOrWhiteSpace(context.Order.CheckoutBatchId))
+            {
+                var batchOrders = await _orderRepo.GetByCheckoutBatchForUpdateAsync(
+                    context.Order.CheckoutBatchId,
+                    customerId,
+                    transaction);
+                if (batchOrders.Count > 0 && batchOrders.All(order =>
+                    OrderStatusCodes.Parse(order.OrderStatus) == OrderStatus.Refunded))
+                {
+                    foreach (var batchOrder in batchOrders)
+                        _ = await _couponRepo.RestoreCouponForCancelledOrderAsync(
+                            batchOrder.OrderId,
+                            customerId,
+                            transaction);
+                }
             }
         });
     }
@@ -567,7 +1076,148 @@ public sealed class OrderService : IOrderService
         return await _pointRepo.GetLevelForSpentAsync(customer.TotalSpent);
     }
 
-    private static IReadOnlyList<InventoryReservationItem> ValidateAndNormalizeRequest(
+    private async Task UpdateCustomerSpentAndLevelAsync(
+        CrmCustomer customer,
+        decimal changeAmount,
+        IDbTransaction transaction)
+    {
+        var newTotalSpent = Math.Max(0m, customer.TotalSpent + changeAmount);
+        await _customerRepo.SetTotalSpentAsync(
+            customer.CustomerId,
+            newTotalSpent,
+            transaction);
+
+        var level = await _pointRepo.GetLevelForSpentAsync(
+            newTotalSpent,
+            transaction);
+        if (level != null &&
+            !string.Equals(
+                customer.MemberLevelId,
+                level.MemberLevelId,
+                StringComparison.Ordinal))
+        {
+            await _customerRepo.UpdateMemberLevelAsync(
+                customer.CustomerId,
+                level.MemberLevelId,
+                transaction);
+            customer.MemberLevelId = level.MemberLevelId;
+        }
+
+        customer.TotalSpent = newTotalSpent;
+    }
+
+    public async Task ConfirmOrderItemReceiptAsync(
+        string orderId,
+        string orderDetailId,
+        string customerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!GroupBIds.IsValid(orderId) || !GroupBIds.IsValid(orderDetailId))
+            throw new OrderBusinessException("订单或商品明细ID格式不正确");
+
+        await _transactionManager.ExecuteAsync(async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var context = await GetLockedOrderContextAsync(orderId, transaction);
+            if (!string.Equals(context.Customer.CustomerId, customerId, StringComparison.Ordinal))
+                throw new OrderBusinessException("订单不属于当前消费者");
+
+            var detail = context.Details.SingleOrDefault(item => item.OrderDetailId == orderDetailId)
+                ?? throw new OrderBusinessException("订单商品不存在");
+            if (string.Equals(detail.ReceiptStatus, "RECEIVED", StringComparison.Ordinal))
+                return;
+            if (context.Order.OrderStatus != OrderStatusCodes.Shipped)
+                throw new OrderBusinessException("商品发货后才能确认收货");
+
+            if (!await _orderRepo.TryConfirmDetailReceiptAsync(
+                orderDetailId,
+                orderId,
+                transaction))
+            {
+                throw new OrderBusinessException("商品收货状态已变化，请刷新后重试");
+            }
+
+            if (await _orderRepo.HasUnreceivedDetailsExceptAsync(
+                orderId,
+                orderDetailId,
+                transaction))
+            {
+                return;
+            }
+
+            await RegisterCompletedOrderCommissionAsync(
+                context,
+                transaction,
+                cancellationToken);
+            if (!await _orderRepo.TryUpdateStatusAsync(
+                orderId,
+                OrderStatus.Shipped,
+                OrderStatus.Completed,
+                transaction))
+            {
+                throw new OrderBusinessException("订单状态已变化，请刷新后重试");
+            }
+        });
+    }
+
+    private static IReadOnlyList<BatchOrderItem> ValidateAndNormalizeBatchRequest(
+        CreateOrderRequest request)
+    {
+        if (!GroupBIds.IsValid(request.CustomerId))
+            throw new OrderBusinessException("消费者ID格式不正确");
+        if (!GroupBIds.IsValid(request.AddressId))
+            throw new OrderBusinessException("收货地址ID格式不正确");
+        if (request.CouponRecordId != null && !GroupBIds.IsValid(request.CouponRecordId))
+            throw new OrderBusinessException("优惠券记录ID格式不正确");
+        if (request.StackableCouponRecordId != null &&
+            !GroupBIds.IsValid(request.StackableCouponRecordId))
+            throw new OrderBusinessException("特殊叠加券记录ID格式不正确");
+        if (request.CouponRecordId != null &&
+            request.CouponRecordId == request.StackableCouponRecordId)
+            throw new OrderBusinessException("同一张优惠券不能重复使用");
+        if (request.Items == null || request.Items.Count == 0)
+            throw new OrderBusinessException("结算批次至少需要一件商品");
+
+        var normalized = new Dictionary<string, BatchOrderItem>(StringComparer.Ordinal);
+        foreach (var item in request.Items)
+        {
+            var productId = item.ProductId?.Trim() ?? string.Empty;
+            var promoterId = item.PromoterId?.Trim() ?? string.Empty;
+            if (productId.Length is 0 or > 64)
+                throw new OrderBusinessException("商品ID不能为空且不能超过64个字符");
+            if (promoterId.Length is 0 or > 36)
+                throw new OrderBusinessException("团长ID不能为空且不能超过36个字符");
+            if (item.Quantity is <= 0 or > 9999)
+                throw new OrderBusinessException("商品数量必须在1到9999之间");
+
+            if (normalized.TryGetValue(productId, out var existing))
+            {
+                if (!string.Equals(existing.PromoterId, promoterId, StringComparison.Ordinal))
+                    throw new OrderBusinessException($"商品 {productId} 不能同时归属于多个团长");
+                if (existing.ClientUnitPrice != item.ClientUnitPrice)
+                    throw new OrderBusinessException($"商品 {productId} 的购物车价格数据不一致");
+                existing.Quantity = checked(existing.Quantity + item.Quantity);
+                if (existing.Quantity > 9999)
+                    throw new OrderBusinessException($"商品 {productId} 的合计数量不能超过9999");
+                continue;
+            }
+
+            normalized[productId] = new BatchOrderItem
+            {
+                ProductId = productId,
+                PromoterId = promoterId,
+                Quantity = item.Quantity,
+                ClientUnitPrice = item.ClientUnitPrice
+            };
+        }
+
+        return normalized.Values
+            .OrderBy(item => item.PromoterId, StringComparer.Ordinal)
+            .ThenBy(item => item.ProductId, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static IReadOnlyList<InventoryAvailabilityItem> ValidateAndNormalizeRequest(
         CreateOrderRequest request)
     {
         if (!GroupBIds.IsValid(request.CustomerId))
@@ -578,6 +1228,11 @@ public sealed class OrderService : IOrderService
             !GroupBIds.IsValid(request.CouponRecordId))
         {
             throw new OrderBusinessException("优惠券记录ID格式不正确");
+        }
+        if (request.StackableCouponRecordId != null &&
+            !GroupBIds.IsValid(request.StackableCouponRecordId))
+        {
+            throw new OrderBusinessException("特殊叠加券记录ID格式不正确");
         }
         if (request.Items == null || request.Items.Count == 0)
             throw new OrderBusinessException("订单至少需要一件商品");
@@ -602,7 +1257,7 @@ public sealed class OrderService : IOrderService
 
         return quantities
             .OrderBy(pair => pair.Key, StringComparer.Ordinal)
-            .Select(pair => new InventoryReservationItem
+            .Select(pair => new InventoryAvailabilityItem
             {
                 ProductId = pair.Key,
                 Quantity = pair.Value
@@ -610,8 +1265,96 @@ public sealed class OrderService : IOrderService
             .ToList();
     }
 
+    private async Task<IReadOnlyList<InventoryProductSnapshot>>
+        ValidatePromoterProductsAndApplyPricingAsync(
+            IReadOnlyList<BatchOrderItem> batchItems,
+            IReadOnlyList<InventoryProductSnapshot> snapshots,
+            CancellationToken cancellationToken)
+    {
+        if (_promoterCatalogService == null)
+            throw new OrderBusinessException("团长商品目录服务未配置，暂时无法结算");
+
+        var snapshotMap = snapshots.ToDictionary(
+            snapshot => snapshot.ProductId,
+            StringComparer.Ordinal);
+        var validated = new Dictionary<string, InventoryProductSnapshot>(StringComparer.Ordinal);
+
+        foreach (var promoterGroup in batchItems
+                     .GroupBy(item => item.PromoterId, StringComparer.Ordinal)
+                     .OrderBy(group => group.Key, StringComparer.Ordinal))
+        {
+            var candidates = promoterGroup.Select(item =>
+            {
+                if (!snapshotMap.TryGetValue(item.ProductId, out var snapshot))
+                    throw new OrderBusinessException($"库存服务未返回商品 {item.ProductId}");
+                return new GroupCPromoterProductCandidate
+                {
+                    ProductId = item.ProductId,
+                    SupplierId = snapshot.SupplierId
+                };
+            }).ToList();
+            var validations = await _promoterCatalogService.ValidatePromoterProductsAsync(
+                promoterGroup.Key,
+                candidates,
+                cancellationToken);
+            var validationMap = validations.ToDictionary(
+                validation => validation.ProductId,
+                StringComparer.Ordinal);
+
+            foreach (var candidate in candidates)
+            {
+                if (!validationMap.TryGetValue(candidate.ProductId, out var validation) ||
+                    !validation.IsAllowed)
+                {
+                    throw new OrderBusinessException(
+                        $"团长 {promoterGroup.Key} 无权销售商品 {candidate.ProductId}");
+                }
+
+                var source = snapshotMap[candidate.ProductId];
+                var salePrice = validation.SalePrice ?? source.UnitPrice;
+                if (salePrice <= 0 || salePrice > MaxOrderAmount)
+                    throw new OrderBusinessException($"商品 {candidate.ProductId} 的团长售价无效");
+                validated[candidate.ProductId] = new InventoryProductSnapshot
+                {
+                    ProductId = source.ProductId,
+                    ProductName = source.ProductName,
+                    SupplierId = source.SupplierId,
+                    UnitPrice = salePrice
+                };
+            }
+        }
+
+        if (validated.Count != snapshots.Count)
+            throw new OrderBusinessException("团长商品校验结果不完整");
+        return snapshots.Select(snapshot => validated[snapshot.ProductId]).ToList();
+    }
+
+    private async Task RegisterCompletedOrderCommissionAsync(
+        LockedOrderContext context,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var result = await _commissionService.RegisterCompletedOrderAsync(
+            new CommissionOrderRequest
+            {
+                orderID = context.Order.OrderId,
+                promoterID = context.Order.PromoterId ?? context.Customer.PromoterId,
+                finalAmount = context.Order.FinalAmount,
+                goodsAmount = context.Order.TotalAmount
+            },
+            transaction,
+            cancellationToken);
+        if (!result.IsSuccess)
+        {
+            throw new OrderBusinessException(
+                string.IsNullOrWhiteSpace(result.ErrorMessage)
+                    ? "佣金登记失败"
+                    : result.ErrorMessage);
+        }
+    }
+
     private static List<BizOrderDetail> CreateTrustedDetails(
-        IReadOnlyList<InventoryReservationItem> reservationItems,
+        IReadOnlyList<InventoryAvailabilityItem> reservationItems,
         IReadOnlyList<InventoryProductSnapshot> productSnapshots)
     {
         if (productSnapshots.Count != reservationItems.Count)
@@ -655,6 +1398,113 @@ public sealed class OrderService : IOrderService
 
         return details;
     }
+
+    private async Task<CheckoutCouponSelection> ResolveCheckoutCouponsAsync(
+        CreateOrderRequest request,
+        decimal goodsAmount,
+        IDbTransaction transaction)
+    {
+        var selected = new List<SelectedCoupon>(2);
+        await AddExplicitCouponAsync(request.CouponRecordId, false);
+        await AddExplicitCouponAsync(request.StackableCouponRecordId, true);
+
+        var available = await _couponRepo.GetAvailableCouponsAsync(
+            request.CustomerId,
+            transaction);
+        var claimable = await _couponRepo.GetClaimableCouponsAsync(
+            request.CustomerId,
+            transaction);
+
+        await SelectBestForTypeAsync(false);
+        await SelectBestForTypeAsync(true);
+        return new CheckoutCouponSelection(selected);
+
+        async Task AddExplicitCouponAsync(string? recordId, bool specialExpected)
+        {
+            if (recordId == null)
+                return;
+            var usage = await GetCouponAsync(recordId, request.CustomerId, goodsAmount, transaction);
+            if (usage == null)
+                return;
+            if (IsSpecialCoupon(usage.CouponType) != specialExpected)
+                throw new OrderBusinessException(specialExpected
+                    ? "所选优惠券不是特殊叠加券"
+                    : "普通优惠券栏不能选择特殊叠加券");
+            selected.Add(new SelectedCoupon(usage, false));
+        }
+
+        async Task SelectBestForTypeAsync(bool special)
+        {
+            if (selected.Any(item => IsSpecialCoupon(item.Usage.CouponType) == special))
+                return;
+
+            var bestAvailable = available
+                .Where(item => item.MinOrderAmount <= goodsAmount &&
+                    IsSpecialCoupon(item.CouponType) == special)
+                .OrderByDescending(item => item.DiscountAmount)
+                .ThenBy(item => item.EndTime)
+                .FirstOrDefault();
+            var bestClaimable = claimable
+                .Where(item => item.HasClaimed == 0 &&
+                    item.RemainingQuantity > 0 &&
+                    item.MinOrderAmount <= goodsAmount &&
+                    IsSpecialCoupon(item.CouponType) == special)
+                .OrderByDescending(item => item.DiscountAmount)
+                .ThenBy(item => item.EndTime)
+                .FirstOrDefault();
+
+            if (bestAvailable != null &&
+                (bestClaimable == null ||
+                 bestAvailable.DiscountAmount >= bestClaimable.DiscountAmount))
+            {
+                var usage = await GetCouponAsync(
+                    bestAvailable.RecordId,
+                    request.CustomerId,
+                    goodsAmount,
+                    transaction);
+                if (usage != null)
+                    selected.Add(new SelectedCoupon(usage, false));
+                return;
+            }
+
+            if (bestClaimable == null)
+                return;
+            var template = await _couponRepo.GetCouponTemplateForUpdateAsync(
+                bestClaimable.CouponId,
+                transaction);
+            if (template == null || template.Status != 1 ||
+                template.StartTime > DateTime.Now || template.EndTime < DateTime.Now ||
+                template.RemainingQuantity <= 0 || template.MinOrderAmount > goodsAmount ||
+                IsSpecialCoupon(template.CouponType) != special ||
+                await _couponRepo.HasCustomerClaimedCouponAsync(
+                    request.CustomerId,
+                    template.CouponId,
+                    transaction))
+                return;
+            if (!await _couponRepo.DecrementCouponStockAsync(template.CouponId, transaction))
+                return;
+
+            var recordId = GroupBIds.NewId();
+            await _couponRepo.CreateCouponRecordAsync(
+                recordId,
+                request.CustomerId,
+                template.CouponId,
+                transaction);
+            var claimedUsage = await GetCouponAsync(
+                recordId,
+                request.CustomerId,
+                goodsAmount,
+                transaction);
+            if (claimedUsage != null)
+                selected.Add(new SelectedCoupon(claimedUsage, true));
+        }
+    }
+
+    private static bool IsSpecialCoupon(string? couponType) =>
+        string.Equals(couponType?.Trim(), "SPECIAL", StringComparison.OrdinalIgnoreCase);
+
+    private sealed record SelectedCoupon(MktCouponUsage Usage, bool WasAutoClaimed);
+    private sealed record CheckoutCouponSelection(IReadOnlyList<SelectedCoupon> Coupons);
 
     private async Task<MktCouponUsage?> GetCouponAsync(
         string? couponRecordId,
@@ -728,6 +1578,29 @@ public sealed class OrderService : IOrderService
             throw new OrderBusinessException("关键词不能超过50个字符");
         request.Page = Math.Max(1, request.Page);
         request.PageSize = Math.Clamp(request.PageSize, 1, 50);
+    }
+
+    private static CheckoutBatchSummary CreateCheckoutBatchSummary(
+        string checkoutBatchId,
+        IReadOnlyList<BizOrder> orders)
+    {
+        var statuses = orders.Select(order => order.OrderStatus).Distinct(StringComparer.Ordinal).ToList();
+        return new CheckoutBatchSummary
+        {
+            CheckoutBatchId = checkoutBatchId,
+            PaymentExpiresAt = orders.Min(order => order.PaymentExpiresAt) ?? orders.Min(order => order.CreatedAt),
+            OrderStatus = statuses.Count == 1 ? statuses[0] : "MIXED",
+            FinalAmount = orders.Sum(order => order.FinalAmount),
+            ChildOrderCount = orders.Count,
+            Orders = orders.Select(order => new CheckoutBatchOrderSummary
+            {
+                OrderId = order.OrderId,
+                OrderNo = order.OrderNo,
+                PromoterId = order.PromoterId ?? string.Empty,
+                FinalAmount = order.FinalAmount,
+                OrderStatus = order.OrderStatus
+            }).ToList()
+        };
     }
 
     private static string CreateShippingAddress(CrmUserAddress address)
@@ -851,5 +1724,13 @@ public sealed class OrderService : IOrderService
         public required BizOrder Order { get; init; }
         public required CrmCustomer Customer { get; init; }
         public required List<BizOrderDetail> Details { get; init; }
+    }
+
+    private sealed class BatchOrderItem
+    {
+        public string ProductId { get; init; } = string.Empty;
+        public string PromoterId { get; init; } = string.Empty;
+        public int Quantity { get; set; }
+        public decimal? ClientUnitPrice { get; init; }
     }
 }

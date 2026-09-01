@@ -14,12 +14,12 @@ internal static class OrderLifecycleScenarioTests
             ("下单使用运费契约并保存地址快照", CreateOrderUsesFreightAndAddressSnapshotAsync),
             ("已支付订单发货时同步创建物流", PaidOrderShipsAsync),
             ("已发货订单完成时触发佣金登记", ShippedOrderCompletesAsync),
+            ("已发货商品逐项确认且最后一项自动完成子订单", ItemReceiptCompletesAfterLastItemAsync),
             ("非法状态跳转被拒绝并回滚", InvalidTransitionRollsBackAsync),
             ("佣金登记失败时订单完成回滚", CommissionFailureRollsBackAsync),
-            ("取消订单归还库存和营销资产", CancellationCompensatesAssetsAsync),
-            ("库存释放失败时取消订单整体回滚", ReleaseFailureRollsBackCancellationAsync),
-            ("未发货退款幂等释放库存并阻止再次发货", PaidRefundIsIdempotentAndPreventsShipmentAsync),
-            ("已发货退款不错误回补库存", ShippedRefundDoesNotReleaseInventoryAsync),
+            ("取消订单归还营销资产", CancellationCompensatesAssetsAsync),
+            ("未发货退款幂等处理并阻止再次发货", PaidRefundIsIdempotentAndPreventsShipmentAsync),
+            ("已发货退款正确扣回营销资产", ShippedRefundDeductsAssetsAsync),
             ("退款消费者与订单不匹配时整体回滚", RefundCustomerMismatchRollsBackAsync)
         };
 
@@ -139,6 +139,33 @@ internal static class OrderLifecycleScenarioTests
         AssertCommitted(context);
     }
 
+    private static async Task ItemReceiptCompletesAfterLastItemAsync()
+    {
+        var context = TestContext.Create();
+        context.CustomerRepository.Customer.PromoterId = "customer-promoter";
+        SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-ITEM-RECEIPT");
+        context.OrderRepository.Orders[0].PromoterId = "order-promoter";
+
+        await context.Service.ConfirmOrderItemReceiptAsync(
+            TestIds.Order,
+            $"{TestIds.Order}-detail-1",
+            TestIds.Customer);
+
+        AssertEx.Equal("RECEIVED", context.OrderRepository.Details[0].ReceiptStatus);
+        AssertEx.Equal(OrderStatusCodes.Shipped, context.OrderRepository.Orders[0].OrderStatus);
+        AssertEx.Equal(0, context.CommissionService.CompletedOrders.Count);
+
+        await context.Service.ConfirmOrderItemReceiptAsync(
+            TestIds.Order,
+            $"{TestIds.Order}-detail-2",
+            TestIds.Customer);
+
+        AssertEx.True(context.OrderRepository.Details.All(detail => detail.ReceiptStatus == "RECEIVED"));
+        AssertEx.Equal(OrderStatusCodes.Completed, context.OrderRepository.Orders[0].OrderStatus);
+        AssertEx.Equal(1, context.CommissionService.CompletedOrders.Count);
+        AssertEx.Equal("order-promoter", context.CommissionService.CompletedOrders[0].promoterID);
+    }
+
     private static async Task InvalidTransitionRollsBackAsync()
     {
         var context = TestContext.Create();
@@ -158,10 +185,9 @@ internal static class OrderLifecycleScenarioTests
     {
         var context = TestContext.Create();
         SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-COMM-FAIL-001");
-        context.CommissionService.ExceptionToThrow =
-            new InvalidOperationException("模拟佣金登记失败");
+        context.CommissionService.ReturnFailure = true;
 
-        await AssertEx.ThrowsAsync<InvalidOperationException>(() =>
+        await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
             context.Service.TransitionOrderAsync(TestIds.Order, OrderStatus.Completed));
 
         AssertEx.Equal(
@@ -199,31 +225,8 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal(TestIds.Level1, context.CustomerRepository.Customer.MemberLevelId);
         AssertEx.Equal(0, context.CouponRepository.Records[0].Status);
         AssertEx.Equal(null, context.CouponRepository.Records[0].OrderId);
-        AssertEx.Equal(1, context.InventoryService.ReleasedOrderIds.Count);
         AssertEx.Equal(-30, context.PointRepository.Logs.Single().ChangeAmount);
         AssertCommitted(context);
-    }
-
-    private static async Task ReleaseFailureRollsBackCancellationAsync()
-    {
-        var context = TestContext.Create();
-        context.CustomerRepository.Customer.Points = 130;
-        context.CustomerRepository.Customer.TotalSpent = 130m;
-        SeedOrder(context, TestIds.Order, OrderStatus.Paid, "ORD-RELEASE-FAIL-001", pointsEarned: 30);
-        context.InventoryService.ReleaseExceptionToThrow =
-            new InvalidOperationException("模拟库存释放失败");
-
-        await AssertEx.ThrowsAsync<InvalidOperationException>(() =>
-            context.Service.CancelOrderAsync(TestIds.Order));
-
-        AssertEx.Equal(
-            OrderStatusCodes.Paid,
-            context.OrderRepository.Orders[0].OrderStatus);
-        AssertEx.Equal(130, context.CustomerRepository.Customer.Points);
-        AssertEx.Equal(130m, context.CustomerRepository.Customer.TotalSpent);
-        AssertEx.Equal(0, context.InventoryService.ReleasedOrderIds.Count);
-        AssertEx.Equal(0, context.PointRepository.Logs.Count);
-        AssertRolledBack(context);
     }
 
     private static async Task PaidRefundIsIdempotentAndPreventsShipmentAsync()
@@ -244,7 +247,6 @@ internal static class OrderLifecycleScenarioTests
             OrderStatusCodes.Refunded,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(100, context.CustomerRepository.Customer.Points);
-        AssertEx.Equal(1, context.InventoryService.ReleasedOrderIds.Count);
         AssertEx.Equal(1, context.PointRepository.Logs.Count);
         AssertEx.Equal(-30, context.PointRepository.Logs[0].ChangeAmount);
 
@@ -253,7 +255,7 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal(0, context.LogisticsService.ShippedOrderIds.Count);
     }
 
-    private static async Task ShippedRefundDoesNotReleaseInventoryAsync()
+    private static async Task ShippedRefundDeductsAssetsAsync()
     {
         var context = TestContext.Create();
         context.CustomerRepository.Customer.Points = 130;
@@ -270,7 +272,6 @@ internal static class OrderLifecycleScenarioTests
             OrderStatusCodes.Refunded,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(100, context.CustomerRepository.Customer.Points);
-        AssertEx.Equal(0, context.InventoryService.ReleasedOrderIds.Count);
         AssertCommitted(context);
     }
 
@@ -292,7 +293,6 @@ internal static class OrderLifecycleScenarioTests
             OrderStatusCodes.Paid,
             context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(130, context.CustomerRepository.Customer.Points);
-        AssertEx.Equal(0, context.InventoryService.ReleasedOrderIds.Count);
         AssertEx.Equal(0, context.PointRepository.Logs.Count);
         AssertRolledBack(context);
     }

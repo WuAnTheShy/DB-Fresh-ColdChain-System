@@ -12,6 +12,7 @@ internal static class CustomerMarketingScenarioTests
             ("新增消费者使用密码哈希并初始化基础等级", CustomerCreationHashesPasswordAsync),
             ("注册后可使用统一入口登录", RegisteredCustomerCanLoginAsync),
             ("登录失败不泄露账号是否存在", LoginFailureUsesGenericMessageAsync),
+            ("模拟短信验证码可重置密码并使旧登录版本失效", PasswordResetInvalidatesSessionsAsync),
             ("消费者资料只更新允许维护的字段", ProfileUpdateCommitsAsync),
             ("第一条地址自动成为默认地址", FirstAddressBecomesDefaultAsync),
             ("编辑唯一地址时保持默认地址不变量", EditingOnlyAddressKeepsDefaultAsync),
@@ -121,6 +122,43 @@ internal static class CustomerMarketingScenarioTests
             }));
 
         AssertEx.Equal("手机号或密码错误", exception.Message);
+    }
+
+    private static async Task PasswordResetInvalidatesSessionsAsync()
+    {
+        var context = TestContext.Create();
+        var registration = CreateCustomerRequest();
+        var customerId = await context.CustomerService.CreateCustomerAsync(registration);
+        var versionBeforeReset = context.AuthenticationState.GetAuthenticationVersion(customerId);
+        var code = await context.CustomerService.SendPasswordResetCodeAsync(
+            new GroupBCustomerPasswordResetCodeRequest { Phone = registration.Phone });
+
+        await context.CustomerService.ResetPasswordAsync(
+            new GroupBCustomerPasswordResetRequest
+            {
+                Phone = registration.Phone,
+                VerificationId = code.VerificationId,
+                Code = code.SimulatedCode,
+                NewPassword = "NewSafePass456!",
+                ConfirmPassword = "NewSafePass456!"
+            });
+
+        AssertEx.Equal(
+            versionBeforeReset + 1,
+            context.AuthenticationState.GetAuthenticationVersion(customerId));
+        await AssertEx.ThrowsAsync<GroupBBusinessException>(() =>
+            context.CustomerService.LoginAsync(new GroupBCustomerLoginRequest
+            {
+                Phone = registration.Phone,
+                Password = registration.Password
+            }));
+        var login = await context.CustomerService.LoginAsync(new GroupBCustomerLoginRequest
+        {
+            Phone = registration.Phone,
+            Password = "NewSafePass456!"
+        });
+        AssertEx.Equal(customerId, login.CustomerId);
+        AssertCommitted(context);
     }
 
     private static async Task FirstAddressBecomesDefaultAsync()

@@ -36,17 +36,20 @@ public sealed class CustomerService : ICustomerService
     private readonly IPointRepository _pointRepo;
     private readonly IOrderTransactionManager _transactionManager;
     private readonly IPasswordHasher<CrmCustomer> _passwordHasher;
+    private readonly CustomerAuthenticationStateService _authenticationState;
 
     public CustomerService(
         ICustomerRepository customerRepo,
         IPointRepository pointRepo,
         IOrderTransactionManager transactionManager,
-        IPasswordHasher<CrmCustomer> passwordHasher)
+        IPasswordHasher<CrmCustomer> passwordHasher,
+        CustomerAuthenticationStateService authenticationState)
     {
         _customerRepo = customerRepo;
         _pointRepo = pointRepo;
         _transactionManager = transactionManager;
         _passwordHasher = passwordHasher;
+        _authenticationState = authenticationState;
     }
 
     public async Task<string> CreateCustomerAsync(CustomerCreateRequest request)
@@ -112,6 +115,62 @@ public sealed class CustomerService : ICustomerService
         };
     }
 
+    public async Task<GroupBCustomerPasswordResetCodeResult> SendPasswordResetCodeAsync(
+        GroupBCustomerPasswordResetCodeRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        request.Phone = request.Phone?.Trim() ?? string.Empty;
+        if (!MainlandPhonePattern.IsMatch(request.Phone))
+            throw new GroupBBusinessException("请输入11位中国大陆手机号码");
+
+        if (await _customerRepo.GetByPhoneAsync(request.Phone) == null)
+            throw new GroupBBusinessException("该手机号码尚未注册");
+
+        return _authenticationState.IssuePasswordResetCode(request.Phone);
+    }
+
+    public async Task ResetPasswordAsync(GroupBCustomerPasswordResetRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        request.Phone = request.Phone?.Trim() ?? string.Empty;
+        request.VerificationId = request.VerificationId?.Trim() ?? string.Empty;
+        request.Code = request.Code?.Trim() ?? string.Empty;
+
+        if (!MainlandPhonePattern.IsMatch(request.Phone))
+            throw new GroupBBusinessException("请输入11位中国大陆手机号码");
+        if (request.VerificationId.Length == 0 || !Regex.IsMatch(request.Code, @"^\d{6}$"))
+            throw new GroupBBusinessException("验证码格式不正确");
+        ValidatePassword(request.NewPassword, request.ConfirmPassword);
+
+        var customerId = await _transactionManager.ExecuteAsync(async transaction =>
+        {
+            var customer = await _customerRepo.GetByPhoneForUpdateAsync(
+                    request.Phone,
+                    transaction)
+                ?? throw new GroupBBusinessException("该手机号码尚未注册");
+
+            _authenticationState.ConsumePasswordResetCode(
+                request.Phone,
+                request.VerificationId,
+                request.Code);
+
+            var passwordHash = _passwordHasher.HashPassword(
+                customer,
+                request.NewPassword);
+            if (!await _customerRepo.UpdatePasswordHashAsync(
+                customer.CustomerId,
+                passwordHash,
+                transaction))
+            {
+                throw new GroupBBusinessException("密码重置失败，请重新获取验证码后再试");
+            }
+
+            return customer.CustomerId;
+        });
+
+        _authenticationState.InvalidateSessions(customerId);
+    }
+
     public async Task<CrmCustomer?> GetCustomerAsync(string customerId)
     {
         return !GroupBIds.IsValid(customerId)
@@ -129,6 +188,7 @@ public sealed class CustomerService : ICustomerService
             return null;
 
         var addressesTask = _customerRepo.GetAddressesAsync(customerId);
+        var historyTask = _pointRepo.GetMemberLevelHistoryAsync(customerId);
         var levelTask = customer.MemberLevelId != null
             ? _pointRepo.GetLevelByIdAsync(customer.MemberLevelId)
             : _pointRepo.GetLevelForSpentAsync(customer.TotalSpent);
@@ -138,7 +198,8 @@ public sealed class CustomerService : ICustomerService
         {
             Customer = customer,
             MemberLevel = await levelTask,
-            Addresses = await addressesTask
+            Addresses = await addressesTask,
+            MemberLevelHistory = await historyTask
         };
     }
 
@@ -407,16 +468,17 @@ public sealed class CustomerService : ICustomerService
         {
             throw new GroupBBusinessException("请输入有效的邮箱地址");
         }
+
         request.Avatar = NormalizeAvatar(request.Avatar);
-        if (request.Password.Length is < 8 or > 100)
+        ValidatePassword(request.Password, request.ConfirmPassword);
+    }
+
+    private static void ValidatePassword(string? password, string? confirmPassword)
+    {
+        if (password is null || password.Length is < 8 or > 100)
             throw new GroupBBusinessException("密码长度必须为8到100个字符");
-        if (!string.Equals(
-            request.Password,
-            request.ConfirmPassword,
-            StringComparison.Ordinal))
-        {
+        if (!string.Equals(password, confirmPassword, StringComparison.Ordinal))
             throw new GroupBBusinessException("两次输入的密码不一致");
-        }
     }
 
     private static void NormalizeAndValidateAddress(AddressUpsertRequest request)

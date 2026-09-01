@@ -1,5 +1,6 @@
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
+using FreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FreshColdChain.Controllers.Api;
@@ -12,7 +13,8 @@ public sealed class GroupBAuthApiController : GroupBApiController
     [HttpPost("register")]
     public async Task<IActionResult> Register(
         CustomerCreateRequest request,
-        [FromServices] ICustomerService customerService)
+        [FromServices] ICustomerService customerService,
+        [FromServices] CustomerAuthenticationStateService authenticationState)
     {
         var customerId = await customerService.CreateCustomerAsync(request);
         var result = new GroupBCustomerLoginResult
@@ -22,21 +24,38 @@ public sealed class GroupBAuthApiController : GroupBApiController
             Phone = request.Phone,
             Avatar = request.Avatar
         };
-        SignIn(result);
+        SignIn(result, authenticationState.GetAuthenticationVersion(customerId));
 
-        return StatusCode(
-            StatusCodes.Status201Created,
-            result);
+        return StatusCode(StatusCodes.Status201Created, result);
     }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login(
         GroupBCustomerLoginRequest request,
-        [FromServices] ICustomerService customerService)
+        [FromServices] ICustomerService customerService,
+        [FromServices] CustomerAuthenticationStateService authenticationState)
     {
         var result = await customerService.LoginAsync(request);
-        SignIn(result);
+        SignIn(result, authenticationState.GetAuthenticationVersion(result.CustomerId));
         return Ok(result);
+    }
+
+    [HttpPost("password-reset/code")]
+    public async Task<IActionResult> SendPasswordResetCode(
+        GroupBCustomerPasswordResetCodeRequest request,
+        [FromServices] ICustomerService customerService)
+    {
+        return Ok(await customerService.SendPasswordResetCodeAsync(request));
+    }
+
+    [HttpPost("password-reset")]
+    public async Task<IActionResult> ResetPassword(
+        GroupBCustomerPasswordResetRequest request,
+        [FromServices] ICustomerService customerService)
+    {
+        await customerService.ResetPasswordAsync(request);
+        HttpContext.Session.Clear();
+        return NoContent();
     }
 
     [HttpGet("me")]
@@ -64,18 +83,18 @@ public sealed class GroupBAuthApiController : GroupBApiController
     [HttpPost("logout")]
     public IActionResult Logout()
     {
-        HttpContext.Session.Remove(CustomerIdSessionKey);
-        HttpContext.Session.Remove(CustomerNameSessionKey);
-        HttpContext.Session.Remove(CustomerPhoneSessionKey);
-        HttpContext.Session.Remove(CustomerAvatarSessionKey);
+        HttpContext.Session.Clear();
         return NoContent();
     }
 
-    private void SignIn(GroupBCustomerLoginResult customer)
+    private void SignIn(GroupBCustomerLoginResult customer, int authenticationVersion)
     {
         HttpContext.Session.SetString(CustomerIdSessionKey, customer.CustomerId);
         HttpContext.Session.SetString(CustomerNameSessionKey, customer.CustomerName);
         HttpContext.Session.SetString(CustomerPhoneSessionKey, customer.Phone);
+        HttpContext.Session.SetInt32(
+            CustomerAuthenticationVersionSessionKey,
+            authenticationVersion);
         if (!string.IsNullOrWhiteSpace(customer.Avatar))
         {
             HttpContext.Session.SetString(CustomerAvatarSessionKey, customer.Avatar);

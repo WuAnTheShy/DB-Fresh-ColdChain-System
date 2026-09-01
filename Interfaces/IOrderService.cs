@@ -8,9 +8,27 @@ namespace FreshColdChain.Interfaces;
 /// </summary>
 public interface IOrderService
 {
+    Task<CreateCheckoutBatchResult> CreateCheckoutBatchAsync(
+        CreateOrderRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<CreateOrderResult> CreateOrderAsync(
         CreateOrderRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<CheckoutBatchSummary?> GetCheckoutBatchAsync(
+        string checkoutBatchId,
+        string customerId);
+
+    Task<CheckoutBatchPaymentResult> PayCheckoutBatchAsync(
+        string checkoutBatchId,
+        string customerId,
+        CheckoutBatchPaymentRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<int> ExpirePendingCheckoutBatchesAsync(CancellationToken cancellationToken = default);
+
+    Task<int> AutoConfirmShippedOrdersAsync(CancellationToken cancellationToken = default);
 
     Task<OrderListViewModel> GetOrdersAsync(OrderQueryRequest request);
 
@@ -23,6 +41,12 @@ public interface IOrderService
 
     Task CancelOrderAsync(
         string orderId,
+        CancellationToken cancellationToken = default);
+
+    Task ConfirmOrderItemReceiptAsync(
+        string orderId,
+        string orderDetailId,
+        string customerId,
         CancellationToken cancellationToken = default);
 
     Task DeductPointsForRefundAsync(
@@ -48,6 +72,11 @@ public interface ICustomerService
     Task<string> CreateCustomerAsync(CustomerCreateRequest request);
 
     Task<GroupBCustomerLoginResult> LoginAsync(GroupBCustomerLoginRequest request);
+
+    Task<GroupBCustomerPasswordResetCodeResult> SendPasswordResetCodeAsync(
+        GroupBCustomerPasswordResetCodeRequest request);
+
+    Task ResetPasswordAsync(GroupBCustomerPasswordResetRequest request);
 
     Task<CrmCustomer?> GetCustomerAsync(string customerId);
 

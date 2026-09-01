@@ -40,7 +40,8 @@ namespace FreshColdChain.Repositories
                     :Remark
                 )";
 
-            await _uow.Connection.ExecuteAsync(sql, finPaymentRecord, transaction);  
+            var connection = transaction?.Connection ?? _uow.Connection;
+            await connection.ExecuteAsync(sql, finPaymentRecord, transaction);
         }
 
         // 组合查询支付流水（管理端查询页用，结果上限 500 条）

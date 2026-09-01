@@ -5,7 +5,7 @@ import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
 
-const { customerId } = useCustomerContext()
+const { customerId, loadDeliveryAddress } = useCustomerContext()
 const loading = ref(true)
 const saving = ref(false)
 const editorOpen = ref(false)
@@ -17,7 +17,7 @@ const form = reactive(emptyAddress())
 function emptyAddress() { return { addressId: null, customerId: customerId.value, receiverName: '', phone: '', province: '', city: '', district: '', detailAddress: '', isDefault: false } }
 function openCreate() { Object.assign(form, emptyAddress()); editorOpen.value = true; error.value = '' }
 function openEdit(address) { Object.assign(form, { addressId: address.addressId, customerId: customerId.value, receiverName: address.receiverName, phone: address.phone, province: address.province, city: address.city, district: address.district, detailAddress: address.detailAddress, isDefault: address.isDefault === 1 }); editorOpen.value = true; error.value = '' }
-async function loadAddresses() { loading.value = true; error.value = ''; try { const result = await api.getAddresses(customerId.value); addresses.value = result.addresses } catch (requestError) { error.value = requestError.message; addresses.value = [] } finally { loading.value = false } }
+async function loadAddresses() { loading.value = true; error.value = ''; try { const result = await api.getAddresses(customerId.value); addresses.value = result.addresses; await loadDeliveryAddress(true) } catch (requestError) { error.value = requestError.message; addresses.value = [] } finally { loading.value = false } }
 async function saveAddress() { saving.value = true; error.value = ''; success.value = ''; try { if (form.addressId) { await api.updateAddress(customerId.value, form.addressId, { ...form }); success.value = '收货地址已更新' } else { await api.createAddress(customerId.value, { ...form }); success.value = '收货地址已新增' } editorOpen.value = false; await loadAddresses() } catch (requestError) { error.value = requestError.message } finally { saving.value = false } }
 async function setDefault(addressId) { error.value = ''; try { await api.setDefaultAddress(customerId.value, addressId); success.value = '默认地址已更新'; await loadAddresses() } catch (requestError) { error.value = requestError.message } }
 async function removeAddress(address) { if (!window.confirm(`确认删除 ${address.receiverName} 的收货地址？`)) return; error.value = ''; try { await api.deleteAddress(customerId.value, address.addressId); success.value = '收货地址已删除'; await loadAddresses() } catch (requestError) { error.value = requestError.message } }

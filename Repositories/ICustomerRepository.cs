@@ -22,6 +22,15 @@ public interface ICustomerRepository
         string phone,
         IDbTransaction? transaction = null);
 
+    Task<CrmCustomer?> GetByPhoneForUpdateAsync(
+        string phone,
+        IDbTransaction transaction);
+
+    Task<bool> UpdatePasswordHashAsync(
+        string customerId,
+        string passwordHash,
+        IDbTransaction transaction);
+
     Task<CrmCustomer?> GetByIdForUpdateAsync(
         string customerId,
         IDbTransaction transaction);
@@ -44,6 +53,8 @@ public interface ICustomerRepository
         DateTime now,
         IDbTransaction? transaction = null);
 
+    Task<List<CrmCustomer>> GetAllCustomersAsync(IDbTransaction? transaction = null);
+
     Task<bool> UpdateProfileAsync(
         CustomerProfileUpdateRequest request,
         IDbTransaction? transaction = null);
@@ -57,6 +68,8 @@ public interface ICustomerRepository
         string customerId,
         decimal addAmount,
         IDbTransaction? transaction = null);
+
+    Task SetTotalSpentAsync(string customerId, decimal totalSpent, IDbTransaction transaction);
 
     Task<bool> TrySubtractTotalSpentAsync(
         string customerId,

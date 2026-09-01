@@ -7,11 +7,15 @@ import ProductDetailView from './views/ProductDetailView.vue'
 import CartView from './views/CartView.vue'
 import CheckoutView from './views/CheckoutView.vue'
 import OrderSuccessView from './views/OrderSuccessView.vue'
+import PaymentView from './views/PaymentView.vue'
 import OrdersView from './views/OrdersView.vue'
 import OrderDetailView from './views/OrderDetailView.vue'
+import RefundApplyView from './views/RefundApplyView.vue'
 import CouponsView from './views/CouponsView.vue'
 import AddressesView from './views/AddressesView.vue'
 import CustomerView from './views/CustomerView.vue'
+import MessagesView from './views/MessagesView.vue'
+import CheckoutBatchRefundView from './views/CheckoutBatchRefundView.vue'
 import AuthView from './views/AuthView.vue'
 import { useCustomerContext } from './state/customer'
 
@@ -25,14 +29,18 @@ const router = createRouter({
     { path: '/leaders/:id', name: 'leader-detail', component: LeaderDetailView, props: true },
     { path: '/following', name: 'following', component: FollowingView, meta: { requiresAuth: true } },
     { path: '/products/:id', name: 'product-detail', component: ProductDetailView, props: true },
-    { path: '/cart', name: 'cart', component: CartView },
+    { path: '/cart', name: 'cart', component: CartView, meta: { requiresAuth: true } },
     { path: '/checkout', name: 'checkout', component: CheckoutView, meta: { requiresAuth: true } },
     { path: '/order-success/:id', name: 'order-success', component: OrderSuccessView, props: true, meta: { requiresAuth: true } },
+    { path: '/payment/:batchId', name: 'payment', component: PaymentView, props: true, meta: { requiresAuth: true } },
     { path: '/orders', name: 'orders', component: OrdersView, meta: { requiresAuth: true } },
     { path: '/orders/:id', name: 'order-detail', component: OrderDetailView, props: true, meta: { requiresAuth: true } },
+    { path: '/orders/:id/refund', name: 'refund-apply', component: RefundApplyView, props: true, meta: { requiresAuth: true } },
+    { path: '/orders/batches/:batchId/refund', name: 'batch-refund-apply', component: CheckoutBatchRefundView, props: true, meta: { requiresAuth: true } },
     { path: '/coupons', name: 'coupons', component: CouponsView, meta: { requiresAuth: true } },
     { path: '/addresses', name: 'addresses', component: AddressesView, meta: { requiresAuth: true } },
     { path: '/profile', name: 'profile', component: CustomerView, meta: { requiresAuth: true } },
+    { path: '/messages', name: 'messages', component: MessagesView, meta: { requiresAuth: true } },
     { path: '/customer', redirect: '/profile' },
     { path: '/orders/new', redirect: '/checkout' },
     { path: '/:pathMatch(.*)*', redirect: '/' },

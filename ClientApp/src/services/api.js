@@ -57,12 +57,22 @@ function jsonBody(value) {
 }
 
 export const api = {
+  getPromoters: () => request('/api/promoters'),
+  getConsumerCatalog: () => request('/api/consumer-catalog'),
   getCurrentCustomer: () => request('/api/auth/customer/me'),
   loginCustomer: (payload) => request('/api/auth/customer/login', {
     method: 'POST',
     body: jsonBody(payload),
   }),
   registerCustomer: (payload) => request('/api/auth/customer/register', {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
+  sendCustomerPasswordResetCode: (payload) => request('/api/auth/customer/password-reset/code', {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
+  resetCustomerPassword: (payload) => request('/api/auth/customer/password-reset', {
     method: 'POST',
     body: jsonBody(payload),
   }),
@@ -89,7 +99,15 @@ export const api = {
   setDefaultAddress: (customerId, addressId) => request(`/api/customers/${customerId}/addresses/${addressId}/default`, {
     method: 'PUT',
   }),
+  getFollowingPromoters: (customerId) => request(`/api/customers/${customerId}/following`),
+  followPromoter: (customerId, promoterId) => request(`/api/customers/${customerId}/following/${encodeURIComponent(promoterId)}`, {
+    method: 'POST',
+  }),
+  unfollowPromoter: (customerId, promoterId) => request(`/api/customers/${customerId}/following/${encodeURIComponent(promoterId)}`, {
+    method: 'DELETE',
+  }),
   getCoupons: (customerId) => request(`/api/customers/${customerId}/coupons`),
+  getMessages: (customerId) => request(`/api/customers/${customerId}/messages`),
   claimCoupon: (customerId, couponId) => request(`/api/customers/${customerId}/coupons/${couponId}/claim`, {
     method: 'POST',
   }),
@@ -105,11 +123,27 @@ export const api = {
     method: 'POST',
     body: jsonBody(payload),
   }),
+  getCheckoutBatch: (checkoutBatchId) => request(`/api/orders/batches/${encodeURIComponent(checkoutBatchId)}`),
+  payCheckoutBatch: (checkoutBatchId, payload) => request(`/api/orders/batches/${encodeURIComponent(checkoutBatchId)}/pay`, {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
   transitionOrder: (orderId, targetStatus) => request(`/api/orders/${orderId}/transition`, {
     method: 'POST',
     body: jsonBody({ targetStatus }),
   }),
   cancelOrder: (orderId) => request(`/api/orders/${orderId}/cancel`, {
     method: 'POST',
+  }),
+  confirmOrderItemReceipt: (orderId, orderDetailId) => request(`/api/orders/${orderId}/items/${orderDetailId}/confirm-receipt`, {
+    method: 'POST',
+  }),
+  getOrderRefunds: (orderId) => request(`/api/orders/${orderId}/refunds`),
+  applyOrderRefund: (orderId, payload) => request(`/api/orders/${orderId}/refunds`, {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
+  applyCheckoutBatchRefund: (batchId, payload) => request(`/api/orders/batches/${encodeURIComponent(batchId)}/refunds`, {
+    method: 'POST', body: jsonBody(payload),
   }),
 }

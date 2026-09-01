@@ -9,7 +9,7 @@ import { useCustomerContext } from '../state/customer'
 const router = useRouter()
 const route = useRoute()
 const { categories, cartCount } = useShop()
-const { customerName, isAuthenticated, clearCustomer } = useCustomerContext()
+const { customerName, isAuthenticated, deliveryLocation, clearCustomer } = useCustomerContext()
 const keyword = ref(String(route.query.q ?? ''))
 const loggingOut = ref(false)
 
@@ -48,10 +48,10 @@ async function logout() {
           <small>fresh</small>
         </RouterLink>
 
-        <button class="delivery-location d-none d-xl-flex" type="button" title="选择配送地址">
+        <RouterLink class="delivery-location d-none d-xl-flex" :to="isAuthenticated ? '/addresses' : '/auth'" title="管理配送地址">
           <MapPin :size="19" />
-          <span><small>配送至</small><strong>上海市浦东新区</strong></span>
-        </button>
+          <span><small>配送至</small><strong>{{ deliveryLocation }}</strong></span>
+        </RouterLink>
 
         <form class="global-search" role="search" @submit.prevent="search">
           <select class="search-category d-none d-md-block" aria-label="商品分类">
@@ -124,7 +124,7 @@ async function logout() {
 }
 
 .header-primary {
-  background: var(--header);
+  background: var(--brand);
   color: #fff;
 }
 
@@ -288,7 +288,7 @@ async function logout() {
 }
 
 .header-secondary {
-  background: var(--header-soft);
+  background: var(--brand);
   color: #f5f7f6;
 }
 
@@ -325,7 +325,7 @@ async function logout() {
 
 .mobile-menu {
   --bs-offcanvas-width: 290px;
-  background: var(--header);
+  background: var(--brand);
   color: #fff;
 }
 

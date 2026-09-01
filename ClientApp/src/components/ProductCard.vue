@@ -1,18 +1,18 @@
 <script setup>
-import { Flame } from '@lucide/vue'
 import { computed } from 'vue'
 import { useShop } from '../state/shop'
+import { useCustomerContext } from '../state/customer'
 
 const props = defineProps({
   product: { type: Object, required: true },
-  leaderId: { type: Number, default: null },
 })
 
-const { categories, leaderById, productRushCount } = useShop()
-const activeLeader = computed(() => leaderById(props.leaderId ?? props.product.leaderIds[0]))
+const { categories, leaderById, isLeaderFollowed } = useShop()
+const { isAuthenticated } = useCustomerContext()
+const activeLeader = computed(() => leaderById(props.product.leaderId))
 const category = computed(() => categories.find((item) => item.slug === props.product.category))
-const rushCount = computed(() => productRushCount(props.product.id))
-const productLink = computed(() => `/products/${props.product.id}?leader=${activeLeader.value?.id ?? ''}`)
+const productLink = computed(() => `/products/${props.product.id}`)
+const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(props.product.leaderId))
 
 function displayPrice(value) {
   return Number(value).toFixed(2).replace(/\.00$/, '')
@@ -21,7 +21,8 @@ function displayPrice(value) {
 
 <template>
   <article class="product-card social-product-card">
-    <RouterLink v-if="activeLeader" class="product-card-leader" :to="`/leaders/${activeLeader.id}`" :aria-label="`查看${activeLeader.name}团长详情`">
+    <RouterLink v-if="activeLeader" class="product-card-leader" :to="`/leaders/${activeLeader.id}`"
+      :aria-label="`查看${activeLeader.name}团长详情`">
       <img :src="activeLeader.avatar" :alt="`${activeLeader.name}团长头像`" />
       <span><strong>{{ activeLeader.name }}</strong></span>
     </RouterLink>
@@ -36,22 +37,23 @@ function displayPrice(value) {
         </p>
 
         <div class="product-card-meta">
-          <span class="rush-count"><Flame :size="15" fill="currentColor" />{{ rushCount }}人在抢</span>
-          <span class="product-published">今日更新</span>
+          <span>{{ product.category }}</span>
+          <span>{{ product.storage }}</span>
         </div>
 
-        <div class="social-product-price">
-          <span>¥</span><strong>{{ displayPrice(product.price) }}</strong><small>优惠后</small>
+        <div v-if="canViewPrice" class="social-product-price">
+          <span>¥</span><strong>{{ displayPrice(product.price) }}</strong>
         </div>
+        <div v-else class="social-product-price-gated">关注团长后查看专属价格</div>
 
         <div class="product-card-media">
-          <img :src="product.image" :alt="product.name" loading="lazy" />
+          <img :src="product.image" :alt="product.name" loading="lazy" @error="$event.target.src = product.fallbackImage" />
           <img :src="category?.image || product.image" :alt="`${product.shortName}货架陈列`" loading="lazy" />
         </div>
 
         <div class="product-card-group-status">
-          <span><strong>{{ product.sold }}人跟团</strong> 正在进行</span>
-          <span>{{ product.cutoff }}</span>
+          <span><strong>当前在团</strong></span>
+          <span>库存 {{ product.stock }} 件</span>
         </div>
       </div>
     </RouterLink>
@@ -59,8 +61,21 @@ function displayPrice(value) {
 </template>
 
 <style scoped>
-.product-card { min-width: 0; overflow: hidden; border: 1px solid #eaeded; border-radius: 4px; background: #fff; transition: border-color .14s ease, box-shadow .14s ease; }
-.product-card:hover { border-color: #bbbfbf; box-shadow: 0 2px 6px rgba(15, 17, 17, .14); }
+.product-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #eaeded;
+  border-radius: 4px;
+  background: #fff;
+  transition: border-color .14s ease, box-shadow .14s ease, transform .14s ease-in-out;
+}
+
+.product-card:hover {
+  border-color: #bbbfbf;
+  box-shadow: 0 2px 6px rgba(15, 17, 17, .5);
+  transform: translateY(-2px);
+}
+
 .social-product-card {
   display: flex;
   flex-direction: column;
@@ -70,10 +85,12 @@ function displayPrice(value) {
   background: #fff;
   box-shadow: 0 4px 18px rgba(15, 17, 17, .06);
 }
+
 .social-product-card:hover {
   border-color: #d5d5d5;
   box-shadow: 0 8px 24px rgba(15, 17, 17, .1);
 }
+
 .product-card-entry {
   display: flex;
   flex: 1;
@@ -82,6 +99,7 @@ function displayPrice(value) {
   color: inherit;
   text-decoration: none;
 }
+
 .product-card-leader {
   display: flex;
   min-width: 0;
@@ -91,18 +109,21 @@ function displayPrice(value) {
   color: inherit;
   text-decoration: none;
 }
-.product-card-leader > img {
+
+.product-card-leader>img {
   width: 46px;
   height: 46px;
   flex: 0 0 46px;
   border-radius: 11px;
   object-fit: cover;
 }
-.product-card-leader > span {
+
+.product-card-leader>span {
   display: flex;
   min-width: 0;
   flex-direction: column;
 }
+
 .product-card-leader strong {
   overflow: hidden;
   color: #1f2321;
@@ -111,6 +132,7 @@ function displayPrice(value) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .product-card-leader small {
   margin-top: 3px;
   overflow: hidden;
@@ -119,11 +141,17 @@ function displayPrice(value) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.product-card-divider { height: 1px; background: #ededed; }
+
+.product-card-divider {
+  height: 1px;
+  background: #ededed;
+}
+
 .social-product-card .social-product-card-body {
   min-height: 0;
   padding: 15px 16px 14px;
 }
+
 .product-card-description {
   display: -webkit-box;
   min-height: 48px;
@@ -135,7 +163,11 @@ function displayPrice(value) {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
-.product-card-description strong { font-weight: 760; }
+
+.product-card-description strong {
+  font-weight: 760;
+}
+
 .product-card-meta {
   display: flex;
   align-items: center;
@@ -143,6 +175,7 @@ function displayPrice(value) {
   gap: 10px;
   margin-top: 10px;
 }
+
 .rush-count {
   display: inline-flex;
   min-height: 26px;
@@ -156,7 +189,13 @@ function displayPrice(value) {
   font-weight: 600;
   line-height: 1;
 }
-.product-published { color: #9a9e9c; font-size: 11px; white-space: nowrap; }
+
+.product-published {
+  color: #9a9e9c;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .social-product-price {
   display: flex;
   align-items: flex-end;
@@ -164,9 +203,30 @@ function displayPrice(value) {
   color: var(--brand);
   line-height: 1;
 }
-.social-product-price > span { margin-right: 3px; font-size: 18px; font-weight: 500; transform: translateY(-4px); }
-.social-product-price strong { font-size: 34px; font-weight: 700; letter-spacing: -1px; }
-.social-product-price small { margin-left: 7px; font-size: 18px; font-weight: 500; letter-spacing: 0; transform: translateY(-5.5px); }
+
+.social-product-price>span {
+  margin-right: 3px;
+  font-size: 18px;
+  font-weight: 500;
+  transform: translateY(-4px);
+}
+
+.social-product-price strong {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+.social-product-price-gated {
+  display: flex;
+  min-height: 45px;
+  align-items: center;
+  margin: 11px 0 13px;
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .product-card-media {
   display: grid;
   overflow: hidden;
@@ -176,6 +236,7 @@ function displayPrice(value) {
   border-radius: 7px;
   background: #f1f2f2;
 }
+
 .product-card-media img {
   width: 100%;
   height: 100%;
@@ -183,7 +244,11 @@ function displayPrice(value) {
   object-fit: cover;
   transition: transform .2s ease;
 }
-.social-product-card:hover .product-card-media img { transform: scale(1.025); }
+
+.social-product-card:hover .product-card-media img {
+  transform: scale(1.025);
+}
+
 .product-card-group-status {
   display: flex;
   align-items: center;
@@ -193,14 +258,41 @@ function displayPrice(value) {
   color: #979c99;
   font-size: 11px;
 }
-.product-card-group-status span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.product-card-group-status strong { color: #25a96b; font-size: 13px; font-weight: 700; }
+
+.product-card-group-status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-card-group-status strong {
+  color: #25a96b;
+  font-size: 13px;
+  font-weight: 700;
+}
 
 @media (max-width: 767.98px) {
-  .product-card-leader { padding: 13px 14px; }
-  .product-card-leader > img { width: 42px; height: 42px; flex-basis: 42px; }
-  .social-product-card .social-product-card-body { padding: 13px 14px; }
-  .product-card-description { min-height: 45px; font-size: 14px; }
-  .product-card-media { aspect-ratio: 16 / 7.6; }
+  .product-card-leader {
+    padding: 13px 14px;
+  }
+
+  .product-card-leader>img {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+  }
+
+  .social-product-card .social-product-card-body {
+    padding: 13px 14px;
+  }
+
+  .product-card-description {
+    min-height: 45px;
+    font-size: 14px;
+  }
+
+  .product-card-media {
+    aspect-ratio: 16 / 7.6;
+  }
 }
 </style>
