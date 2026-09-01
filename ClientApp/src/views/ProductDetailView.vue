@@ -1,6 +1,6 @@
 <script setup>
 import { BadgeCheck, Check, ChevronRight, Clock3, LockKeyhole, MapPin, PackageCheck, ShieldCheck, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import QuantityStepper from '../components/QuantityStepper.vue'
@@ -11,22 +11,22 @@ import { useCustomerContext } from '../state/customer'
 const props = defineProps({ id: { type: String, required: true } })
 const route = useRoute()
 const router = useRouter()
-const { products, productById, leaderById, recordProductEntry, addToCart, isLeaderFollowed } = useShop()
-const { isAuthenticated } = useCustomerContext()
+const { products, catalogLoaded, catalogLoading, catalogError, productById, leaderById, loadCatalog, addToCart, isLeaderFollowed } = useShop()
+const { isAuthenticated, deliveryLocation } = useCustomerContext()
 const product = computed(() => productById(props.id))
 const leader = computed(() => leaderById(product.value?.leaderId))
 const quantity = ref(1)
 const added = ref(false)
-const related = computed(() => products.filter((item) => item.id !== String(props.id)))
+const related = computed(() => products.filter((item) => item.id !== String(props.id)).slice(0, 4))
 const authLink = computed(() => ({ name: 'auth', query: { redirect: route.fullPath } }))
 const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(product.value?.leaderId))
 const followLink = computed(() => canViewPrice.value ? null : `/leaders/${leader.value?.id ?? ''}`)
 
-watch(() => props.id, (productId) => {
-  if (productById(productId)) recordProductEntry(productId)
+watch([() => props.id, catalogLoaded], () => {
+  if (catalogLoaded.value && !product.value) router.replace('/search')
 }, { immediate: true })
 
-if (!product.value) router.replace('/search')
+onMounted(() => loadCatalog().catch(() => {}))
 
 function add() {
   if (!product.value || !leader.value) return
@@ -47,8 +47,8 @@ function buyNow() {
 
     <section class="product-detail-main">
       <div class="product-gallery">
-        <div class="product-main-image"><img :src="product.image" :alt="product.name" /><span><Snowflake :size="14" />{{ product.storage }}配送</span></div>
-        <div class="product-thumb active"><img :src="product.image" alt="商品主图缩略图" /></div>
+        <div class="product-main-image"><img :src="product.image" :alt="product.name" @error="$event.target.src = product.fallbackImage" /><span><Snowflake :size="14" />{{ product.storage }}</span></div>
+        <div class="product-thumb active"><img :src="product.image" alt="商品主图缩略图" @error="$event.target.src = product.fallbackImage" /></div>
       </div>
 
       <div class="product-info-column">
@@ -62,7 +62,7 @@ function buyNow() {
         </div>
         <dl class="product-facts">
           <div><dt>规格</dt><dd>{{ product.spec }}</dd></div>
-          <div><dt>温控</dt><dd>{{ product.storage }}冷链</dd></div>
+          <div><dt>温控</dt><dd>{{ product.storage }}</dd></div>
           <div v-if="canViewPrice"><dt>库存</dt><dd>现货 {{ product.stock }} 件</dd></div>
         </dl>
       </div>
@@ -72,12 +72,12 @@ function buyNow() {
           <div class="buy-price"><span>¥</span><strong>{{ product.price.toFixed(2) }}</strong></div>
         </template>
         <div v-else class="buy-gated-message"><LockKeyhole :size="20" /><strong>关注团长后查看专属价格</strong><span>{{ isAuthenticated ? '关注该团长后，即可立即查看价格和购买商品' : '登录后关注该团长，即可查看价格和购买商品' }}</span></div>
-        <div class="delivery-promise"><Truck :size="19" /><div><strong>{{ product.delivery }}</strong><span>配送至 上海市浦东新区</span></div></div>
+        <div class="delivery-promise"><Truck :size="19" /><div><strong>{{ product.delivery }}</strong><span>配送至 {{ deliveryLocation }}</span></div></div>
         <template v-if="canViewPrice">
           <div class="stock-status"><Check :size="17" />有货，冷链备货中</div>
           <label class="buy-quantity">数量<QuantityStepper v-model="quantity" :max="product.stock" /></label>
-          <button class="btn btn-cart w-100" type="button" @click="add"><Check v-if="added" :size="18" /><ShoppingCart v-else :size="18" />{{ added ? '已加入购物车' : '加入购物车' }}</button>
-          <button class="btn btn-buy w-100" type="button" @click="buyNow">立即购买</button>
+          <button class="btn btn-cart w-100" type="button" :disabled="product.isFallback" @click="add"><Check v-if="added" :size="18" /><ShoppingCart v-else :size="18" />{{ product.isFallback ? '真实目录恢复后可购买' : added ? '已加入购物车' : '加入购物车' }}</button>
+          <button class="btn btn-buy w-100" type="button" :disabled="product.isFallback" @click="buyNow">{{ product.isFallback ? '暂不可下单' : '立即购买' }}</button>
         </template>
         <RouterLink v-else class="btn btn-buy w-100 gated-login-button" :to="isAuthenticated ? followLink : authLink">{{ isAuthenticated ? '前往关注团长' : '登录并关注团长' }}</RouterLink>
         <small class="buy-box-guarantee"><ShieldCheck :size="15" />平台交易保障 · 团长身份已认证</small>
@@ -86,7 +86,7 @@ function buyNow() {
 
     <section class="detail-info-band">
       <div><PackageCheck :size="23" /><span><strong>下单即备货</strong><small>支付成功后立即进入履约流程</small></span></div>
-      <div><Clock3 :size="23" /><span><strong>配送时效</strong><small>{{ product.delivery }}</small></span></div>
+      <div><Clock3 :size="23" /><span><strong>配送安排</strong><small>{{ product.delivery }}</small></span></div>
       <div><MapPin :size="23" /><span><strong>社区履约</strong><small>{{ leader.area }}</small></span></div>
       <div><Snowflake :size="23" /><span><strong>冷链到家</strong><small>温控方式：{{ product.storage }}</small></span></div>
     </section>
@@ -101,6 +101,8 @@ function buyNow() {
       <div class="product-grid"><ProductCard v-for="item in related" :key="item.id" :product="item" /></div>
     </section>
   </div>
+  <div v-else-if="catalogLoading" class="store-container page-space store-loading" role="status">正在读取商品信息…</div>
+  <div v-else-if="catalogError" class="store-container page-space store-empty" role="alert"><strong>商品信息读取失败</strong><span>{{ catalogError }}</span><button class="btn btn-outline-secondary" type="button" @click="loadCatalog(true)">重新加载</button></div>
 </template>
 
 <style scoped>

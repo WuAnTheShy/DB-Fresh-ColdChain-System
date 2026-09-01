@@ -38,7 +38,7 @@ onMounted(loadProfile)
     <div v-if="success" class="alert alert-success">{{ success }}</div>
     <div v-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在读取账户信息</div>
     <div v-else-if="notFound" class="store-empty">
-      <UserRound :size="40" /><strong>当前演示消费者尚未建档</strong><span>请先通过系统初始数据建立消费者账号</span>
+      <UserRound :size="40" /><strong>消费者账户不存在</strong><span>请重新登录，或注册新的消费者账号</span>
     </div>
     <template v-else-if="profile">
       <section class="profile-banner"><span class="profile-avatar">

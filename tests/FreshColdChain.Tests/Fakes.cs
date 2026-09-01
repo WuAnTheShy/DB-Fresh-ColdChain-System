@@ -1472,6 +1472,18 @@ internal sealed class FakePromoterCatalogService : IGroupCPromoterCatalogService
         CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<string>>(["SUP1", "SUP2"]);
 
+    public Task<IReadOnlyList<GroupCPromoterFeaturedProduct>> GetFeaturedProductsAsync(
+        string promoterId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<GroupCPromoterFeaturedProduct>>(PromoterPrices
+            .Select(item => new GroupCPromoterFeaturedProduct
+            {
+                ProductId = item.Key,
+                SupplierId = "SUP1",
+                SalePrice = item.Value
+            })
+            .ToList());
+
     public Task<IReadOnlyList<GroupCPromoterProductValidation>> ValidatePromoterProductsAsync(
         string promoterId,
         IReadOnlyList<GroupCPromoterProductCandidate> products,

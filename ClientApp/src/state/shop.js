@@ -1,5 +1,6 @@
 import { computed, reactive, ref } from 'vue'
 import { api } from '../services/api'
+import { avatarUrl } from '../assets/avatars'
 import seasonalFruitImage from '../assets/categories/seasonal-fruit.jpg'
 import vegetableTofuImage from '../assets/categories/vegetable-tofu.jpg'
 import meatEggsImage from '../assets/categories/meat-eggs.jpg'
@@ -7,160 +8,226 @@ import seafoodImage from '../assets/categories/seafood.jpg'
 import dairyBakeryImage from '../assets/categories/dairy-bakery.jpg'
 import otherGroceryImage from '../assets/categories/other-grocery.jpg'
 
-export const categories = [
-  { slug: 'fruit', name: '时令水果', icon: '樱桃', image: seasonalFruitImage },
-  { slug: 'vegetable', name: '蔬菜豆品', icon: '青菜', image: vegetableTofuImage },
-  { slug: 'meat-eggs', name: '肉禽蛋品', icon: '鲜肉', image: meatEggsImage },
-  { slug: 'seafood', name: '海鲜水产', icon: '三文鱼', image: seafoodImage },
-  { slug: 'dairy-bakery', name: '乳品烘焙', icon: '牛奶', image: dairyBakeryImage },
-  { slug: 'other', name: '其他', icon: '杂货', image: otherGroceryImage },
-]
+export const categories = reactive([])
+export const leaders = reactive([])
+export const products = reactive([])
 
-export const leaders = [
-  {
-    id: 'PRO_2563c9557c564d86b015b90876c3d8f4',
-    name: '张三',
-    title: '社区生鲜团长',
-    area: '浦东新区 · 花木街道',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=240&q=85',
-    cover: 'https://images.unsplash.com/photo-1528821128474-27f963b062bf?auto=format&fit=crop&w=1200&q=85',
-    description: '每天精选当季果蔬，严选冷链到家。上架前亲自试吃，下单后同步配送进度。',
-    tags: ['平台认证', '果蔬优选'],
-    following: 1280,
-  },
-  {
-    id: 'PRO_52d9f7b7cf2843a7b076732fb33374f0',
-    name: '长四',
-    title: '海鲜冷链团长',
-    area: '徐汇区 · 田林街道',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=240&q=85',
-    cover: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1200&q=85',
-    description: '专注冰鲜水产和家庭餐桌，冷链时效透明，按团同步到货与提货信息。',
-    tags: ['平台认证', '水产专营'],
-    following: 936,
-  },
-  {
-    id: 'PRO_9fb79e69831b4a50899999c0f438c734',
-    name: '宋张',
-    title: '家庭餐桌团长',
-    area: '闵行区 · 古美街道',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=240&q=85',
-    cover: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=1200&q=85',
-    description: '面向家庭日常采购，主推高复购、小份量和高性价比的生鲜组合。',
-    tags: ['平台认证', '家庭精选'],
-    following: 764,
-  },
+const categoryVisuals = [
+  { pattern: /果|fruit/i, icon: '水果', image: seasonalFruitImage },
+  { pattern: /菜|豆|vegetable/i, icon: '蔬菜', image: vegetableTofuImage },
+  { pattern: /肉|禽|蛋|meat|egg/i, icon: '鲜肉', image: meatEggsImage },
+  { pattern: /海|水产|fish|seafood/i, icon: '水产', image: seafoodImage },
+  { pattern: /乳|奶|烘焙|dairy|bakery/i, icon: '乳品', image: dairyBakeryImage },
 ]
+const defaultCategoryVisual = { icon: '杂货', image: otherGroceryImage }
+const leaderCovers = [seasonalFruitImage, vegetableTofuImage, seafoodImage]
+const leadersLoading = ref(false)
+const leadersLoaded = ref(false)
+const leadersError = ref('')
+const catalogLoading = ref(false)
+const catalogLoaded = ref(false)
+const catalogError = ref('')
+const catalogUsingFallback = ref(false)
+let leadersRequest = null
+let catalogRequest = null
 
-export const products = [
-  {
-    id: 'PROD-3004',
-    slug: 'shine-muscat',
-    name: '阳光玫瑰葡萄 2kg',
-    shortName: '阳光玫瑰葡萄',
-    category: 'fruit',
-    spec: '精品果 · 2kg礼盒',
-    price: 50,
-    image: 'https://images.unsplash.com/photo-1528821128474-27f963b062bf?auto=format&fit=crop&w=800&q=88',
-    storage: '冷藏',
-    leaderId: 'PRO_2563c9557c564d86b015b90876c3d8f4',
-    sold: 286,
-    stock: 100,
-    delivery: '明日 16:00 前送达',
-    publishedAt: '2026-08-05T09:20:00+08:00',
-    summary: '颗粒饱满、清甜多汁，产地冷链直达，适合家庭分享。',
-  },
-  {
-    id: 'PROD-3002',
-    slug: 'salmon',
-    name: '智利三文鱼中段 500g',
-    shortName: '三文鱼',
-    category: 'seafood',
-    spec: '去皮去刺 · 500g',
-    price: 80,
-    image: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=800&q=88',
-    storage: '冷藏',
-    leaderId: 'PRO_52d9f7b7cf2843a7b076732fb33374f0',
-    sold: 117,
-    stock: 50,
-    delivery: '后日 12:00 前送达',
-    publishedAt: '2026-08-05T08:35:00+08:00',
-    summary: '肉质细腻，家庭小包装，低温锁鲜运输，开盒即可分切烹饪。',
-  },
-  {
-    id: 'PROD-3008',
-    slug: 'sweet-corn',
-    name: '鲜食水果甜玉米 2.5kg',
-    shortName: '水果甜玉米',
-    category: 'vegetable',
-    spec: '家庭装 · 2.5kg',
-    price: 20,
-    image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=88',
-    storage: '冷藏',
-    leaderId: 'PRO_2563c9557c564d86b015b90876c3d8f4',
-    sold: 368,
-    stock: 200,
-    delivery: '明日 12:00 前送达',
-    publishedAt: '2026-08-04T18:10:00+08:00',
-    summary: '颗粒饱满、清甜脆嫩，适合蒸煮、煲汤和家庭日常搭配。',
-  },
-]
-
-const rawCart = JSON.parse(localStorage.getItem('freshMall.cart') ?? '[]')
-const rawRushCounts = JSON.parse(localStorage.getItem('freshMall.rushCounts') ?? '{}')
-function normalizeProductId(id) {
-  const value = String(id ?? '').trim()
-  const legacyIds = { '1': 'PROD-3004', P1: 'PROD-3004', '2': 'PROD-3002', P2: 'PROD-3002', '3': 'PROD-3008', P3: 'PROD-3008' }
-  return legacyIds[value] ?? value
+function fallbackAvatar(name) {
+  const initial = (String(name ?? '团').trim().slice(0, 1) || '团')
+    .replace(/[<>&"']/g, '') || '团'
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" rx="20" fill="#e8f3ed"/><text x="48" y="59" text-anchor="middle" font-family="sans-serif" font-size="38" font-weight="700" fill="#176b46">${initial}</text></svg>`
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
 }
 
-const cart = reactive(Array.isArray(rawCart)
-  ? rawCart.map((item) => {
-      const productId = normalizeProductId(item.productId)
-      const product = products.find((entry) => entry.id === productId)
-      return {
-        ...item,
-        productId,
-        leaderId: product?.leaderId ?? String(item.leaderId ?? ''),
-        selected: item.selected !== false,
+function normalizeLeader(promoter, index) {
+  const name = String(promoter.promoterName ?? '').trim() || '未命名团长'
+  return {
+    id: String(promoter.promoterId ?? '').trim(),
+    name,
+    title: '平台认证团长',
+    area: '服务范围以结算地址为准',
+    avatar: avatarUrl(promoter.avatar) || fallbackAvatar(name),
+    cover: leaderCovers[index % leaderCovers.length],
+    description: '该团长账号当前处于启用状态，可查看其正在带货的真实商品。',
+    tags: ['平台认证'],
+  }
+}
+
+function categoryVisual(name) {
+  return categoryVisuals.find((item) => item.pattern.test(name)) ?? defaultCategoryVisual
+}
+
+function normalizeCategory(name) {
+  const normalizedName = String(name ?? '').trim() || '其他'
+  const visual = categoryVisual(normalizedName)
+  return { slug: normalizedName, name: normalizedName, icon: visual.icon, image: visual.image }
+}
+
+function normalizeProduct(item) {
+  const categoryName = String(item.categoryName ?? '').trim() || '其他'
+  const visual = categoryVisual(categoryName)
+  const images = (Array.isArray(item.imageUrls) ? item.imageUrls : [])
+    .map((url) => String(url ?? '').trim())
+    .filter(Boolean)
+  const unit = String(item.unit ?? '').trim()
+  const storage = String(item.storageRequirement ?? '').trim() || '冷链'
+  const productName = String(item.productName ?? '').trim() || '未命名商品'
+  return {
+    id: String(item.catalogItemId ?? '').trim(),
+    productId: String(item.productId ?? '').trim(),
+    name: productName,
+    shortName: productName,
+    category: categoryName,
+    spec: unit ? `计量单位：${unit}` : '规格以商品实际标注为准',
+    price: Number(item.salePrice ?? 0),
+    image: images[0] || visual.image,
+    fallbackImage: visual.image,
+    images: images.length ? images : [visual.image],
+    storage,
+    leaderId: String(item.promoterId ?? '').trim(),
+    stock: Math.max(0, Number(item.availableStock ?? 0)),
+    delivery: '支付后按订单安排冷链配送',
+    summary: String(item.description ?? '').trim() || '团长在团商品，商品信息与售价均来自当前业务数据。',
+    isFallback: Boolean(item.isFallback),
+  }
+}
+
+function fallbackCatalogResult() {
+  const promoterId = leaders[0]?.id ?? ''
+  return {
+    categories: ['时令水果', '海鲜水产', '蔬菜豆品'],
+    products: [
+      { catalogItemId: 'fallback:PROD-3004', productId: 'PROD-3004', productName: '阳光玫瑰葡萄 2kg', categoryName: '时令水果', unit: '2kg礼盒', storageRequirement: '冷藏', salePrice: 50, availableStock: 100, promoterId, description: '目录服务暂不可用，当前为演示兜底商品。', isFallback: true },
+      { catalogItemId: 'fallback:PROD-3002', productId: 'PROD-3002', productName: '智利三文鱼中段 500g', categoryName: '海鲜水产', unit: '500g', storageRequirement: '冷藏', salePrice: 80, availableStock: 50, promoterId, description: '目录服务暂不可用，当前为演示兜底商品。', isFallback: true },
+      { catalogItemId: 'fallback:PROD-3008', productId: 'PROD-3008', productName: '鲜食水果甜玉米 2.5kg', categoryName: '蔬菜豆品', unit: '2.5kg', storageRequirement: '冷藏', salePrice: 20, availableStock: 200, promoterId, description: '目录服务暂不可用，当前为演示兜底商品。', isFallback: true },
+    ],
+  }
+}
+
+function applyCatalogResult(result, usingFallback = false) {
+  const normalizedProducts = (Array.isArray(result?.products) ? result.products : [])
+    .map((item) => normalizeProduct({ ...item, isFallback: usingFallback || item.isFallback }))
+    .filter((product) => product.id && product.productId && product.leaderId && product.price > 0 && product.stock > 0)
+  const categoryNames = Array.isArray(result?.categories)
+    ? result.categories
+    : normalizedProducts.map((product) => product.category)
+  const normalizedCategories = [...new Set(categoryNames
+    .map((name) => String(name ?? '').trim()).filter(Boolean))].map(normalizeCategory)
+  products.splice(0, products.length, ...normalizedProducts)
+  categories.splice(0, categories.length, ...normalizedCategories)
+  catalogUsingFallback.value = usingFallback
+  reconcileCart()
+  catalogLoaded.value = true
+  return products
+}
+
+async function loadLeaders(force = false) {
+  if (leadersLoaded.value && !force) return leaders
+  if (leadersRequest && !force) return leadersRequest
+
+  leadersLoading.value = true
+  leadersError.value = ''
+  leadersRequest = api.getPromoters()
+    .then((result) => {
+      const normalized = (Array.isArray(result) ? result : [])
+        .map(normalizeLeader)
+        .filter((leader) => leader.id)
+      leaders.splice(0, leaders.length, ...normalized)
+      leadersLoaded.value = true
+
+      if (!selectedLeaderId.value || !leaderById(selectedLeaderId.value)) {
+        selectedLeaderId.value = leaders[0]?.id ?? ''
       }
+      return leaders
     })
+    .catch((error) => {
+      leadersError.value = error.message
+      throw error
+    })
+    .finally(() => {
+      leadersLoading.value = false
+      leadersRequest = null
+    })
+
+  return leadersRequest
+}
+
+async function loadCatalog(force = false) {
+  if (catalogLoaded.value && !force) return products
+  if (catalogRequest && !force) return catalogRequest
+
+  catalogLoading.value = true
+  catalogError.value = ''
+  catalogUsingFallback.value = false
+  catalogRequest = api.getConsumerCatalog()
+    .then((result) => {
+      localStorage.setItem('freshMall.catalogCache', JSON.stringify(result))
+      return applyCatalogResult(result)
+    })
+    .catch(async (error) => {
+      catalogError.value = error.message
+      await loadLeaders().catch(() => [])
+      const cachedCatalog = readStoredJson('freshMall.catalogCache', null)
+      return applyCatalogResult(cachedCatalog ?? fallbackCatalogResult(), true)
+    })
+    .finally(() => {
+      catalogLoading.value = false
+      catalogRequest = null
+    })
+  return catalogRequest
+}
+
+function readStoredJson(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? JSON.stringify(fallback))
+  } catch {
+    return fallback
+  }
+}
+
+const rawCart = readStoredJson('freshMall.cart', [])
+const cart = reactive(Array.isArray(rawCart)
+  ? rawCart.map((item) => ({
+      productId: String(item.productId ?? ''),
+      leaderId: String(item.leaderId ?? ''),
+      quantity: Math.max(1, Number(item.quantity || 1)),
+      selected: item.selected !== false,
+    })).filter((item) => item.productId)
   : [])
-const rushCounts = reactive(Object.fromEntries(products.map((product) => [
-  product.id,
-  Math.max(product.sold, Number(rawRushCounts[product.id]) || product.sold),
-])))
-const selectedLeaderId = ref(sessionStorage.getItem('freshMall.leaderId') || leaders[0].id)
+const selectedLeaderId = ref(sessionStorage.getItem('freshMall.leaderId') || '')
 const followedLeaderIds = ref([])
 const followingLoading = ref(false)
 const followingError = ref('')
 const followingLoadedCustomerId = ref('')
-const lastOrder = ref(JSON.parse(sessionStorage.getItem('freshMall.lastOrder') ?? 'null'))
+const lastOrder = ref(readStoredJson('freshMall.lastOrder', null))
 
 function persistCart() {
   localStorage.setItem('freshMall.cart', JSON.stringify(cart))
 }
 
-function productById(id) {
-  return products.find((product) => product.id === normalizeProductId(id))
+function productById(id, leaderId = '') {
+  const value = String(id ?? '')
+  return products.find((product) => product.id === value)
+    ?? products.find((product) => product.productId === value &&
+      (!leaderId || product.leaderId === String(leaderId)))
 }
 
 function leaderById(id) {
   return leaders.find((leader) => leader.id === String(id ?? ''))
 }
 
-function productRushCount(productId) {
-  const product = productById(productId)
-  if (!product) return 0
-  return Number(rushCounts[product.id] ?? product.sold)
-}
-
-function recordProductEntry(productId) {
-  const product = productById(productId)
-  if (!product) return 0
-  rushCounts[product.id] = productRushCount(product.id) + 1
-  localStorage.setItem('freshMall.rushCounts', JSON.stringify(rushCounts))
-  return rushCounts[product.id]
+function reconcileCart() {
+  for (let index = cart.length - 1; index >= 0; index--) {
+    const item = cart[index]
+    const product = productById(item.productId, item.leaderId)
+    if (!product) {
+      cart.splice(index, 1)
+      continue
+    }
+    item.productId = product.id
+    item.leaderId = product.leaderId
+    item.quantity = Math.min(product.stock, Math.max(1, item.quantity))
+  }
+  persistCart()
 }
 
 function isLeaderFollowed(leaderId) {
@@ -207,10 +274,10 @@ async function setLeaderFollowed(customerId, leaderId, shouldFollow) {
   return shouldFollow
 }
 
-function addToCart(productId, quantity = 1) {
-  const product = productById(productId)
+function addToCart(catalogItemId, quantity = 1) {
+  const product = productById(catalogItemId)
   const leader = leaderById(product?.leaderId)
-  if (!product || !leader) return false
+  if (!product || !leader || product.isFallback) return false
 
   const existing = cart.find((item) => item.productId === product.id)
   if (existing) {
@@ -219,7 +286,7 @@ function addToCart(productId, quantity = 1) {
     cart.push({
       productId: product.id,
       leaderId: leader.id,
-      quantity: Math.max(1, Number(quantity || 1)),
+      quantity: Math.min(product.stock, Math.max(1, Number(quantity || 1))),
       selected: true,
     })
   }
@@ -229,22 +296,22 @@ function addToCart(productId, quantity = 1) {
   return true
 }
 
-function updateQuantity(productId, quantity) {
-  const item = cart.find((entry) => entry.productId === normalizeProductId(productId))
-  const product = productById(productId)
+function updateQuantity(catalogItemId, quantity) {
+  const item = cart.find((entry) => entry.productId === String(catalogItemId))
+  const product = productById(catalogItemId)
   if (!item || !product) return
   item.quantity = Math.max(1, Math.min(product.stock, Number(quantity || 1)))
   persistCart()
 }
 
-function removeFromCart(productId) {
-  const index = cart.findIndex((item) => item.productId === normalizeProductId(productId))
+function removeFromCart(catalogItemId) {
+  const index = cart.findIndex((item) => item.productId === String(catalogItemId))
   if (index >= 0) cart.splice(index, 1)
   persistCart()
 }
 
-function setCartItemSelected(productId, selected) {
-  const item = cart.find((entry) => entry.productId === normalizeProductId(productId))
+function setCartItemSelected(catalogItemId, selected) {
+  const item = cart.find((entry) => entry.productId === String(catalogItemId))
   if (!item) return
   item.selected = Boolean(selected)
   persistCart()
@@ -262,8 +329,8 @@ function setAllCartSelected(selected) {
   persistCart()
 }
 
-function removeCartItems(productIds) {
-  const ids = new Set(productIds.map(normalizeProductId))
+function removeCartItems(catalogItemIds) {
+  const ids = new Set(catalogItemIds.map(String))
   for (let index = cart.length - 1; index >= 0; index--) {
     if (ids.has(cart[index].productId)) cart.splice(index, 1)
   }
@@ -283,7 +350,7 @@ function setLastOrder(order) {
 export function useShop() {
   const cartItems = computed(() => cart.map((item) => ({
     ...item,
-    product: productById(item.productId),
+    product: productById(item.productId, item.leaderId),
     leader: leaderById(item.leaderId),
   })).filter((item) => item.product && item.leader))
   const selectedCartItems = computed(() => cartItems.value.filter((item) => item.selected))
@@ -291,11 +358,18 @@ export function useShop() {
   return {
     categories,
     leaders,
+    leadersLoading,
+    leadersLoaded,
+    leadersError,
     products,
+    catalogLoading,
+    catalogLoaded,
+    catalogError,
+    catalogUsingFallback,
     cart,
     cartItems,
     selectedCartItems,
-    cartCount: computed(() => cart.reduce((sum, item) => sum + item.quantity, 0)),
+    cartCount: computed(() => cartItems.value.reduce((sum, item) => sum + item.quantity, 0)),
     cartSubtotal: computed(() => cartItems.value.reduce((sum, item) => sum + item.product.price * item.quantity, 0)),
     selectedCartCount: computed(() => selectedCartItems.value.reduce((sum, item) => sum + item.quantity, 0)),
     selectedCartSubtotal: computed(() => selectedCartItems.value.reduce((sum, item) => sum + item.product.price * item.quantity, 0)),
@@ -306,10 +380,10 @@ export function useShop() {
     lastOrder,
     productById,
     leaderById,
-    productRushCount,
-    recordProductEntry,
     isLeaderFollowed,
     loadFollowedLeaders,
+    loadLeaders,
+    loadCatalog,
     setLeaderFollowed,
     addToCart,
     updateQuantity,

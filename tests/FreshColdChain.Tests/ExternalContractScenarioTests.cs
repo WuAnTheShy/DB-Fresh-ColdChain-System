@@ -57,6 +57,7 @@ internal static class ExternalContractScenarioTests
             typeof(GroupAConsumerProduct),
             typeof(GroupATrustedProduct),
             typeof(GroupCPromoterSummary),
+            typeof(GroupCPromoterFeaturedProduct),
             typeof(GroupCPromoterProductCandidate),
             typeof(GroupCPromoterProductValidation)
         };
