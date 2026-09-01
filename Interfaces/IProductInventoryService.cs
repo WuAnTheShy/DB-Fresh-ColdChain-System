@@ -10,6 +10,12 @@ public interface IProductInventoryService
     // 产品
     Task<ApiResponse<PagedResult<ProductDto>>> GetProductsAsync(int pageIndex, int pageSize, string? keyword = null);
     Task<ApiResponse<ProductDto>> GetProductByIdAsync(string id);
+
+    /// <summary>
+    /// 产品详情页"供应商图文"：报价该商品的供应商列表；若指定 supplierId，
+    /// 返回该供应商的简介与图片（自己上传的在前，平台通用图在后）。
+    /// </summary>
+    Task<ApiResponse<ProductSupplierMediaDto>> GetSupplierProductMediaAsync(string productId, string? supplierId);
     Task<ApiResponse<ProductDto>> CreateProductAsync(CreateProductDto dto);
     Task<ApiResponse<ProductDto>> UpdateProductAsync(string id, UpdateProductDto dto);
     Task<ApiResponse> DeleteProductAsync(string id);
