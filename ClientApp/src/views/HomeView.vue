@@ -1,27 +1,20 @@
 <script setup>
 import { BadgeCheck, Clock3, RefreshCw, ShieldCheck, Snowflake, Truck, UsersRound } from '@lucide/vue'
+import { computed } from 'vue'
 import ProductCard from '../components/ProductCard.vue'
 import { useShop } from '../state/shop'
 
-const { categories, products, leaders, leadersLoading, leadersError, loadLeaders } = useShop()
+const { categories, products, catalogLoading, catalogError, catalogUsingFallback, leaders, leadersLoading, leadersError, loadCatalog, loadLeaders } = useShop()
+const promoProducts = computed(() => products.slice(0, 3))
+const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
 </script>
 
 <template>
   <div class="home-page">
     <section class="amazon-promo-grid" aria-label="今日精选">
-      <RouterLink class="amazon-promo-card promo-cherry" :to="`/products/${products[0].id}`">
-        <div class="promo-copy"><h1>产地冷链<br />阳光玫瑰葡萄</h1></div>
-        <img :src="products[0].image" alt="阳光玫瑰葡萄" />
-        <strong>点击选购</strong>
-      </RouterLink>
-      <RouterLink class="amazon-promo-card promo-seafood" :to="`/products/${products[1].id}`">
-        <div class="promo-copy"><h2>冰鲜三文鱼<br />低温锁鲜</h2></div>
-        <img :src="products[1].image" alt="冰鲜三文鱼" />
-        <strong>点击选购</strong>
-      </RouterLink>
-      <RouterLink class="amazon-promo-card promo-vegetable" :to="`/products/${products[2].id}`">
-        <div class="promo-copy"><h2>水果甜玉米<br />新鲜到家</h2></div>
-        <img :src="products[2].image" alt="水果甜玉米" />
+      <RouterLink v-for="(product, index) in promoProducts" :key="product.id" class="amazon-promo-card" :class="promoClasses[index]" :to="`/products/${product.id}`">
+        <div class="promo-copy"><h2>{{ product.shortName }}<br />{{ product.storage }}配送</h2></div>
+        <img :src="product.image" :alt="product.name" @error="$event.target.src = product.fallbackImage" />
         <strong>点击选购</strong>
       </RouterLink>
       <RouterLink class="amazon-promo-card promo-delivery" to="/search">
@@ -40,6 +33,8 @@ const { categories, products, leaders, leadersLoading, leadersError, loadLeaders
 
     <section class="home-section amazon-home-panel category-section store-container">
       <div class="section-title-row"><div><h2>按品类选购</h2></div></div>
+      <div v-if="catalogLoading" class="leader-state" role="status">正在读取商品分类…</div>
+      <div v-else-if="catalogError && !catalogUsingFallback" class="leader-state leader-state-error" role="alert"><span>{{ catalogError }}</span><button class="btn btn-sm btn-outline-secondary" type="button" @click="loadCatalog(true)"><RefreshCw :size="14" />重新加载</button></div>
       <div class="category-grid">
         <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`" class="category-tile">
           <img :src="category.image" :alt="category.name" />
@@ -50,9 +45,13 @@ const { categories, products, leaders, leadersLoading, leadersError, loadLeaders
 
     <section class="home-section amazon-home-panel store-container" aria-labelledby="all-products-title">
       <div class="section-title-row"><div><h2 id="all-products-title">今日推荐</h2></div></div>
-      <div class="product-grid">
+      <div v-if="catalogUsingFallback" class="alert alert-warning" role="status">真实目录暂时不可用，当前展示最近缓存或演示兜底商品；恢复连接后可重新加载。</div>
+      <div v-if="catalogLoading" class="leader-state" role="status">正在读取在团商品…</div>
+      <div v-else-if="catalogError && !catalogUsingFallback" class="leader-state leader-state-error" role="alert"><span>{{ catalogError }}</span><button class="btn btn-sm btn-outline-secondary" type="button" @click="loadCatalog(true)"><RefreshCw :size="14" />重新加载</button></div>
+      <div v-else-if="products.length" class="product-grid">
         <ProductCard v-for="product in products" :key="product.id" :product="product" />
       </div>
+      <div v-else class="leader-state">数据库中暂无可售的团长在团商品</div>
     </section>
 
     <section class="home-section amazon-home-panel store-container" aria-labelledby="verified-leaders-title">

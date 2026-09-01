@@ -10,7 +10,7 @@ import { useCustomerContext } from '../state/customer'
 const props = defineProps({ id: { type: String, required: true } })
 const route = useRoute()
 const router = useRouter()
-const { cart, leaderById, products, leadersLoading, leadersError, loadLeaders, isLeaderFollowed, setLeaderFollowed } = useShop()
+const { cart, leaderById, products, leadersLoading, leadersError, loadLeaders, loadCatalog, isLeaderFollowed, setLeaderFollowed } = useShop()
 const { customerId, isAuthenticated } = useCustomerContext()
 const leader = computed(() => leaderById(props.id))
 const leaderProducts = computed(() => products.filter((product) => product.leaderId === String(props.id)))
@@ -20,7 +20,7 @@ const followError = ref('')
 
 onMounted(async () => {
   try {
-    await loadLeaders()
+    await Promise.all([loadLeaders(), loadCatalog()])
     if (!leader.value) await router.replace('/search')
   } catch {
     // 页面保留加载失败状态，允许消费者重试。
@@ -76,7 +76,7 @@ async function handleFollow() {
 
     <div class="store-container leader-stat-row">
       <div><PackageCheck :size="20" /><span><strong>{{ leaderProducts.length }}</strong><small>正在带货</small></span></div>
-      <div><UsersRound :size="20" /><span><strong>{{ leader.following + (followed ? 1 : 0) }}</strong><small>社区关注</small></span></div>
+      <div><UsersRound :size="20" /><span><strong>{{ followed ? '已关注' : '未关注' }}</strong><small>当前关注状态</small></span></div>
       <div><BadgeCheck :size="20" /><span><strong>已认证</strong><small>平台团长资质</small></span></div>
     </div>
 

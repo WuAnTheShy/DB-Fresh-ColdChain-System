@@ -29,9 +29,20 @@ public interface IGroupCPromoterCatalogService
         string promoterId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<GroupCPromoterFeaturedProduct>> GetFeaturedProductsAsync(
+        string promoterId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<GroupCPromoterProductValidation>>
         ValidatePromoterProductsAsync(
             string promoterId,
             IReadOnlyList<GroupCPromoterProductCandidate> products,
             CancellationToken cancellationToken = default);
+}
+
+/// <summary>B 组消费者端商品目录聚合契约。</summary>
+public interface IConsumerCatalogService
+{
+    Task<ConsumerCatalogResult> GetCatalogAsync(
+        CancellationToken cancellationToken = default);
 }

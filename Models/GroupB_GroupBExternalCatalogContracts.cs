@@ -23,8 +23,12 @@ public sealed class GroupAConsumerProduct
     public string ProductId { get; init; } = string.Empty;
     public string ProductName { get; init; } = string.Empty;
     public string? ImageUrl { get; init; }
+    public string? CategoryName { get; init; }
+    public string? Unit { get; init; }
+    public string? StorageRequirement { get; init; }
     public decimal SalePrice { get; init; }
     public bool IsInStock { get; init; }
+    public int AvailableStock { get; init; }
 
     // 仅供 B 组后端校验合作范围，禁止序列化给消费者前端。
     [JsonIgnore]
@@ -48,6 +52,9 @@ public sealed class GroupATrustedProduct
     public decimal SalePrice { get; init; }
     public int AvailableStock { get; init; }
     public bool IsOnSale { get; init; }
+    public string? CategoryName { get; init; }
+    public string? Unit { get; init; }
+    public string? StorageRequirement { get; init; }
 }
 
 /// <summary>B 组调用 C 组团长目录时使用的查询条件。</summary>
@@ -89,4 +96,42 @@ public sealed class GroupCPromoterProductValidation
     public string ProductId { get; init; } = string.Empty;
     public bool IsAllowed { get; init; }
     public decimal? SalePrice { get; init; }
+    public string? Description { get; init; }
+    public IReadOnlyList<string> ImageUrls { get; init; } = [];
+}
+
+/// <summary>C 组返回给 B 组后端的团长在团商品。</summary>
+public sealed class GroupCPromoterFeaturedProduct
+{
+    public string ProductId { get; init; } = string.Empty;
+
+    // 仅供 B 组后端与 A 组商品来源交叉校验，禁止序列化给消费者前端。
+    [JsonIgnore]
+    public string SupplierId { get; init; } = string.Empty;
+
+    public decimal SalePrice { get; init; }
+    public string? Description { get; init; }
+    public IReadOnlyList<string> ImageUrls { get; init; } = [];
+}
+
+/// <summary>B 组消费者端使用的真实在团商品，只包含可公开字段。</summary>
+public sealed class ConsumerCatalogProduct
+{
+    public string CatalogItemId { get; init; } = string.Empty;
+    public string ProductId { get; init; } = string.Empty;
+    public string ProductName { get; init; } = string.Empty;
+    public string CategoryName { get; init; } = string.Empty;
+    public string? Unit { get; init; }
+    public string? StorageRequirement { get; init; }
+    public decimal SalePrice { get; init; }
+    public int AvailableStock { get; init; }
+    public string PromoterId { get; init; } = string.Empty;
+    public string? Description { get; init; }
+    public IReadOnlyList<string> ImageUrls { get; init; } = [];
+}
+
+public sealed class ConsumerCatalogResult
+{
+    public IReadOnlyList<string> Categories { get; init; } = [];
+    public IReadOnlyList<ConsumerCatalogProduct> Products { get; init; } = [];
 }

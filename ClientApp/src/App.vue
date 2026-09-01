@@ -6,11 +6,11 @@ import ShopFooter from './components/ShopFooter.vue'
 import { useCustomerContext } from './state/customer'
 import { useShop } from './state/shop'
 
-const { customerId } = useCustomerContext()
-const { loadFollowedLeaders, loadLeaders } = useShop()
+const { customerId, loadDeliveryAddress } = useCustomerContext()
+const { loadFollowedLeaders, loadLeaders, loadCatalog } = useShop()
 
 watch(customerId, (id) => {
-  loadLeaders()
+  Promise.all([loadLeaders(), loadCatalog(), loadDeliveryAddress()])
     .then(() => loadFollowedLeaders(id))
     .catch(() => {})
 }, { immediate: true })

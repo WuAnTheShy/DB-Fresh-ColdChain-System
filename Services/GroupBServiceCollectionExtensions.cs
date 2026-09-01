@@ -22,6 +22,7 @@ public static class GroupBServiceCollectionExtensions
         services.AddScoped<IOrderTransactionManager, OracleOrderTransactionManager>();
         services.AddScoped<IPasswordHasher<CrmCustomer>, PasswordHasher<CrmCustomer>>();
         services.AddScoped<IGroupAInventoryGateway, GroupAInventoryServiceAdapter>();
+        services.AddScoped<IGroupAProductCatalogService, GroupAProductCatalogService>();
         services.AddScoped<ILogisticsService, GroupALogisticsServiceAdapter>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<ICustomerService, CustomerService>();
@@ -29,6 +30,7 @@ public static class GroupBServiceCollectionExtensions
         services.AddScoped<ICouponService, CouponService>();
         services.AddScoped<IConsumerMessageService, ConsumerMessageService>();
         services.AddScoped<IGroupCPromoterCatalogService, GroupCPromoterCatalogService>();
+        services.AddScoped<IConsumerCatalogService, ConsumerCatalogService>();
         services.AddScoped<GroupBApiExceptionFilter>();
         services.AddScoped<GroupBDailyMaintenanceService>();
         services.AddHostedService<GroupBDailyCheckHostedService>();

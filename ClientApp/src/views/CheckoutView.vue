@@ -68,11 +68,13 @@ async function submit() {
   try {
     const merged = new Map()
     selectedCartItems.value.forEach((item) => {
-      const existing = merged.get(item.productId)
-      merged.set(item.productId, existing
+      const orderProductId = item.product.productId
+      const orderLineKey = `${item.leaderId}\u001f${orderProductId}`
+      const existing = merged.get(orderLineKey)
+      merged.set(orderLineKey, existing
         ? { ...existing, quantity: existing.quantity + item.quantity }
         : {
-            productId: item.productId,
+            productId: orderProductId,
             promoterId: item.leaderId,
             quantity: item.quantity,
             clientUnitPrice: item.product.price,

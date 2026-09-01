@@ -58,6 +58,7 @@ function jsonBody(value) {
 
 export const api = {
   getPromoters: () => request('/api/promoters'),
+  getConsumerCatalog: () => request('/api/consumer-catalog'),
   getCurrentCustomer: () => request('/api/auth/customer/me'),
   loginCustomer: (payload) => request('/api/auth/customer/login', {
     method: 'POST',

@@ -66,6 +66,22 @@ public sealed class GroupCPromoterCatalogService(
         return await promoterService.GetActiveSupplierIdsAsync(promoterId);
     }
 
+    public async Task<IReadOnlyList<GroupCPromoterFeaturedProduct>> GetFeaturedProductsAsync(
+        string promoterId,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var entries = await promoterService.GetPromoterFeaturedProductsAsync(promoterId);
+        return entries.Select(entry => new GroupCPromoterFeaturedProduct
+        {
+            ProductId = entry.ProductID,
+            SupplierId = entry.SupplierID,
+            SalePrice = entry.Price,
+            Description = entry.PromoterDesc,
+            ImageUrls = entry.Images
+        }).ToList();
+    }
+
     public async Task<IReadOnlyList<GroupCPromoterProductValidation>> ValidatePromoterProductsAsync(
         string promoterId,
         IReadOnlyList<GroupCPromoterProductCandidate> products,
@@ -85,20 +101,22 @@ public sealed class GroupCPromoterCatalogService(
             : [];
         var entryMap = entries.ToDictionary(
             entry => $"{entry.ProductID}\u001f{entry.SupplierID}",
-            entry => entry.Price,
+            entry => entry,
             StringComparer.Ordinal);
 
         return products.Select(product =>
         {
             var key = $"{product.ProductId}\u001f{product.SupplierId}";
-            var hasEntry = entryMap.TryGetValue(key, out var promoterPrice);
+            var hasEntry = entryMap.TryGetValue(key, out var entry);
             return new GroupCPromoterProductValidation
             {
                 ProductId = product.ProductId,
                 IsAllowed = promoterEnabled &&
                     supplierIds.Contains(product.SupplierId) &&
                     hasEntry,
-                SalePrice = hasEntry ? promoterPrice : null
+                SalePrice = hasEntry ? entry!.Price : null,
+                Description = hasEntry ? entry!.PromoterDesc : null,
+                ImageUrls = hasEntry ? entry!.Images : []
             };
         }).ToList();
     }

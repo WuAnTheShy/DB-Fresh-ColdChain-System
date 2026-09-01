@@ -1,5 +1,4 @@
 <script setup>
-import { Flame } from '@lucide/vue'
 import { computed } from 'vue'
 import { useShop } from '../state/shop'
 import { useCustomerContext } from '../state/customer'
@@ -8,11 +7,10 @@ const props = defineProps({
   product: { type: Object, required: true },
 })
 
-const { categories, leaderById, productRushCount, isLeaderFollowed } = useShop()
+const { categories, leaderById, isLeaderFollowed } = useShop()
 const { isAuthenticated } = useCustomerContext()
 const activeLeader = computed(() => leaderById(props.product.leaderId))
 const category = computed(() => categories.find((item) => item.slug === props.product.category))
-const rushCount = computed(() => productRushCount(props.product.id))
 const productLink = computed(() => `/products/${props.product.id}`)
 const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(props.product.leaderId))
 
@@ -39,10 +37,8 @@ function displayPrice(value) {
         </p>
 
         <div class="product-card-meta">
-          <span class="rush-count">
-            <Flame :size="15" fill="currentColor" />{{ rushCount }}人在抢
-          </span>
-          <span class="product-published">今日更新</span>
+          <span>{{ product.category }}</span>
+          <span>{{ product.storage }}</span>
         </div>
 
         <div v-if="canViewPrice" class="social-product-price">
@@ -51,13 +47,13 @@ function displayPrice(value) {
         <div v-else class="social-product-price-gated">关注团长后查看专属价格</div>
 
         <div class="product-card-media">
-          <img :src="product.image" :alt="product.name" loading="lazy" />
+          <img :src="product.image" :alt="product.name" loading="lazy" @error="$event.target.src = product.fallbackImage" />
           <img :src="category?.image || product.image" :alt="`${product.shortName}货架陈列`" loading="lazy" />
         </div>
 
         <div class="product-card-group-status">
-          <span><strong>{{ product.sold }}人已购买</strong></span>
-          <span>{{ product.delivery }}</span>
+          <span><strong>当前在团</strong></span>
+          <span>库存 {{ product.stock }} 件</span>
         </div>
       </div>
     </RouterLink>
