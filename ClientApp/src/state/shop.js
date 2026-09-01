@@ -62,6 +62,32 @@ function normalizeCategory(name) {
   return { slug: normalizedName, name: normalizedName, icon: visual.icon, image: visual.image }
 }
 
+// 温区展示文字映射（兼容英文枚举与中文值，大小写不敏感）
+const storageLabels = {
+  CHILLED: '冷藏',
+  FROZEN: '冷冻',
+  AMBIENT: '常温',
+  冷藏: '冷藏',
+  冷冻: '冷冻',
+  常温: '常温',
+}
+const defaultStorageLabel = '冷链'
+
+function storageLabel(value) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return defaultStorageLabel
+  return storageLabels[raw.toUpperCase()] ?? storageLabels[raw] ?? defaultStorageLabel
+}
+
+// 温区原始枚举（用于前端颜色区分，未知值归一为 CHILLED 同款展示）
+function storageTypeOf(value) {
+  const raw = String(value ?? '').trim()
+  const upper = raw.toUpperCase()
+  return upper === 'FROZEN' || upper === '冷冻' ? 'FROZEN'
+    : upper === 'AMBIENT' || upper === '常温' ? 'AMBIENT'
+    : 'CHILLED'
+}
+
 function normalizeProduct(item) {
   const categoryName = String(item.categoryName ?? '').trim() || '其他'
   const visual = categoryVisual(categoryName)
@@ -69,7 +95,8 @@ function normalizeProduct(item) {
     .map((url) => String(url ?? '').trim())
     .filter(Boolean)
   const unit = String(item.unit ?? '').trim()
-  const storage = String(item.storageRequirement ?? '').trim() || '冷链'
+  const storage = storageLabel(item.storageRequirement)
+  const storageType = storageTypeOf(item.storageRequirement)
   const productName = String(item.productName ?? '').trim() || '未命名商品'
   return {
     id: String(item.catalogItemId ?? '').trim(),
@@ -83,6 +110,7 @@ function normalizeProduct(item) {
     fallbackImage: visual.image,
     images: images.length ? images : [visual.image],
     storage,
+    storageType,
     leaderId: String(item.promoterId ?? '').trim(),
     stock: Math.max(0, Number(item.availableStock ?? 0)),
     delivery: '支付后按订单安排冷链配送',

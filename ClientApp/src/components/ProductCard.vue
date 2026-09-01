@@ -38,7 +38,7 @@ function displayPrice(value) {
 
         <div class="product-card-meta">
           <span>{{ product.category }}</span>
-          <span>{{ product.storage }}</span>
+          <span :class="`product-storage storage-type-${(product.storageType || 'CHILLED').toLowerCase()}`">{{ product.storage }}</span>
         </div>
 
         <div v-if="canViewPrice" class="social-product-price">
@@ -174,6 +174,23 @@ function displayPrice(value) {
   justify-content: space-between;
   gap: 10px;
   margin-top: 10px;
+}
+
+/* 温控颜色区分：冷藏=蓝 / 冷冻=冰蓝 / 常温=暖橙 */
+.product-storage {
+  font-weight: 700;
+}
+
+.storage-type-chilled {
+  color: #2463a7;
+}
+
+.storage-type-frozen {
+  color: #0e7490;
+}
+
+.storage-type-ambient {
+  color: #c2571a;
 }
 
 .rush-count {
