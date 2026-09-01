@@ -1,9 +1,9 @@
 <script setup>
-import { Clock3, ShieldCheck, Snowflake, Truck } from '@lucide/vue'
+import { BadgeCheck, Clock3, RefreshCw, ShieldCheck, Snowflake, Truck, UsersRound } from '@lucide/vue'
 import ProductCard from '../components/ProductCard.vue'
 import { useShop } from '../state/shop'
 
-const { categories, products } = useShop()
+const { categories, products, leaders, leadersLoading, leadersError, loadLeaders } = useShop()
 </script>
 
 <template>
@@ -54,6 +54,25 @@ const { categories, products } = useShop()
         <ProductCard v-for="product in products" :key="product.id" :product="product" />
       </div>
     </section>
+
+    <section class="home-section amazon-home-panel store-container" aria-labelledby="verified-leaders-title">
+      <div class="section-title-row">
+        <div><h2 id="verified-leaders-title">认证团长</h2></div>
+        <span v-if="leaders.length"><UsersRound :size="16" />共 {{ leaders.length }} 位启用团长</span>
+      </div>
+      <div v-if="leadersLoading" class="leader-state" role="status">正在读取团长信息…</div>
+      <div v-else-if="leadersError" class="leader-state leader-state-error" role="alert">
+        <span>{{ leadersError }}</span>
+        <button class="btn btn-sm btn-outline-secondary" type="button" @click="loadLeaders(true)"><RefreshCw :size="14" />重新加载</button>
+      </div>
+      <div v-else-if="leaders.length" class="leader-grid" data-testid="leader-list">
+        <RouterLink v-for="leader in leaders" :key="leader.id" class="leader-card" :to="`/leaders/${leader.id}`" :data-leader-id="leader.id">
+          <img :src="leader.avatar" :alt="`${leader.name}团长头像`" />
+          <span><strong>{{ leader.name }}团长</strong><small><BadgeCheck :size="14" />平台认证</small></span>
+        </RouterLink>
+      </div>
+      <div v-else class="leader-state">数据库中暂无启用团长</div>
+    </section>
   </div>
 </template>
 
@@ -103,11 +122,22 @@ const { categories, products } = useShop()
 .category-tile img { opacity: 1; }
 .category-tile > span { padding: 50px 15px 15px; background: linear-gradient(180deg, transparent, rgba(0,0,0,.72)); }
 .category-tile strong { font-size: 18px; }
+.section-title-row > span { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; }
+.leader-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.leader-card { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); text-decoration: none; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+.leader-card:hover { border-color: #9fb9ac; box-shadow: 0 5px 16px rgba(15, 17, 17, .1); color: var(--ink); transform: translateY(-2px); }
+.leader-card > img { width: 52px; height: 52px; flex: 0 0 52px; border-radius: 12px; object-fit: cover; }
+.leader-card > span { display: flex; min-width: 0; flex-direction: column; }
+.leader-card strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.leader-card small { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; color: var(--brand); font-size: 11px; }
+.leader-state { display: flex; min-height: 84px; align-items: center; justify-content: center; gap: 12px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); }
+.leader-state-error { color: #9f3128; }
 
 @media (max-width: 1199.98px) {
   .amazon-promo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .amazon-promo-card { min-height: 420px; }
   .category-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .leader-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 991.98px) {
@@ -126,5 +156,6 @@ const { categories, products } = useShop()
   .amazon-home-panel { margin-top: 10px; padding: 14px; }
   .category-grid { grid-template-columns: 1fr; gap: 9px; }
   .category-tile { height: 120px; }
+  .leader-grid { grid-template-columns: 1fr; gap: 9px; }
 }
 </style>

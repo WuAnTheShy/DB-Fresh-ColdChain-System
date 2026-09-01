@@ -7,10 +7,12 @@ import { useCustomerContext } from './state/customer'
 import { useShop } from './state/shop'
 
 const { customerId } = useCustomerContext()
-const { loadFollowedLeaders } = useShop()
+const { loadFollowedLeaders, loadLeaders } = useShop()
 
 watch(customerId, (id) => {
-  loadFollowedLeaders(id).catch(() => {})
+  loadLeaders()
+    .then(() => loadFollowedLeaders(id))
+    .catch(() => {})
 }, { immediate: true })
 </script>
 

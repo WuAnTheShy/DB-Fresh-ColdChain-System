@@ -1,5 +1,6 @@
 import { computed, reactive, ref } from 'vue'
 import { api } from '../services/api'
+import { avatarUrl } from '../assets/avatars'
 import seasonalFruitImage from '../assets/categories/seasonal-fruit.jpg'
 import vegetableTofuImage from '../assets/categories/vegetable-tofu.jpg'
 import meatEggsImage from '../assets/categories/meat-eggs.jpg'
@@ -16,41 +17,66 @@ export const categories = [
   { slug: 'other', name: '其他', icon: '杂货', image: otherGroceryImage },
 ]
 
-export const leaders = [
-  {
-    id: 'PRO_2563c9557c564d86b015b90876c3d8f4',
-    name: '张三',
+export const leaders = reactive([])
+
+const leaderCovers = [seasonalFruitImage, vegetableTofuImage, seafoodImage]
+const leadersLoading = ref(false)
+const leadersLoaded = ref(false)
+const leadersError = ref('')
+let leadersRequest = null
+
+function fallbackAvatar(name) {
+  const initial = (String(name ?? '团').trim().slice(0, 1) || '团')
+    .replace(/[<>&"']/g, '') || '团'
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" rx="20" fill="#e8f3ed"/><text x="48" y="59" text-anchor="middle" font-family="sans-serif" font-size="38" font-weight="700" fill="#176b46">${initial}</text></svg>`
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+
+function normalizeLeader(promoter, index) {
+  const name = String(promoter.promoterName ?? '').trim() || '未命名团长'
+  return {
+    id: String(promoter.promoterId ?? '').trim(),
+    name,
     title: '社区生鲜团长',
-    area: '浦东新区 · 花木街道',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=240&q=85',
-    cover: 'https://images.unsplash.com/photo-1528821128474-27f963b062bf?auto=format&fit=crop&w=1200&q=85',
-    description: '每天精选当季果蔬，严选冷链到家。上架前亲自试吃，下单后同步配送进度。',
-    tags: ['平台认证', '果蔬优选'],
-    following: 1280,
-  },
-  {
-    id: 'PRO_52d9f7b7cf2843a7b076732fb33374f0',
-    name: '长四',
-    title: '海鲜冷链团长',
-    area: '徐汇区 · 田林街道',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=240&q=85',
-    cover: 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=1200&q=85',
-    description: '专注冰鲜水产和家庭餐桌，冷链时效透明，按团同步到货与提货信息。',
-    tags: ['平台认证', '水产专营'],
-    following: 936,
-  },
-  {
-    id: 'PRO_9fb79e69831b4a50899999c0f438c734',
-    name: '宋张',
-    title: '家庭餐桌团长',
-    area: '闵行区 · 古美街道',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=240&q=85',
-    cover: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=1200&q=85',
-    description: '面向家庭日常采购，主推高复购、小份量和高性价比的生鲜组合。',
-    tags: ['平台认证', '家庭精选'],
-    following: 764,
-  },
-]
+    area: '平台认证团长',
+    avatar: avatarUrl(promoter.avatar) || fallbackAvatar(name),
+    cover: leaderCovers[index % leaderCovers.length],
+    description: '该团长已通过平台认证，正在为社区消费者提供生鲜团购服务。',
+    tags: ['平台认证'],
+    following: 0,
+  }
+}
+
+async function loadLeaders(force = false) {
+  if (leadersLoaded.value && !force) return leaders
+  if (leadersRequest && !force) return leadersRequest
+
+  leadersLoading.value = true
+  leadersError.value = ''
+  leadersRequest = api.getPromoters()
+    .then((result) => {
+      const normalized = (Array.isArray(result) ? result : [])
+        .map(normalizeLeader)
+        .filter((leader) => leader.id)
+      leaders.splice(0, leaders.length, ...normalized)
+      leadersLoaded.value = true
+
+      if (!selectedLeaderId.value || !leaderById(selectedLeaderId.value)) {
+        selectedLeaderId.value = leaders[0]?.id ?? ''
+      }
+      return leaders
+    })
+    .catch((error) => {
+      leadersError.value = error.message
+      throw error
+    })
+    .finally(() => {
+      leadersLoading.value = false
+      leadersRequest = null
+    })
+
+  return leadersRequest
+}
 
 export const products = [
   {
@@ -130,7 +156,7 @@ const rushCounts = reactive(Object.fromEntries(products.map((product) => [
   product.id,
   Math.max(product.sold, Number(rawRushCounts[product.id]) || product.sold),
 ])))
-const selectedLeaderId = ref(sessionStorage.getItem('freshMall.leaderId') || leaders[0].id)
+const selectedLeaderId = ref(sessionStorage.getItem('freshMall.leaderId') || '')
 const followedLeaderIds = ref([])
 const followingLoading = ref(false)
 const followingError = ref('')
@@ -291,6 +317,9 @@ export function useShop() {
   return {
     categories,
     leaders,
+    leadersLoading,
+    leadersLoaded,
+    leadersError,
     products,
     cart,
     cartItems,
@@ -310,6 +339,7 @@ export function useShop() {
     recordProductEntry,
     isLeaderFollowed,
     loadFollowedLeaders,
+    loadLeaders,
     setLeaderFollowed,
     addToCart,
     updateQuantity,

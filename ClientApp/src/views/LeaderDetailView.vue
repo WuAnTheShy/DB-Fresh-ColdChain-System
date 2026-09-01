@@ -1,6 +1,6 @@
 <script setup>
 import { BadgeCheck, Heart, MapPin, PackageCheck, UsersRound } from '@lucide/vue'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
@@ -10,7 +10,7 @@ import { useCustomerContext } from '../state/customer'
 const props = defineProps({ id: { type: String, required: true } })
 const route = useRoute()
 const router = useRouter()
-const { cart, leaderById, products, isLeaderFollowed, setLeaderFollowed } = useShop()
+const { cart, leaderById, products, leadersLoading, leadersError, loadLeaders, isLeaderFollowed, setLeaderFollowed } = useShop()
 const { customerId, isAuthenticated } = useCustomerContext()
 const leader = computed(() => leaderById(props.id))
 const leaderProducts = computed(() => products.filter((product) => product.leaderId === String(props.id)))
@@ -18,7 +18,14 @@ const followed = computed(() => isLeaderFollowed(props.id))
 const followPending = ref(false)
 const followError = ref('')
 
-if (!leader.value) router.replace('/search')
+onMounted(async () => {
+  try {
+    await loadLeaders()
+    if (!leader.value) await router.replace('/search')
+  } catch {
+    // 页面保留加载失败状态，允许消费者重试。
+  }
+})
 
 async function handleFollow() {
   if (!isAuthenticated.value) {
@@ -80,6 +87,11 @@ async function handleFollow() {
       </div>
     </div>
   </div>
+  <div v-else-if="leadersLoading" class="store-container page-space leader-detail-state" role="status">正在读取团长信息…</div>
+  <div v-else-if="leadersError" class="store-container page-space leader-detail-state" role="alert">
+    <span>{{ leadersError }}</span>
+    <button class="btn btn-outline-secondary" type="button" @click="loadLeaders(true)">重新加载</button>
+  </div>
 </template>
 
 <style scoped>
@@ -101,6 +113,7 @@ async function handleFollow() {
 .leader-stat-row span { display: flex; flex-direction: column; }
 .leader-stat-row strong { color: var(--ink); font-size: 14px; }
 .leader-stat-row small { color: var(--muted); font-size: 9px; }
+.leader-detail-state { display: flex; min-height: 240px; align-items: center; justify-content: center; gap: 12px; color: var(--muted); }
 
 @media (max-width: 767.98px) {
   .leader-profile-content { min-height: 330px; grid-template-columns: 82px 1fr; gap: 15px; padding: 25px 0; }
