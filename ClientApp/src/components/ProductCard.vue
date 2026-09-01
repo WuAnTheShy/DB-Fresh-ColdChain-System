@@ -26,6 +26,7 @@ const categoryStyle = computed(() => {
   const name = String(props.product.category ?? '')
   return categoryStyles.find((item) => item.pattern.test(name)) ?? defaultCategoryStyle
 })
+
 const productLink = computed(() => `/products/${props.product.id}`)
 const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(props.product.leaderId))
 
