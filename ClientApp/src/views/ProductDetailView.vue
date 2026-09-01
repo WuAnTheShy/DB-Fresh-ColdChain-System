@@ -184,7 +184,6 @@ function buyNow() {
     </section>
   </div>
   <div v-else-if="catalogLoading" class="store-container page-space store-loading" role="status">正在读取商品信息…</div>
-<<<<<<< HEAD
   <div v-else-if="catalogError" class="store-container page-space store-empty" role="alert">
     <strong>商品信息读取失败</strong><span>{{ catalogError }}</span><button class="btn btn-outline-secondary" type="button"
       @click="loadCatalog(true)">重新加载</button>
@@ -571,62 +570,6 @@ function buyNow() {
   font-size: 10px;
   line-height: 1.7;
 }
-=======
-  <div v-else-if="catalogError" class="store-container page-space store-empty" role="alert"><strong>商品信息读取失败</strong><span>{{ catalogError }}</span><button class="btn btn-outline-secondary" type="button" @click="loadCatalog(true)">重新加载</button></div>
-</template>
-
-<style scoped>
-.product-detail-main { display: grid; grid-template-columns: minmax(300px, .95fr) minmax(330px, 1fr) 300px; gap: 28px; padding: 24px; border: 1px solid var(--line); background: #fff; }
-.product-gallery { display: grid; grid-template-columns: 62px minmax(0, 1fr); grid-template-rows: auto; gap: 10px; align-items: start; }
-.product-main-image { position: relative; grid-column: 2; aspect-ratio: 1 / 1; overflow: hidden; background: #eef1ef; }
-.product-main-image img { width: 100%; height: 100%; object-fit: cover; }
-.product-main-image > span { position: absolute; left: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border-radius: 4px; background: rgba(255, 255, 255, .94); color: #2463a7; font-size: 10px; font-weight: 700; }
-.product-thumb { grid-column: 1; grid-row: 1; aspect-ratio: 1 / 1; padding: 2px; border: 2px solid var(--brand); }
-.product-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.product-info-column { min-width: 0; }
-.detail-deal-label { display: inline-flex; margin-bottom: 9px; padding: 4px 7px; border-radius: 3px; background: #fce9e7; color: var(--danger); font-size: 10px; font-weight: 750; }
-.product-info-column h1 { margin: 0; font-size: 25px; font-weight: 800; line-height: 1.35; }
-.detail-summary { margin: 9px 0 18px; color: var(--muted); line-height: 1.65; }
-.detail-leader-panel { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px; border: 1px solid #cfe1d8; background: #f2f8f5; }
-.detail-leader-panel > img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
-.detail-leader-panel > div { min-width: 0; }
-.detail-leader-panel > div > span { display: flex; align-items: center; gap: 4px; }
-.detail-leader-panel svg { color: var(--brand); }
-.detail-leader-panel small { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.detail-leader-panel > a { display: inline-flex; align-items: center; color: var(--brand); font-size: 10px; font-weight: 700; text-decoration: none; }
-.product-facts { margin: 15px 0 0; }
-.product-facts > div { display: grid; grid-template-columns: 62px 1fr; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.product-facts dt { color: var(--muted); font-size: 10px; }
-.product-facts dd { margin: 0; font-size: 11px; }
-.buy-box { align-self: start; padding: 18px; border: 1px solid #cfd7d3; border-radius: 6px; box-shadow: 0 3px 10px rgba(23, 33, 29, .08); }
-.buy-price { display: flex; align-items: baseline; color: var(--danger); }
-.buy-price > span { font-size: 16px; }
-.buy-price strong { font-size: 30px; }
-.buy-price { margin-bottom: 15px; }
-.buy-gated-message { display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px; padding: 13px; border: 1px solid #cfe1d8; background: #f2f8f5; color: var(--brand); }
-.buy-gated-message strong { color: var(--ink); font-size: 13px; }
-.buy-gated-message span { color: var(--muted); font-size: 10px; line-height: 1.5; }
-.gated-login-button { margin-top: 8px; }
-.delivery-promise { display: flex; gap: 8px; margin-bottom: 12px; color: var(--brand); }
-.delivery-promise div { display: flex; min-width: 0; flex-direction: column; }
-.delivery-promise strong { color: var(--ink); font-size: 11px; }
-.delivery-promise span { margin-top: 2px; color: var(--muted); font-size: 9px; }
-.stock-status { display: flex; align-items: center; gap: 5px; margin-bottom: 14px; color: var(--brand); font-size: 11px; font-weight: 700; }
-.buy-quantity { display: flex; align-items: center; justify-content: space-between; margin: 15px 0; color: var(--muted); font-size: 10px; }
-.buy-box > .btn { margin-top: 8px; }
-.buy-box-guarantee { display: flex; align-items: center; gap: 4px; margin-top: 13px; color: var(--muted); font-size: 9px; }
-.detail-info-band { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 16px; border: 1px solid var(--line); background: #fff; }
-.detail-info-band > div { display: flex; min-height: 78px; align-items: center; justify-content: center; gap: 9px; border-right: 1px solid var(--line); color: var(--brand); }
-.detail-info-band > div:last-child { border-right: 0; }
-.detail-info-band span { display: flex; flex-direction: column; }
-.detail-info-band strong { color: var(--ink); font-size: 12px; }
-.detail-info-band small { color: var(--muted); font-size: 9px; }
-.product-description-section { margin-top: 16px; padding: 22px; border: 1px solid var(--line); background: #fff; }
-.product-description-section > h2 { margin: 0 0 16px; font-size: 18px; }
-.description-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-.description-grid h3 { margin: 0 0 7px; font-size: 12px; }
-.description-grid p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.7; }
->>>>>>> origin/dev-groupC
 
 @media (max-width: 1199.98px) {
   .product-detail-main {
