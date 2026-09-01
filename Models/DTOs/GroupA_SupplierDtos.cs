@@ -38,6 +38,32 @@ public class SupplierProductQuoteDto
     public int? ProductExpiryHours { get; set; }
     /// <summary>该供应商声明的保质期（小时），未声明为 null</summary>
     public int? ShelfLifeHours { get; set; }
+
+    /// <summary>商品文字介绍（供应商维护，团长可参考/复制/改写）</summary>
+    public string? Description { get; set; }
+
+    /// <summary>商品图片（按展示顺序，供应商维护；含图片 ID 供删除操作使用）</summary>
+    public List<SupplierProductImageDto> Images { get; set; } = new();
+}
+
+/// <summary>供应商门户展示用的商品图片条目（ImageID 用于删除，ImageUrl 用于展示）</summary>
+public class SupplierProductImageDto
+{
+    public string ImageID { get; set; } = string.Empty;
+    public string ImageUrl { get; set; } = string.Empty;
+
+    /// <summary>数据库里是否真有图片二进制数据（false 表示旧记录/未上传成功）</summary>
+    public bool HasImageData { get; set; }
+
+    /// <summary>是否当前供应商自己上传的图片（false = 平台通用图，供应商不可删除）</summary>
+    public bool IsOwned { get; set; }
+}
+
+/// <summary>/images/product/{id} 接口返回的图片内容（BLOB 二进制 + MIME 类型）</summary>
+public class ProductImageContentDto
+{
+    public byte[]? Data { get; set; }
+    public string? ContentType { get; set; }
 }
 
 /// <summary>

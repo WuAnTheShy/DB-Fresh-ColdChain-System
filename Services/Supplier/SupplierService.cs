@@ -106,19 +106,13 @@ public class SupplierService : ISupplierService
             var quotes = await _priceRepo.GetQuotesBySupplierAsync(supplierId);
             var products = await _productRepo.GetAllAsync();
             var productMap = products.ToDictionary(p => p.ProductID);
+            var imageMap = await LoadProductImageMapAsync(supplierId);
 
             var list = quotes.Select(q =>
             {
                 productMap.TryGetValue(q.ProductID, out var p);
-                return new SupplierProductQuoteDto
-                {
-                    ProductID = q.ProductID,
-                    ProductName = p?.ProductName ?? q.ProductID,
-                    SupplyPrice = q.SupplyPrice,
-                    UpdateTime = q.UpdateTime,
-                    ProductExpiryHours = p?.ExpiryHours,
-                    ShelfLifeHours = q.ShelfLifeHours
-                };
+                return BuildQuoteDto(q.ProductID, p?.ProductName ?? q.ProductID, q.SupplyPrice, q.UpdateTime,
+                    p?.ExpiryHours, q.ShelfLifeHours, q.Description ?? p?.Description, imageMap);
             }).ToList();
 
             return ApiResponse<List<SupplierProductQuoteDto>>.Success(list);
@@ -137,21 +131,15 @@ public class SupplierService : ISupplierService
             var products = await _productRepo.GetAllAsync();
             var quotes = await _priceRepo.GetQuotesBySupplierAsync(supplierId);
             var quoteMap = quotes.ToDictionary(q => q.ProductID);
+            var imageMap = await LoadProductImageMapAsync(supplierId);
 
             var list = products
                 .Where(p => p.Status == "ACTIVE")
                 .Select(p =>
                 {
                     quoteMap.TryGetValue(p.ProductID, out var q);
-                    return new SupplierProductQuoteDto
-                    {
-                        ProductID = p.ProductID,
-                        ProductName = p.ProductName,
-                        SupplyPrice = q?.SupplyPrice,
-                        UpdateTime = q?.UpdateTime,
-                        ProductExpiryHours = p.ExpiryHours,
-                        ShelfLifeHours = q?.ShelfLifeHours
-                    };
+                    return BuildQuoteDto(p.ProductID, p.ProductName, q?.SupplyPrice, q?.UpdateTime,
+                        p.ExpiryHours, q?.ShelfLifeHours, q?.Description ?? p.Description, imageMap);
                 }).ToList();
 
             return ApiResponse<List<SupplierProductQuoteDto>>.Success(list);
@@ -160,6 +148,91 @@ public class SupplierService : ISupplierService
         {
             return ApiResponse<List<SupplierProductQuoteDto>>.Fail($"查询报价面板失败：{ex.Message}");
         }
+    }
+
+    public async Task<ApiResponse<SupplierProductQuoteDto>> GetProductInfoForSupplierAsync(string supplierId, string productId)
+    {
+        try
+        {
+            var product = await _productRepo.GetByIdAsync(productId);
+            if (product == null) return ApiResponse<SupplierProductQuoteDto>.Fail("产品不存在", 404);
+
+            var quote = await _priceRepo.GetQuoteAsync(supplierId, productId);
+            if (quote == null) return ApiResponse<SupplierProductQuoteDto>.Fail("请先对该商品报价，报价后即可维护商品图文");
+
+            // 该商品的图片：自己上传的在前，平台通用图在后（编辑页展示全部，含无数据旧记录供清理）
+            var images = (await _productRepo.GetProductImagesAsync(productId))
+                .OrderBy(i => i.SupplierID != supplierId) // 自己上传的排前面
+                .ThenBy(i => i.SortOrder)
+                .ThenBy(i => i.CreateTime)
+                .Select(i => new SupplierProductImageDto
+                {
+                    ImageID = i.ImageID,
+                    ImageUrl = i.ImageUrl,
+                    HasImageData = i.HasData,
+                    IsOwned = i.SupplierID == supplierId
+                })
+                .ToList();
+
+            return ApiResponse<SupplierProductQuoteDto>.Success(new SupplierProductQuoteDto
+            {
+                ProductID = product.ProductID,
+                ProductName = product.ProductName,
+                SupplyPrice = quote.SupplyPrice,
+                UpdateTime = quote.UpdateTime,
+                ProductExpiryHours = product.ExpiryHours,
+                ShelfLifeHours = quote.ShelfLifeHours,
+                Description = quote.Description ?? product.Description,
+                Images = images
+            });
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<SupplierProductQuoteDto>.Fail($"查询商品信息失败：{ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 加载商品图片并按商品分组：该供应商自己上传的在前，平台通用图（SupplierID 为空）在后，
+    /// 每商品最多取前 3 张用于展示。
+    /// </summary>
+    private async Task<Dictionary<string, List<SupplierProductImageDto>>> LoadProductImageMapAsync(string supplierId)
+    {
+        return (await _productRepo.GetAllProductImagesAsync())
+            .Where(img => img.HasData)
+            .GroupBy(img => img.ProductID)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(img => img.SupplierID != supplierId) // 自己的图优先
+                      .ThenBy(img => img.SortOrder)
+                      .ThenBy(img => img.CreateTime)
+                      .Take(3)
+                      .Select(img => new SupplierProductImageDto
+                      {
+                          ImageID = img.ImageID,
+                          ImageUrl = img.ImageUrl,
+                          HasImageData = img.HasData,
+                          IsOwned = img.SupplierID == supplierId
+                      })
+                      .ToList());
+    }
+
+    private static SupplierProductQuoteDto BuildQuoteDto(
+        string productId, string productName, decimal? supplyPrice, DateTime? updateTime,
+        int? productExpiryHours, int? shelfLifeHours, string? description,
+        Dictionary<string, List<SupplierProductImageDto>> imageMap)
+    {
+        return new SupplierProductQuoteDto
+        {
+            ProductID = productId,
+            ProductName = productName,
+            SupplyPrice = supplyPrice,
+            UpdateTime = updateTime,
+            ProductExpiryHours = productExpiryHours,
+            ShelfLifeHours = shelfLifeHours,
+            Description = description,
+            Images = imageMap.TryGetValue(productId, out var urls) ? urls : new List<SupplierProductImageDto>()
+        };
     }
 
     /// <summary>设置/更新某供应商对某产品的供货价（已有报价则更新）</summary>
@@ -205,6 +278,127 @@ public class SupplierService : ISupplierService
         catch (Exception ex)
         {
             return ApiResponse.Fail($"设置供货价失败：{ex.Message}");
+        }
+    }
+
+    // ========== 供应商维护商品图文（文字介绍 + 图片，报价即供货关系）==========
+
+    /// <summary>校验供应商存在且已对该商品报价（报价即供货关系），返回商品；不满足返回 null</summary>
+    private async Task<(InvSupplier? Supplier, InvProduct? Product, InvSupplierPrice? Quote)> ResolveSuppliedProductAsync(string supplierId, string productId)
+    {
+        var supplier = await _repo.GetByIdAsync(supplierId);
+        if (supplier == null) return (null, null, null);
+
+        var product = await _productRepo.GetByIdAsync(productId);
+        if (product == null) return (supplier, null, null);
+
+        var quote = await _priceRepo.GetQuoteAsync(supplierId, productId);
+        return (supplier, product, quote);
+    }
+
+    public async Task<ApiResponse> UpdateProductDescriptionAsync(string supplierId, string productId, string? description)
+    {
+        var (supplier, product, quote) = await ResolveSuppliedProductAsync(supplierId, productId);
+        if (supplier == null) return ApiResponse.Fail("供应商不存在", 404);
+        if (product == null) return ApiResponse.Fail("产品不存在", 404);
+        if (quote == null) return ApiResponse.Fail("请先对该商品报价，报价后即可维护商品图文");
+
+        description = description?.Trim();
+        if (!string.IsNullOrEmpty(description) && description.Length > 2000)
+            return ApiResponse.Fail("商品介绍不能超过 2000 字");
+
+        try
+        {
+            // 简介归属（供应商×商品）组合：写在报价记录上，各家供应商互不影响
+            quote.Description = string.IsNullOrEmpty(description) ? null : description;
+            _priceRepo.Update(quote);
+            return ApiResponse.Success("商品文字介绍已保存");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse.Fail($"保存商品介绍失败：{ex.Message}");
+        }
+    }
+
+    public async Task<ApiResponse> AddProductImageAsync(string supplierId, string productId, byte[] imageData, string imageType)
+    {
+        if (imageData == null || imageData.Length == 0)
+            return ApiResponse.Fail("图片数据不能为空");
+
+        var (supplier, product, quote) = await ResolveSuppliedProductAsync(supplierId, productId);
+        if (supplier == null) return ApiResponse.Fail("供应商不存在", 404);
+        if (product == null) return ApiResponse.Fail("产品不存在", 404);
+        if (quote == null) return ApiResponse.Fail("请先对该商品报价，报价后即可维护商品图文");
+
+        try
+        {
+            var existing = await _productRepo.GetProductImagesAsync(productId);
+            const int maxImages = 9; // 一个商品最多 9 张图片（对外展示按 SortOrder 取前 3 张）
+            if (existing.Count >= maxImages)
+                return ApiResponse.Fail($"每个商品最多 {maxImages} 张图片，请先删除部分图片");
+
+            var imageId = Guid.NewGuid().ToString();
+            var nextSortOrder = existing.Count == 0 ? 1 : existing.Max(i => i.SortOrder) + 1;
+            await _productRepo.AddProductImageAsync(new InvProductImage
+            {
+                ImageID = imageId,
+                ProductID = productId,
+                SupplierID = supplierId, // 图片归属该供应商，其他供应商不可见/不可删
+                // 图片本体存 BLOB，对外地址统一走 /images/product/{ImageID} 接口
+                ImageUrl = $"/images/product/{imageId}",
+                ImageData = imageData,
+                ImageType = imageType,
+                SortOrder = nextSortOrder,
+                CreateTime = DateTime.Now
+            });
+
+            return ApiResponse.Success("商品图片已上传");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse.Fail($"上传商品图片失败：{ex.Message}");
+        }
+    }
+
+    public async Task<ApiResponse<ProductImageContentDto>> GetProductImageContentAsync(string imageId)
+    {
+        try
+        {
+            var result = await _productRepo.GetProductImageDataAsync(imageId);
+            if (result == null || result.Value.Data == null || result.Value.Data.Length == 0)
+                return ApiResponse<ProductImageContentDto>.Fail("图片不存在", 404);
+
+            return ApiResponse<ProductImageContentDto>.Success(new ProductImageContentDto
+            {
+                Data = result.Value.Data,
+                ContentType = string.IsNullOrWhiteSpace(result.Value.ContentType)
+                    ? "image/jpeg"
+                    : result.Value.ContentType
+            });
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<ProductImageContentDto>.Fail($"读取商品图片失败：{ex.Message}");
+        }
+    }
+
+    public async Task<ApiResponse<string>> DeleteProductImageAsync(string supplierId, string imageId)
+    {
+        try
+        {
+            var image = await _productRepo.GetProductImageByIdAsync(imageId);
+            if (image == null) return ApiResponse<string>.Fail("图片不存在", 404);
+
+            // 只能删除自己上传的图片；平台通用图（SupplierID 为空）所有供应商不可删
+            if (image.SupplierID != supplierId)
+                return ApiResponse<string>.Fail("只能删除自己上传的图片");
+
+            await _productRepo.DeleteProductImageAsync(imageId);
+            return ApiResponse<string>.Success(image.ImageUrl, "商品图片已删除");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<string>.Fail($"删除商品图片失败：{ex.Message}");
         }
     }
 
@@ -319,15 +513,21 @@ public class SupplierService : ISupplierService
                 .ToList();
             var supplierMap = suppliers.ToDictionary(s => s.SupplierID);
 
-            // 商品图片：按商品分组，取展示顺序前 3 张
-            var productImages = (await _productRepo.GetAllProductImagesAsync())
-                .GroupBy(img => img.ProductID)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.OrderBy(img => img.SortOrder)
-                          .Select(img => img.ImageUrl)
-                          .Take(3)
-                          .ToList());
+            // 全部商品图片（仅取真正有二进制数据的）；每条（供应商×商品）组合：
+            // 该供应商自己上传的图在前，平台通用图（SupplierID 为空）在后，最多 3 张
+            var allImages = (await _productRepo.GetAllProductImagesAsync())
+                .Where(img => img.HasData)
+                .ToList();
+
+            List<string> GetDisplayImages(string productId, string sid) =>
+                allImages
+                    .Where(img => img.ProductID == productId && (img.SupplierID == sid || img.SupplierID == null))
+                    .OrderBy(img => img.SupplierID != sid)
+                    .ThenBy(img => img.SortOrder)
+                    .ThenBy(img => img.CreateTime)
+                    .Take(3)
+                    .Select(img => img.ImageUrl)
+                    .ToList();
 
             var entries = new List<SupplierProductEntryDto>();
             var seen = new HashSet<string>();
@@ -350,8 +550,8 @@ public class SupplierService : ISupplierService
                     SupplyPrice = q.SupplyPrice,
                     DefaultPrice = p.DefaultPrice,
                     ExpiryHours = q.ShelfLifeHours ?? p.ExpiryHours,
-                    Description = p.Description,
-                    Images = productImages.TryGetValue(p.ProductID, out var imgs) ? imgs : new List<string>()
+                    Description = q.Description ?? p.Description, // 该供应商的简介，未写时兜底商品通用介绍
+                    Images = GetDisplayImages(p.ProductID, q.SupplierID)
                 });
             }
 

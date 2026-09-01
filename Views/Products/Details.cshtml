@@ -1,20 +1,90 @@
 @model ProductDto
-@{ ViewData["Title"] = $"产品 — {Model.ProductName}"; }
+@{
+    ViewData["Title"] = $"产品 — {Model.ProductName}";
+    var media = ViewBag.Media as ProductSupplierMediaDto ?? new ProductSupplierMediaDto();
+}
 <h3>@Model.ProductName</h3>
-<table class="table table-bordered w-50">
-    <tr><th style="width:120px">编号</th><td>@Model.ProductID</td></tr>
-    <tr><th>名称</th><td>@Model.ProductName</td></tr>
-    <tr><th>分类</th><td>@Model.CategoryName</td></tr>
-    <tr><th>供应商</th><td>@Model.SupplierName</td></tr>
-    <tr><th>单位</th><td>@Model.Unit</td></tr>
-    <tr><th>重量</th><td>@Model.WeightKG kg</td></tr>
-    <tr><th>体积</th><td>@Model.VolumeLitre L</td></tr>
-    <tr><th>保质期</th><td>@Model.ExpiryHours 小时</td></tr>
-    <tr><th>温区</th><td>@Model.StorageReq</td></tr>
-    <tr><th>价格</th><td>¥@Model.DefaultPrice.ToString("F2")</td></tr>
-    <tr><th>状态</th><td>@(Model.Status == "ACTIVE" ? "上架" : "下架")</td></tr>
-    <tr><th>可用库存</th><td>@Model.AvailableStock</td></tr>
-</table>
-<a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model.ProductID">编辑</a>
+<div class="row">
+    <div class="col-md-7">
+        <table class="table table-bordered">
+            <tr><th style="width:120px">编号</th><td>@Model.ProductID</td></tr>
+            <tr><th>名称</th><td>@Model.ProductName</td></tr>
+            <tr><th>分类</th><td>@Model.CategoryName</td></tr>
+            <tr><th>供应商</th><td>@Model.SupplierName</td></tr>
+            <tr><th>单位</th><td>@Model.Unit</td></tr>
+            <tr><th>重量</th><td>@Model.WeightKG kg</td></tr>
+            <tr><th>体积</th><td>@Model.VolumeLitre L</td></tr>
+            <tr><th>保质期</th><td>@Model.ExpiryHours 小时</td></tr>
+            <tr><th>温区</th><td>@Model.StorageReq</td></tr>
+            <tr><th>价格</th><td>¥@Model.DefaultPrice.ToString("F2")</td></tr>
+            <tr><th>状态</th><td>@(Model.Status == "ACTIVE" ? "上架" : "下架")</td></tr>
+            <tr><th>可用库存</th><td>@Model.AvailableStock</td></tr>
+        </table>
+    </div>
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header">供应商图文</div>
+            <div class="card-body">
+                @if (media.Suppliers.Any())
+                {
+                    <form method="get" asp-action="Details" class="mb-3">
+                        <input type="hidden" name="id" value="@Model.ProductID" />
+                        <div class="d-flex gap-2">
+                            <select name="supplierId" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">— 选择供应商 —</option>
+                                @foreach (var s in media.Suppliers)
+                                {
+                                    <option value="@s.SupplierID" selected="@(s.SupplierID == media.SelectedSupplierID)">@s.SupplierName</option>
+                                }
+                            </select>
+                        </div>
+                    </form>
+
+                    @if (!string.IsNullOrEmpty(media.SelectedSupplierID))
+                    {
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            @if (media.Images.Any())
+                            {
+                                foreach (var img in media.Images)
+                                {
+                                    <img src="@img" alt="@Model.ProductName" class="product-detail-thumb" onerror="this.style.display='none'" />
+                                }
+                            }
+                            else
+                            {
+                                <span class="text-muted small">该供应商暂无图片</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(media.Description))
+                        {
+                            <div class="text-muted small mb-1"><b>@media.SelectedSupplierName 的商品简介：</b></div>
+                            <div style="white-space:pre-wrap;">@media.Description</div>
+                        }
+                        else
+                        {
+                            <div class="text-muted small">该供应商暂未填写商品简介。</div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-muted small">请先选择供应商，查看其商品简介与图片。</div>
+                    }
+                }
+                else
+                {
+                    <span class="text-muted">暂无供应商报价该商品。</span>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<a class="btn btn-warning mt-3" asp-action="Edit" asp-route-id="@Model.ProductID">编辑</a>
 <a class="btn btn-secondary" asp-action="Inventory" asp-route-productId="@Model.ProductID">库存管理</a>
 <a class="btn btn-outline-secondary" asp-action="Index">返回</a>
+
+@section Scripts {
+    <style>
+        .product-detail-thumb { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb; }
+    </style>
+}

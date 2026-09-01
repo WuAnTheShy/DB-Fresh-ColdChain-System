@@ -501,21 +501,27 @@ namespace FreshColdChain.Services
             return items;
         }
 
-        /// <summary>为已入团商品详情批量附加商品图片（按商品分组，取前 3 张）</summary>
+        /// <summary>
+        /// 为已入团商品详情批量附加商品图片：按（供应商×商品）过滤——
+        /// 该供应商自己上传的图在前，平台通用图在后，取前 3 张。
+        /// </summary>
         private async Task AttachProductImagesAsync(IEnumerable<PromoterProductEntryDetailDto> items)
         {
-            var images = (await _productRepository.GetAllProductImagesAsync())
-                .GroupBy(img => img.ProductID)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.OrderBy(img => img.SortOrder)
-                          .Select(img => img.ImageUrl)
-                          .Take(3)
-                          .ToList());
+            var allImages = (await _productRepository.GetAllProductImagesAsync())
+                .Where(img => img.HasData) // 仅附真正有二进制数据的图片
+                .ToList();
+
             foreach (var item in items)
             {
-                if (images.TryGetValue(item.ProductID, out var urls))
-                    item.Images = urls;
+                item.Images = allImages
+                    .Where(img => img.ProductID == item.ProductID
+                                  && (img.SupplierID == item.SupplierID || img.SupplierID == null))
+                    .OrderBy(img => img.SupplierID != item.SupplierID)
+                    .ThenBy(img => img.SortOrder)
+                    .ThenBy(img => img.CreateTime)
+                    .Take(3)
+                    .Select(img => img.ImageUrl)
+                    .ToList();
             }
         }
 

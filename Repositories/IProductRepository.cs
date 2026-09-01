@@ -11,4 +11,19 @@ public interface IProductRepository : IBaseRepository<InvProduct>
 
     /// <summary>查询全部商品图片（服务层内存分组，按商品取前 3 张）</summary>
     Task<List<InvProductImage>> GetAllProductImagesAsync();
+
+    /// <summary>查询某商品的全部图片（按展示顺序升序）</summary>
+    Task<List<InvProductImage>> GetProductImagesAsync(string productId);
+
+    /// <summary>按图片 ID 查询单张图片</summary>
+    Task<InvProductImage?> GetProductImageByIdAsync(string imageId);
+
+    /// <summary>新增商品图片（供应商上传，含 BLOB 二进制数据）</summary>
+    Task AddProductImageAsync(InvProductImage image);
+
+    /// <summary>按图片 ID 查询图片二进制与 MIME 类型（供 /images/product/{id} 接口流式返回）</summary>
+    Task<(byte[]? Data, string? ContentType)?> GetProductImageDataAsync(string imageId);
+
+    /// <summary>按图片 ID 删除商品图片</summary>
+    Task DeleteProductImageAsync(string imageId);
 }
