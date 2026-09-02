@@ -14,7 +14,7 @@ const success = ref('')
 const selections = reactive({})
 const remark = ref('')
 const reviewDialogOpen = ref(false)
-const submittedScope = ref('')
+const historyExpanded = ref(false)
 const refundPreview = ref(null)
 const previewLoading = ref(false)
 let previewTimer = 0
@@ -25,6 +25,8 @@ const selectedEntries = computed(() => (orderDetail.value?.details ?? [])
   .filter(item => selections[item.orderDetailId]?.selected)
   .map(item => ({ item, quantity: Number(selections[item.orderDetailId].quantity) })))
 const activeRefunds = computed(() => refunds.value.filter(item => ['Pending', 'Approved'].includes(item.status)))
+const pendingRefunds = computed(() => refunds.value.filter(item => item.status === 'Pending'))
+const foldedRefunds = computed(() => refunds.value.filter(item => item.status !== 'Pending'))
 const hasPendingWholeOrder = computed(() => refunds.value.some(item => (
   item.status === 'Pending' && !item.detailId
 )))
@@ -111,7 +113,6 @@ async function load() {
 async function submitRefund() {
   submitting.value = true; error.value = ''; success.value = ''
   try {
-    submittedScope.value = refundScopeLabel.value
     await api.applyOrderRefund(props.id, {
       items: selectedEntries.value.map(({ item, quantity }) => ({
         productID: item.productId,
@@ -174,7 +175,26 @@ onMounted(load)
           <p v-if="shipped">发货后运费始终不退还；部分退款按该商品已支付金额自动计算。</p>
           <p v-else>未发货部分退款会退回本次商品对应增加的运费。</p>
         </section>
-        <section><h2>平台审核记录</h2><div v-if="!refunds.length" class="empty-history">暂无退款申请</div><article v-for="record in refunds" :key="record.refundId"><span>{{ statusName(record.status) }}</span><strong>{{ money(record.refundAmount) }}</strong><small><b>{{ refundProductName(record) }}</b> · {{ record.refundQty ? `${record.refundQty} 件` : '全部商品' }}</small><small>{{ record.remark }}</small><button v-if="record.status === 'Pending'" class="cancel-refund-button" type="button" :disabled="cancellingRefundId === record.refundId" @click="cancelRefund(record.refundId)"><span v-if="cancellingRefundId === record.refundId" class="spinner-border spinner-border-sm"></span><template v-else>取消申请</template></button></article></section>
+        <section>
+          <h2>平台审核记录</h2>
+          <div v-if="!pendingRefunds.length" class="empty-history">暂无待审核申请</div>
+          <article v-for="record in pendingRefunds" :key="record.refundId">
+            <span>{{ statusName(record.status) }}</span><strong>{{ money(record.refundAmount) }}</strong>
+            <small><b>{{ refundProductName(record) }}</b> · {{ record.refundQty ? `${record.refundQty} 件` : '全部商品' }}</small>
+            <small>{{ record.remark }}</small>
+            <button class="btn btn-buy cancel-refund-button" type="button" :disabled="cancellingRefundId === record.refundId" @click="cancelRefund(record.refundId)"><span v-if="cancellingRefundId === record.refundId" class="spinner-border spinner-border-sm"></span><template v-else>取消申请</template></button>
+          </article>
+          <button v-if="foldedRefunds.length" class="history-toggle" type="button" :aria-expanded="historyExpanded" @click="historyExpanded = !historyExpanded">
+            {{ historyExpanded ? '收起其他记录' : `查看其他记录（${foldedRefunds.length}）` }}
+          </button>
+          <div v-if="historyExpanded" class="folded-history">
+            <article v-for="record in foldedRefunds" :key="record.refundId">
+              <span>{{ statusName(record.status) }}</span><strong>{{ money(record.refundAmount) }}</strong>
+              <small><b>{{ refundProductName(record) }}</b> · {{ record.refundQty ? `${record.refundQty} 件` : '全部商品' }}</small>
+              <small>{{ record.remark }}</small>
+            </article>
+          </div>
+        </section>
         <div class="review-note"><ShieldCheck :size="19" />所有申请均由平台审核</div>
       </aside>
     </div>
@@ -184,7 +204,6 @@ onMounted(load)
         <button class="review-dialog-close" type="button" aria-label="关闭" @click="reviewDialogOpen = false"><X :size="20" /></button>
         <span class="review-dialog-icon"><CheckCircle2 :size="34" /></span>
         <h2 id="review-dialog-title">退款申请已提交</h2>
-        <p>系统已根据退货数量自动识别为“{{ submittedScope }}”，申请现已进入平台审核。</p>
         <small>审核结果将在订单状态和消息中心显示，审核通过前不会立即退款。</small>
         <div><RouterLink class="btn btn-buy" :to="`/orders/${id}`">返回订单详情</RouterLink><button class="btn btn-outline-secondary" type="button" @click="reviewDialogOpen = false">留在当前页面</button></div>
       </section>
@@ -205,7 +224,7 @@ onMounted(load)
 .pending-warning { display: flex; align-items: center; gap: 8px; margin: 18px 22px 0; padding: 12px; background: #fff7df; color: #8a6200; font-size: 10px; }
 .partial-pending-note { display: flex; align-items: center; gap: 8px; margin: 18px 22px 0; padding: 12px; background: #edf6f2; color: #365d4e; font-size: 10px; }
 .refund-layout aside { display: flex; flex-direction: column; gap: 12px; }.refund-layout aside > section { padding: 18px; }.refund-layout aside h2 { margin: 0 0 10px; font-size: 15px; }.refund-amount { color: var(--danger); font-size: 28px; }.refund-layout dl { margin: 12px 0 0; }.refund-layout dl > div { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--line); }.refund-layout dt { color: var(--muted); font-size: 9px; }.refund-layout dd { margin: 0; font-size: 10px; }.refund-layout aside p, .empty-history { color: var(--muted); font-size: 9px; }
-.refund-layout aside article { display: grid; grid-template-columns: 1fr auto; gap: 4px; padding: 10px 0; border-top: 1px solid var(--line); }.refund-layout aside article > span { color: var(--brand); font-size: 9px; font-weight: 700; }.refund-layout aside article small { grid-column: 1 / -1; color: var(--muted); }.cancel-refund-button { grid-column: 1 / -1; justify-self: start; padding: 3px 0; border: 0; background: transparent; color: var(--danger); font-size: 9px; font-weight: 700; }.review-note { display: flex; align-items: center; gap: 7px; padding: 13px; background: #edf6f2; color: var(--brand); font-size: 10px; font-weight: 700; }
+.refund-layout aside article { display: grid; grid-template-columns: 1fr auto; gap: 4px; padding: 10px 0; border-top: 1px solid var(--line); }.refund-layout aside article > span { color: var(--brand); font-size: 9px; font-weight: 700; }.refund-layout aside article small { grid-column: 1 / -1; color: var(--muted); }.cancel-refund-button { grid-column: 1 / -1; justify-self: start; margin-top: 7px; padding: 7px 14px; font-size: 9px; font-weight: 700; }.history-toggle { width: 100%; padding: 9px 0 2px; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--brand); font-size: 9px; font-weight: 700; text-align: left; }.folded-history { margin-top: 7px; }.review-note { display: flex; align-items: center; gap: 7px; padding: 13px; background: #edf6f2; color: var(--brand); font-size: 10px; font-weight: 700; }
 .review-dialog-backdrop { position: fixed; z-index: 1080; display: grid; padding: 18px; background: rgba(10, 25, 20, .52); inset: 0; place-items: center; }.review-dialog { position: relative; width: min(440px, 100%); padding: 30px; border-radius: 10px; background: #fff; box-shadow: 0 20px 60px rgba(0, 0, 0, .22); text-align: center; }.review-dialog-close { position: absolute; top: 10px; right: 10px; display: inline-flex; padding: 5px; border: 0; background: transparent; color: var(--muted); }.review-dialog-icon { display: inline-flex; width: 58px; height: 58px; align-items: center; justify-content: center; border-radius: 50%; background: #e5f5ed; color: #248158; }.review-dialog h2 { margin: 14px 0 7px; font-size: 21px; }.review-dialog p { margin: 0; color: var(--ink); font-size: 11px; line-height: 1.7; }.review-dialog > small { display: block; margin-top: 8px; color: var(--muted); font-size: 9px; line-height: 1.6; }.review-dialog > div { display: flex; justify-content: center; gap: 8px; margin-top: 20px; }
 @media (max-width: 767.98px) { .refund-layout { grid-template-columns: 1fr; }.refund-products article { grid-template-columns: 1fr; }.product-quantity { justify-content: start; } }
 </style>
