@@ -2,7 +2,6 @@
 import { ArrowRight, BadgeCheck, LockKeyhole, ShoppingCart, Trash2, Truck } from '@lucide/vue'
 import { computed } from 'vue'
 import QuantityStepper from '../components/QuantityStepper.vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
 
 const {
@@ -33,7 +32,6 @@ const groups = computed(() => {
 
 <template>
   <div class="store-container page-space cart-page">
-    <StoreBreadcrumb :items="[{ label: '购物车' }]" />
     <div class="cart-title"><div><ShoppingCart :size="25" /><h1>购物车</h1></div><span>共 {{ cartCount }} 件商品</span></div>
 
     <div v-if="cartItems.length" class="cart-layout">

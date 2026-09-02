@@ -1,7 +1,6 @@
 <script setup>
 import { Check, MapPin, Pencil, Plus, Save, Star, Trash2, X } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import regionDataUrl from '../data/china-regions-2025.json?url'
 import { api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
@@ -79,7 +78,6 @@ onMounted(() => {
 
 <template>
   <div class="store-container page-space addresses-page">
-    <StoreBreadcrumb :items="[{ label: '个人中心', to: '/profile' }, { label: '收货地址' }]" />
     <div class="account-page-header"><div><MapPin :size="26" /><span><h1>收货地址</h1></span></div><button class="btn btn-buy" type="button" @click="openCreate"><Plus :size="17" />新增地址</button></div>
     <div v-if="error" class="alert alert-danger">{{ error }}</div><div v-if="success" class="alert alert-success alert-dismissible">{{ success }}<button type="button" class="btn-close" aria-label="关闭" @click="success = ''"></button></div>
 

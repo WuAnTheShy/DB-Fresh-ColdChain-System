@@ -4,7 +4,6 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import QuantityStepper from '../components/QuantityStepper.vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
 import { useCustomerContext } from '../state/customer'
 
@@ -58,9 +57,6 @@ function buyNow() {
 
 <template>
   <div v-if="product && leader" class="store-container page-space product-detail-page">
-    <StoreBreadcrumb
-      :items="[{ label: product.shortName, to: `/category/${product.category}` }, { label: product.name }]" />
-
     <section class="product-detail-main">
       <div class="product-gallery">
         <div class="product-main-image"><img :src="product.image" :alt="product.name"

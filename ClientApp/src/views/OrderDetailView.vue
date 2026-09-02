@@ -2,7 +2,6 @@
 import { BadgeCheck, Ban, CheckCircle2, ChevronLeft, CreditCard, MapPin, PackageCheck, RefreshCw, RotateCcw, Truck } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import StatusBadge from '../components/StatusBadge.vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { api } from '../services/api'
 import { useShop } from '../state/shop'
 
@@ -37,7 +36,6 @@ onMounted(loadOrder)
 
 <template>
   <div class="store-container page-space order-detail-consumer">
-    <StoreBreadcrumb :items="[{ label: '我的订单', to: '/orders' }, { label: detail?.order?.orderNo || `订单 #${id}` }]" />
     <div v-if="error" class="alert alert-danger">{{ error }}</div><div v-if="success" class="alert alert-success">{{ success }}</div>
     <div v-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在读取订单详情</div>
     <template v-else-if="detail?.order">

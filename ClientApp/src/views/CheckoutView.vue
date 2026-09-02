@@ -3,7 +3,6 @@ import { BadgeCheck, Check, ChevronRight, Coins, MapPin, ShieldCheck, TicketPerc
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import QuantityStepper from '../components/QuantityStepper.vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
 import { useShop } from '../state/shop'
@@ -158,7 +157,6 @@ watch(
 
 <template>
   <div class="store-container page-space checkout-page">
-    <StoreBreadcrumb :items="[{ label: '购物车', to: '/cart' }, { label: '确认订单' }]" />
     <h1 class="checkout-title">确认订单</h1>
     <div v-if="error" class="alert alert-danger" role="alert">{{ error }}</div>
     <div v-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在准备结算信息</div>

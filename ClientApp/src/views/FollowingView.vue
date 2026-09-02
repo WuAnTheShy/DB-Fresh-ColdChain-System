@@ -2,7 +2,6 @@
 import { Heart, UsersRound } from '@lucide/vue'
 import { computed } from 'vue'
 import ProductCard from '../components/ProductCard.vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
 
 const { followedLeaderIds, followingError, followingLoading, leaderById, products } = useShop()
@@ -33,7 +32,6 @@ function formatFeedTime(value) {
 
 <template>
   <div class="store-container page-space following-page">
-    <StoreBreadcrumb :items="[{ label: '我的关注' }]" />
     <div class="account-page-header following-page-header">
       <div><span class="title-icon"><Heart :size="23" /></span><span><h1>我的关注</h1><p>按发布时间查看关注团长的最新带货商品</p></span></div>
       <span v-if="followedLeaders.length"><UsersRound :size="16" />已关注 {{ followedLeaders.length }} 位团长</span>

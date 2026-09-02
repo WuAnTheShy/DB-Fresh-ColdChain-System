@@ -3,7 +3,6 @@ import { BadgeCheck, Heart, MapPin, PackageCheck, UsersRound } from '@lucide/vue
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
 import { useCustomerContext } from '../state/customer'
 
@@ -51,10 +50,6 @@ async function handleFollow() {
 
 <template>
   <div v-if="leader" class="leader-detail-page">
-    <div class="store-container page-space pb-0">
-      <StoreBreadcrumb :items="[{ label: '全部商品', to: '/search' }, { label: `${leader.name}团长` }]" />
-    </div>
-
     <section class="leader-profile-band">
       <img class="leader-cover" :src="leader.cover" alt="" />
       <div class="leader-cover-shade"></div>

@@ -1,7 +1,6 @@
 <script setup>
 import { AlertCircle, ChevronLeft, RotateCcw, ShieldCheck } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { api } from '../services/api'
 
 const props = defineProps({ id: { type: String, required: true } })
@@ -59,7 +58,6 @@ onMounted(load)
 
 <template>
   <div class="store-container page-space refund-page">
-    <StoreBreadcrumb :items="[{ label: '我的订单', to: '/orders' }, { label: order?.orderNo || id, to: `/orders/${id}` }, { label: '申请退款' }]" />
     <RouterLink class="refund-back" :to="`/orders/${id}`"><ChevronLeft :size="17" />返回订单详情</RouterLink>
     <div v-if="error" class="alert alert-danger">{{ error }}</div><div v-if="success" class="alert alert-success">{{ success }}</div>
     <div v-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在读取售后信息</div>

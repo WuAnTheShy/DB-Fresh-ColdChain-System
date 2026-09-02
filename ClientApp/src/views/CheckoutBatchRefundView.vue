@@ -2,7 +2,6 @@
 import { AlertTriangle, ChevronLeft, RotateCcw } from '@lucide/vue'
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { api } from '../services/api'
 
 const props = defineProps({ batchId: { type: String, required: true } })
@@ -15,7 +14,7 @@ async function submit() { saving.value = true; error.value = ''; try { await api
 </script>
 
 <template>
-  <div class="store-container page-space batch-refund-page"><StoreBreadcrumb :items="[{ label: '我的订单', to: '/orders' }, { label: '整个批次退款' }]" />
+  <div class="store-container page-space batch-refund-page">
     <div v-if="error" class="alert alert-danger">{{ error }}</div><div v-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在读取结算批次</div>
     <form v-else-if="batch" class="batch-refund-card" @submit.prevent="submit"><div class="batch-refund-head"><RotateCcw :size="25" /><div><h1>申请整个结算批次退款</h1><p>本次会为 {{ batch.orders?.length ?? 0 }} 个团长子订单分别提交退款申请，由平台审核。</p></div></div><div class="refund-warning"><AlertTriangle :size="18" /><span>发货后的冷链运费不予退还；仅当本批次所有子订单均退款完成时，已使用优惠券才会返还。</span></div><dl><div><dt>商品金额</dt><dd>{{ money(batch.goodsAmount) }}</dd></div><div><dt>团购优惠</dt><dd>-{{ money(batch.discountAmount) }}</dd></div><div><dt>冷链运费</dt><dd>{{ money(batch.freightAmount) }}</dd></div><div><dt>批次实付</dt><dd>{{ money(batch.finalAmount) }}</dd></div></dl><label>退款原因<textarea v-model.trim="form.remark" class="form-control" maxlength="200" required placeholder="请说明退款原因" /></label><div class="batch-refund-actions"><RouterLink class="btn btn-outline-secondary" to="/orders"><ChevronLeft :size="16" />返回</RouterLink><button class="btn btn-outline-danger" :disabled="saving" type="submit"><span v-if="saving" class="spinner-border spinner-border-sm"></span><template v-else>提交整个批次退款申请</template></button></div></form>
   </div>
