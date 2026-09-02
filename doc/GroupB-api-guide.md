@@ -138,7 +138,20 @@
 
 消费者 API 不提供通用订单状态流转入口。发货只能由供应商履约入口触发；订单完成由消费者逐项确认收货后自动判定。
 
-## 6. 数据库初始化与自检
+## 6. 供应商履约页面
+
+供应商通过统一登录建立 `SupplierId` 会话后访问：
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| `GET` | `/SupplierFulfillment` | 查询本人履约订单，支持状态、关键词和分页 |
+| `GET` | `/SupplierFulfillment/Detail/{orderId}` | 查看本人负责的订单商品和物流状态 |
+| `POST` | `/SupplierFulfillment/Ship/{orderId}` | 为本人订单登记发货并调用 A 组冷链接口 |
+
+发货表单中的 `SupplierId` 不作为可信身份，Controller 始终使用当前会话供应商覆盖该值。
+多供应商订单在全部供应商都完成发货后才更新为 `SHIPPED`。
+
+## 7. 数据库初始化与自检
 
 1. 在隔离 Oracle 18c schema 执行 `groupB_ddl.sql`。
 2. 运行 `pwsh -NoProfile -File tests/verify-groupb-ddl.ps1` 做静态职责和种子覆盖检查。

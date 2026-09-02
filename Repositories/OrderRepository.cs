@@ -196,6 +196,70 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 transaction)).ToList());
     }
 
+    public async Task<int> CountSupplierFulfillmentOrdersAsync(
+        string supplierId,
+        SupplierFulfillmentQuery query,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, connection =>
+            connection.ExecuteScalarAsync<int>(
+                $@"SELECT COUNT(DISTINCT o.OrderId)
+                   FROM Biz_Orders o
+                   JOIN Biz_OrderDetails d ON d.OrderId = o.OrderId
+                   WHERE d.SupplierId = :SupplierId
+                     AND o.OrderStatus IN ('PAID', 'SHIPPED', 'COMPLETED')
+                     AND (:OrderStatus IS NULL OR o.OrderStatus = :OrderStatus)
+                     AND (:Keyword IS NULL
+                         OR o.OrderNo LIKE '%' || :Keyword || '%'
+                         OR o.ReceiverName LIKE '%' || :Keyword || '%'
+                         OR o.ReceiverPhone LIKE '%' || :Keyword || '%')",
+                CreateSupplierFulfillmentParameters(supplierId, query),
+                transaction));
+    }
+
+    public async Task<List<SupplierFulfillmentOrderListItem>> GetSupplierFulfillmentOrdersAsync(
+        string supplierId,
+        SupplierFulfillmentQuery query,
+        int offset,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<SupplierFulfillmentOrderListItem>(
+                $@"SELECT o.OrderId,
+                          o.OrderNo,
+                          c.CustomerName,
+                          o.ReceiverName,
+                          o.ReceiverPhone,
+                          o.ShippingAddress,
+                          o.OrderStatus,
+                          COUNT(d.OrderDetailId) AS ItemCount,
+                          SUM(d.Quantity) AS TotalQuantity,
+                          SUM(d.SubTotal) AS SupplierAmount,
+                          o.CreatedAt
+                   FROM Biz_Orders o
+                   JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
+                   JOIN Biz_OrderDetails d ON d.OrderId = o.OrderId
+                   WHERE d.SupplierId = :SupplierId
+                     AND o.OrderStatus IN ('PAID', 'SHIPPED', 'COMPLETED')
+                     AND (:OrderStatus IS NULL OR o.OrderStatus = :OrderStatus)
+                     AND (:Keyword IS NULL
+                         OR o.OrderNo LIKE '%' || :Keyword || '%'
+                         OR o.ReceiverName LIKE '%' || :Keyword || '%'
+                         OR o.ReceiverPhone LIKE '%' || :Keyword || '%')
+                   GROUP BY o.OrderId,
+                            o.OrderNo,
+                            c.CustomerName,
+                            o.ReceiverName,
+                            o.ReceiverPhone,
+                            o.ShippingAddress,
+                            o.OrderStatus,
+                            o.CreatedAt
+                   ORDER BY o.CreatedAt DESC, o.OrderId DESC
+                   OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY",
+                CreateSupplierFulfillmentParameters(supplierId, query, offset),
+                transaction)).ToList());
+    }
+
     public async Task<OrderDetailHeader?> GetDetailHeaderAsync(
         string orderId,
         IDbTransaction? transaction = null)
@@ -382,6 +446,25 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
             request.Keyword,
             Offset = offset,
             request.PageSize
+        };
+    }
+
+    private static object CreateSupplierFulfillmentParameters(
+        string supplierId,
+        SupplierFulfillmentQuery query,
+        int offset = 0)
+    {
+        return new
+        {
+            SupplierId = supplierId,
+            OrderStatus = query.Status.HasValue
+                ? OrderStatusCodes.ToCode(query.Status.Value)
+                : null,
+            Keyword = string.IsNullOrWhiteSpace(query.Keyword)
+                ? null
+                : query.Keyword.Trim(),
+            Offset = offset,
+            query.PageSize
         };
     }
 }

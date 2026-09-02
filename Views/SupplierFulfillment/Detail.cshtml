@@ -1,0 +1,109 @@
+@model SupplierFulfillmentDetailViewModel
+@{
+    ViewData["Title"] = "履约详情";
+    var logistics = Model.Logistics;
+}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <a asp-action="Index" class="text-decoration-none">← 返回履约工作台</a>
+        <h2 class="mt-2 mb-1">订单 @Model.Order.OrderNo</h2>
+        <p class="text-muted mb-0">@Model.CustomerName · @Model.Order.CreatedAt.ToString("yyyy-MM-dd HH:mm")</p>
+    </div>
+    <span class="badge text-bg-primary fs-6">@logistics.StatusName</span>
+</div>
+
+@if (logistics.IsFallback)
+{
+    <div class="alert alert-warning">
+        当前承运商与轨迹扩展数据来自可替换兜底 Provider，A 组正式接口接入后会自动切换。
+    </div>
+}
+
+<div class="row g-3">
+    <div class="col-lg-8">
+        <section class="card mb-3">
+            <div class="card-header fw-semibold">本供应商商品</div>
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead><tr><th>商品</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
+                    <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td>@item.ProductName</td>
+                            <td>@item.Quantity</td>
+                            <td>¥@item.UnitPrice.ToString("F2")</td>
+                            <td>¥@item.SubTotal.ToString("F2")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-header fw-semibold">收货信息</div>
+            <div class="card-body">
+                <p class="mb-1"><strong>@Model.Order.ReceiverName</strong> @Model.Order.ReceiverPhone</p>
+                <p class="mb-0 text-muted">@Model.Order.ShippingAddress</p>
+            </div>
+        </section>
+    </div>
+
+    <div class="col-lg-4">
+        @if (Model.CanShip)
+        {
+            <section class="card">
+                <div class="card-header fw-semibold">登记发货</div>
+                <form asp-action="Ship" asp-route-id="@Model.Order.OrderId" method="post" class="card-body">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="SupplierId" value="@Model.SupplierId" />
+                    <div class="mb-3">
+                        <label class="form-label">物流公司</label>
+                        <input class="form-control" name="CarrierName" maxlength="100" placeholder="不填则使用配置化兜底承运商" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">物流公司代码</label>
+                        <input class="form-control" name="CarrierCode" maxlength="30" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">运单号</label>
+                        <input class="form-control" name="TrackingNo" maxlength="100" placeholder="不填则使用 A 组生成的运单号" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">包裹温区</label>
+                        <select class="form-select" name="PackageTemperature" required>
+                            <option value="CHILLED">冷藏（0～8℃）</option>
+                            <option value="FROZEN">冷冻（≤-18℃）</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">预计送达</label>
+                        <input class="form-control" type="datetime-local" name="EstimatedArrivalAt" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">发货备注</label>
+                        <textarea class="form-control" name="Remark" maxlength="300" rows="2"></textarea>
+                    </div>
+                    <button class="btn btn-success w-100" type="submit">确认发货</button>
+                </form>
+            </section>
+        }
+        else
+        {
+            <section class="card">
+                <div class="card-header fw-semibold">物流信息</div>
+                <div class="card-body">
+                    <dl class="mb-0">
+                        <dt>承运商</dt><dd>@(logistics.CarrierName ?? "-")</dd>
+                        <dt>运单号</dt><dd>@(logistics.TrackingNo ?? "-")</dd>
+                        <dt>包裹温区</dt><dd>@logistics.PackageTemperature</dd>
+                        <dt>发货时间</dt><dd>@(logistics.ShippedAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</dd>
+                        <dt>预计送达</dt><dd>@(logistics.EstimatedArrivalAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</dd>
+                    </dl>
+                </div>
+            </section>
+        }
+    </div>
+</div>

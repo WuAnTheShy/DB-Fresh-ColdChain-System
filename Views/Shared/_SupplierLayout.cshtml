@@ -42,12 +42,15 @@
                             <li class="nav-item">
                                 <a class="nav-link" asp-controller="Prices" asp-action="Index">💰 定价规则</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="SupplierFulfillment" asp-action="Index">📋 待发货订单</a>
+                            </li>
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">冷链物流</a>
                                 <ul class="dropdown-menu">
                                     <li><a class="dropdown-item" asp-controller="ColdChainLogistics" asp-action="Index">运费模板</a></li>
                                     <li><a class="dropdown-item" asp-controller="ColdChainLogistics" asp-action="Quote">运费报价</a></li>
-                                    <li><a class="dropdown-item" asp-controller="ColdChainLogistics" asp-action="CreateShipment">创建发货</a></li>
+                                    <li><a class="dropdown-item" asp-controller="SupplierFulfillment" asp-action="Index">供应商履约工作台</a></li>
                                     <li><a class="dropdown-item" asp-controller="ColdChainLogistics" asp-action="Shipments">发货记录</a></li>
                                     <li><hr class="dropdown-divider" /></li>
                                     <li><a class="dropdown-item" asp-controller="ColdChainLogistics" asp-action="Traceability">🔍 精准溯源</a></li>

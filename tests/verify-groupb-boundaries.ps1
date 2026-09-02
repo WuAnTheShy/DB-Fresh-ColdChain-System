@@ -5,6 +5,7 @@ $groupBIntegrationFiles = @(
     'Services/GroupAInventoryServiceAdapter.cs',
     'Services/GroupALogisticsServiceAdapter.cs',
     'Services/FallbackGroupALogisticsExtensionProvider.cs',
+    'Services/SupplierFulfillmentService.cs',
     'Services/GroupCPromoterCatalogService.cs',
     'Services/ConsumerMessageService.cs',
     'Services/OrderService.cs',
@@ -97,6 +98,12 @@ $orderController = Get-Content -Raw -Encoding UTF8 -LiteralPath (
     Join-Path $repositoryRoot 'Controllers/OrderController.cs')
 if ($orderController -notmatch 'GroupBAdminSessionAuthorizationFilter') {
     $violations.Add('MVC 订单管理入口必须启用管理员会话权限过滤器')
+}
+
+$supplierFulfillmentController = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+    Join-Path $repositoryRoot 'Controllers/SupplierFulfillmentController.cs')
+if ($supplierFulfillmentController -notmatch 'GroupBSupplierSessionAuthorizationFilter') {
+    $violations.Add('供应商履约入口必须启用供应商会话权限过滤器')
 }
 
 if ($violations.Count -gt 0) {

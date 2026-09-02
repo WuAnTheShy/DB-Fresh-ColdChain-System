@@ -40,6 +40,7 @@ public static class GroupBServiceCollectionExtensions
             FallbackGroupALogisticsExtensionProvider>();
         services.AddScoped<ILogisticsService, GroupALogisticsServiceAdapter>();
         services.AddScoped<IOrderService, OrderService>();
+        services.AddScoped<ISupplierFulfillmentService, SupplierFulfillmentService>();
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddSingleton<CustomerAuthenticationStateService>();
         services.AddScoped<ICouponService, CouponService>();
@@ -48,6 +49,7 @@ public static class GroupBServiceCollectionExtensions
         services.AddScoped<IConsumerCatalogService, ConsumerCatalogService>();
         services.AddScoped<GroupBApiExceptionFilter>();
         services.AddScoped<GroupBAdminSessionAuthorizationFilter>();
+        services.AddScoped<GroupBSupplierSessionAuthorizationFilter>();
         services.AddScoped<GroupBDailyMaintenanceService>();
         services.AddHostedService<GroupBDailyCheckHostedService>();
         services.AddHostedService<GroupBCheckoutExpiryHostedService>();

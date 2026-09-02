@@ -26,3 +26,23 @@ public sealed class GroupBAdminSessionAuthorizationFilter : IAuthorizationFilter
             new { role = "管理员" });
     }
 }
+
+/// <summary>B 组供应商履约页只接受统一登录建立的供应商会话。</summary>
+public sealed class GroupBSupplierSessionAuthorizationFilter : IAuthorizationFilter
+{
+    private const string SupplierIdSessionKey = "SupplierId";
+
+    public void OnAuthorization(AuthorizationFilterContext context)
+    {
+        if (!string.IsNullOrWhiteSpace(
+                context.HttpContext.Session.GetString(SupplierIdSessionKey)))
+        {
+            return;
+        }
+
+        context.Result = new RedirectToActionResult(
+            "Login",
+            "Account",
+            new { role = "供应商" });
+    }
+}

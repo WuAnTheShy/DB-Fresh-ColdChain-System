@@ -265,6 +265,45 @@ internal sealed class FakeOrderRepository : IOrderRepository
         return Task.FromResult(orders);
     }
 
+    public Task<int> CountSupplierFulfillmentOrdersAsync(
+        string supplierId,
+        SupplierFulfillmentQuery query,
+        IDbTransaction? transaction = null) =>
+        Task.FromResult(FilterSupplierFulfillmentOrders(supplierId, query).Count());
+
+    public Task<List<SupplierFulfillmentOrderListItem>> GetSupplierFulfillmentOrdersAsync(
+        string supplierId,
+        SupplierFulfillmentQuery query,
+        int offset,
+        IDbTransaction? transaction = null)
+    {
+        var result = FilterSupplierFulfillmentOrders(supplierId, query)
+            .OrderByDescending(order => order.CreatedAt)
+            .Skip(offset)
+            .Take(query.PageSize)
+            .Select(order =>
+            {
+                var details = Details.Where(detail =>
+                    detail.OrderId == order.OrderId && detail.SupplierId == supplierId).ToList();
+                return new SupplierFulfillmentOrderListItem
+                {
+                    OrderId = order.OrderId,
+                    OrderNo = order.OrderNo,
+                    CustomerName = "测试消费者",
+                    ReceiverName = order.ReceiverName,
+                    ReceiverPhone = order.ReceiverPhone,
+                    ShippingAddress = order.ShippingAddress,
+                    OrderStatus = order.OrderStatus,
+                    ItemCount = details.Count,
+                    TotalQuantity = details.Sum(detail => detail.Quantity),
+                    SupplierAmount = details.Sum(detail => detail.SubTotal),
+                    CreatedAt = order.CreatedAt
+                };
+            })
+            .ToList();
+        return Task.FromResult(result);
+    }
+
     public Task<OrderDetailHeader?> GetDetailHeaderAsync(
         string orderId,
         IDbTransaction? transaction = null)
@@ -449,9 +488,31 @@ internal sealed class FakeOrderRepository : IOrderRepository
              order.OrderNo.Contains(
                  request.Keyword,
                  StringComparison.OrdinalIgnoreCase) ||
-             "测试消费者".Contains(
-                 request.Keyword,
-                 StringComparison.OrdinalIgnoreCase)));
+              "测试消费者".Contains(
+                  request.Keyword,
+                  StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private IEnumerable<BizOrder> FilterSupplierFulfillmentOrders(
+        string supplierId,
+        SupplierFulfillmentQuery query)
+    {
+        var allowedStatuses = new[]
+        {
+            OrderStatusCodes.Paid,
+            OrderStatusCodes.Shipped,
+            OrderStatusCodes.Completed
+        };
+        return Orders.Where(order =>
+            allowedStatuses.Contains(order.OrderStatus, StringComparer.Ordinal) &&
+            Details.Any(detail =>
+                detail.OrderId == order.OrderId && detail.SupplierId == supplierId) &&
+            (!query.Status.HasValue ||
+             order.OrderStatus == OrderStatusCodes.ToCode(query.Status.Value)) &&
+            (query.Keyword == null ||
+             order.OrderNo.Contains(query.Keyword, StringComparison.OrdinalIgnoreCase) ||
+             order.ReceiverName.Contains(query.Keyword, StringComparison.OrdinalIgnoreCase) ||
+             order.ReceiverPhone.Contains(query.Keyword, StringComparison.OrdinalIgnoreCase)));
     }
 
     private static void Stage(IDbTransaction? transaction, Action action)
@@ -1248,6 +1309,7 @@ internal sealed class FakeLogisticsService : ILogisticsService
     public decimal FreightAmount { get; set; }
     public Exception? ShipmentExceptionToThrow { get; set; }
     public List<string> ShippedOrderIds { get; } = [];
+    public HashSet<string> ShippedSupplierKeys { get; } = new(StringComparer.Ordinal);
     public FreightCalculationRequest? LastFreightRequest { get; private set; }
     public List<FreightCalculationRequest> FreightRequests { get; } = [];
 
@@ -1274,14 +1336,21 @@ internal sealed class FakeLogisticsService : ILogisticsService
         return Task.CompletedTask;
     }
 
-    public async Task<SupplierLogisticsSnapshot> CreateSupplierShipmentAsync(
+    public Task<SupplierLogisticsSnapshot> CreateSupplierShipmentAsync(
         FulfillmentOrderRequest request,
         SupplierShipmentCommand command,
         IDbTransaction transaction,
         CancellationToken cancellationToken = default)
     {
-        await CreateShipmentAsync(request, transaction, cancellationToken);
-        return new SupplierLogisticsSnapshot
+        if (ShipmentExceptionToThrow != null)
+            throw ShipmentExceptionToThrow;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var key = CreateSupplierKey(request.OrderId, command.SupplierId);
+        ShippedSupplierKeys.Add(key);
+        ((FakeOrderTransaction)transaction).Stage(
+            () => ShippedOrderIds.Add(request.OrderId));
+        return Task.FromResult(new SupplierLogisticsSnapshot
         {
             OrderId = request.OrderId,
             SupplierId = command.SupplierId,
@@ -1293,7 +1362,7 @@ internal sealed class FakeLogisticsService : ILogisticsService
             ShippedAt = DateTime.Now,
             EstimatedArrivalAt = command.EstimatedArrivalAt,
             DataSource = LogisticsDataSources.Fallback
-        };
+        });
     }
 
     public Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
@@ -1323,7 +1392,9 @@ internal sealed class FakeLogisticsService : ILogisticsService
                 OrderId = orderId,
                 SupplierId = supplierId,
                 TrackingNo = $"TRACK-{orderId}-{supplierId}",
-                StatusCode = LogisticsStatusCodes.Pending,
+                StatusCode = ShippedSupplierKeys.Contains(CreateSupplierKey(orderId, supplierId))
+                    ? LogisticsStatusCodes.Shipped
+                    : LogisticsStatusCodes.Pending,
                 DataSource = LogisticsDataSources.Fallback
             })
             .ToList();
@@ -1352,6 +1423,9 @@ internal sealed class FakeLogisticsService : ILogisticsService
                 }
             ]
         });
+
+    private static string CreateSupplierKey(string orderId, string supplierId) =>
+        $"{orderId}|{supplierId}";
 }
 
 internal sealed class FakeCommissionService : ICommissionService
