@@ -216,25 +216,6 @@ public sealed class OrdersApiController(
         });
     }
 
-    [HttpPost("{orderId}/transition")]
-    public async Task<IActionResult> TransitionOrder(
-        string orderId,
-        OrderTransitionRequest request,
-        CancellationToken cancellationToken)
-    {
-        if (request.TargetStatus == OrderStatus.Completed)
-            return BadRequest(new { message = "请在订单详情中按商品分别确认收货" });
-
-        var authorizationError = await AuthorizeOrderAsync(orderId);
-        if (authorizationError != null) return authorizationError;
-
-        await orderService.TransitionOrderAsync(
-            orderId,
-            request.TargetStatus!.Value,
-            cancellationToken);
-        return NoContent();
-    }
-
     [HttpPost("{orderId}/cancel")]
     public async Task<IActionResult> CancelOrder(
         string orderId,
@@ -277,11 +258,4 @@ public sealed class OrdersApiController(
             ? null
             : ApiForbidden();
     }
-}
-
-public sealed class OrderTransitionRequest
-{
-    [Required(ErrorMessage = "请选择目标状态")]
-    [EnumDataType(typeof(OrderStatus), ErrorMessage = "目标状态无效")]
-    public OrderStatus? TargetStatus { get; set; }
 }

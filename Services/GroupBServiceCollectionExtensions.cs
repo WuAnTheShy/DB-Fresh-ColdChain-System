@@ -32,6 +32,7 @@ public static class GroupBServiceCollectionExtensions
         services.AddScoped<IGroupCPromoterCatalogService, GroupCPromoterCatalogService>();
         services.AddScoped<IConsumerCatalogService, ConsumerCatalogService>();
         services.AddScoped<GroupBApiExceptionFilter>();
+        services.AddScoped<GroupBAdminSessionAuthorizationFilter>();
         services.AddScoped<GroupBDailyMaintenanceService>();
         services.AddHostedService<GroupBDailyCheckHostedService>();
         services.AddHostedService<GroupBCheckoutExpiryHostedService>();

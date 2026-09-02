@@ -133,8 +133,10 @@
 | --- | --- | --- |
 | `GET` | `/api/orders?customerId=...&status=PAID&page=1&pageSize=10` | 分页查询 |
 | `GET` | `/api/orders/{orderId}` | 查询订单详情和供应商履约单元 |
-| `POST` | `/api/orders/{orderId}/transition` | 发货或完成，Body 为 `{ "targetStatus": "SHIPPED" }` |
 | `POST` | `/api/orders/{orderId}/cancel` | 取消未发货订单并补偿库存、券、积分和累计消费 |
+| `POST` | `/api/orders/{orderId}/items/{orderDetailId}/confirm-receipt` | 消费者确认本人订单中的单件商品收货 |
+
+消费者 API 不提供通用订单状态流转入口。发货只能由供应商履约入口触发；订单完成由消费者逐项确认收货后自动判定。
 
 ## 6. 数据库初始化与自检
 
