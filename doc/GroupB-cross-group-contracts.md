@@ -68,6 +68,11 @@ Task<IReadOnlyList<GroupATrustedProduct>> GetTrustedProductsAsync(
 接口：`Interfaces/ILogisticsService.cs`
 
 ```csharp
+Task<FreightCalculationResult> QuoteFreightAsync(
+    FreightCalculationRequest request,
+    IDbTransaction transaction,
+    CancellationToken cancellationToken = default);
+
 Task<decimal> CalculateFreightAsync(
     FreightCalculationRequest request,
     IDbTransaction transaction,
@@ -106,6 +111,9 @@ Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
 - A 组按自身 `Log_FreightTemplates` 和冷链规则计算，不允许 B 组直接查询运费表。
 - 返回值必须非负并符合 B 组 `NUMBER(10,2)` 金额范围。
 - 当前 `GroupALogisticsServiceAdapter` 调用 A 组 `IColdChainLogisticsService.QuoteFreightAsync` 返回真实冷链运费。
+- `FreightCalculationResult` 同时返回目的地、货值、规则摘要、计算时间、数据源和商品计费项。
+- B 组将完整结果序列化到 `Biz_Orders.FreightQuoteSnapshot`，但不解释或重新计算 A 组规则。
+- A 组后续应在自身实现中按“供应商 + 温区 + 命中模板”聚合重量，并确保首重费和包装费按包裹收取；该算法不在 B 组实现。
 
 ### 3.2 创建物流
 

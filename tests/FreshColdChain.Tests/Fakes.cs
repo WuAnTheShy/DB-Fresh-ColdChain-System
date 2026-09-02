@@ -324,6 +324,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
                 TotalAmount = order.TotalAmount,
                 DiscountAmount = order.DiscountAmount,
                 FreightAmount = order.FreightAmount,
+                FreightQuoteSnapshot = order.FreightQuoteSnapshot,
                 FinalAmount = order.FinalAmount,
                 PointsEarned = order.PointsEarned,
                 PointsUsed = order.PointsUsed,
@@ -463,6 +464,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
             TotalAmount = order.TotalAmount,
             DiscountAmount = order.DiscountAmount,
             FreightAmount = order.FreightAmount,
+            FreightQuoteSnapshot = order.FreightQuoteSnapshot,
             FinalAmount = order.FinalAmount,
             CommBaseAmount = order.CommBaseAmount,
             CommBonusAmount = order.CommBonusAmount,
@@ -1313,14 +1315,42 @@ internal sealed class FakeLogisticsService : ILogisticsService
     public FreightCalculationRequest? LastFreightRequest { get; private set; }
     public List<FreightCalculationRequest> FreightRequests { get; } = [];
 
-    public Task<decimal> CalculateFreightAsync(
+    public Task<FreightCalculationResult> QuoteFreightAsync(
         FreightCalculationRequest request,
         IDbTransaction transaction,
         CancellationToken cancellationToken = default)
     {
         LastFreightRequest = request;
         FreightRequests.Add(request);
-        return Task.FromResult(FreightAmount);
+        return Task.FromResult(new FreightCalculationResult
+        {
+            FreightAmount = FreightAmount,
+            GoodsAmount = request.GoodsAmount,
+            Province = request.Province,
+            City = request.City,
+            District = request.District,
+            RuleSummary = "测试运费规则",
+            CalculatedAt = DateTime.Now,
+            DataSource = LogisticsDataSources.Fallback,
+            Items = request.Items.Select(item => new FreightCalculationItemResult
+            {
+                ProductId = item.ProductId,
+                ProductName = item.ProductName,
+                SupplierId = item.SupplierId,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                SubTotal = item.SubTotal
+            }).ToList()
+        });
+    }
+
+    public async Task<decimal> CalculateFreightAsync(
+        FreightCalculationRequest request,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await QuoteFreightAsync(request, transaction, cancellationToken);
+        return result.FreightAmount;
     }
 
     public Task CreateShipmentAsync(

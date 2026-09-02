@@ -19,11 +19,11 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
         var sql = @"
             INSERT INTO Biz_Orders (
                 OrderId, OrderNo, CustomerId, CheckoutBatchId, PromoterId, AddressId, ReceiverName, ReceiverPhone,
-                ShippingAddress, TotalAmount, DiscountAmount, FreightAmount,
+                ShippingAddress, TotalAmount, DiscountAmount, FreightAmount, FreightQuoteSnapshot,
                 FinalAmount, PointsEarned, PointsUsed, PointsDiscountAmount, OrderStatus, PaymentExpiresAt, CreatedAt)
             VALUES (
                 :OrderId, :OrderNo, :CustomerId, :CheckoutBatchId, :PromoterId, :AddressId, :ReceiverName, :ReceiverPhone,
-                :ShippingAddress, :TotalAmount, :DiscountAmount, :FreightAmount,
+                :ShippingAddress, :TotalAmount, :DiscountAmount, :FreightAmount, :FreightQuoteSnapshot,
                 :FinalAmount, :PointsEarned, :PointsUsed, :PointsDiscountAmount, :OrderStatus, :PaymentExpiresAt, SYSDATE)";
 
         return await WithConnectionAsync(transaction, async connection =>
@@ -279,6 +279,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                          o.TotalAmount,
                          o.DiscountAmount,
                          o.FreightAmount,
+                         o.FreightQuoteSnapshot,
                          o.FinalAmount,
                          o.PointsEarned,
                          o.PointsUsed,

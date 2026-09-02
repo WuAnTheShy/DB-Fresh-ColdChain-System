@@ -153,6 +153,7 @@ CREATE TABLE Biz_Orders (
     TotalAmount     NUMBER(10,2)   NOT NULL,
     DiscountAmount  NUMBER(10,2)   DEFAULT 0,
     FreightAmount   NUMBER(10,2)   DEFAULT 0,
+    FreightQuoteSnapshot CLOB,                    -- A组报价结果JSON快照，供审计与展示
     FinalAmount     NUMBER(10,2)   NOT NULL,
     CommBaseAmount  NUMBER(10,2),
     CommBonusAmount NUMBER(10,2),

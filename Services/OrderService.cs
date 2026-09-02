@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.CrossGroup_C;
@@ -439,7 +440,7 @@ public sealed class OrderService : IOrderService
                 remainingPointsDiscount -= groupPointsDiscount;
                 remainingPointsUsed -= groupPointsUsed;
 
-                var freightAmount = await _logisticsService.CalculateFreightAsync(
+                var freightQuote = await _logisticsService.QuoteFreightAsync(
                     new FreightCalculationRequest
                     {
                         CustomerId = customer.CustomerId,
@@ -451,6 +452,7 @@ public sealed class OrderService : IOrderService
                     },
                     transaction,
                     cancellationToken);
+                var freightAmount = freightQuote.FreightAmount;
                 EnsureAmountFitsDatabase(freightAmount);
                 var finalAmount = groupGoodsAmount - groupDiscount - groupPointsDiscount + freightAmount;
                 EnsureAmountFitsDatabase(finalAmount);
@@ -469,6 +471,7 @@ public sealed class OrderService : IOrderService
                     TotalAmount = groupGoodsAmount,
                     DiscountAmount = groupDiscount,
                     FreightAmount = freightAmount,
+                    FreightQuoteSnapshot = SerializeFreightQuote(freightQuote),
                     FinalAmount = finalAmount,
                     PointsEarned = 0,
                     PointsUsed = groupPointsUsed,
@@ -489,6 +492,7 @@ public sealed class OrderService : IOrderService
                     GoodsAmount = groupGoodsAmount,
                     DiscountAmount = groupDiscount,
                     FreightAmount = freightAmount,
+                    FreightQuote = freightQuote,
                     FinalAmount = finalAmount,
                     PointsEarned = 0,
                     PointsUsed = groupPointsUsed,
@@ -606,7 +610,7 @@ public sealed class OrderService : IOrderService
             var discountAmount = coupon == null
                 ? 0m
                 : Math.Min(coupon.DiscountAmount, goodsAmount);
-            var freightAmount = await _logisticsService.CalculateFreightAsync(
+            var freightQuote = await _logisticsService.QuoteFreightAsync(
                 new FreightCalculationRequest
                 {
                     CustomerId = customer.CustomerId,
@@ -618,6 +622,7 @@ public sealed class OrderService : IOrderService
                 },
                 transaction,
                 cancellationToken);
+            var freightAmount = freightQuote.FreightAmount;
             EnsureAmountFitsDatabase(freightAmount);
             var finalAmount = goodsAmount - discountAmount + freightAmount;
             EnsureAmountFitsDatabase(finalAmount);
@@ -640,6 +645,7 @@ public sealed class OrderService : IOrderService
                 TotalAmount = goodsAmount,
                 DiscountAmount = discountAmount,
                 FreightAmount = freightAmount,
+                FreightQuoteSnapshot = SerializeFreightQuote(freightQuote),
                 FinalAmount = finalAmount,
                 PointsEarned = pointsEarned,
                 OrderStatus = OrderStatusCodes.Paid,
@@ -692,6 +698,7 @@ public sealed class OrderService : IOrderService
                 GoodsAmount = goodsAmount,
                 DiscountAmount = discountAmount,
                 FreightAmount = freightAmount,
+                FreightQuote = freightQuote,
                 FinalAmount = finalAmount,
                 PointsEarned = pointsEarned,
                 SupplierGroups = CreateSupplierGroups(details)
@@ -1733,4 +1740,7 @@ public sealed class OrderService : IOrderService
         public int Quantity { get; set; }
         public decimal? ClientUnitPrice { get; init; }
     }
+
+    private static string SerializeFreightQuote(FreightCalculationResult quote) =>
+        JsonSerializer.Serialize(quote);
 }

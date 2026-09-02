@@ -49,6 +49,7 @@ public sealed class OrderDetailHeader
     public decimal TotalAmount { get; init; }
     public decimal DiscountAmount { get; init; }
     public decimal FreightAmount { get; init; }
+    public string? FreightQuoteSnapshot { get; init; }
     public decimal FinalAmount { get; init; }
     public int PointsEarned { get; init; }
     public int PointsUsed { get; init; }
@@ -74,6 +75,7 @@ public sealed class OrderDetailHeader
             TotalAmount = TotalAmount,
             DiscountAmount = DiscountAmount,
             FreightAmount = FreightAmount,
+            FreightQuoteSnapshot = FreightQuoteSnapshot,
             FinalAmount = FinalAmount,
             PointsEarned = PointsEarned,
             PointsUsed = PointsUsed,

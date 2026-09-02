@@ -223,6 +223,9 @@ internal static class OrderServiceScenarioTests
         AssertEx.True(result.PaymentExpiresAt >= startedAt.AddMinutes(14));
         AssertEx.True(context.OrderRepository.Orders.All(order => order.CheckoutBatchId == result.CheckoutBatchId));
         AssertEx.True(context.OrderRepository.Orders.All(order => order.OrderStatus == OrderStatusCodes.PendingPayment));
+        AssertEx.True(context.OrderRepository.Orders.All(order =>
+            !string.IsNullOrWhiteSpace(order.FreightQuoteSnapshot)));
+        AssertEx.True(result.Orders.All(order => order.FreightQuote != null));
         AssertEx.Equal(2, context.OrderRepository.Orders.Select(order => order.PromoterId).Distinct().Count());
     }
 

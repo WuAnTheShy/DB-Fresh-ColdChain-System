@@ -9,6 +9,11 @@ namespace FreshColdChain.Interfaces;
 /// </summary>
 public interface ILogisticsService
 {
+    Task<FreightCalculationResult> QuoteFreightAsync(
+        FreightCalculationRequest request,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default);
+
     Task<decimal> CalculateFreightAsync(
         FreightCalculationRequest request,
         IDbTransaction transaction,

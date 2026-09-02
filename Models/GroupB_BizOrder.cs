@@ -17,6 +17,7 @@ public class BizOrder
     public decimal TotalAmount { get; set; }                // 商品总金额
     public decimal DiscountAmount { get; set; }             // 优惠券抵扣
     public decimal FreightAmount { get; set; }              // 运费
+    public string? FreightQuoteSnapshot { get; set; }        // A 组运费报价 JSON 快照
     public decimal FinalAmount { get; set; }                // 实付金额
     public decimal? CommBaseAmount { get; set; }
     public decimal? CommBonusAmount { get; set; }

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FreshColdChain.Models;
 using FreshColdChain.Services;
 
@@ -99,6 +100,12 @@ internal static class OrderLifecycleScenarioTests
         var order = context.OrderRepository.Orders.Single();
         AssertEx.Equal(15m, result.FreightAmount);
         AssertEx.Equal(115m, result.FinalAmount);
+        AssertEx.True(result.FreightQuote != null);
+        AssertEx.True(!string.IsNullOrWhiteSpace(order.FreightQuoteSnapshot));
+        var freightQuote = JsonSerializer.Deserialize<FreightCalculationResult>(
+            order.FreightQuoteSnapshot!);
+        AssertEx.Equal(15m, freightQuote?.FreightAmount ?? -1m);
+        AssertEx.Equal("浙江省", freightQuote?.Province);
         AssertEx.Equal("默认收件人", order.ReceiverName);
         AssertEx.Equal("13800138000", order.ReceiverPhone);
         AssertEx.True(order.ShippingAddress.Contains("浙江省", StringComparison.Ordinal));

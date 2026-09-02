@@ -20,6 +20,15 @@ public sealed class GroupALogisticsServiceAdapter(
         IDbTransaction transaction,
         CancellationToken cancellationToken = default)
     {
+        var quote = await QuoteFreightAsync(request, transaction, cancellationToken);
+        return quote.FreightAmount;
+    }
+
+    public async Task<FreightCalculationResult> QuoteFreightAsync(
+        FreightCalculationRequest request,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(transaction);
         cancellationToken.ThrowIfCancellationRequested();
@@ -43,7 +52,34 @@ public sealed class GroupALogisticsServiceAdapter(
             throw new OrderBusinessException($"冷链运费计算失败：{response.Message}");
         if (response.Data.FreightAmount < 0)
             throw new OrderBusinessException("冷链运费不能为负数");
-        return response.Data.FreightAmount;
+
+        var sourceItems = response.Data.Items.ToDictionary(
+            item => item.ProductID,
+            StringComparer.Ordinal);
+        return new FreightCalculationResult
+        {
+            FreightAmount = response.Data.FreightAmount,
+            GoodsAmount = request.GoodsAmount,
+            Province = request.Province,
+            City = request.City,
+            District = request.District,
+            RuleSummary = response.Data.RuleSummary,
+            CalculatedAt = DateTime.Now,
+            DataSource = LogisticsDataSources.GroupA,
+            Items = request.Items.Select(item =>
+            {
+                sourceItems.TryGetValue(item.ProductId, out var quoted);
+                return new FreightCalculationItemResult
+                {
+                    ProductId = item.ProductId,
+                    ProductName = quoted?.ProductName ?? item.ProductName,
+                    SupplierId = item.SupplierId,
+                    Quantity = item.Quantity,
+                    UnitPrice = quoted?.UnitPrice ?? item.UnitPrice,
+                    SubTotal = quoted?.SubTotal ?? item.SubTotal
+                };
+            }).ToList()
+        };
     }
 
     public async Task CreateShipmentAsync(

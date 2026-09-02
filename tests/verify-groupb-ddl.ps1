@@ -18,6 +18,7 @@ $requiredColumns = [ordered]@{
     Mkt_Coupons = @('CouponType')
     Biz_Orders = @(
         'CheckoutBatchId',
+        'FreightQuoteSnapshot',
         'PointsUsed',
         'PointsDiscountAmount',
         'PaymentExpiresAt'

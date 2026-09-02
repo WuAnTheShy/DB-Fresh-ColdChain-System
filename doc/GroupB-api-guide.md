@@ -122,10 +122,22 @@
   "goodsAmount": 100.00,
   "discountAmount": 20.00,
   "freightAmount": 0.00,
+  "freightQuote": {
+    "schemaVersion": 1,
+    "freightAmount": 0.00,
+    "province": "浙江省",
+    "city": "杭州市",
+    "district": "西湖区",
+    "ruleSummary": "按地区、温层、首重和续重计算",
+    "dataSource": "GROUP_A"
+  },
   "finalAmount": 80.00,
   "pointsEarned": 8
 }
 ```
+
+最终下单时，B 组会把结构化运费结果保存为 `Biz_Orders.FreightQuoteSnapshot`。
+快照用于审计和展示，不用于重新执行 A 组运费算法。
 
 其他订单接口：
 
