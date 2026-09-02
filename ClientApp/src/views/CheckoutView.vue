@@ -1,7 +1,8 @@
 <script setup>
 import { BadgeCheck, Check, ChevronRight, Coins, MapPin, ShieldCheck, TicketPercent, Truck } from '@lucide/vue'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import QuantityStepper from '../components/QuantityStepper.vue'
 import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
@@ -9,7 +10,7 @@ import { useShop } from '../state/shop'
 
 const router = useRouter()
 const { customerId } = useCustomerContext()
-const { selectedCartItems, selectedCartCount, selectedCartSubtotal, removeCartItems, setLastOrder } = useShop()
+const { selectedCartItems, selectedCartSubtotal, updateQuantity, removeCartItems, setLastOrder } = useShop()
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
@@ -17,6 +18,10 @@ const addresses = ref([])
 const coupons = ref([])
 const claimableCoupons = ref([])
 const pointsBalance = ref(0)
+const freightAmount = ref(0)
+const freightLoading = ref(false)
+const freightError = ref('')
+let freightRequestSequence = 0
 const form = reactive({ addressId: '', pointsToUse: 0 })
 const isSpecialCoupon = (coupon) => String(coupon?.couponType ?? '').toUpperCase() === 'SPECIAL'
 const eligibleCoupons = computed(() => [
@@ -42,6 +47,46 @@ const groups = computed(() => {
   })
   return [...map.values()]
 })
+const estimatedTotal = computed(() => Math.max(
+  0,
+  selectedCartSubtotal.value - couponDiscount.value - pointsDiscount.value + freightAmount.value,
+))
+
+function checkoutItemsPayload() {
+  return selectedCartItems.value.map(item => ({
+    productId: item.product.productId,
+    promoterId: item.leaderId,
+    quantity: item.quantity,
+    clientUnitPrice: item.product.price,
+  }))
+}
+
+async function loadFreightQuote() {
+  const requestSequence = ++freightRequestSequence
+  freightError.value = ''
+  if (!form.addressId || !selectedCartItems.value.length) {
+    freightAmount.value = 0
+    freightLoading.value = false
+    return
+  }
+
+  freightLoading.value = true
+  try {
+    const result = await api.quoteCheckoutFreight({
+      customerId: customerId.value,
+      addressId: form.addressId,
+      items: checkoutItemsPayload(),
+    })
+    if (requestSequence !== freightRequestSequence) return
+    freightAmount.value = Number(result.freightAmount ?? 0)
+  } catch (requestError) {
+    if (requestSequence !== freightRequestSequence) return
+    freightAmount.value = 0
+    freightError.value = requestError.message
+  } finally {
+    if (requestSequence === freightRequestSequence) freightLoading.value = false
+  }
+}
 
 async function loadAssets() {
   loading.value = true
@@ -102,18 +147,19 @@ async function submit() {
 }
 
 onMounted(loadAssets)
+watch(
+  () => [
+    form.addressId,
+    ...selectedCartItems.value.map(item => `${item.leaderId}:${item.product.productId}:${item.quantity}:${item.product.price}`),
+  ],
+  loadFreightQuote,
+)
 </script>
 
 <template>
   <div class="store-container page-space checkout-page">
     <StoreBreadcrumb :items="[{ label: '购物车', to: '/cart' }, { label: '确认订单' }]" />
     <h1 class="checkout-title">确认订单</h1>
-    <section v-if="selectedCartItems.length" class="checkout-batch-overview" aria-label="结算批次概览">
-      <div><span>本次结算批次</span><strong>{{ groups.length }} 个团长子订单</strong></div>
-      <div><span>已选商品</span><strong>{{ selectedCartCount }} 件</strong></div>
-      <div><span>商品总额</span><strong>¥{{ selectedCartSubtotal.toFixed(2) }}</strong></div>
-      <small>提交后按团长拆分订单；整个批次库存充足时才能确认下单</small>
-    </section>
     <div v-if="error" class="alert alert-danger" role="alert">{{ error }}</div>
     <div v-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在准备结算信息</div>
 
@@ -128,24 +174,32 @@ onMounted(loadAssets)
             </label>
           </div>
           <div v-else class="inline-empty">当前账户没有可用地址。<RouterLink to="/addresses">新增收货地址</RouterLink></div>
-        </section>
-
-        <section class="checkout-section">
-          <div class="checkout-section-title"><Truck :size="21" /><div><h2>配送安排</h2></div></div>
-          <div class="delivery-policy"><Truck :size="18" /><span><strong>平台统一安排冷链配送</strong><small>本批次不可选择配送时间；任一商品缺货时，整个结算批次无法确认下单。</small></span></div>
-        </section>
-
-        <section class="checkout-section">
-          <div class="checkout-section-title"><Coins :size="21" /><div><h2>积分抵扣</h2><p>每100积分抵扣1元，最多抵扣优惠后商品金额的10%，不含运费</p></div></div>
-          <div class="points-redeem"><label>使用积分<input v-model.number="form.pointsToUse" class="form-control" type="number" min="0" :max="maxPointsToUse" step="100" @input="clampPoints" /></label><span>可用 {{ pointsBalance }}，本次最多 {{ maxPointsToUse }}</span><strong>- ¥{{ pointsDiscount.toFixed(2) }}</strong></div>
+          <div class="delivery-divider"></div>
+          <div class="delivery-row">
+            <div class="delivery-row-title"><Truck :size="21" /><h2>配送安排</h2></div>
+            <div class="delivery-row-detail">
+              <strong>冷链配送</strong>
+              <div class="delivery-freight">
+                <span>当前运费</span>
+                <strong class="delivery-amount" v-if="freightLoading">计算中…</strong>
+                <strong class="delivery-amount" v-else>¥{{ freightAmount.toFixed(2) }}</strong>
+              </div>
+            </div>
+          </div>
+          <div v-if="freightError" class="freight-error">{{ freightError }}，提交订单时将由服务端重新计算。</div>
         </section>
 
         <section class="checkout-section">
           <div class="checkout-section-title"><BadgeCheck :size="21" /><div><h2>团长带货商品</h2></div></div>
           <div v-for="group in groups" :key="group.leader.id" class="checkout-leader-group">
             <header><img :src="group.leader.avatar" alt="" /><strong>{{ group.leader.name }}团长</strong><BadgeCheck :size="15" /><span>{{ group.leader.area }}</span></header>
-            <div v-for="item in group.items" :key="`${item.productId}-${item.leaderId}`" class="checkout-item"><img :src="item.product.image" :alt="item.product.name" /><div><strong>{{ item.product.name }}</strong><span>{{ item.product.spec }} · {{ item.product.delivery }}</span></div><span>× {{ item.quantity }}</span><strong>¥{{ (item.product.price * item.quantity).toFixed(2) }}</strong></div>
+            <div v-for="item in group.items" :key="`${item.productId}-${item.leaderId}`" class="checkout-item"><img :src="item.product.image" :alt="item.product.name" /><div class="checkout-item-info"><strong>{{ item.product.name }}</strong><span>{{ item.product.spec }} · {{ item.product.delivery }}</span></div><QuantityStepper :model-value="item.quantity" :max="item.product.stock" @update:model-value="updateQuantity(item.productId, $event)" /><strong>¥{{ (item.product.price * item.quantity).toFixed(2) }}</strong></div>
           </div>
+        </section>
+
+        <section class="checkout-section">
+          <div class="checkout-section-title"><Coins :size="21" /><div><h2>积分抵扣</h2><p>每100积分抵扣1元，最多抵扣优惠后商品金额的10%，不含运费</p></div></div>
+          <div class="points-redeem"><label>使用积分<input v-model.number="form.pointsToUse" class="form-control" type="number" min="0" :max="maxPointsToUse" step="100" @input="clampPoints" /></label><span>可用 {{ pointsBalance }}，本次最多 {{ maxPointsToUse }}</span><strong>- ¥{{ pointsDiscount.toFixed(2) }}</strong></div>
         </section>
 
         <section class="checkout-section">
@@ -159,9 +213,9 @@ onMounted(loadAssets)
 
       <aside class="checkout-summary">
         <h2>付款明细</h2>
-        <dl><div><dt>商品金额</dt><dd>¥{{ selectedCartSubtotal.toFixed(2) }}</dd></div><div><dt>团长子订单</dt><dd>{{ groups.length }} 个</dd></div><div><dt>自动优惠</dt><dd>- ¥{{ couponDiscount.toFixed(2) }}</dd></div><div><dt>积分抵扣</dt><dd>- ¥{{ pointsDiscount.toFixed(2) }}</dd></div><div><dt>冷链运费</dt><dd>按团长分别计算</dd></div></dl>
-        <div class="summary-total-row"><span>预计金额</span><strong>¥{{ Math.max(0, selectedCartSubtotal - couponDiscount - pointsDiscount).toFixed(2) }}</strong></div>
-        <button class="btn btn-buy w-100 checkout-button" type="submit" :disabled="saving || !form.addressId"><span v-if="saving" class="spinner-border spinner-border-sm"></span><template v-else>提交订单</template></button>
+        <dl><div><dt>商品金额</dt><dd>¥{{ selectedCartSubtotal.toFixed(2) }}</dd></div><div><dt>团长子订单</dt><dd>{{ groups.length }} 个</dd></div><div><dt>自动优惠</dt><dd>- ¥{{ couponDiscount.toFixed(2) }}</dd></div><div><dt>积分抵扣</dt><dd>- ¥{{ pointsDiscount.toFixed(2) }}</dd></div><div><dt>冷链运费</dt><dd>{{ freightLoading ? '计算中…' : `¥${freightAmount.toFixed(2)}` }}</dd></div></dl>
+        <div class="summary-total-row"><span>预计金额</span><strong>¥{{ estimatedTotal.toFixed(2) }}</strong></div>
+        <button class="btn btn-buy w-100 checkout-button" type="submit" :disabled="saving || freightLoading || !form.addressId"><span v-if="saving" class="spinner-border spinner-border-sm"></span><template v-else>提交订单</template></button>
         <small><ShieldCheck :size="14" />提交即表示确认订单信息和配送安排</small>
       </aside>
     </form>
@@ -172,11 +226,6 @@ onMounted(loadAssets)
 
 <style scoped>
 .checkout-title { margin: 0 0 18px; font-size: 25px; font-weight: 800; }
-.checkout-batch-overview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-bottom: 14px; overflow: hidden; border: 1px solid #b8d4c8; border-radius: 8px; background: #b8d4c8; }
-.checkout-batch-overview > div { display: flex; min-height: 72px; flex-direction: column; justify-content: center; padding: 12px 16px; background: #f2f8f5; }
-.checkout-batch-overview span { color: var(--muted); font-size: 10px; }
-.checkout-batch-overview strong { margin-top: 4px; color: var(--ink); font-size: 16px; }
-.checkout-batch-overview > small { grid-column: 1 / -1; padding: 9px 15px; background: #fff8e8; color: #765d1b; font-size: 10px; }
 .checkout-sections { display: flex; min-width: 0; flex-direction: column; gap: 14px; }
 .checkout-section { padding: 18px; border: 1px solid var(--line); background: #fff; }
 .checkout-section-title { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 15px; color: var(--brand); }
@@ -196,10 +245,17 @@ onMounted(loadAssets)
 .checkout-form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .checkout-form-grid label { display: flex; flex-direction: column; gap: 6px; }
 .checkout-form-grid label > span { color: #4d5953; font-size: 10px; font-weight: 700; }
-.delivery-policy { display: flex; align-items: flex-start; gap: 10px; padding: 13px; border: 1px solid #d5e5dd; background: #f7faf8; color: var(--brand); }
-.delivery-policy > span { display: flex; flex-direction: column; }
-.delivery-policy strong { color: var(--ink); font-size: 11px; }
-.delivery-policy small { margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.delivery-divider { margin: 18px 0; border-top: 1px solid var(--line); }
+.delivery-row { display: flex; min-height: 32px; align-items: center; justify-content: space-between; gap: 20px; }
+.delivery-row-title, .delivery-row-detail { display: flex; align-items: center; }
+.delivery-row-title { gap: 9px; color: var(--brand); }
+.delivery-row-title h2 { margin: 0; color: var(--ink); font-size: 15px; }
+.delivery-row-detail { margin-left: auto; gap: 18px; white-space: nowrap; }
+.delivery-row-detail > strong:first-child { padding: 7px 11px; border: 1px solid #cfe1d8; border-radius: 999px; background: #f2f8f5; color: var(--brand); font-size: 11px; }
+.delivery-freight { display: flex; min-width: 70px; flex-direction: column; align-items: flex-end; gap: 2px; }
+.delivery-freight > span { color: var(--muted); font-size: 9px; }
+.delivery-freight .delivery-amount { color: var(--danger); font-size: 14px; text-align: right; }
+.freight-error { margin-top: 8px; color: #9a6700; font-size: 9px; }
 .points-redeem { display: grid; grid-template-columns: 180px 1fr auto; gap: 12px; align-items: end; }.points-redeem label { font-size: 10px; font-weight: 700; }.points-redeem input { margin-top: 6px; }.points-redeem span { padding-bottom: 9px; color: var(--muted); font-size: 9px; }.points-redeem strong { padding-bottom: 7px; color: var(--danger); }
 .checkout-leader-group { margin-bottom: 10px; border: 1px solid var(--line); }
 .checkout-leader-group:last-child { margin-bottom: 0; }
@@ -207,12 +263,12 @@ onMounted(loadAssets)
 .checkout-leader-group > header img { width: 27px; height: 27px; border-radius: 50%; object-fit: cover; }
 .checkout-leader-group > header svg { color: var(--brand); }
 .checkout-leader-group > header span { margin-left: auto; color: var(--muted); font-size: 9px; }
-.checkout-item { display: grid; grid-template-columns: 54px minmax(130px, 1fr) 45px 76px; gap: 10px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); }
+.checkout-item { display: grid; grid-template-columns: 54px minmax(130px, 1fr) 120px 76px; gap: 10px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); }
 .checkout-item > img { width: 54px; height: 54px; object-fit: cover; }
-.checkout-item > div { display: flex; min-width: 0; flex-direction: column; }
-.checkout-item > div strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.checkout-item > div span { margin-top: 4px; color: var(--muted); font-size: 9px; }
-.checkout-item > span, .checkout-item > strong { font-size: 10px; text-align: right; }
+.checkout-item-info { display: flex; min-width: 0; flex-direction: column; }
+.checkout-item-info strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.checkout-item-info span { margin-top: 4px; color: var(--muted); font-size: 9px; }
+.checkout-item > strong { font-size: 10px; text-align: right; }
 .automatic-coupons { display: grid; gap: 8px; }.automatic-coupons > div { display: grid; grid-template-columns: 86px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 11px 13px; border: 1px solid #d6e5de; background: #f7faf8; }.automatic-coupons span { color: var(--brand); font-size: 9px; font-weight: 700; }.automatic-coupons strong { font-size: 11px; }.automatic-coupons em { color: var(--danger); font-size: 11px; font-style: normal; font-weight: 800; }
 .summary-total-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--line); }
 .summary-total-row strong { color: var(--danger); font-size: 23px; }
@@ -226,12 +282,13 @@ onMounted(loadAssets)
 .checkout-summary > small { display: flex; align-items: flex-start; gap: 4px; margin-top: 11px; color: var(--muted); font-size: 9px; line-height: 1.45; }
 
 @media (max-width: 767.98px) {
-  .checkout-batch-overview { grid-template-columns: 1fr; }
-  .checkout-batch-overview > small { grid-column: auto; }
   .address-choice-grid, .checkout-form-grid { grid-template-columns: 1fr; }
-  .checkout-item { grid-template-columns: 48px minmax(0, 1fr) 55px; }
+  .delivery-row { gap: 10px; }
+  .delivery-row-detail { gap: 8px; }
+  .delivery-freight { min-width: 62px; }
+  .checkout-item { grid-template-columns: 48px minmax(0, 1fr) 76px; }
   .checkout-item > img { width: 48px; height: 48px; }
-  .checkout-item > span { grid-column: 2; }
+  .checkout-item .quantity-stepper { grid-column: 2; width: 110px; }
   .checkout-item > strong { grid-column: 3; grid-row: 1 / span 2; }
 }
 </style>

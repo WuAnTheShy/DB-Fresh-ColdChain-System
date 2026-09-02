@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FreshColdChain.Controllers.Api;
@@ -8,7 +9,9 @@ namespace FreshColdChain.Controllers.Api;
 [ApiController]
 [Route("api/orders")]
 public sealed class OrdersApiController(
-    IOrderService orderService) : GroupBApiController
+    IOrderService orderService,
+    ICustomerService customerService,
+    IColdChainLogisticsService coldChainLogisticsService) : GroupBApiController
 {
     [HttpGet]
     public async Task<IActionResult> GetOrders([FromQuery] OrderQueryRequest request)
@@ -142,6 +145,75 @@ public sealed class OrdersApiController(
             request,
             cancellationToken);
         return StatusCode(StatusCodes.Status201Created, result);
+    }
+
+    [HttpPost("freight-quote")]
+    public async Task<IActionResult> QuoteFreight(CheckoutFreightQuoteRequest request)
+    {
+        var signedInCustomerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(signedInCustomerId)) return ApiUnauthorized();
+        if (!string.Equals(request.CustomerId, signedInCustomerId, StringComparison.Ordinal))
+            return ApiForbidden();
+
+        var address = await customerService.GetAddressForEditAsync(
+            signedInCustomerId,
+            request.AddressId);
+        if (address == null) return ApiNotFound("收货地址不存在或不属于当前消费者");
+
+        var normalizedItems = request.Items
+            .GroupBy(item => new { item.PromoterId, item.ProductId })
+            .Select(group => new
+            {
+                group.Key.PromoterId,
+                group.Key.ProductId,
+                Quantity = group.Sum(item => item.Quantity),
+                ClientUnitPrice = group.First().ClientUnitPrice
+            })
+            .ToList();
+        if (normalizedItems.Count == 0 || normalizedItems.Any(item =>
+                string.IsNullOrWhiteSpace(item.PromoterId) ||
+                string.IsNullOrWhiteSpace(item.ProductId) ||
+                item.Quantity <= 0 ||
+                item.ClientUnitPrice is not > 0))
+            return ApiBadRequest("运费计算商品信息无效");
+
+        decimal freightAmount = 0;
+        var groupQuotes = new List<object>();
+        foreach (var promoterGroup in normalizedItems
+                     .GroupBy(item => item.PromoterId, StringComparer.Ordinal)
+                     .OrderBy(group => group.Key, StringComparer.Ordinal))
+        {
+            var goodsAmount = promoterGroup.Sum(item =>
+                item.ClientUnitPrice!.Value * item.Quantity);
+            var quote = await coldChainLogisticsService.QuoteFreightAsync(new FreightQuoteRequest
+            {
+                Province = address.Province,
+                City = address.City,
+                District = address.District,
+                GoodsAmount = goodsAmount,
+                Items = promoterGroup.Select(item => new FreightItemDto
+                {
+                    ProductID = item.ProductId,
+                    Quantity = item.Quantity
+                }).ToList()
+            });
+            if (!quote.IsSuccess || quote.Data == null)
+                return ApiBadRequest($"冷链运费计算失败：{quote.Message}");
+
+            freightAmount += quote.Data.FreightAmount;
+            groupQuotes.Add(new
+            {
+                promoterId = promoterGroup.Key,
+                freightAmount = quote.Data.FreightAmount,
+                quote.Data.RuleSummary
+            });
+        }
+
+        return Ok(new
+        {
+            freightAmount = decimal.Round(freightAmount, 2),
+            groups = groupQuotes
+        });
     }
 
     [HttpPost("{orderId}/transition")]

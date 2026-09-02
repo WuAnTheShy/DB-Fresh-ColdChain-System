@@ -123,6 +123,10 @@ export const api = {
     method: 'POST',
     body: jsonBody(payload),
   }),
+  quoteCheckoutFreight: (payload) => request('/api/orders/freight-quote', {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
   getCheckoutBatch: (checkoutBatchId) => request(`/api/orders/batches/${encodeURIComponent(checkoutBatchId)}`),
   payCheckoutBatch: (checkoutBatchId, payload) => request(`/api/orders/batches/${encodeURIComponent(checkoutBatchId)}/pay`, {
     method: 'POST',

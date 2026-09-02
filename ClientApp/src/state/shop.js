@@ -325,6 +325,36 @@ function addToCart(catalogItemId, quantity = 1) {
   return true
 }
 
+// 立即购买：把指定商品放入购物车并只勾选它，供结算页直接下单（跳过购物车页）。
+// 数量按本页选择为准（若已在购物车中则覆盖数量，而不是累加），其它条目自动取消勾选。
+function buyNowProduct(catalogItemId, quantity = 1) {
+  const product = productById(catalogItemId)
+  const leader = leaderById(product?.leaderId)
+  if (!product || !leader || product.isFallback) return false
+
+  const existing = cart.find((item) => item.productId === product.id)
+  const targetQuantity = Math.min(product.stock, Math.max(1, Number(quantity || 1)))
+  if (existing) {
+    existing.quantity = targetQuantity
+    existing.selected = true
+  } else {
+    cart.push({
+      productId: product.id,
+      leaderId: leader.id,
+      quantity: targetQuantity,
+      selected: true,
+    })
+  }
+
+  selectedLeaderId.value = leader.id
+  sessionStorage.setItem('freshMall.leaderId', String(leader.id))
+  cart
+    .filter((item) => item.productId !== product.id)
+    .forEach((item) => { item.selected = false })
+  persistCart()
+  return true
+}
+
 function updateQuantity(catalogItemId, quantity) {
   const item = cart.find((entry) => entry.productId === String(catalogItemId))
   const product = productById(catalogItemId)
@@ -415,6 +445,7 @@ export function useShop() {
     loadCatalog,
     setLeaderFollowed,
     addToCart,
+    buyNowProduct,
     updateQuantity,
     removeFromCart,
     setCartItemSelected,
