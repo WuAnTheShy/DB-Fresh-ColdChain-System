@@ -213,7 +213,7 @@ watch(
 
       <aside class="checkout-summary">
         <h2>付款明细</h2>
-        <dl><div><dt>商品金额</dt><dd>¥{{ selectedCartSubtotal.toFixed(2) }}</dd></div><div><dt>团长子订单</dt><dd>{{ groups.length }} 个</dd></div><div><dt>自动优惠</dt><dd>- ¥{{ couponDiscount.toFixed(2) }}</dd></div><div><dt>积分抵扣</dt><dd>- ¥{{ pointsDiscount.toFixed(2) }}</dd></div><div><dt>冷链运费</dt><dd>{{ freightLoading ? '计算中…' : `¥${freightAmount.toFixed(2)}` }}</dd></div></dl>
+        <dl><div><dt>商品金额</dt><dd>¥{{ selectedCartSubtotal.toFixed(2) }}</dd></div><div><dt>自动优惠</dt><dd>- ¥{{ couponDiscount.toFixed(2) }}</dd></div><div><dt>积分抵扣</dt><dd>- ¥{{ pointsDiscount.toFixed(2) }}</dd></div><div><dt>冷链运费</dt><dd>{{ freightLoading ? '计算中…' : `¥${freightAmount.toFixed(2)}` }}</dd></div></dl>
         <div class="summary-total-row"><span>预计金额</span><strong>¥{{ estimatedTotal.toFixed(2) }}</strong></div>
         <button class="btn btn-buy w-100 checkout-button" type="submit" :disabled="saving || freightLoading || !form.addressId"><span v-if="saving" class="spinner-border spinner-border-sm"></span><template v-else>提交订单</template></button>
         <small><ShieldCheck :size="14" />提交即表示确认订单信息和配送安排</small>
@@ -226,6 +226,7 @@ watch(
 
 <style scoped>
 .checkout-title { margin: 0 0 18px; font-size: 25px; font-weight: 800; }
+.checkout-layout { display: flex; flex-direction: column; }
 .checkout-sections { display: flex; min-width: 0; flex-direction: column; gap: 14px; }
 .checkout-section { padding: 18px; border: 1px solid var(--line); background: #fff; }
 .checkout-section-title { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 15px; color: var(--brand); }
