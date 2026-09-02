@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.CrossGroup_C;
@@ -439,7 +440,7 @@ public sealed class OrderService : IOrderService
                 remainingPointsDiscount -= groupPointsDiscount;
                 remainingPointsUsed -= groupPointsUsed;
 
-                var freightAmount = await _logisticsService.CalculateFreightAsync(
+                var freightQuote = await _logisticsService.QuoteFreightAsync(
                     new FreightCalculationRequest
                     {
                         CustomerId = customer.CustomerId,
@@ -451,6 +452,7 @@ public sealed class OrderService : IOrderService
                     },
                     transaction,
                     cancellationToken);
+                var freightAmount = freightQuote.FreightAmount;
                 EnsureAmountFitsDatabase(freightAmount);
                 var finalAmount = groupGoodsAmount - groupDiscount - groupPointsDiscount + freightAmount;
                 EnsureAmountFitsDatabase(finalAmount);
@@ -469,6 +471,7 @@ public sealed class OrderService : IOrderService
                     TotalAmount = groupGoodsAmount,
                     DiscountAmount = groupDiscount,
                     FreightAmount = freightAmount,
+                    FreightQuoteSnapshot = SerializeFreightQuote(freightQuote),
                     FinalAmount = finalAmount,
                     PointsEarned = 0,
                     PointsUsed = groupPointsUsed,
@@ -489,6 +492,7 @@ public sealed class OrderService : IOrderService
                     GoodsAmount = groupGoodsAmount,
                     DiscountAmount = groupDiscount,
                     FreightAmount = freightAmount,
+                    FreightQuote = freightQuote,
                     FinalAmount = finalAmount,
                     PointsEarned = 0,
                     PointsUsed = groupPointsUsed,
@@ -606,7 +610,7 @@ public sealed class OrderService : IOrderService
             var discountAmount = coupon == null
                 ? 0m
                 : Math.Min(coupon.DiscountAmount, goodsAmount);
-            var freightAmount = await _logisticsService.CalculateFreightAsync(
+            var freightQuote = await _logisticsService.QuoteFreightAsync(
                 new FreightCalculationRequest
                 {
                     CustomerId = customer.CustomerId,
@@ -618,6 +622,7 @@ public sealed class OrderService : IOrderService
                 },
                 transaction,
                 cancellationToken);
+            var freightAmount = freightQuote.FreightAmount;
             EnsureAmountFitsDatabase(freightAmount);
             var finalAmount = goodsAmount - discountAmount + freightAmount;
             EnsureAmountFitsDatabase(finalAmount);
@@ -640,6 +645,7 @@ public sealed class OrderService : IOrderService
                 TotalAmount = goodsAmount,
                 DiscountAmount = discountAmount,
                 FreightAmount = freightAmount,
+                FreightQuoteSnapshot = SerializeFreightQuote(freightQuote),
                 FinalAmount = finalAmount,
                 PointsEarned = pointsEarned,
                 OrderStatus = OrderStatusCodes.Paid,
@@ -692,6 +698,7 @@ public sealed class OrderService : IOrderService
                 GoodsAmount = goodsAmount,
                 DiscountAmount = discountAmount,
                 FreightAmount = freightAmount,
+                FreightQuote = freightQuote,
                 FinalAmount = finalAmount,
                 PointsEarned = pointsEarned,
                 SupplierGroups = CreateSupplierGroups(details)
@@ -737,8 +744,8 @@ public sealed class OrderService : IOrderService
             .Distinct()
             .OrderBy(supplierId => supplierId)
             .ToList();
-        var fulfillmentStatuses =
-            await _logisticsService.GetSupplierStatusesAsync(
+        var logisticsSnapshots =
+            await _logisticsService.GetSupplierLogisticsAsync(
                 orderId,
                 supplierIds);
         var status = OrderStatusCodes.Parse(header.OrderStatus);
@@ -750,7 +757,8 @@ public sealed class OrderService : IOrderService
             Details = details,
             SupplierGroups = CreateSupplierGroupViewModels(
                 details,
-                fulfillmentStatuses),
+                logisticsSnapshots),
+            FreightQuote = DeserializeFreightQuote(header.FreightQuoteSnapshot),
             CanShip = OrderStateMachine.CanTransition(
                 status,
                 OrderStatus.Shipped),
@@ -1649,9 +1657,9 @@ public sealed class OrderService : IOrderService
     private static IReadOnlyList<OrderSupplierGroupViewModel>
         CreateSupplierGroupViewModels(
             IEnumerable<BizOrderDetail> details,
-            IReadOnlyList<SupplierFulfillmentStatus> fulfillmentStatuses)
+            IReadOnlyList<SupplierLogisticsSnapshot> logisticsSnapshots)
     {
-        var statusBySupplier = fulfillmentStatuses
+        var statusBySupplier = logisticsSnapshots
             .GroupBy(status => status.SupplierId)
             .ToDictionary(group => group.Key, group => group.First());
         return details
@@ -1667,6 +1675,11 @@ public sealed class OrderService : IOrderService
                     ? fulfillment.StatusName
                     : "未同步",
                 TrackingNo = fulfillment?.TrackingNo,
+                Logistics = fulfillment ?? new SupplierLogisticsSnapshot
+                {
+                    OrderId = group.First().OrderId,
+                    SupplierId = group.Key
+                },
                 Items = group.ToList()
             })
             .ToList();
@@ -1731,5 +1744,21 @@ public sealed class OrderService : IOrderService
         public string PromoterId { get; init; } = string.Empty;
         public int Quantity { get; set; }
         public decimal? ClientUnitPrice { get; init; }
+    }
+
+    private static string SerializeFreightQuote(FreightCalculationResult quote) =>
+        JsonSerializer.Serialize(quote);
+
+    private static FreightCalculationResult? DeserializeFreightQuote(string? snapshot)
+    {
+        if (string.IsNullOrWhiteSpace(snapshot)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<FreightCalculationResult>(snapshot);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }

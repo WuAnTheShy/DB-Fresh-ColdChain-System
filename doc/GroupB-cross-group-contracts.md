@@ -1,6 +1,6 @@
 # GroupB 跨组接口契约
 
-更新日期：2026-09-01
+更新日期：2026-09-02
 
 ## 1. 通用事务规则
 
@@ -68,6 +68,11 @@ Task<IReadOnlyList<GroupATrustedProduct>> GetTrustedProductsAsync(
 接口：`Interfaces/ILogisticsService.cs`
 
 ```csharp
+Task<FreightCalculationResult> QuoteFreightAsync(
+    FreightCalculationRequest request,
+    IDbTransaction transaction,
+    CancellationToken cancellationToken = default);
+
 Task<decimal> CalculateFreightAsync(
     FreightCalculationRequest request,
     IDbTransaction transaction,
@@ -82,6 +87,22 @@ Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
     string orderId,
     IReadOnlyList<string> supplierIds,
     CancellationToken cancellationToken = default);
+
+Task<SupplierLogisticsSnapshot> CreateSupplierShipmentAsync(
+    FulfillmentOrderRequest request,
+    SupplierShipmentCommand command,
+    IDbTransaction transaction,
+    CancellationToken cancellationToken = default);
+
+Task<IReadOnlyList<SupplierLogisticsSnapshot>> GetSupplierLogisticsAsync(
+    string orderId,
+    IReadOnlyList<string> supplierIds,
+    CancellationToken cancellationToken = default);
+
+Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
+    LogisticsTrackingEventCommand command,
+    IDbTransaction transaction,
+    CancellationToken cancellationToken = default);
 ```
 
 ### 3.1 运费计算
@@ -90,6 +111,9 @@ Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
 - A 组按自身 `Log_FreightTemplates` 和冷链规则计算，不允许 B 组直接查询运费表。
 - 返回值必须非负并符合 B 组 `NUMBER(10,2)` 金额范围。
 - 当前 `GroupALogisticsServiceAdapter` 调用 A 组 `IColdChainLogisticsService.QuoteFreightAsync` 返回真实冷链运费。
+- `FreightCalculationResult` 同时返回目的地、货值、规则摘要、计算时间、数据源和商品计费项。
+- B 组将完整结果序列化到 `Biz_Orders.FreightQuoteSnapshot`，但不解释或重新计算 A 组规则。
+- A 组后续应在自身实现中按“供应商 + 温区 + 命中模板”聚合重量，并确保首重费和包装费按包裹收取；该算法不在 B 组实现。
 
 ### 3.2 创建物流
 
@@ -108,6 +132,38 @@ Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
 `GroupALogisticsServiceAdapter` 已把 A 组真实运费、FEFO 发货和履约状态映射到 B 组契约，
 并通过 A 组工作单元挂载 B 组事务。履约状态调用
 `IColdChainLogisticsService.GetTraceabilityByOrderAsync`，不再直接读取 A 组物流 Repository。
+
+### 3.5 高级物流扩展接口与兜底
+
+A 组当前公开接口尚不能接收承运商、外部运单号、预计送达时间、轨迹事件和运输温度。
+B 组因此新增 `IGroupALogisticsExtensionProvider`，但不修改 A 组现有接口和数据表：
+
+```csharp
+Task<SupplierLogisticsSnapshot> RegisterShipmentAsync(
+    LogisticsShipmentRegistration registration,
+    IDbTransaction transaction,
+    CancellationToken cancellationToken = default);
+
+Task<SupplierLogisticsSnapshot> GetSnapshotAsync(
+    LogisticsTraceSeed seed,
+    CancellationToken cancellationToken = default);
+
+Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
+    LogisticsTrackingEventCommand command,
+    IDbTransaction transaction,
+    CancellationToken cancellationToken = default);
+```
+
+当前 `FallbackGroupALogisticsExtensionProvider` 的约束：
+
+- 仅在进程内保存模拟扩展数据，不写任何 A/B/C 业务表。
+- 承运商、发货地点、描述、时效和温区阈值均来自 `GroupB:LogisticsFallback` 配置。
+- 所有结果明确标记 `DataSource=FALLBACK`，调用方不得将其误认为正式承运商回传数据。
+- A 组提供正式能力后，新建 Provider 实现并替换 DI 注册，B 组订单与页面无需改写。
+- 正式实现的写操作必须使用 B 组传入事务，禁止自行提交或回滚。
+- B 组在调用 `AppendTrackingEventAsync` 前执行物流状态机校验和供应商归属校验。
+- 兜底实现按配置温区阈值识别温控异常，并在超过预计送达时间后生成延误异常。
+- A 组正式实现应返回稳定事件 ID，并对相同事件请求提供幂等保护。
 
 ## 4. B 组调用 C 组：订单完成佣金登记
 

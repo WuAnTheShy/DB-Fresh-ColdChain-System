@@ -132,10 +132,6 @@ export const api = {
     method: 'POST',
     body: jsonBody(payload),
   }),
-  transitionOrder: (orderId, targetStatus) => request(`/api/orders/${orderId}/transition`, {
-    method: 'POST',
-    body: jsonBody({ targetStatus }),
-  }),
   cancelOrder: (orderId) => request(`/api/orders/${orderId}/cancel`, {
     method: 'POST',
   }),

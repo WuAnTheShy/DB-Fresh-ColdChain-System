@@ -8,6 +8,7 @@ namespace FreshColdChain.Controllers;
 /// <summary>
 /// 订单 Controller，负责查询、创建和状态流转入口。
 /// </summary>
+[ServiceFilter(typeof(GroupBAdminSessionAuthorizationFilter))]
 public sealed class OrderController : Controller
 {
     private readonly IOrderService _orderService;

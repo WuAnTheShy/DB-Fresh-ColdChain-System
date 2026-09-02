@@ -13,6 +13,31 @@ public sealed class FreightCalculationRequest
     public IReadOnlyList<FulfillmentOrderItem> Items { get; init; } = [];
 }
 
+/// <summary>A 组返回、B 组用于计价和审计的结构化运费结果。</summary>
+public sealed class FreightCalculationResult
+{
+    public int SchemaVersion { get; init; } = 1;
+    public decimal FreightAmount { get; init; }
+    public decimal GoodsAmount { get; init; }
+    public string Province { get; init; } = string.Empty;
+    public string City { get; init; } = string.Empty;
+    public string District { get; init; } = string.Empty;
+    public string RuleSummary { get; init; } = string.Empty;
+    public DateTime CalculatedAt { get; init; }
+    public string DataSource { get; init; } = LogisticsDataSources.GroupA;
+    public IReadOnlyList<FreightCalculationItemResult> Items { get; init; } = [];
+}
+
+public sealed class FreightCalculationItemResult
+{
+    public string ProductId { get; init; } = string.Empty;
+    public string ProductName { get; init; } = string.Empty;
+    public string SupplierId { get; init; } = string.Empty;
+    public int Quantity { get; init; }
+    public decimal UnitPrice { get; init; }
+    public decimal SubTotal { get; init; }
+}
+
 /// <summary>
 /// A 组发货或释放库存所需的订单快照。
 /// </summary>

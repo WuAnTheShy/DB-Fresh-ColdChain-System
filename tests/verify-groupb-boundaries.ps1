@@ -4,6 +4,8 @@ $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $groupBIntegrationFiles = @(
     'Services/GroupAInventoryServiceAdapter.cs',
     'Services/GroupALogisticsServiceAdapter.cs',
+    'Services/FallbackGroupALogisticsExtensionProvider.cs',
+    'Services/SupplierFulfillmentService.cs',
     'Services/GroupCPromoterCatalogService.cs',
     'Services/ConsumerMessageService.cs',
     'Services/OrderService.cs',
@@ -71,6 +73,7 @@ $logisticsAdapter = Get-Content -Raw -Encoding UTF8 -LiteralPath (
     Join-Path $repositoryRoot 'Services/GroupALogisticsServiceAdapter.cs')
 foreach ($requiredCall in @(
     'IColdChainLogisticsService',
+    'IGroupALogisticsExtensionProvider',
     'QuoteFreightAsync',
     'CreateShipmentAsync',
     'GetTraceabilityByOrderAsync'
@@ -83,6 +86,24 @@ foreach ($requiredCall in @(
 $program = Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $repositoryRoot 'Program.cs')
 if (($program | Select-String -Pattern 'AddGroupBModule\(' -AllMatches).Matches.Count -ne 1) {
     $violations.Add('Program.cs 必须且只能通过一个 AddGroupBModule 初始化 B 组')
+}
+
+$ordersApi = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+    Join-Path $repositoryRoot 'Controllers/Api/OrdersApiController.cs')
+if ($ordersApi -match 'HttpPost\("\{orderId\}/transition"\)') {
+    $violations.Add('消费者订单 API 不得暴露通用订单状态流转入口')
+}
+
+$orderController = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+    Join-Path $repositoryRoot 'Controllers/OrderController.cs')
+if ($orderController -notmatch 'GroupBAdminSessionAuthorizationFilter') {
+    $violations.Add('MVC 订单管理入口必须启用管理员会话权限过滤器')
+}
+
+$supplierFulfillmentController = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+    Join-Path $repositoryRoot 'Controllers/SupplierFulfillmentController.cs')
+if ($supplierFulfillmentController -notmatch 'GroupBSupplierSessionAuthorizationFilter') {
+    $violations.Add('供应商履约入口必须启用供应商会话权限过滤器')
 }
 
 if ($violations.Count -gt 0) {
