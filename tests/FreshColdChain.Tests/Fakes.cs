@@ -1417,15 +1417,39 @@ internal sealed class FakeLogisticsService : ILogisticsService
         CancellationToken cancellationToken = default)
     {
         IReadOnlyList<SupplierLogisticsSnapshot> snapshots = supplierIds
-            .Select(supplierId => new SupplierLogisticsSnapshot
+            .Select(supplierId =>
             {
-                OrderId = orderId,
-                SupplierId = supplierId,
-                TrackingNo = $"TRACK-{orderId}-{supplierId}",
-                StatusCode = ShippedSupplierKeys.Contains(CreateSupplierKey(orderId, supplierId))
-                    ? LogisticsStatusCodes.Shipped
-                    : LogisticsStatusCodes.Pending,
-                DataSource = LogisticsDataSources.Fallback
+                var isShipped = ShippedSupplierKeys.Contains(
+                    CreateSupplierKey(orderId, supplierId));
+                return new SupplierLogisticsSnapshot
+                {
+                    OrderId = orderId,
+                    SupplierId = supplierId,
+                    CarrierCode = isShipped ? "TEST" : null,
+                    CarrierName = isShipped ? "测试冷链" : null,
+                    TrackingNo = $"TRACK-{orderId}-{supplierId}",
+                    PackageTemperature = isShipped ? "FROZEN" : "CHILLED",
+                    StatusCode = isShipped
+                        ? LogisticsStatusCodes.Shipped
+                        : LogisticsStatusCodes.Pending,
+                    ShippedAt = isShipped ? DateTime.Now.AddHours(-1) : null,
+                    EstimatedArrivalAt = isShipped ? DateTime.Now.AddHours(12) : null,
+                    DataSource = LogisticsDataSources.Fallback,
+                    Events = isShipped
+                        ?
+                        [
+                            new LogisticsTrackingEventSnapshot
+                            {
+                                EventId = $"EVENT-{supplierId}",
+                                StatusCode = LogisticsStatusCodes.Shipped,
+                                Location = "测试仓",
+                                Description = "冷链包裹已出库",
+                                OccurredAt = DateTime.Now.AddHours(-1),
+                                TemperatureCelsius = -20m
+                            }
+                        ]
+                        : []
+                };
             })
             .ToList();
         return Task.FromResult(snapshots);

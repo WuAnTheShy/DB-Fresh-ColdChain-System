@@ -149,6 +149,54 @@
 | `POST` | `/api/orders/{orderId}/items/{orderDetailId}/confirm-receipt` | 消费者确认本人订单中的单件商品收货 |
 
 消费者 API 不提供通用订单状态流转入口。发货只能由供应商履约入口触发；订单完成由消费者逐项确认收货后自动判定。
+单件确认收货按钮仅在对应包裹物流状态为 `DELIVERED` 时开放。
+
+`GET /api/orders/{orderId}` 的物流部分示例：
+
+```json
+{
+  "packages": [
+    {
+      "packageNumber": 1,
+      "subTotal": 100.00,
+      "itemIds": ["order-detail-id"],
+      "logistics": {
+        "carrierCode": "SF",
+        "carrierName": "顺丰冷运",
+        "trackingNo": "SF1234567890",
+        "packageTemperature": "CHILLED",
+        "statusCode": "IN_TRANSIT",
+        "statusName": "运输中",
+        "estimatedArrivalAt": "2026-09-03T18:00:00+08:00",
+        "hasException": false,
+        "exceptionMessage": null,
+        "dataSource": "GROUP_A",
+        "isFallback": false,
+        "events": [
+          {
+            "eventId": "event-id",
+            "statusCode": "IN_TRANSIT",
+            "statusName": "运输中",
+            "location": "杭州分拨中心",
+            "description": "冷链运输中",
+            "occurredAt": "2026-09-02T15:00:00+08:00",
+            "temperatureCelsius": 3.5,
+            "isTemperatureException": false
+          }
+        ]
+      }
+    }
+  ],
+  "freightQuote": {
+    "schemaVersion": 1,
+    "freightAmount": 12.00,
+    "ruleSummary": "按地区、温层、首重和续重计算",
+    "dataSource": "GROUP_A"
+  }
+}
+```
+
+`packages` 为消费者展示模型，不返回供应商标识。`dataSource=FALLBACK` 表示 A 组高级物流接口尚未接入，数据不能视为生产持久化结果。
 
 ## 6. 供应商履约页面
 

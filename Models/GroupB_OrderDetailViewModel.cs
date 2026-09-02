@@ -10,6 +10,7 @@ public sealed class OrderDetailViewModel
     public string CustomerName { get; init; } = string.Empty;
     public IReadOnlyList<BizOrderDetail> Details { get; init; } = [];
     public IReadOnlyList<OrderSupplierGroupViewModel> SupplierGroups { get; init; } = [];
+    public FreightCalculationResult? FreightQuote { get; init; }
     public bool CanShip { get; init; }
     public bool CanComplete { get; init; }
     public bool CanCancel { get; init; }
@@ -28,6 +29,7 @@ public sealed class OrderSupplierGroupViewModel
     public decimal SubTotal { get; init; }
     public string FulfillmentStatus { get; init; } = "未同步";
     public string? TrackingNo { get; init; }
+    public SupplierLogisticsSnapshot Logistics { get; init; } = new();
     public IReadOnlyList<BizOrderDetail> Items { get; init; } = [];
 }
 

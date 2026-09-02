@@ -71,6 +71,8 @@ internal static class OrderLifecycleScenarioTests
     {
         var context = TestContext.Create();
         SeedOrder(context, TestIds.Order, OrderStatus.Paid, "ORD-GROUP-001");
+        context.LogisticsService.ShippedSupplierKeys.Add(
+            $"{TestIds.Order}|SUP1");
 
         var result = await context.Service.GetOrderDetailAsync(TestIds.Order);
 
@@ -78,8 +80,12 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal(2, result!.SupplierGroups.Count);
         AssertEx.Equal(50m, result.SupplierGroups[0].SubTotal);
         AssertEx.Equal(80m, result.SupplierGroups[1].SubTotal);
-        AssertEx.Equal("待发货", result.SupplierGroups[0].FulfillmentStatus);
+        AssertEx.Equal("已发货", result.SupplierGroups[0].FulfillmentStatus);
         AssertEx.Equal($"TRACK-{TestIds.Order}-SUP1", result.SupplierGroups[0].TrackingNo);
+        AssertEx.Equal("FROZEN", result.SupplierGroups[0].Logistics.PackageTemperature);
+        AssertEx.Equal("测试冷链", result.SupplierGroups[0].Logistics.CarrierName);
+        AssertEx.Equal(1, result.SupplierGroups[0].Logistics.Events.Count);
+        AssertEx.Equal(-20m, result.SupplierGroups[0].Logistics.Events[0].TemperatureCelsius ?? 0m);
         AssertEx.True(result.CanShip);
         AssertEx.True(result.CanCancel);
         AssertEx.True(!result.CanComplete);
@@ -106,6 +112,9 @@ internal static class OrderLifecycleScenarioTests
             order.FreightQuoteSnapshot!);
         AssertEx.Equal(15m, freightQuote?.FreightAmount ?? -1m);
         AssertEx.Equal("浙江省", freightQuote?.Province);
+        var detail = await context.Service.GetOrderDetailAsync(order.OrderId);
+        AssertEx.Equal(15m, detail?.FreightQuote?.FreightAmount ?? -1m);
+        AssertEx.Equal("测试运费规则", detail?.FreightQuote?.RuleSummary);
         AssertEx.Equal("默认收件人", order.ReceiverName);
         AssertEx.Equal("13800138000", order.ReceiverPhone);
         AssertEx.True(order.ShippingAddress.Contains("浙江省", StringComparison.Ordinal));

@@ -744,8 +744,8 @@ public sealed class OrderService : IOrderService
             .Distinct()
             .OrderBy(supplierId => supplierId)
             .ToList();
-        var fulfillmentStatuses =
-            await _logisticsService.GetSupplierStatusesAsync(
+        var logisticsSnapshots =
+            await _logisticsService.GetSupplierLogisticsAsync(
                 orderId,
                 supplierIds);
         var status = OrderStatusCodes.Parse(header.OrderStatus);
@@ -757,7 +757,8 @@ public sealed class OrderService : IOrderService
             Details = details,
             SupplierGroups = CreateSupplierGroupViewModels(
                 details,
-                fulfillmentStatuses),
+                logisticsSnapshots),
+            FreightQuote = DeserializeFreightQuote(header.FreightQuoteSnapshot),
             CanShip = OrderStateMachine.CanTransition(
                 status,
                 OrderStatus.Shipped),
@@ -1657,9 +1658,9 @@ public sealed class OrderService : IOrderService
     private static IReadOnlyList<OrderSupplierGroupViewModel>
         CreateSupplierGroupViewModels(
             IEnumerable<BizOrderDetail> details,
-            IReadOnlyList<SupplierFulfillmentStatus> fulfillmentStatuses)
+            IReadOnlyList<SupplierLogisticsSnapshot> logisticsSnapshots)
     {
-        var statusBySupplier = fulfillmentStatuses
+        var statusBySupplier = logisticsSnapshots
             .GroupBy(status => status.SupplierId)
             .ToDictionary(group => group.Key, group => group.First());
         return details
@@ -1675,6 +1676,11 @@ public sealed class OrderService : IOrderService
                     ? fulfillment.StatusName
                     : "未同步",
                 TrackingNo = fulfillment?.TrackingNo,
+                Logistics = fulfillment ?? new SupplierLogisticsSnapshot
+                {
+                    OrderId = group.First().OrderId,
+                    SupplierId = group.Key
+                },
                 Items = group.ToList()
             })
             .ToList();
@@ -1743,4 +1749,17 @@ public sealed class OrderService : IOrderService
 
     private static string SerializeFreightQuote(FreightCalculationResult quote) =>
         JsonSerializer.Serialize(quote);
+
+    private static FreightCalculationResult? DeserializeFreightQuote(string? snapshot)
+    {
+        if (string.IsNullOrWhiteSpace(snapshot)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<FreightCalculationResult>(snapshot);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 }

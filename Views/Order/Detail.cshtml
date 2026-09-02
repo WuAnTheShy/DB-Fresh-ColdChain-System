@@ -133,6 +133,14 @@
                             <span class="text-muted">冷链运费</span>
                             <span>¥@order.FreightAmount.ToString("F2")</span>
                         </div>
+                        @if (Model.FreightQuote != null)
+                        {
+                            <div class="small text-muted mb-3">
+                                计费依据：@Model.FreightQuote.RuleSummary<br />
+                                目的地：@Model.FreightQuote.Province @Model.FreightQuote.City @Model.FreightQuote.District<br />
+                                报价时间：@Model.FreightQuote.CalculatedAt.ToString("yyyy-MM-dd HH:mm")
+                            </div>
+                        }
                         <div class="border-top pt-3 d-flex justify-content-between">
                             <strong>实付金额</strong>
                             <strong class="text-primary">¥@order.FinalAmount.ToString("F2")</strong>
@@ -153,6 +161,7 @@
             </div>
             @foreach (var group in Model.SupplierGroups)
             {
+                var logistics = group.Logistics;
                 <div class="card shadow-sm mb-3">
                     <div class="card-header bg-body-tertiary d-flex justify-content-between">
                         <span>
@@ -165,10 +174,23 @@
                             小计 ¥@group.SubTotal.ToString("F2")
                         </span>
                     </div>
+                    @if (logistics.HasException)
+                    {
+                        <div class="alert alert-danger rounded-0 border-start-0 border-end-0 mb-0">
+                            <strong>履约异常：</strong>@logistics.ExceptionMessage
+                        </div>
+                    }
                     @if (!string.IsNullOrWhiteSpace(group.TrackingNo))
                     {
-                        <div class="px-3 pt-3 small text-muted">
-                            运单号：@group.TrackingNo
+                        <div class="px-3 pt-3 small text-muted row g-2">
+                            <span class="col-md-3">承运商：@(logistics.CarrierName ?? "-")</span>
+                            <span class="col-md-3">运单号：@group.TrackingNo</span>
+                            <span class="col-md-2">温区：@logistics.PackageTemperature</span>
+                            <span class="col-md-4">预计送达：@(logistics.EstimatedArrivalAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</span>
+                            @if (logistics.IsFallback)
+                            {
+                                <span class="col-12 text-warning">高级物流数据当前来自兜底 Provider</span>
+                            }
                         </div>
                     }
                     <div class="table-responsive">
@@ -194,6 +216,31 @@
                             </tbody>
                         </table>
                     </div>
+                    @if (logistics.Events.Count > 0)
+                    {
+                        <div class="card-footer bg-white">
+                            <div class="fw-semibold mb-2">物流轨迹</div>
+                            @foreach (var item in logistics.Events.OrderByDescending(item => item.OccurredAt))
+                            {
+                                <div class="border-start border-primary ps-3 pb-2 mb-2">
+                                    <div class="d-flex justify-content-between">
+                                        <strong>@item.StatusName</strong>
+                                        <span class="small text-muted">@item.OccurredAt.ToString("yyyy-MM-dd HH:mm")</span>
+                                    </div>
+                                    <div>@item.Description</div>
+                                    <div class="small text-muted">
+                                        @item.Location
+                                        @if (item.TemperatureCelsius.HasValue)
+                                        {
+                                            <span class="ms-2 @(item.IsTemperatureException ? "text-danger fw-semibold" : null)">
+                                                @item.TemperatureCelsius.Value.ToString("F1")℃
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
             }
         </section>

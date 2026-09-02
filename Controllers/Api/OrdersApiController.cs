@@ -111,20 +111,80 @@ public sealed class OrdersApiController(
                 order.UpdatedAt
             },
             detail.CustomerName,
-            details = detail.Details.Select(item => new
+            details = detail.Details.Select(item =>
             {
-                item.OrderDetailId,
-                item.OrderId,
-                item.ProductId,
-                item.ProductName,
-                item.Quantity,
-                item.UnitPrice,
-                item.SubTotal,
-                item.ReceiptStatus,
-                item.ReceivedAt,
-                canConfirmReceipt = order.OrderStatus == OrderStatusCodes.Shipped &&
-                    !string.Equals(item.ReceiptStatus, "RECEIVED", StringComparison.Ordinal)
+                var package = detail.SupplierGroups.FirstOrDefault(group =>
+                    group.Items.Any(groupItem =>
+                        groupItem.OrderDetailId == item.OrderDetailId));
+                return new
+                {
+                    item.OrderDetailId,
+                    item.OrderId,
+                    item.ProductId,
+                    item.ProductName,
+                    item.Quantity,
+                    item.UnitPrice,
+                    item.SubTotal,
+                    item.ReceiptStatus,
+                    item.ReceivedAt,
+                    canConfirmReceipt = package?.Logistics.StatusCode ==
+                        LogisticsStatusCodes.Delivered &&
+                        !string.Equals(item.ReceiptStatus, "RECEIVED", StringComparison.Ordinal)
+                };
             }),
+            packages = detail.SupplierGroups.Select((group, index) => new
+            {
+                packageNumber = index + 1,
+                group.SubTotal,
+                itemIds = group.Items.Select(item => item.OrderDetailId),
+                logistics = new
+                {
+                    group.Logistics.CarrierCode,
+                    group.Logistics.CarrierName,
+                    group.Logistics.TrackingNo,
+                    group.Logistics.PackageTemperature,
+                    group.Logistics.StatusCode,
+                    group.Logistics.StatusName,
+                    group.Logistics.ShippedAt,
+                    group.Logistics.EstimatedArrivalAt,
+                    group.Logistics.DeliveredAt,
+                    group.Logistics.HasException,
+                    group.Logistics.ExceptionMessage,
+                    group.Logistics.DataSource,
+                    group.Logistics.IsFallback,
+                    events = group.Logistics.Events.Select(item => new
+                    {
+                        item.EventId,
+                        item.StatusCode,
+                        item.StatusName,
+                        item.Location,
+                        item.Description,
+                        item.OccurredAt,
+                        item.TemperatureCelsius,
+                        item.IsTemperatureException
+                    })
+                }
+            }),
+            freightQuote = detail.FreightQuote == null ? null : new
+            {
+                detail.FreightQuote.SchemaVersion,
+                detail.FreightQuote.FreightAmount,
+                detail.FreightQuote.GoodsAmount,
+                detail.FreightQuote.Province,
+                detail.FreightQuote.City,
+                detail.FreightQuote.District,
+                detail.FreightQuote.RuleSummary,
+                detail.FreightQuote.CalculatedAt,
+                detail.FreightQuote.DataSource,
+                items = detail.FreightQuote.Items.Select(item => new
+                {
+                    item.ProductId,
+                    item.ProductName,
+                    item.Quantity,
+                    item.UnitPrice,
+                    item.SubTotal
+                })
+            },
             detail.CanComplete,
             detail.CanCancel,
             detail.StatusName
