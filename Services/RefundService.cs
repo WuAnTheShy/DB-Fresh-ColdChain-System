@@ -101,18 +101,69 @@ namespace FreshColdChain.Services
                     _result.ErrorMessage = "不完整的退款请求信息";
                     return _result;
                 }
-                //校验订单可退状态并计算退款金额（与直接退款同一套规则）
-                var ctx = await BuildContextFromRequestAsync(refundRequest, _uow.Transaction);
+                var itemSelections = (refundRequest.Items ?? [])
+                    .Where(item => !string.IsNullOrWhiteSpace(item.ProductID))
+                    .ToList();
+                if (itemSelections.Count != itemSelections
+                        .Select(item => item.ProductID)
+                        .Distinct(StringComparer.Ordinal)
+                        .Count())
+                    throw new Exception("退货商品不能重复选择");
+
+                // 兼容旧调用；新统一入口一次可提交一个或多个商品。
+                var contexts = new List<RefundContext>();
+                if (itemSelections.Count == 0)
+                {
+                    contexts.Add(await BuildContextFromRequestAsync(refundRequest, _uow.Transaction));
+                }
+                else
+                {
+                    foreach (var item in itemSelections)
+                    {
+                        contexts.Add(await BuildContextFromRequestAsync(new GroupC_RefundRequest
+                        {
+                            OrderId = refundRequest.OrderId,
+                            ProductID = item.ProductID,
+                            RefundQty = item.RefundQty,
+                            LiabilityType = refundRequest.LiabilityType,
+                            Remark = refundRequest.Remark
+                        }, _uow.Transaction));
+                    }
+
+                    var orderDetails = contexts[0].Details;
+                    var isFullOrderSelection = itemSelections.Count == orderDetails.Count &&
+                        orderDetails.All(detail => itemSelections.Any(item =>
+                            string.Equals(item.ProductID, detail.ProductId, StringComparison.Ordinal) &&
+                            item.RefundQty == detail.Quantity));
+                    if (isFullOrderSelection)
+                    {
+                        contexts =
+                        [
+                            await BuildContextFromRequestAsync(new GroupC_RefundRequest
+                            {
+                                OrderId = refundRequest.OrderId,
+                                LiabilityType = refundRequest.LiabilityType,
+                                Remark = refundRequest.Remark
+                            }, _uow.Transaction)
+                        ];
+                    }
+                }
+
+                var ctx = contexts[0];
                 //同一订单存在待审核申请时禁止重复申请
                 if (await _irefundRepository.HasPendingApplicationAsync(ctx.Order.OrderId, _uow.Transaction))
                 {
                     throw new Exception("该订单已有待审核的退款申请，请勿重复提交！");
                 }
-                //创建待审核申请单（不写佣金/积分/订单状态，等待管理员审核）
-                var recordResult = await RefundRecord(ctx.Order.OrderId, ctx.DetailId, ctx.SupplierId, ctx.RefundQty, ctx.RefundAmount,
-                    refundRequest.LiabilityType, refundRequest.Remark, "Pending", _uow.Transaction);
-                if (!recordResult.IsSuccess)
-                    throw new Exception(recordResult.ErrorMessage ?? "退款申请记录写入失败");
+                // 同一次多选申请在一个事务中写入；任一商品失败则全部回滚。
+                foreach (var selectedContext in contexts)
+                {
+                    var recordResult = await RefundRecord(selectedContext.Order.OrderId, selectedContext.DetailId,
+                        selectedContext.SupplierId, selectedContext.RefundQty, selectedContext.RefundAmount,
+                        refundRequest.LiabilityType, refundRequest.Remark, "Pending", _uow.Transaction);
+                    if (!recordResult.IsSuccess)
+                        throw new Exception(recordResult.ErrorMessage ?? "退款申请记录写入失败");
+                }
                 await _uow.CommitAsync();
                 _result.IsSuccess = true;
                 return _result;
@@ -282,7 +333,7 @@ namespace FreshColdChain.Services
         private async Task<RefundContext> BuildContextFromRequestAsync(GroupC_RefundRequest refundRequest, IDbTransaction? transaction)
         {
             var ctx = await LoadOrderContextAsync(refundRequest.OrderId!, transaction);
-            //  区分是否是整单退款: 如果 ProductID 为空，表示整单退款
+            // 兼容旧接口：ProductID 为空时直接按整单退款处理。
             if (string.IsNullOrEmpty(refundRequest.ProductID))
             {
                 ctx.IsFullRefund = true;
@@ -304,16 +355,29 @@ namespace FreshColdChain.Services
                 {
                     throw new Exception("退款数量不合法，请重新输入退款数量！");
                 }
-                ctx.DetailId = detail.OrderDetailId;
-                ctx.SupplierId = detail.SupplierId;    //供应商信息直接取自B组订单明细快照
-                ctx.RefundQty = refundRequest.RefundQty;
-                var discountRate = ctx.Order.TotalAmount <= 0
-                    ? 1m
-                    : Math.Max(0m, ctx.Order.TotalAmount - ctx.Order.DiscountAmount) / ctx.Order.TotalAmount;
-                ctx.RefundAmount = Math.Round(
-                    ctx.RefundQty * detail.UnitPrice * discountRate,
-                    2,
-                    MidpointRounding.AwayFromZero);
+                // 新统一入口始终提交商品和数量。单商品订单退满全部数量时，
+                // 服务端自动识别为整单退款，前端不再传递或选择退款类型。
+                if (ctx.Details.Count == 1 && refundRequest.RefundQty == detail.Quantity)
+                {
+                    ctx.IsFullRefund = true;
+                    ctx.RefundAmount = ctx.OrderStatus is OrderStatus.Shipped or OrderStatus.Completed or OrderStatus.Refunding
+                        ? Math.Max(0m, ctx.Order.FinalAmount - ctx.Order.FreightAmount)
+                        : ctx.Order.FinalAmount;
+                    ctx.RefundQty = 0;
+                }
+                else
+                {
+                    ctx.DetailId = detail.OrderDetailId;
+                    ctx.SupplierId = detail.SupplierId;    //供应商信息直接取自B组订单明细快照
+                    ctx.RefundQty = refundRequest.RefundQty;
+                    var discountRate = ctx.Order.TotalAmount <= 0
+                        ? 1m
+                        : Math.Max(0m, ctx.Order.TotalAmount - ctx.Order.DiscountAmount) / ctx.Order.TotalAmount;
+                    ctx.RefundAmount = Math.Round(
+                        ctx.RefundQty * detail.UnitPrice * discountRate,
+                        2,
+                        MidpointRounding.AwayFromZero);
+                }
             }
             FinalizeRatio(ctx);
             return ctx;

@@ -147,7 +147,4 @@ export const api = {
     method: 'POST',
     body: jsonBody(payload),
   }),
-  applyCheckoutBatchRefund: (batchId, payload) => request(`/api/orders/batches/${encodeURIComponent(batchId)}/refunds`, {
-    method: 'POST', body: jsonBody(payload),
-  }),
 }

@@ -15,7 +15,6 @@ import CouponsView from './views/CouponsView.vue'
 import AddressesView from './views/AddressesView.vue'
 import CustomerView from './views/CustomerView.vue'
 import MessagesView from './views/MessagesView.vue'
-import CheckoutBatchRefundView from './views/CheckoutBatchRefundView.vue'
 import AuthView from './views/AuthView.vue'
 import { useCustomerContext } from './state/customer'
 
@@ -36,7 +35,6 @@ const router = createRouter({
     { path: '/orders', name: 'orders', component: OrdersView, meta: { requiresAuth: true } },
     { path: '/orders/:id', name: 'order-detail', component: OrderDetailView, props: true, meta: { requiresAuth: true } },
     { path: '/orders/:id/refund', name: 'refund-apply', component: RefundApplyView, props: true, meta: { requiresAuth: true } },
-    { path: '/orders/batches/:batchId/refund', name: 'batch-refund-apply', component: CheckoutBatchRefundView, props: true, meta: { requiresAuth: true } },
     { path: '/coupons', name: 'coupons', component: CouponsView, meta: { requiresAuth: true } },
     { path: '/addresses', name: 'addresses', component: AddressesView, meta: { requiresAuth: true } },
     { path: '/profile', name: 'profile', component: CustomerView, meta: { requiresAuth: true } },

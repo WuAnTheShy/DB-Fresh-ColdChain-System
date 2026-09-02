@@ -50,6 +50,14 @@ public sealed class RefundsApiController(
         request.ProductID = string.IsNullOrWhiteSpace(request.ProductID)
             ? null
             : request.ProductID.Trim();
+        request.Items = (request.Items ?? [])
+            .Where(item => !string.IsNullOrWhiteSpace(item.ProductID))
+            .Select(item => new GroupC_RefundItemRequest
+            {
+                ProductID = item.ProductID.Trim(),
+                RefundQty = item.RefundQty
+            })
+            .ToList();
         request.LiabilityType = "Customer";
         request.Remark = request.Remark?.Trim();
         var result = await refundService.ApplyRefund(request);
