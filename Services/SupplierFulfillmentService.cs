@@ -196,6 +196,11 @@ public sealed class SupplierFulfillmentService(
                 cancellationToken)).Single();
             if (!LogisticsStatusCodes.IsShippedOrLater(current.StatusCode))
                 throw new OrderBusinessException("当前供应商尚未发货");
+            if (current.Events.Any(item => string.Equals(
+                item.EventId,
+                command.EventId,
+                StringComparison.Ordinal)))
+                return current;
             LogisticsStateMachine.EnsureTransition(
                 current.StatusCode,
                 command.StatusCode);

@@ -152,6 +152,9 @@ public sealed class SupplierLogisticsSnapshot
 public sealed class LogisticsTrackingEventCommand
 {
     [Required, StringLength(36)]
+    public string EventId { get; init; } = GroupBIds.NewId();
+
+    [Required, StringLength(36)]
     public string OrderId { get; init; } = string.Empty;
 
     [Required, StringLength(36)]

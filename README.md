@@ -56,7 +56,7 @@ npm run dev
 
 ### 1. 初始化表结构与数据
 
-全新 schema 执行 `groupB_ddl.sql`，其中包含 B 组 8 张核心表、1 张会员定级历史扩展表及最小演示数据。已有 schema 不要重复执行基础脚本，应按文件名顺序执行 `migrations/` 中尚未应用的 B 组增量脚本；其中 `20260831_add_coupon_type.sql` 补齐结算所需的优惠券类型列。
+全新 schema 执行 `groupB_ddl.sql`，其中包含 B 组 8 张核心表、1 张会员定级历史扩展表及最小演示数据。已有 schema 不要重复执行基础脚本，应按文件名顺序执行 `migrations/` 中尚未应用的 B 组增量脚本；其中 `20260831_add_coupon_type.sql` 补齐结算所需的优惠券类型列，`20260902_add_freight_quote_snapshot.sql` 增加结构化运费报价快照列。
 
 ### 2. 连接串配置
 
@@ -114,7 +114,7 @@ dotnet run --project FreshColdChain.csproj --profile http
 | --- | --- |
 | 登录入口 | 角色选择页 → 「供应商登入」→ 或直达 `http://localhost:5064/Account/Login?role=供应商` |
 | 登录后首页 | `http://localhost:5064/SuppliersHome` |
-| 主要页面 | 产品与库存管理（`/Products`）、供应商报价管理（`/Suppliers/MyQuotes`，设置供货价与保质期） |
+| 主要页面 | 履约工作台（`/SupplierFulfillment`）、产品与库存管理（`/Products`）、供应商报价管理（`/Suppliers/MyQuotes`，设置供货价与保质期） |
 | 说明 | 供应商账号由后台/数据初始化，供应商登录后维护自己产品的供货价 |
 
 ### 4. 管理员界面（后台管理，MVC Razor）

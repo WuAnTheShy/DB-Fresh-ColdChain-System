@@ -56,13 +56,14 @@ B 组负责以下 8 张核心表：
 ## 4. 当前验证结果
 
 - `dotnet build tests/FreshColdChain.Tests/FreshColdChain.Tests.csproj -c Release --no-restore`：主项目与测试项目均为 0 警告、0 错误。
-- `dotnet run --project tests/FreshColdChain.Tests/FreshColdChain.Tests.csproj -c Release`：44 个事务/业务场景通过。
+- `dotnet run --project tests/FreshColdChain.Tests/FreshColdChain.Tests.csproj -c Release`：53 个事务/业务场景通过。
   - 下单与结算事务：13 个。
   - 客户营销与认证：13 个。
   - 订单生命周期与退款：12 个。
   - 跨组契约与数据最小化：2 个。
   - 消息中心跨组组合：1 个。
-  - A 组服务适配：3 个。
+  - A 组服务适配与物流兜底：6 个。
+  - 供应商履约：6 个。
 - `pwsh -NoProfile -File tests/verify-groupb-boundaries.ps1`：跨组 Repository/表直连、真实服务接入和唯一初始化入口检查通过。
 - `pwsh -NoProfile -File tests/verify-groupb-ddl.ps1`：8 张核心表、1 张扩展表、必需列、演示数据和职责边界检查通过。
 - `npm audit --audit-level=high`：0 个已知漏洞。
@@ -136,3 +137,12 @@ Oracle 集成测试未执行：仓库未提供隔离测试库或可清理的测�
 - 单件确认收货只在所属包裹状态为 `DELIVERED` 时开放，不能再仅凭订单已发货状态提前确认。
 - MVC 管理端订单详情增加报价依据、目的地、承运商、温区、预计送达、轨迹和兜底来源标识。
 - 前端物流状态徽标覆盖待发货、备货、运输、派送、签收、异常和退回状态。
+
+## 12. 物流完善阶段 7
+
+- 物流轨迹命令新增调用方生成的 `EventId`，供应商表单、B 组 Service 和兜底 Provider 均按事件编号保持幂等。
+- 新增 `GroupB-logistics-required-interfaces.md`，明确 A 组 4 个 P0 物流接口和 C 组统一权限接口的字段、事务、幂等、错误码及验收标准。
+- 明确现有 C 组退款可用 `LiabilityType=Logistics`，结构化物流异常证据列为 P1 扩展。
+- README 补充运费快照迁移与供应商履约入口，跨组契约补充事件幂等要求。
+- Release 编译、53 个自动化场景、边界检查、DDL 检查、npm 安全审计和 Vue 生产构建全部通过。
+- 未向未知共享 Oracle schema 执行写入验证；正式联调仍需按接口文档在隔离 schema 完成事务重放测试。

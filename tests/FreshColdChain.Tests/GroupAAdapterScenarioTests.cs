@@ -18,6 +18,7 @@ internal static class GroupAAdapterScenarioTests
             ("物流适配器通过 A 组服务报价发货并查询状态", LogisticsAdapterUsesServiceContractsAsync),
             ("A 组尚未发货时返回待发货状态", MissingTraceReturnsPendingAsync),
             ("高级物流缺失时配置化兜底并识别温控异常", LogisticsFallbackTracksTemperatureExceptionAsync),
+            ("兜底轨迹按事件编号保持幂等", LogisticsFallbackEventIsIdempotentAsync),
             ("兜底物流超过预计时间后标记延误", LogisticsFallbackDetectsDelayAsync)
         };
 
@@ -265,6 +266,45 @@ internal static class GroupAAdapterScenarioTests
         AssertEx.Equal(LogisticsStatusCodes.Exception, result.StatusCode);
         AssertEx.True(result.HasException);
         AssertEx.Equal("测试包裹已延误", result.ExceptionMessage);
+    }
+
+    private static async Task LogisticsFallbackEventIsIdempotentAsync()
+    {
+        var provider = CreateExtensionProvider();
+        using var transaction = new FakeOrderTransaction();
+        await provider.RegisterShipmentAsync(
+            new LogisticsShipmentRegistration
+            {
+                DeliveryId = "DEL-IDEMPOTENT",
+                OrderId = "ORDER-IDEMPOTENT",
+                SupplierId = "SUP1",
+                BaseTrackingNo = "TRACK-IDEMPOTENT",
+                BaseStatus = LogisticsStatusCodes.Shipped,
+                ShippedAt = DateTime.Now.AddHours(-1),
+                Command = new SupplierShipmentCommand
+                {
+                    SupplierId = "SUP1",
+                    PackageTemperature = "CHILLED"
+                }
+            },
+            transaction);
+        var command = new LogisticsTrackingEventCommand
+        {
+            EventId = "EVENT-IDEMPOTENT",
+            OrderId = "ORDER-IDEMPOTENT",
+            SupplierId = "SUP1",
+            StatusCode = LogisticsStatusCodes.InTransit,
+            Location = "杭州中转场",
+            Description = "包裹运输中",
+            OccurredAt = DateTime.Now,
+            TemperatureCelsius = 4m
+        };
+
+        var first = await provider.AppendTrackingEventAsync(command, transaction);
+        var second = await provider.AppendTrackingEventAsync(command, transaction);
+
+        AssertEx.Equal(first.Events.Count, second.Events.Count);
+        AssertEx.Equal(1, second.Events.Count(item => item.EventId == command.EventId));
     }
 
     private static FallbackGroupALogisticsExtensionProvider CreateExtensionProvider() =>

@@ -146,6 +146,7 @@
                     <div class="card-header fw-semibold">追加物流轨迹</div>
                     <form asp-action="AddTrackingEvent" asp-route-id="@Model.Order.OrderId" method="post" class="card-body">
                         @Html.AntiForgeryToken()
+                        <input type="hidden" name="EventId" value="@GroupBIds.NewId()" />
                         <input type="hidden" name="OrderId" value="@Model.Order.OrderId" />
                         <input type="hidden" name="SupplierId" value="@Model.SupplierId" />
                         <div class="mb-3">
