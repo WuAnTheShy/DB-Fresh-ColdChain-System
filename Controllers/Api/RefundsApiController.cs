@@ -70,6 +70,26 @@ public sealed class RefundsApiController(
         });
     }
 
+    [HttpPost("preview")]
+    public async Task<IActionResult> PreviewRefund(
+        string orderId,
+        GroupC_RefundRequest request)
+    {
+        var authorization = await AuthorizeOrderAsync(orderId);
+        if (authorization != null) return authorization;
+
+        NormalizeRequest(orderId, request);
+        var result = await refundService.PreviewRefundAsync(request);
+        return result.IsSuccess
+            ? Ok(new
+            {
+                result.RefundAmount,
+                result.GoodsRefundAmount,
+                result.FreightRefundAmount
+            })
+            : ApiBadRequest(result.ErrorMessage ?? "退款金额试算失败");
+    }
+
     [HttpDelete("{refundId}")]
     public async Task<IActionResult> CancelRefund(string orderId, string refundId)
     {
@@ -94,5 +114,25 @@ public sealed class RefundsApiController(
         return string.Equals(detail.Order.CustomerId, customerId, StringComparison.Ordinal)
             ? null
             : ApiForbidden();
+    }
+
+
+    private static void NormalizeRequest(string orderId, GroupC_RefundRequest request)
+    {
+        request.OrderId = orderId;
+        request.DetailId = null;
+        request.ProductID = string.IsNullOrWhiteSpace(request.ProductID)
+            ? null
+            : request.ProductID.Trim();
+        request.Items = (request.Items ?? [])
+            .Where(item => !string.IsNullOrWhiteSpace(item.ProductID))
+            .Select(item => new GroupC_RefundItemRequest
+            {
+                ProductID = item.ProductID.Trim(),
+                RefundQty = item.RefundQty
+            })
+            .ToList();
+        request.LiabilityType = "Customer";
+        request.Remark = request.Remark?.Trim();
     }
 }

@@ -12,6 +12,9 @@ namespace FreshColdChain.Interfaces
         //消费者申请退款：仅校验并创建待审核申请单，不动任何资金（自建事务）
         public Task<Result> ApplyRefund(GroupC_RefundRequest refundRequest);
 
+        // 消费者提交前试算，与正式申请共用商品和运费规则
+        public Task<RefundPreviewResult> PreviewRefundAsync(GroupC_RefundRequest refundRequest);
+
         //消费者取消尚未审核的退款申请，取消后释放对应商品的申请数量
         public Task<Result> CancelRefundApplicationAsync(string orderId, string refundId, string customerId);
 

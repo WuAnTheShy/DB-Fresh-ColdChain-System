@@ -147,6 +147,10 @@ export const api = {
     method: 'POST',
     body: jsonBody(payload),
   }),
+  previewOrderRefund: (orderId, payload) => request(`/api/orders/${orderId}/refunds/preview`, {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
   cancelOrderRefund: (orderId, refundId) => request(`/api/orders/${orderId}/refunds/${refundId}`, {
     method: 'DELETE',
   }),

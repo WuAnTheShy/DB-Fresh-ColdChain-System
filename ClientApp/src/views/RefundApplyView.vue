@@ -1,6 +1,6 @@
 <script setup>
 import { AlertCircle, CheckCircle2, ChevronLeft, RotateCcw, ShieldCheck, X } from '@lucide/vue'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { api } from '../services/api'
 
 const props = defineProps({ id: { type: String, required: true } })
@@ -15,6 +15,10 @@ const selections = reactive({})
 const remark = ref('')
 const reviewDialogOpen = ref(false)
 const submittedScope = ref('')
+const refundPreview = ref(null)
+const previewLoading = ref(false)
+let previewTimer = 0
+let previewRequestId = 0
 
 const order = computed(() => orderDetail.value?.order)
 const selectedEntries = computed(() => (orderDetail.value?.details ?? [])
@@ -32,12 +36,16 @@ const isFullRefund = computed(() => (
 ))
 const refundScopeLabel = computed(() => isFullRefund.value ? '整单退款' : '部分退款')
 const discountRate = computed(() => Math.max(0, Number(order.value?.totalAmount ?? 0) - Number(order.value?.discountAmount ?? 0)) / Math.max(0.01, Number(order.value?.totalAmount ?? 0)))
-const estimatedRefund = computed(() => {
+const estimatedGoodsRefund = computed(() => {
   if (!order.value) return 0
-  if (isFullRefund.value) return Math.max(0, Number(order.value.finalAmount) - (shipped.value ? Number(order.value.freightAmount) : 0))
+  if (isFullRefund.value) return Math.max(0, Number(order.value.finalAmount) - Number(order.value.freightAmount))
   return selectedEntries.value.reduce((sum, { item, quantity }) => (
     sum + Number(item.unitPrice ?? 0) * quantity * discountRate.value
   ), 0)
+})
+const estimatedRefund = computed(() => {
+  if (refundPreview.value) return Number(refundPreview.value.refundAmount ?? 0)
+  return estimatedGoodsRefund.value + (isFullRefund.value && !shipped.value ? Number(order.value?.freightAmount ?? 0) : 0)
 })
 function money(value) { return `¥${Number(value ?? 0).toFixed(2)}` }
 function statusName(status) { return ({ Pending: '待平台审核', Approved: '审核通过', Rejected: '已驳回', Cancelled: '已取消' })[status] ?? status }
@@ -58,6 +66,33 @@ function clampQuantity(item) {
     ? Math.min(Math.max(1, Number(selection.quantity || 1)), remaining)
     : 0
 }
+
+const previewSignature = computed(() => JSON.stringify(selectedEntries.value.map(({ item, quantity }) => ({
+  productID: item.productId,
+  refundQty: quantity,
+}))))
+
+watch(previewSignature, (signature) => {
+  window.clearTimeout(previewTimer)
+  refundPreview.value = null
+  const requestId = ++previewRequestId
+  const items = JSON.parse(signature)
+  if (!order.value || items.length === 0) {
+    previewLoading.value = false
+    return
+  }
+  previewLoading.value = true
+  previewTimer = window.setTimeout(async () => {
+    try {
+      const result = await api.previewOrderRefund(props.id, { items })
+      if (requestId === previewRequestId) refundPreview.value = result
+    } catch {
+      // 试算失败时保留前端商品金额估算，正式提交仍由服务端校验。
+    } finally {
+      if (requestId === previewRequestId) previewLoading.value = false
+    }
+  }, 250)
+}, { flush: 'post' })
 
 async function load() {
   loading.value = true; error.value = ''
@@ -127,7 +162,21 @@ onMounted(load)
           </fieldset>
         </form>
       </main>
-      <aside><section><h2>预计退款</h2><strong class="refund-amount">{{ money(estimatedRefund) }}</strong><dl><div><dt>商品金额</dt><dd>{{ money(order.totalAmount) }}</dd></div><div><dt>优惠分摊</dt><dd>-{{ money(order.discountAmount) }}</dd></div><div><dt>原订单运费</dt><dd>{{ money(order.freightAmount) }}</dd></div></dl><p v-if="shipped">发货后运费始终不退还；部分退款按该商品已支付金额自动计算。</p></section><section><h2>平台审核记录</h2><div v-if="!refunds.length" class="empty-history">暂无退款申请</div><article v-for="record in refunds" :key="record.refundId"><span>{{ statusName(record.status) }}</span><strong>{{ money(record.refundAmount) }}</strong><small><b>{{ refundProductName(record) }}</b> · {{ record.refundQty ? `${record.refundQty} 件` : '全部商品' }}</small><small>{{ record.remark }}</small><button v-if="record.status === 'Pending'" class="cancel-refund-button" type="button" :disabled="cancellingRefundId === record.refundId" @click="cancelRefund(record.refundId)"><span v-if="cancellingRefundId === record.refundId" class="spinner-border spinner-border-sm"></span><template v-else>取消申请</template></button></article></section><div class="review-note"><ShieldCheck :size="19" />所有申请均由平台审核</div></aside>
+      <aside>
+        <section>
+          <h2>预计退款</h2>
+          <strong class="refund-amount">{{ previewLoading ? '计算中…' : money(estimatedRefund) }}</strong>
+          <dl>
+            <div><dt>商品退款</dt><dd>{{ refundPreview ? money(refundPreview.goodsRefundAmount) : money(estimatedGoodsRefund) }}</dd></div>
+            <div><dt>退回运费</dt><dd>{{ previewLoading ? '计算中…' : money(refundPreview?.freightRefundAmount) }}</dd></div>
+            <div><dt>原订单运费</dt><dd>{{ money(order.freightAmount) }}</dd></div>
+          </dl>
+          <p v-if="shipped">发货后运费始终不退还；部分退款按该商品已支付金额自动计算。</p>
+          <p v-else>未发货部分退款会退回本次商品对应增加的运费。</p>
+        </section>
+        <section><h2>平台审核记录</h2><div v-if="!refunds.length" class="empty-history">暂无退款申请</div><article v-for="record in refunds" :key="record.refundId"><span>{{ statusName(record.status) }}</span><strong>{{ money(record.refundAmount) }}</strong><small><b>{{ refundProductName(record) }}</b> · {{ record.refundQty ? `${record.refundQty} 件` : '全部商品' }}</small><small>{{ record.remark }}</small><button v-if="record.status === 'Pending'" class="cancel-refund-button" type="button" :disabled="cancellingRefundId === record.refundId" @click="cancelRefund(record.refundId)"><span v-if="cancellingRefundId === record.refundId" class="spinner-border spinner-border-sm"></span><template v-else>取消申请</template></button></article></section>
+        <div class="review-note"><ShieldCheck :size="19" />所有申请均由平台审核</div>
+      </aside>
     </div>
 
     <div v-if="reviewDialogOpen" class="review-dialog-backdrop" role="presentation" @click.self="reviewDialogOpen = false">

@@ -1021,9 +1021,8 @@ public sealed class OrderService : IOrderService
             if (currentStatus is OrderStatus.PendingPayment or OrderStatus.Cancelled
                 or OrderStatus.Refunded)
                 throw new OrderBusinessException("当前订单状态不允许部分退款");
-            if (currentStatus == OrderStatus.Paid)
-                throw new OrderBusinessException("未发货订单请使用整单退款");
             if (currentStatus is not (
+                OrderStatus.Paid or
                 OrderStatus.Shipped or
                 OrderStatus.Completed or
                 OrderStatus.Refunding))

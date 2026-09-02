@@ -20,11 +20,17 @@ namespace FreshColdChain.Services
 		private readonly ICommissionRepository _icommissionRepository;
 		private readonly IOrderService _orderService;   //B组真实订单接口（替代原 Mock_IGroupB / Mock_IGroupA）
 		private readonly IOrderRepository _orderRepository;
+		private readonly ICustomerRepository _customerRepository;
+		private readonly IColdChainLogisticsService _coldChainLogisticsService;
+		private readonly ILogExpressDeliveryRepository _deliveryRepository;
 		public RefundService(IUnitOfWork uow, IPromoterRepository ipromoterRepository,
 			IPromoterService ipromoterManager, IRefundRepository irefundRepository,
 								ITableLogService log_Auditrails,
 		ICommissionRepository icommissionRepository,
-								IOrderService orderService, IOrderRepository orderRepository)
+								IOrderService orderService, IOrderRepository orderRepository,
+								ICustomerRepository customerRepository,
+								IColdChainLogisticsService coldChainLogisticsService,
+								ILogExpressDeliveryRepository deliveryRepository)
 		{
 			_uow = uow;
 			_ipromoterRepository = ipromoterRepository;
@@ -34,6 +40,9 @@ namespace FreshColdChain.Services
 		_icommissionRepository = icommissionRepository;
 			_orderService = orderService;
 			_orderRepository = orderRepository;
+			_customerRepository = customerRepository;
+			_coldChainLogisticsService = coldChainLogisticsService;
+			_deliveryRepository = deliveryRepository;
 		}
 
 		//退款上下文：一次退款所需的全部订单侧信息与计算结果
@@ -48,6 +57,7 @@ namespace FreshColdChain.Services
             public string? SupplierId { get; set; }
             public int RefundQty { get; set; }
             public bool IsFullRefund { get; set; }
+            public bool HasShipped { get; set; }
             public decimal Ratio { get; set; }
         }
 
@@ -178,6 +188,14 @@ namespace FreshColdChain.Services
                     if (selectedContext.RefundQty > remainingQuantity)
                         throw new Exception($"商品“{detail.ProductName}”最多还可申请退款 {remainingQuantity} 件");
                 }
+
+                // 未发货部分退款：退回移除本次商品后减少的运费。
+                // 按“退前剩余商品运费 - 退后剩余商品运费”计算，可正确处理首重、续重和包邮门槛。
+                await AddUnshippedPartialRefundFreightAsync(
+                    contexts,
+                    occupiedApplications,
+                    _uow.Transaction);
+
                 // 同一次多选申请在一个事务中写入；任一商品失败则全部回滚。
                 foreach (var selectedContext in contexts)
                 {
@@ -199,6 +217,131 @@ namespace FreshColdChain.Services
                 _result.ErrorMessage = $"系统错误：{ex.Message}";
                 return _result;
             }
+        }
+
+        public async Task<RefundPreviewResult> PreviewRefundAsync(GroupC_RefundRequest refundRequest)
+        {
+            await _uow.BeginAsync();
+            var result = new RefundPreviewResult();
+            try
+            {
+                var contexts = await BuildPreviewContextsAsync(refundRequest, _uow.Transaction);
+                var totalRefund = contexts.Sum(context => context.RefundAmount);
+                decimal goodsRefund;
+                if (contexts.Count == 1 && contexts[0].IsFullRefund)
+                {
+                    goodsRefund = Math.Max(
+                        0m,
+                        contexts[0].Order.FinalAmount - contexts[0].Order.FreightAmount);
+                }
+                else
+                {
+                    goodsRefund = contexts.Sum(context =>
+                    {
+                        var detail = context.Details.First(item =>
+                            string.Equals(item.OrderDetailId, context.DetailId, StringComparison.Ordinal));
+                        return CalculateGoodsRefundAmount(context, detail, context.RefundQty);
+                    });
+                }
+
+                result.RefundAmount = Math.Round(totalRefund, 2, MidpointRounding.AwayFromZero);
+                result.GoodsRefundAmount = Math.Round(goodsRefund, 2, MidpointRounding.AwayFromZero);
+                result.FreightRefundAmount = Math.Round(
+                    Math.Max(0m, result.RefundAmount - result.GoodsRefundAmount),
+                    2,
+                    MidpointRounding.AwayFromZero);
+                result.IsSuccess = true;
+                await _uow.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                result.ErrorMessage = $"系统错误：{ex.Message}";
+            }
+            return result;
+        }
+
+        private async Task<List<RefundContext>> BuildPreviewContextsAsync(
+            GroupC_RefundRequest refundRequest,
+            IDbTransaction? transaction)
+        {
+            if (string.IsNullOrEmpty(refundRequest.OrderId))
+                throw new Exception("不完整的退款请求信息");
+
+            var itemSelections = (refundRequest.Items ?? [])
+                .Where(item => !string.IsNullOrWhiteSpace(item.ProductID))
+                .ToList();
+            if (itemSelections.Count == 0)
+                throw new Exception("请选择退款商品");
+            if (itemSelections.Count != itemSelections
+                    .Select(item => item.ProductID)
+                    .Distinct(StringComparer.Ordinal)
+                    .Count())
+                throw new Exception("退货商品不能重复选择");
+
+            var contexts = new List<RefundContext>();
+            foreach (var item in itemSelections)
+            {
+                contexts.Add(await BuildContextFromRequestAsync(new GroupC_RefundRequest
+                {
+                    OrderId = refundRequest.OrderId,
+                    ProductID = item.ProductID,
+                    RefundQty = item.RefundQty,
+                    LiabilityType = refundRequest.LiabilityType
+                }, transaction));
+            }
+
+            var orderDetails = contexts[0].Details;
+            var isFullOrderSelection = itemSelections.Count == orderDetails.Count &&
+                orderDetails.All(detail => itemSelections.Any(item =>
+                    string.Equals(item.ProductID, detail.ProductId, StringComparison.Ordinal) &&
+                    item.RefundQty == detail.Quantity));
+            if (isFullOrderSelection)
+            {
+                contexts =
+                [
+                    await BuildContextFromRequestAsync(new GroupC_RefundRequest
+                    {
+                        OrderId = refundRequest.OrderId,
+                        LiabilityType = refundRequest.LiabilityType
+                    }, transaction)
+                ];
+            }
+
+            var first = contexts[0];
+            var occupiedApplications = (await _irefundRepository.GetByOrderIdAsync(
+                    first.Order.OrderId,
+                    transaction))
+                .Where(application => application.Status is "Pending" or "Approved")
+                .ToList();
+            var hasWholeOrderApplication = occupiedApplications.Any(application =>
+                string.IsNullOrWhiteSpace(application.DetailId));
+            if (first.IsFullRefund && occupiedApplications.Count > 0)
+                throw new Exception("该订单已有退款记录，不能重复申请整单退款");
+            if (!first.IsFullRefund && hasWholeOrderApplication)
+                throw new Exception("该订单已有整单退款申请，请等待平台处理");
+
+            foreach (var context in contexts.Where(item => !item.IsFullRefund))
+            {
+                var detail = context.Details.First(item =>
+                    string.Equals(item.OrderDetailId, context.DetailId, StringComparison.Ordinal));
+                var occupiedQuantity = occupiedApplications
+                    .Where(application => string.Equals(
+                        application.DetailId,
+                        context.DetailId,
+                        StringComparison.Ordinal))
+                    .Sum(application => application.RefundQty);
+                var remainingQuantity = Math.Max(0, detail.Quantity - occupiedQuantity);
+                if (context.RefundQty > remainingQuantity)
+                    throw new Exception($"商品“{detail.ProductName}”最多还可申请退款 {remainingQuantity} 件");
+            }
+
+            await AddUnshippedPartialRefundFreightAsync(
+                contexts,
+                occupiedApplications,
+                transaction);
+            return contexts;
         }
 
         public async Task<Result> CancelRefundApplicationAsync(
@@ -379,12 +522,17 @@ namespace FreshColdChain.Services
                 }
             }
 
+            var deliveries = await _deliveryRepository.GetByOrderIdAsync(orderId);
             return new RefundContext
             {
                 Order = order,
                 Details = orderDetail.Details,
                 OrderStatus = orderStatus,
-                Record = record
+                Record = record,
+                // REFUNDING 可能来自“已发货后部分退款”，也可能来自
+                // “未发货部分退款”，不能再仅靠订单状态判断运费是否已发生。
+                HasShipped = orderStatus is OrderStatus.Shipped or OrderStatus.Completed ||
+                    deliveries.Count > 0
             };
         }
 
@@ -397,7 +545,7 @@ namespace FreshColdChain.Services
             {
                 ctx.IsFullRefund = true;
                 // 发货后冷链运费已实际发生，整单退款也不退运费。
-                ctx.RefundAmount = ctx.OrderStatus is OrderStatus.Shipped or OrderStatus.Completed or OrderStatus.Refunding
+                ctx.RefundAmount = ctx.HasShipped
                     ? Math.Max(0m, ctx.Order.FinalAmount - ctx.Order.FreightAmount)
                     : ctx.Order.FinalAmount;
                 ctx.RefundQty = 0;                          // 整单不计数量
@@ -419,7 +567,7 @@ namespace FreshColdChain.Services
                 if (ctx.Details.Count == 1 && refundRequest.RefundQty == detail.Quantity)
                 {
                     ctx.IsFullRefund = true;
-                    ctx.RefundAmount = ctx.OrderStatus is OrderStatus.Shipped or OrderStatus.Completed or OrderStatus.Refunding
+                    ctx.RefundAmount = ctx.HasShipped
                         ? Math.Max(0m, ctx.Order.FinalAmount - ctx.Order.FreightAmount)
                         : ctx.Order.FinalAmount;
                     ctx.RefundQty = 0;
@@ -451,11 +599,22 @@ namespace FreshColdChain.Services
             ctx.SupplierId = application.SupplierId;
             ctx.RefundQty = application.RefundQty;
             ctx.RefundAmount = application.RefundAmount;
-            FinalizeRatio(ctx);
+            // 退款记录保存“商品退款 + 运费退款”合计值。
+            // 积分与佣金只能按商品实付额回滚，不能把运费计入退款比例。
+            decimal? goodsRefundAmount = null;
+            if (!ctx.IsFullRefund)
+            {
+                var detail = ctx.Details.FirstOrDefault(item =>
+                    string.Equals(item.OrderDetailId, ctx.DetailId, StringComparison.Ordinal));
+                if (detail == null)
+                    throw new Exception("退款对应的订单明细不存在");
+                goodsRefundAmount = CalculateGoodsRefundAmount(ctx, detail, ctx.RefundQty);
+            }
+            FinalizeRatio(ctx, goodsRefundAmount);
             return ctx;
         }
 
-        private static void FinalizeRatio(RefundContext ctx)
+        private static void FinalizeRatio(RefundContext ctx, decimal? goodsRefundAmount = null)
         {
             if (ctx.Order.FinalAmount <= 0)
             {
@@ -465,7 +624,147 @@ namespace FreshColdChain.Services
                 ? 1m
                 : Math.Min(1m, ctx.RefundQty <= 0 || ctx.Order.TotalAmount <= 0
                     ? 0m
-                    : ctx.RefundAmount / Math.Max(0.01m, ctx.Order.TotalAmount - ctx.Order.DiscountAmount));
+                    : (goodsRefundAmount ?? ctx.RefundAmount) /
+                      Math.Max(0.01m, ctx.Order.TotalAmount - ctx.Order.DiscountAmount));
+        }
+
+        private async Task AddUnshippedPartialRefundFreightAsync(
+            IReadOnlyList<RefundContext> contexts,
+            IReadOnlyList<FinRefund> occupiedApplications,
+            IDbTransaction? transaction)
+        {
+            if (contexts.Count == 0 || contexts.Any(context => context.IsFullRefund))
+                return;
+
+            var first = contexts[0];
+            if (first.HasShipped || first.Order.FreightAmount <= 0)
+                return;
+
+            var address = await _customerRepository.GetAddressAsync(
+                first.Order.CustomerId,
+                first.Order.AddressId,
+                transaction);
+            if (address == null)
+                throw new Exception("订单收货地址不存在，无法计算应退运费");
+
+            var occupiedByDetail = occupiedApplications
+                .Where(application => !string.IsNullOrWhiteSpace(application.DetailId))
+                .GroupBy(application => application.DetailId!, StringComparer.Ordinal)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Sum(application => application.RefundQty),
+                    StringComparer.Ordinal);
+            var selectedByDetail = contexts.ToDictionary(
+                context => context.DetailId!,
+                context => context.RefundQty,
+                StringComparer.Ordinal);
+
+            var beforeItems = first.Details
+                .Select(detail => new FreightItemDto
+                {
+                    ProductID = detail.ProductId,
+                    Quantity = Math.Max(0, detail.Quantity -
+                        occupiedByDetail.GetValueOrDefault(detail.OrderDetailId))
+                })
+                .Where(item => item.Quantity > 0)
+                .ToList();
+            var afterItems = first.Details
+                .Select(detail => new FreightItemDto
+                {
+                    ProductID = detail.ProductId,
+                    Quantity = Math.Max(0, detail.Quantity -
+                        occupiedByDetail.GetValueOrDefault(detail.OrderDetailId) -
+                        selectedByDetail.GetValueOrDefault(detail.OrderDetailId))
+                })
+                .Where(item => item.Quantity > 0)
+                .ToList();
+
+            var beforeGoodsAmount = first.Details.Sum(detail =>
+                Math.Max(0, detail.Quantity - occupiedByDetail.GetValueOrDefault(detail.OrderDetailId)) *
+                detail.UnitPrice);
+            var afterGoodsAmount = first.Details.Sum(detail =>
+                Math.Max(0, detail.Quantity - occupiedByDetail.GetValueOrDefault(detail.OrderDetailId) -
+                    selectedByDetail.GetValueOrDefault(detail.OrderDetailId)) * detail.UnitPrice);
+
+            var beforeFreight = await QuoteFreightAsync(beforeItems, beforeGoodsAmount, address);
+            var afterFreight = afterItems.Count == 0
+                ? 0m
+                : await QuoteFreightAsync(afterItems, afterGoodsAmount, address);
+
+            var previouslyRefundedFreight = occupiedApplications
+                .Where(application => !string.IsNullOrWhiteSpace(application.DetailId))
+                .Sum(application => CalculateRecordedFreightRefund(first, application));
+            var remainingFreightBudget = Math.Max(
+                0m,
+                first.Order.FreightAmount - previouslyRefundedFreight);
+            var refundableFreight = Math.Min(
+                remainingFreightBudget,
+                Math.Max(0m, beforeFreight - afterFreight));
+            refundableFreight = Math.Round(refundableFreight, 2, MidpointRounding.AwayFromZero);
+            if (refundableFreight <= 0)
+                return;
+
+            var totalGoodsRefund = contexts.Sum(context => context.RefundAmount);
+            var remainingAllocation = refundableFreight;
+            for (var index = 0; index < contexts.Count; index++)
+            {
+                var freightShare = index == contexts.Count - 1
+                    ? remainingAllocation
+                    : Math.Min(
+                        remainingAllocation,
+                        Math.Round(
+                            refundableFreight * contexts[index].RefundAmount /
+                            Math.Max(0.01m, totalGoodsRefund),
+                            2,
+                            MidpointRounding.AwayFromZero));
+                contexts[index].RefundAmount += freightShare;
+                remainingAllocation -= freightShare;
+            }
+        }
+
+        private async Task<decimal> QuoteFreightAsync(
+            List<FreightItemDto> items,
+            decimal goodsAmount,
+            CrmUserAddress address)
+        {
+            var quote = await _coldChainLogisticsService.QuoteFreightAsync(new FreightQuoteRequest
+            {
+                Province = address.Province,
+                City = address.City,
+                District = address.District,
+                GoodsAmount = goodsAmount,
+                Items = items
+            });
+            if (!quote.IsSuccess || quote.Data == null)
+                throw new Exception($"应退运费计算失败：{quote.Message}");
+            return quote.Data.FreightAmount;
+        }
+
+        private static decimal CalculateRecordedFreightRefund(
+            RefundContext ctx,
+            FinRefund application)
+        {
+            var detail = ctx.Details.FirstOrDefault(item =>
+                string.Equals(item.OrderDetailId, application.DetailId, StringComparison.Ordinal));
+            if (detail == null)
+                return 0m;
+            var goodsRefund = CalculateGoodsRefundAmount(ctx, detail, application.RefundQty);
+            return Math.Max(0m, application.RefundAmount - goodsRefund);
+        }
+
+        private static decimal CalculateGoodsRefundAmount(
+            RefundContext ctx,
+            BizOrderDetail detail,
+            int refundQty)
+        {
+            var discountRate = ctx.Order.TotalAmount <= 0
+                ? 1m
+                : Math.Max(0m, ctx.Order.TotalAmount - ctx.Order.DiscountAmount) /
+                  ctx.Order.TotalAmount;
+            return Math.Round(
+                refundQty * detail.UnitPrice * discountRate,
+                2,
+                MidpointRounding.AwayFromZero);
         }
 
         //执行退款的资金操作：佣金/销售额回滚、佣金记录更新、B组积分扣减与订单状态变更（不含申请单写入）
