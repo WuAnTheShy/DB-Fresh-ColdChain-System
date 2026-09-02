@@ -102,4 +102,50 @@ public sealed class SupplierFulfillmentController(
 
         return RedirectToAction(nameof(Detail), new { id });
     }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddTrackingEvent(
+        string id,
+        LogisticsTrackingEventCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["Error"] = "物流事件信息不完整，请检查后重试";
+            return RedirectToAction(nameof(Detail), new { id });
+        }
+
+        var trustedCommand = new LogisticsTrackingEventCommand
+        {
+            OrderId = id,
+            SupplierId = SupplierId,
+            StatusCode = command.StatusCode,
+            Location = command.Location,
+            Description = command.Description,
+            OccurredAt = command.OccurredAt,
+            TemperatureCelsius = command.TemperatureCelsius
+        };
+
+        try
+        {
+            var result = await fulfillmentService.AppendTrackingEventAsync(
+                SupplierId,
+                id,
+                trustedCommand,
+                cancellationToken);
+            TempData["Success"] = $"物流状态已更新为：{result.StatusName}";
+        }
+        catch (OrderBusinessException exception)
+        {
+            TempData["Error"] = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "供应商 {SupplierId} 更新订单 {OrderId} 轨迹失败", SupplierId, id);
+            TempData["Error"] = "系统暂时无法更新物流轨迹，请稍后重试";
+        }
+
+        return RedirectToAction(nameof(Detail), new { id });
+    }
 }

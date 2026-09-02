@@ -161,6 +161,9 @@ Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
 - 所有结果明确标记 `DataSource=FALLBACK`，调用方不得将其误认为正式承运商回传数据。
 - A 组提供正式能力后，新建 Provider 实现并替换 DI 注册，B 组订单与页面无需改写。
 - 正式实现的写操作必须使用 B 组传入事务，禁止自行提交或回滚。
+- B 组在调用 `AppendTrackingEventAsync` 前执行物流状态机校验和供应商归属校验。
+- 兜底实现按配置温区阈值识别温控异常，并在超过预计送达时间后生成延误异常。
+- A 组正式实现应返回稳定事件 ID，并对相同事件请求提供幂等保护。
 
 ## 4. B 组调用 C 组：订单完成佣金登记
 

@@ -20,4 +20,10 @@ public interface ISupplierFulfillmentService
         string orderId,
         SupplierShipmentCommand command,
         CancellationToken cancellationToken = default);
+
+    Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
+        string supplierId,
+        string orderId,
+        LogisticsTrackingEventCommand command,
+        CancellationToken cancellationToken = default);
 }

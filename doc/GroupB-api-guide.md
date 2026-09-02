@@ -159,9 +159,21 @@
 | `GET` | `/SupplierFulfillment` | 查询本人履约订单，支持状态、关键词和分页 |
 | `GET` | `/SupplierFulfillment/Detail/{orderId}` | 查看本人负责的订单商品和物流状态 |
 | `POST` | `/SupplierFulfillment/Ship/{orderId}` | 为本人订单登记发货并调用 A 组冷链接口 |
+| `POST` | `/SupplierFulfillment/AddTrackingEvent/{orderId}` | 为本人已发货包裹追加状态、地点、描述和温度 |
 
 发货表单中的 `SupplierId` 不作为可信身份，Controller 始终使用当前会话供应商覆盖该值。
 多供应商订单在全部供应商都完成发货后才更新为 `SHIPPED`。
+
+允许的主要物流状态流：
+
+```text
+SHIPPED → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED
+                   ↘ EXCEPTION → IN_TRANSIT / RETURNING
+SHIPPED / IN_TRANSIT / OUT_FOR_DELIVERY → RETURNING → RETURNED
+```
+
+温度越界或超过预计送达时间会产生 `EXCEPTION`。当前高级轨迹来源为 `FALLBACK` 时，
+数据只在进程内保存；正式环境应替换为 A 组持久化 Provider。
 
 ## 7. 数据库初始化与自检
 

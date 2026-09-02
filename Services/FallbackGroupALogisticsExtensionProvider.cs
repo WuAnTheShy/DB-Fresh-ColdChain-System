@@ -67,7 +67,9 @@ public sealed class FallbackGroupALogisticsExtensionProvider(
 
         if (_snapshots.TryGetValue(CreateKey(seed.OrderId, seed.SupplierId), out var stored))
         {
-            return Task.FromResult(MergeBaseTrace(stored, seed));
+            var evaluated = EvaluateDelay(MergeBaseTrace(stored, seed));
+            _snapshots[CreateKey(seed.OrderId, seed.SupplierId)] = evaluated;
+            return Task.FromResult(evaluated);
         }
 
         var status = LogisticsStatusCodes.Normalize(seed.StatusCode);
@@ -98,7 +100,7 @@ public sealed class FallbackGroupALogisticsExtensionProvider(
             Events = events
         };
 
-        return Task.FromResult(snapshot);
+        return Task.FromResult(EvaluateDelay(snapshot));
     }
 
     public Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
@@ -186,6 +188,42 @@ public sealed class FallbackGroupALogisticsExtensionProvider(
             ExceptionMessage = stored.ExceptionMessage,
             DataSource = LogisticsDataSources.Fallback,
             Events = stored.Events
+        };
+    }
+
+    private SupplierLogisticsSnapshot EvaluateDelay(SupplierLogisticsSnapshot snapshot)
+    {
+        if (!snapshot.EstimatedArrivalAt.HasValue ||
+            snapshot.EstimatedArrivalAt.Value >= DateTime.Now ||
+            snapshot.HasException ||
+            snapshot.StatusCode is LogisticsStatusCodes.Delivered or LogisticsStatusCodes.Returned)
+            return snapshot;
+
+        var detectedAt = DateTime.Now;
+        return new SupplierLogisticsSnapshot
+        {
+            OrderId = snapshot.OrderId,
+            SupplierId = snapshot.SupplierId,
+            DeliveryId = snapshot.DeliveryId,
+            CarrierCode = snapshot.CarrierCode,
+            CarrierName = snapshot.CarrierName,
+            TrackingNo = snapshot.TrackingNo,
+            PackageTemperature = snapshot.PackageTemperature,
+            StatusCode = LogisticsStatusCodes.Exception,
+            ShippedAt = snapshot.ShippedAt,
+            EstimatedArrivalAt = snapshot.EstimatedArrivalAt,
+            DeliveredAt = snapshot.DeliveredAt,
+            HasException = true,
+            ExceptionMessage = _options.DelayDescription,
+            DataSource = LogisticsDataSources.Fallback,
+            Events = snapshot.Events.Append(new LogisticsTrackingEventSnapshot
+            {
+                EventId = Guid.NewGuid().ToString("N"),
+                StatusCode = LogisticsStatusCodes.Exception,
+                Location = snapshot.Events.LastOrDefault()?.Location ?? _options.OriginLocation,
+                Description = _options.DelayDescription,
+                OccurredAt = detectedAt
+            }).ToList()
         };
     }
 

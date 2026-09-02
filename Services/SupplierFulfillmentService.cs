@@ -156,6 +156,57 @@ public sealed class SupplierFulfillmentService(
         });
     }
 
+    public Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
+        string supplierId,
+        string orderId,
+        LogisticsTrackingEventCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateSupplierId(supplierId);
+        ValidateOrderId(orderId);
+        ArgumentNullException.ThrowIfNull(command);
+        if (!string.Equals(supplierId, command.SupplierId, StringComparison.Ordinal) ||
+            !string.Equals(orderId, command.OrderId, StringComparison.Ordinal))
+            throw new OrderBusinessException("物流事件与当前订单或供应商不一致");
+        if (!LogisticsStatusCodes.IsSupported(command.StatusCode))
+            throw new OrderBusinessException("物流状态代码无效");
+        if (command.OccurredAt > DateTime.Now.AddMinutes(5))
+            throw new OrderBusinessException("物流事件时间不能晚于当前时间");
+
+        return transactionManager.ExecuteAsync(async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var order = await orderRepository.GetByIdForUpdateAsync(orderId, transaction)
+                ?? throw new OrderBusinessException("订单不存在");
+            if (OrderStatusCodes.Parse(order.OrderStatus) is not
+                (OrderStatus.Paid or OrderStatus.Shipped or OrderStatus.Completed))
+                throw new OrderBusinessException("订单尚未进入配送流程");
+
+            var ownsOrderItem = (await orderRepository.GetDetailsAsync(orderId, transaction))
+                .Any(item => string.Equals(
+                    item.SupplierId,
+                    supplierId,
+                    StringComparison.Ordinal));
+            if (!ownsOrderItem)
+                throw new OrderBusinessException("订单不包含当前供应商的商品");
+
+            var current = (await logisticsService.GetSupplierLogisticsAsync(
+                orderId,
+                [supplierId],
+                cancellationToken)).Single();
+            if (!LogisticsStatusCodes.IsShippedOrLater(current.StatusCode))
+                throw new OrderBusinessException("当前供应商尚未发货");
+            LogisticsStateMachine.EnsureTransition(
+                current.StatusCode,
+                command.StatusCode);
+
+            return await logisticsService.AppendTrackingEventAsync(
+                command,
+                transaction,
+                cancellationToken);
+        });
+    }
+
     private static FulfillmentOrderRequest CreateFulfillmentRequest(
         BizOrder order,
         IReadOnlyList<BizOrderDetail> details) => new()

@@ -20,6 +20,13 @@
     </div>
 }
 
+@if (logistics.HasException)
+{
+    <div class="alert alert-danger">
+        <strong>履约异常：</strong>@logistics.ExceptionMessage
+    </div>
+}
+
 <div class="row g-3">
     <div class="col-lg-8">
         <section class="card mb-3">
@@ -49,6 +56,34 @@
                 <p class="mb-0 text-muted">@Model.Order.ShippingAddress</p>
             </div>
         </section>
+
+        @if (logistics.Events.Count > 0)
+        {
+            <section class="card mt-3">
+                <div class="card-header fw-semibold">物流轨迹</div>
+                <div class="list-group list-group-flush">
+                    @foreach (var item in logistics.Events.OrderByDescending(item => item.OccurredAt))
+                    {
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between gap-3">
+                                <strong>@item.StatusName</strong>
+                                <span class="small text-muted">@item.OccurredAt.ToString("yyyy-MM-dd HH:mm")</span>
+                            </div>
+                            <div>@item.Description</div>
+                            <div class="small text-muted">
+                                @item.Location
+                                @if (item.TemperatureCelsius.HasValue)
+                                {
+                                    <span class="ms-2 @(item.IsTemperatureException ? "text-danger fw-semibold" : null)">
+                                        @item.TemperatureCelsius.Value.ToString("F1")℃
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
     </div>
 
     <div class="col-lg-4">
@@ -104,6 +139,43 @@
                     </dl>
                 </div>
             </section>
+
+            @if (logistics.StatusCode is not LogisticsStatusCodes.Delivered and not LogisticsStatusCodes.Returned)
+            {
+                <section class="card mt-3">
+                    <div class="card-header fw-semibold">追加物流轨迹</div>
+                    <form asp-action="AddTrackingEvent" asp-route-id="@Model.Order.OrderId" method="post" class="card-body">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="OrderId" value="@Model.Order.OrderId" />
+                        <input type="hidden" name="SupplierId" value="@Model.SupplierId" />
+                        <div class="mb-3">
+                            <label class="form-label">新状态</label>
+                            <select class="form-select" name="StatusCode" required>
+                                <option value="IN_TRANSIT">运输中</option>
+                                <option value="OUT_FOR_DELIVERY">派送中</option>
+                                <option value="DELIVERED">已签收</option>
+                                <option value="EXCEPTION">物流异常</option>
+                                <option value="RETURNING">退回中</option>
+                                <option value="RETURNED">已退回</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">发生地点</label>
+                            <input class="form-control" name="Location" maxlength="200" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">轨迹描述</label>
+                            <textarea class="form-control" name="Description" maxlength="500" rows="2" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">采集温度（℃）</label>
+                            <input class="form-control" type="number" step="0.1" name="TemperatureCelsius" />
+                        </div>
+                        <input type="hidden" name="OccurredAt" value="@DateTime.Now.ToString("s")" />
+                        <button class="btn btn-outline-primary w-100" type="submit">更新轨迹</button>
+                    </form>
+                </section>
+            }
         }
     </div>
 </div>

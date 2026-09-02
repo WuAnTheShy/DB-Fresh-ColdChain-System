@@ -48,6 +48,14 @@ public static class LogisticsStatusCodes
         _ => "待发货"
     };
 
+    public static bool IsSupported(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status)) return false;
+        return status.Trim().ToUpperInvariant() is
+            Pending or Packing or Shipped or InTransit or OutForDelivery or Delivered or
+            Exception or Returning or Returned;
+    }
+
     public static bool IsShippedOrLater(string? status) => Normalize(status) is
         Shipped or InTransit or OutForDelivery or Delivered or Exception or Returning or Returned;
 }
@@ -171,6 +179,7 @@ public sealed class GroupALogisticsFallbackOptions
     public string CarrierName { get; set; } = string.Empty;
     public string OriginLocation { get; set; } = string.Empty;
     public string ShippedDescription { get; set; } = string.Empty;
+    public string DelayDescription { get; set; } = string.Empty;
     public int EstimatedTransitHours { get; set; }
     public decimal ChilledMinimumCelsius { get; set; }
     public decimal ChilledMaximumCelsius { get; set; }
