@@ -11,7 +11,7 @@ import { useCustomerContext } from '../state/customer'
 const props = defineProps({ id: { type: String, required: true } })
 const route = useRoute()
 const router = useRouter()
-const { products, catalogLoaded, catalogLoading, catalogError, productById, leaderById, loadCatalog, addToCart, isLeaderFollowed } = useShop()
+const { products, catalogLoaded, catalogLoading, catalogError, productById, leaderById, loadCatalog, addToCart, buyNowProduct, isLeaderFollowed } = useShop()
 const { isAuthenticated, deliveryLocation } = useCustomerContext()
 const product = computed(() => productById(props.id))
 const leader = computed(() => leaderById(product.value?.leaderId))
@@ -50,8 +50,9 @@ function add() {
 }
 
 function buyNow() {
-  add()
-  router.push('/cart')
+  if (!product.value || !leader.value) return
+  buyNowProduct(product.value.id, quantity.value)
+  router.push('/checkout')
 }
 </script>
 
