@@ -50,6 +50,20 @@ namespace FreshColdChain.Services
                     throw new Exception("团长不存在");
                 }
 
+                if (request.ApplyAmount <= 0)
+                {
+                    throw new Exception("提现金额必须大于 0");
+                }
+
+                var platform = PromoterPayAccounts.Normalize(request.AccountPlatform);
+                var boundAccount = promoter.GetBoundPayAccount(platform);
+                if (string.IsNullOrWhiteSpace(boundAccount))
+                {
+                    throw new Exception($"请先绑定{PromoterPayAccounts.Label(platform)}收款账户后再申请提现");
+                }
+
+                var accountInfo = PromoterPayAccounts.FormatAccountInfo(platform, boundAccount);
+
                 // 2. 防重检验：是否已有正在审核的申请（Pending；Approved 表示已打款完成，允许再次提现）
                 var exists = await _iwithdrawalRepository.GroupC_HasPendingWithdrawalAsync(request.PromoterId, _uow.Transaction);
                 if (exists)
@@ -74,7 +88,7 @@ namespace FreshColdChain.Services
                     WithdrawalId = "Wd_" + Guid.NewGuid().ToString("N"),
                     PromoterId = request.PromoterId,
                     ApplyAmount = request.ApplyAmount,
-                    AccountInfo = request.AccountInfo,
+                    AccountInfo = accountInfo,
                     ApplyTime = DateTime.Now,
                     AuditStatus = "Pending",
                     AuditorUserId = string.Empty,

@@ -1,0 +1,42 @@
+<script>
+    (function () {
+        var modalEl = document.getElementById('bindPayAccountModal');
+        if (!modalEl) return;
+        var platformEl = document.getElementById('bindPlatform');
+        var accountEl = document.getElementById('bindAccountNo');
+        var labelEl = document.getElementById('bindAccountLabel');
+        var hintEl = document.getElementById('bindAccountHint');
+        var titleEl = document.getElementById('bindPayAccountModalLabel');
+        var form = document.getElementById('bindPayAccountForm');
+
+        document.querySelectorAll('.bind-pay-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var platform = btn.dataset.platform || '';
+                var label = btn.dataset.label || '收款';
+                var account = btn.dataset.account || '';
+                platformEl.value = platform;
+                accountEl.value = account;
+                accountEl.placeholder = btn.dataset.placeholder || '';
+                labelEl.textContent = label + '账号';
+                hintEl.textContent = '绑定后，申请提现将使用该账户收款。';
+                titleEl.textContent = (account ? '修改' : '绑定') + label;
+                if (window.bootstrap && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                }
+            });
+        });
+
+        if (form) {
+            form.addEventListener('submit', function (e) {
+                var value = (accountEl.value || '').trim();
+                if (!value) {
+                    e.preventDefault();
+                    accountEl.classList.add('is-invalid');
+                    alert('收款账号不能为空。');
+                    return;
+                }
+                accountEl.classList.remove('is-invalid');
+            });
+        }
+    })();
+</script>

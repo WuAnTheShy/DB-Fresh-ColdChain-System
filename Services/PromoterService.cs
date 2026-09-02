@@ -415,6 +415,106 @@ namespace FreshColdChain.Services
             }
         }
 
+        public async Task<Result> BindPayAccountAsync(string promoterId, string platform, string accountNo)
+        {
+            await _uow.BeginAsync();
+            var _result = new Result();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(promoterId))
+                    throw new Exception("团长编号不能为空");
+                if (!PromoterPayAccounts.IsValidPlatform(platform))
+                    throw new Exception("请选择微信、支付宝或银行卡");
+
+                var (ok, error) = PromoterPayAccounts.ValidateAccount(platform, accountNo);
+                if (!ok)
+                    throw new Exception(error);
+
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, _uow.Transaction);
+                if (promoter == null)
+                    throw new Exception("该团长不存在");
+
+                var normalizedPlatform = PromoterPayAccounts.Normalize(platform);
+                var normalizedAccount = accountNo.Trim();
+                if (normalizedPlatform == PromoterPayAccounts.BankCard)
+                    normalizedAccount = System.Text.RegularExpressions.Regex.Replace(normalizedAccount, @"[\s-]", string.Empty);
+
+                var dbResult = await _ipromoterRepository.GroupC_UpdatePromoterPayAccountAsync(
+                    promoterId, normalizedPlatform, normalizedAccount, _uow.Transaction);
+                if (!dbResult)
+                    throw new Exception("绑定收款账户失败");
+
+                await _logManager.WriteTableChangeLog(new GroupC_LogAuditrails
+                {
+                    TableName = "CRM_PROMOTERS",
+                    ActionType = "Update",
+                    OperatorType = "Promoter",
+                    OperatorId = promoterId,
+                    OldValue = JsonConvert.SerializeObject(new { Platform = normalizedPlatform, Account = promoter.GetBoundPayAccount(normalizedPlatform) }),
+                    NewValue = JsonConvert.SerializeObject(new { Platform = normalizedPlatform, Account = normalizedAccount }),
+                    RecordId = promoterId
+                });
+
+                await _uow.CommitAsync();
+                _result.IsSuccess = true;
+                return _result;
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                _result.IsSuccess = false;
+                _result.ErrorMessage = $"系统错误：{ex.Message}";
+                return _result;
+            }
+        }
+
+        public async Task<Result> UnbindPayAccountAsync(string promoterId, string platform)
+        {
+            await _uow.BeginAsync();
+            var _result = new Result();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(promoterId))
+                    throw new Exception("团长编号不能为空");
+                if (!PromoterPayAccounts.IsValidPlatform(platform))
+                    throw new Exception("请选择微信、支付宝或银行卡");
+
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, _uow.Transaction);
+                if (promoter == null)
+                    throw new Exception("该团长不存在");
+
+                var normalizedPlatform = PromoterPayAccounts.Normalize(platform);
+                var dbResult = await _ipromoterRepository.GroupC_UpdatePromoterPayAccountAsync(
+                    promoterId, normalizedPlatform, string.Empty, _uow.Transaction);
+                if (!dbResult)
+                    throw new Exception("解绑收款账户失败");
+
+                await _logManager.WriteTableChangeLog(new GroupC_LogAuditrails
+                {
+                    TableName = "CRM_PROMOTERS",
+                    ActionType = "Update",
+                    OperatorType = "Promoter",
+                    OperatorId = promoterId,
+                    OldValue = JsonConvert.SerializeObject(new { Platform = normalizedPlatform, Account = promoter.GetBoundPayAccount(normalizedPlatform) }),
+                    NewValue = JsonConvert.SerializeObject(new { Platform = normalizedPlatform, Account = (string?)null }),
+                    RecordId = promoterId
+                });
+
+                await _uow.CommitAsync();
+                _result.IsSuccess = true;
+                return _result;
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                _result.IsSuccess = false;
+                _result.ErrorMessage = $"系统错误：{ex.Message}";
+                return _result;
+            }
+        }
+
         //============================团长-供应商合作服务===================================
         public async Task<List<string>> GetActiveSupplierIdsAsync(string promoterId)
         {

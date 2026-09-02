@@ -1,3 +1,4 @@
+using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
 using FreshColdChain.Models.ViewModels;
 using FreshColdChain.Services;
@@ -71,12 +72,28 @@ namespace FreshColdChain.Controllers
             var redirect = EnsureLoggedIn();
             if (redirect != null) return redirect;
             var promoterId = GetPromoterId()!;
+            var promoter = _dataProvider.GetPromoter(promoterId);
+
+            if (form.ApplyAmount <= 0)
+            {
+                TempData["ErrorMessage"] = "提现金额必须大于 0。";
+                return View(_dataProvider.BuildWithdrawals(promoterId, form));
+            }
+
+            var platform = PromoterPayAccounts.Normalize(form.AccountPlatform);
+            var boundAccount = promoter.GetBoundPayAccount(platform);
+            if (string.IsNullOrWhiteSpace(boundAccount))
+            {
+                TempData["ErrorMessage"] = $"请先绑定{PromoterPayAccounts.Label(platform)}收款账户后再申请提现。";
+                return View(_dataProvider.BuildWithdrawals(promoterId, form));
+            }
 
             var request = new GroupC_WithdrawalRequest
             {
                 PromoterId = promoterId,
                 ApplyAmount = form.ApplyAmount,
-                AccountInfo = $"{form.AccountPlatform}：{form.AccountInfo}"
+                AccountPlatform = platform,
+                AccountInfo = PromoterPayAccounts.FormatAccountInfo(platform, boundAccount)
             };
 
             var result = await _withdrawalService.ApplyWithdrawal(promoterId, request);
@@ -87,6 +104,40 @@ namespace FreshColdChain.Controllers
 
             var vm = _dataProvider.BuildWithdrawals(promoterId, form);
             return View(vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BindPayAccount(string platform, string accountNo, string? returnAction)
+        {
+            var redirect = EnsureLoggedIn();
+            if (redirect != null) return redirect;
+            var promoterId = GetPromoterId()!;
+
+            var result = await _promoterService.BindPayAccountAsync(promoterId, platform, accountNo);
+            if (result.IsSuccess)
+                TempData["SuccessMessage"] = $"{PromoterPayAccounts.Label(platform)}已绑定。";
+            else
+                TempData["ErrorMessage"] = result.ErrorMessage;
+
+            return RedirectToSafeAction(returnAction);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UnbindPayAccount(string platform, string? returnAction)
+        {
+            var redirect = EnsureLoggedIn();
+            if (redirect != null) return redirect;
+            var promoterId = GetPromoterId()!;
+
+            var result = await _promoterService.UnbindPayAccountAsync(promoterId, platform);
+            if (result.IsSuccess)
+                TempData["SuccessMessage"] = $"{PromoterPayAccounts.Label(platform)}已解绑。";
+            else
+                TempData["ErrorMessage"] = result.ErrorMessage;
+
+            return RedirectToSafeAction(returnAction);
         }
 
         public IActionResult Profile()
@@ -130,6 +181,12 @@ namespace FreshColdChain.Controllers
             if (string.IsNullOrEmpty(GetPromoterId()))
                 return RedirectToAction("Login", "Account", new { role = "团长" });
             return null;
+        }
+
+        private IActionResult RedirectToSafeAction(string? returnAction)
+        {
+            var action = returnAction is "Profile" or "Withdrawals" ? returnAction : "Withdrawals";
+            return RedirectToAction(action);
         }
 
 

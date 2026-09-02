@@ -19,7 +19,6 @@
     </div>
     <div class="hero-actions">
         <a asp-action="Withdrawals" class="btn btn-light btn-sm">申请提现</a>
-        <button type="button" class="btn btn-outline-light btn-sm" onclick="copyInviteCode()">复制邀请码</button>
     </div>
 </div>
 
@@ -307,18 +306,6 @@
             </div>
         </div>
 
-        <!-- 邀请码 -->
-        <div class="content-card">
-            <div class="content-card-header"><h5>我的邀请码</h5></div>
-            <div class="content-card-body text-center">
-                <div class="invite-code-box" id="inviteCode">@p.InviteCode</div>
-                <p class="text-muted small mt-2 mb-3">分享给用户下单，绑定团长关系</p>
-                <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="copyInviteCode()">
-                    一键复制
-                </button>
-            </div>
-        </div>
-
         <!-- 快捷操作 -->
         <div class="content-card">
             <div class="content-card-header"><h5>快捷操作</h5></div>
@@ -360,16 +347,3 @@
         </div>
     </div>
 </div>
-
-@section Scripts {
-    <script>
-        function copyInviteCode() {
-            var code = document.getElementById('inviteCode').innerText.trim();
-            navigator.clipboard.writeText(code).then(function () {
-                alert('邀请码已复制：' + code);
-            }).catch(function () {
-                prompt('请手动复制邀请码：', code);
-            });
-        }
-    </script>
-}

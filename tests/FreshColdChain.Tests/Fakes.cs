@@ -1445,6 +1445,12 @@ internal sealed class FakePromoterService : IPromoterService
 
     public Task<Result> UpdatePromoterAvatarAsync(string promoterId, string? avatar) =>
         Task.FromResult(new Result { IsSuccess = true });
+
+    public Task<Result> BindPayAccountAsync(string promoterId, string platform, string accountNo) =>
+        Task.FromResult(new Result { IsSuccess = true });
+
+    public Task<Result> UnbindPayAccountAsync(string promoterId, string platform) =>
+        Task.FromResult(new Result { IsSuccess = true });
 }
 
 internal sealed class FakePromoterCatalogService : IGroupCPromoterCatalogService

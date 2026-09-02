@@ -57,7 +57,7 @@
                 }
                 else
                 {
-                    <form asp-action="Withdrawals" method="post">
+                    <form asp-action="Withdrawals" method="post" id="withdrawApplyForm">
                         @Html.AntiForgeryToken()
                         <div class="mb-3">
                             <label class="form-label d-flex justify-content-between">
@@ -66,7 +66,7 @@
                             </label>
                             <input asp-for="Form.ApplyAmount" id="applyAmount" type="number"
                                    step="0.01" min="0.01" max="@Model.CurrentBalance"
-                                   class="form-control form-control-lg" placeholder="请输入提现金额" />
+                                   class="form-control form-control-lg" placeholder="请输入提现金额" required />
                             <div class="quick-amounts mt-2">
                                 <button type="button" class="btn btn-sm btn-outline-secondary quick-amt" data-amt="@Model.CurrentBalance">全部</button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary quick-amt" data-amt="500">500</button>
@@ -76,22 +76,33 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">收款平台</label>
-                            <select asp-for="Form.AccountPlatform" class="form-select" id="accountPlatform">
-                                <option value="WeChat">微信</option>
-                                <option value="Alipay">支付宝</option>
-                                <option value="BankCard">银行卡</option>
+                            <select asp-for="Form.AccountPlatform" class="form-select" id="accountPlatform" required>
+                                @foreach (var item in Model.PayAccounts)
+                                {
+                                    <option value="@item.Platform">@item.Label@(item.IsBound ? "" : "（未绑定）")</option>
+                                }
                             </select>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">收款账户信息</label>
                             <input asp-for="Form.AccountInfo" class="form-control" id="accountInfo"
-                                   placeholder="微信号 / 支付宝账号 / 银行卡号" />
+                                   placeholder="请先绑定收款账户" readonly required />
+                            <div class="form-text text-danger d-none" id="accountBindHint">请先绑定该收款账户后再提交提现。</div>
                         </div>
-                        <button type="submit" class="btn btn-success w-100 btn-lg">提交提现申请</button>
+                        <button type="submit" class="btn btn-success w-100 btn-lg" id="submitWithdrawBtn">提交提现申请</button>
                     </form>
                 }
             </div>
         </div>
+
+        @{
+            var withdrawBindModel = new PromoterPayAccountBindModel
+            {
+                ReturnAction = "Withdrawals",
+                Accounts = Model.PayAccounts
+            };
+        }
+        <partial name="_PayAccountBind" model="withdrawBindModel" />
 
         <div class="content-card">
             <div class="content-card-header"><h5>提现流程</h5></div>
@@ -181,5 +192,46 @@
                 document.getElementById('applyAmount').value = Math.min(amt, max).toFixed(2);
             });
         });
+
+        (function () {
+            var bound = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Model.PayAccounts.ToDictionary(a => a.Platform, a => a.AccountNo ?? string.Empty)));
+            var platformEl = document.getElementById('accountPlatform');
+            var accountEl = document.getElementById('accountInfo');
+            var hintEl = document.getElementById('accountBindHint');
+            var submitBtn = document.getElementById('submitWithdrawBtn');
+            var form = document.getElementById('withdrawApplyForm');
+            if (!platformEl || !accountEl) return;
+
+            function syncAccount() {
+                var platform = platformEl.value;
+                var account = (bound[platform] || '').trim();
+                accountEl.value = account;
+                var unbound = !account;
+                hintEl.classList.toggle('d-none', !unbound);
+                accountEl.classList.toggle('is-invalid', unbound);
+                if (submitBtn) submitBtn.disabled = unbound;
+            }
+
+            platformEl.addEventListener('change', syncAccount);
+            if (form) {
+                form.addEventListener('submit', function (e) {
+                    var account = (accountEl.value || '').trim();
+                    var amount = parseFloat(document.getElementById('applyAmount').value);
+                    if (!account) {
+                        e.preventDefault();
+                        syncAccount();
+                        alert('收款账户不能为空，请先绑定微信 / 支付宝 / 银行卡。');
+                        return;
+                    }
+                    if (!amount || amount <= 0) {
+                        e.preventDefault();
+                        alert('请输入有效的提现金额。');
+                    }
+                });
+            }
+            syncAccount();
+        })();
     </script>
+    <partial name="_PayAccountBindScripts" />
 }

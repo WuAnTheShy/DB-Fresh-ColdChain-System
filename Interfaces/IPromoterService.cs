@@ -44,6 +44,12 @@ namespace FreshColdChain.Interfaces
 
         // 团长自助修改头像（仅限系统预置头像白名单）
         Task<Result> UpdatePromoterAvatarAsync(string promoterId, string? avatar);
+
+        // 绑定或更新收款账户（微信 / 支付宝 / 银行卡）
+        Task<Result> BindPayAccountAsync(string promoterId, string platform, string accountNo);
+
+        // 解绑收款账户
+        Task<Result> UnbindPayAccountAsync(string promoterId, string platform);
     }
 }
 
