@@ -118,6 +118,7 @@ public sealed class SupplierFulfillmentController(
 
         var trustedCommand = new LogisticsTrackingEventCommand
         {
+            EventId = command.EventId,
             OrderId = id,
             SupplierId = SupplierId,
             StatusCode = command.StatusCode,

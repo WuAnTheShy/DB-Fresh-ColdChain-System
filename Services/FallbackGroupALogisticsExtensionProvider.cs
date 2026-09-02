@@ -115,6 +115,11 @@ public sealed class FallbackGroupALogisticsExtensionProvider(
         var key = CreateKey(command.OrderId, command.SupplierId);
         if (!_snapshots.TryGetValue(key, out var current))
             throw new OrderBusinessException("尚未登记该供应商的发货信息");
+        if (current.Events.Any(item => string.Equals(
+            item.EventId,
+            command.EventId,
+            StringComparison.Ordinal)))
+            return Task.FromResult(current);
 
         var status = LogisticsStatusCodes.Normalize(command.StatusCode);
         var isTemperatureException = IsTemperatureException(
@@ -127,7 +132,8 @@ public sealed class FallbackGroupALogisticsExtensionProvider(
                 command.Description,
                 command.OccurredAt,
                 command.TemperatureCelsius,
-                current.PackageTemperature))
+                current.PackageTemperature,
+                command.EventId))
             .OrderBy(item => item.OccurredAt)
             .ToList();
         var hasException = current.HasException ||
@@ -233,9 +239,12 @@ public sealed class FallbackGroupALogisticsExtensionProvider(
         string description,
         DateTime occurredAt,
         decimal? temperature,
-        string packageTemperature) => new()
+        string packageTemperature,
+        string? eventId = null) => new()
     {
-        EventId = Guid.NewGuid().ToString("N"),
+        EventId = string.IsNullOrWhiteSpace(eventId)
+            ? GroupBIds.NewId()
+            : eventId,
         StatusCode = status,
         Location = location,
         Description = description,
