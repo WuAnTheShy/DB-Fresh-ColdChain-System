@@ -111,6 +111,7 @@ function normalizeProduct(item) {
     images: images.length ? images : [visual.image],
     storage,
     storageType,
+    publishedAt: item.publishedAt ? String(item.publishedAt) : null,
     leaderId: String(item.promoterId ?? '').trim(),
     stock: Math.max(0, Number(item.availableStock ?? 0)),
     delivery: '支付后按订单安排冷链配送',
