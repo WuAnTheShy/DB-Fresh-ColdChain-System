@@ -4,6 +4,7 @@ using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
 using FreshColdChain.Services;
+using Microsoft.Extensions.Options;
 
 namespace FreshColdChain.Tests;
 
@@ -15,7 +16,8 @@ internal static class GroupAAdapterScenarioTests
         {
             ("库存适配器只通过 A 组服务返回可信快照", InventoryAdapterUsesServiceContractsAsync),
             ("物流适配器通过 A 组服务报价发货并查询状态", LogisticsAdapterUsesServiceContractsAsync),
-            ("A 组尚未发货时返回待发货状态", MissingTraceReturnsPendingAsync)
+            ("A 组尚未发货时返回待发货状态", MissingTraceReturnsPendingAsync),
+            ("高级物流缺失时配置化兜底并识别温控异常", LogisticsFallbackTracksTemperatureExceptionAsync)
         };
 
         var failed = 0;
@@ -116,7 +118,10 @@ internal static class GroupAAdapterScenarioTests
                 }
             ])
         };
-        var adapter = new GroupALogisticsServiceAdapter(unitOfWork, coldChainService);
+        var adapter = new GroupALogisticsServiceAdapter(
+            unitOfWork,
+            coldChainService,
+            CreateExtensionProvider());
         using var transaction = new FakeOrderTransaction();
         var items = new List<FulfillmentOrderItem>
         {
@@ -157,13 +162,85 @@ internal static class GroupAAdapterScenarioTests
             new StubColdChainLogisticsService
             {
                 TraceResponse = ApiResponse<List<DeliveryTraceDto>>.Fail("未找到", 404)
-            });
+            },
+            CreateExtensionProvider());
 
         var statuses = await adapter.GetSupplierStatusesAsync("ORDER1", ["SUP2", "SUP1", "SUP2"]);
 
         AssertEx.Equal(2, statuses.Count);
         AssertEx.True(statuses.All(status => status.StatusName == "待发货"));
     }
+
+    private static async Task LogisticsFallbackTracksTemperatureExceptionAsync()
+    {
+        var provider = CreateExtensionProvider();
+        var adapter = new GroupALogisticsServiceAdapter(
+            new AttachedTransactionUnitOfWork(),
+            new StubColdChainLogisticsService(),
+            provider);
+        using var transaction = new FakeOrderTransaction();
+        var order = new FulfillmentOrderRequest
+        {
+            OrderId = "ORDER1",
+            Items =
+            [
+                new FulfillmentOrderItem
+                {
+                    ProductId = "P1",
+                    ProductName = "车厘子",
+                    SupplierId = "SUP1",
+                    Quantity = 1,
+                    UnitPrice = 50m,
+                    SubTotal = 50m
+                }
+            ]
+        };
+
+        var shipment = await adapter.CreateSupplierShipmentAsync(
+            order,
+            new SupplierShipmentCommand
+            {
+                SupplierId = "SUP1",
+                CarrierCode = "CUSTOM",
+                CarrierName = "自定义承运商",
+                TrackingNo = "CUSTOM-TRACK",
+                PackageTemperature = "CHILLED"
+            },
+            transaction);
+        var exception = await adapter.AppendTrackingEventAsync(
+            new LogisticsTrackingEventCommand
+            {
+                OrderId = "ORDER1",
+                SupplierId = "SUP1",
+                StatusCode = LogisticsStatusCodes.InTransit,
+                Location = "杭州中转场",
+                Description = "运输温度采集",
+                TemperatureCelsius = 12m,
+                OccurredAt = DateTime.Now.AddHours(1)
+            },
+            transaction);
+
+        AssertEx.Equal("自定义承运商", shipment.CarrierName);
+        AssertEx.Equal("CUSTOM-TRACK", shipment.TrackingNo);
+        AssertEx.True(shipment.IsFallback);
+        AssertEx.Equal(1, shipment.Events.Count);
+        AssertEx.Equal(LogisticsStatusCodes.Exception, exception.StatusCode);
+        AssertEx.True(exception.HasException);
+        AssertEx.True(exception.Events.Last().IsTemperatureException);
+    }
+
+    private static FallbackGroupALogisticsExtensionProvider CreateExtensionProvider() =>
+        new(Options.Create(new GroupALogisticsFallbackOptions
+        {
+            CarrierCode = "TEST_CARRIER",
+            CarrierName = "测试承运商",
+            OriginLocation = "测试冷链仓",
+            ShippedDescription = "测试包裹已出库",
+            EstimatedTransitHours = 24,
+            ChilledMinimumCelsius = 0,
+            ChilledMaximumCelsius = 8,
+            FrozenMaximumCelsius = -18
+        }));
 }
 
 internal sealed class AttachedTransactionUnitOfWork : IUnitOfWork

@@ -12,7 +12,8 @@ namespace FreshColdChain.Services;
 /// </summary>
 public sealed class GroupALogisticsServiceAdapter(
     IUnitOfWork unitOfWork,
-    IColdChainLogisticsService coldChainLogisticsService) : ILogisticsService
+    IColdChainLogisticsService coldChainLogisticsService,
+    IGroupALogisticsExtensionProvider extensionProvider) : ILogisticsService
 {
     public async Task<decimal> CalculateFreightAsync(
         FreightCalculationRequest request,
@@ -62,24 +63,69 @@ public sealed class GroupALogisticsServiceAdapter(
             if (string.IsNullOrWhiteSpace(supplierGroup.Key))
                 throw new OrderBusinessException("发货商品缺少供应商");
 
-            var response = await coldChainLogisticsService.CreateShipmentAsync(new ShipmentRequest
-            {
-                OrderID = request.OrderId,
-                SupplierID = supplierGroup.Key,
-                Items = supplierGroup
-                    .GroupBy(item => item.ProductId, StringComparer.Ordinal)
-                    .Select(group => new FreightItemDto
-                    {
-                        ProductID = group.Key,
-                        Quantity = checked(group.Sum(item => item.Quantity))
-                    })
-                    .ToList()
-            });
-
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!response.IsSuccess || response.Data == null)
-                throw new OrderBusinessException($"冷链发货失败：{response.Message}");
+            await CreateSupplierShipmentAsync(
+                request,
+                new SupplierShipmentCommand
+                {
+                    SupplierId = supplierGroup.Key
+                },
+                transaction,
+                cancellationToken);
         }
+    }
+
+    public async Task<SupplierLogisticsSnapshot> CreateSupplierShipmentAsync(
+        FulfillmentOrderRequest request,
+        SupplierShipmentCommand command,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentNullException.ThrowIfNull(transaction);
+        cancellationToken.ThrowIfCancellationRequested();
+        unitOfWork.AttachExternalTransaction(transaction);
+
+        var supplierItems = request.Items
+            .Where(item => string.Equals(
+                item.SupplierId,
+                command.SupplierId,
+                StringComparison.Ordinal))
+            .ToList();
+        if (supplierItems.Count == 0)
+            throw new OrderBusinessException("发货单不包含当前供应商的商品");
+
+        var response = await coldChainLogisticsService.CreateShipmentAsync(new ShipmentRequest
+        {
+            OrderID = request.OrderId,
+            SupplierID = command.SupplierId,
+            Items = supplierItems
+                .GroupBy(item => item.ProductId, StringComparer.Ordinal)
+                .Select(group => new FreightItemDto
+                {
+                    ProductID = group.Key,
+                    Quantity = checked(group.Sum(item => item.Quantity))
+                })
+                .ToList()
+        });
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!response.IsSuccess || response.Data == null)
+            throw new OrderBusinessException($"冷链发货失败：{response.Message}");
+
+        return await extensionProvider.RegisterShipmentAsync(
+            new LogisticsShipmentRegistration
+            {
+                DeliveryId = response.Data.DeliveryID,
+                OrderId = request.OrderId,
+                SupplierId = command.SupplierId,
+                BaseTrackingNo = response.Data.TrackingNo,
+                BaseStatus = response.Data.LogisticsStatus,
+                ShippedAt = response.Data.ShippedAt,
+                Command = command
+            },
+            transaction,
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
@@ -87,49 +133,73 @@ public sealed class GroupALogisticsServiceAdapter(
         IReadOnlyList<string> supplierIds,
         CancellationToken cancellationToken = default)
     {
+        var snapshots = await GetSupplierLogisticsAsync(
+            orderId,
+            supplierIds,
+            cancellationToken);
+        return snapshots
+            .Select(snapshot => new SupplierFulfillmentStatus
+            {
+                SupplierId = snapshot.SupplierId,
+                StatusName = snapshot.StatusCode == LogisticsStatusCodes.Pending
+                    ? "待发货"
+                    : snapshot.StatusCode,
+                TrackingNo = snapshot.TrackingNo
+            })
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<SupplierLogisticsSnapshot>> GetSupplierLogisticsAsync(
+        string orderId,
+        IReadOnlyList<string> supplierIds,
+        CancellationToken cancellationToken = default)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         var response = await coldChainLogisticsService.GetTraceabilityByOrderAsync(orderId);
-        if (!response.IsSuccess)
-        {
-            if (response.Code == 404)
-                return CreatePendingStatuses(supplierIds);
+        if (!response.IsSuccess && response.Code != 404)
             throw new OrderBusinessException($"冷链履约状态查询失败：{response.Message}");
-        }
 
-        var traces = response.Data ?? [];
+        var traces = response.IsSuccess ? response.Data ?? [] : [];
         var bySupplier = traces
             .GroupBy(trace => trace.SupplierID, StringComparer.Ordinal)
             .ToDictionary(
                 group => group.Key,
                 group => group.OrderByDescending(trace => trace.ShippedAt).First(),
                 StringComparer.Ordinal);
-        return supplierIds
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(supplierId => supplierId, StringComparer.Ordinal)
-            .Select(supplierId => bySupplier.TryGetValue(supplierId, out var trace)
-                ? new SupplierFulfillmentStatus
+        var snapshots = new List<SupplierLogisticsSnapshot>();
+        foreach (var supplierId in supplierIds
+                     .Distinct(StringComparer.Ordinal)
+                     .OrderBy(value => value, StringComparer.Ordinal))
+        {
+            bySupplier.TryGetValue(supplierId, out var trace);
+            snapshots.Add(await extensionProvider.GetSnapshotAsync(
+                new LogisticsTraceSeed
                 {
+                    OrderId = orderId,
                     SupplierId = supplierId,
-                    StatusName = trace.LogisticsStatus,
-                    TrackingNo = trace.TrackingNo
-                }
-                : new SupplierFulfillmentStatus
-                {
-                    SupplierId = supplierId,
-                    StatusName = "待发货"
-                })
-            .ToList();
+                    DeliveryId = trace?.DeliveryID,
+                    TrackingNo = trace?.TrackingNo,
+                    StatusCode = trace?.LogisticsStatus ?? LogisticsStatusCodes.Pending,
+                    ShippedAt = trace?.ShippedAt
+                },
+                cancellationToken));
+        }
+
+        return snapshots;
     }
 
-    private static IReadOnlyList<SupplierFulfillmentStatus> CreatePendingStatuses(
-        IReadOnlyList<string> supplierIds) =>
-        supplierIds
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(supplierId => supplierId, StringComparer.Ordinal)
-            .Select(supplierId => new SupplierFulfillmentStatus
-            {
-                SupplierId = supplierId,
-                StatusName = "待发货"
-            })
-            .ToList();
+    public Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
+        LogisticsTrackingEventCommand command,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        ArgumentNullException.ThrowIfNull(transaction);
+        cancellationToken.ThrowIfCancellationRequested();
+        unitOfWork.AttachExternalTransaction(transaction);
+        return extensionProvider.AppendTrackingEventAsync(
+            command,
+            transaction,
+            cancellationToken);
+    }
 }

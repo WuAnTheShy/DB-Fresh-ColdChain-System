@@ -1274,6 +1274,28 @@ internal sealed class FakeLogisticsService : ILogisticsService
         return Task.CompletedTask;
     }
 
+    public async Task<SupplierLogisticsSnapshot> CreateSupplierShipmentAsync(
+        FulfillmentOrderRequest request,
+        SupplierShipmentCommand command,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        await CreateShipmentAsync(request, transaction, cancellationToken);
+        return new SupplierLogisticsSnapshot
+        {
+            OrderId = request.OrderId,
+            SupplierId = command.SupplierId,
+            CarrierCode = command.CarrierCode,
+            CarrierName = command.CarrierName,
+            TrackingNo = command.TrackingNo,
+            PackageTemperature = command.PackageTemperature,
+            StatusCode = LogisticsStatusCodes.Shipped,
+            ShippedAt = DateTime.Now,
+            EstimatedArrivalAt = command.EstimatedArrivalAt,
+            DataSource = LogisticsDataSources.Fallback
+        };
+    }
+
     public Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
         string orderId,
         IReadOnlyList<string> supplierIds,
@@ -1289,6 +1311,47 @@ internal sealed class FakeLogisticsService : ILogisticsService
             .ToList();
         return Task.FromResult(statuses);
     }
+
+    public Task<IReadOnlyList<SupplierLogisticsSnapshot>> GetSupplierLogisticsAsync(
+        string orderId,
+        IReadOnlyList<string> supplierIds,
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<SupplierLogisticsSnapshot> snapshots = supplierIds
+            .Select(supplierId => new SupplierLogisticsSnapshot
+            {
+                OrderId = orderId,
+                SupplierId = supplierId,
+                TrackingNo = $"TRACK-{orderId}-{supplierId}",
+                StatusCode = LogisticsStatusCodes.Pending,
+                DataSource = LogisticsDataSources.Fallback
+            })
+            .ToList();
+        return Task.FromResult(snapshots);
+    }
+
+    public Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
+        LogisticsTrackingEventCommand command,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new SupplierLogisticsSnapshot
+        {
+            OrderId = command.OrderId,
+            SupplierId = command.SupplierId,
+            StatusCode = command.StatusCode,
+            DataSource = LogisticsDataSources.Fallback,
+            Events =
+            [
+                new LogisticsTrackingEventSnapshot
+                {
+                    StatusCode = command.StatusCode,
+                    Location = command.Location,
+                    Description = command.Description,
+                    OccurredAt = command.OccurredAt,
+                    TemperatureCelsius = command.TemperatureCelsius
+                }
+            ]
+        });
 }
 
 internal sealed class FakeCommissionService : ICommissionService

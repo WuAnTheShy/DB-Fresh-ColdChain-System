@@ -4,6 +4,7 @@ $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $groupBIntegrationFiles = @(
     'Services/GroupAInventoryServiceAdapter.cs',
     'Services/GroupALogisticsServiceAdapter.cs',
+    'Services/FallbackGroupALogisticsExtensionProvider.cs',
     'Services/GroupCPromoterCatalogService.cs',
     'Services/ConsumerMessageService.cs',
     'Services/OrderService.cs',
@@ -71,6 +72,7 @@ $logisticsAdapter = Get-Content -Raw -Encoding UTF8 -LiteralPath (
     Join-Path $repositoryRoot 'Services/GroupALogisticsServiceAdapter.cs')
 foreach ($requiredCall in @(
     'IColdChainLogisticsService',
+    'IGroupALogisticsExtensionProvider',
     'QuoteFreightAsync',
     'CreateShipmentAsync',
     'GetTraceabilityByOrderAsync'

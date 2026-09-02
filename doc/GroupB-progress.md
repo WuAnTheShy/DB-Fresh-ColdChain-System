@@ -89,3 +89,13 @@ Oracle 集成测试未执行：仓库未提供隔离测试库或可清理的测�
 - Vue API 客户端同步删除未使用的通用状态流转方法。
 - 测试 Stub 已适配 A 组新增的商品图文接口，恢复主项目与测试项目编译基线。
 - 边界检查增加消费者发货入口和管理端权限过滤器的静态门禁。
+
+## 7. 物流完善阶段 2
+
+- `ILogisticsService` 新增供应商级发货、完整物流快照和追加轨迹事件契约。
+- 建立 `PENDING`、`PACKING`、`SHIPPED`、`IN_TRANSIT`、`OUT_FOR_DELIVERY`、
+  `DELIVERED`、`EXCEPTION`、`RETURNING`、`RETURNED` 稳定物流状态代码。
+- 新增承运商、预计送达、温区、物流事件、温度和异常信息 DTO，不在 B 组落 A 组物流表。
+- A 组尚未提供高级物流接口时使用 `IGroupALogisticsExtensionProvider` 隔离兜底；
+  当前实现使用配置化内存数据并明确返回 `DataSource=FALLBACK`。
+- 兜底配置集中在 `GroupB:LogisticsFallback`，未来只需替换 DI 注册即可对接 A 组真实实现。
