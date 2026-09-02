@@ -150,10 +150,33 @@ namespace FreshColdChain.Services
                 }
 
                 var ctx = contexts[0];
-                //同一订单存在待审核申请时禁止重复申请
-                if (await _irefundRepository.HasPendingApplicationAsync(ctx.Order.OrderId, _uow.Transaction))
+                var existingApplications = await _irefundRepository.GetByOrderIdAsync(
+                    ctx.Order.OrderId, _uow.Transaction);
+                var occupiedApplications = existingApplications
+                    .Where(application => application.Status is "Pending" or "Approved")
+                    .ToList();
+                var hasWholeOrderApplication = occupiedApplications.Any(application =>
+                    string.IsNullOrWhiteSpace(application.DetailId));
+
+                if (ctx.IsFullRefund && occupiedApplications.Count > 0)
                 {
-                    throw new Exception("该订单已有待审核的退款申请，请勿重复提交！");
+                    throw new Exception("该订单已有退款记录，不能重复申请整单退款");
+                }
+                if (!ctx.IsFullRefund && hasWholeOrderApplication)
+                {
+                    throw new Exception("该订单已有整单退款申请，请等待平台处理");
+                }
+                foreach (var selectedContext in contexts.Where(context => !context.IsFullRefund))
+                {
+                    var detail = selectedContext.Details.First(item =>
+                        string.Equals(item.OrderDetailId, selectedContext.DetailId, StringComparison.Ordinal));
+                    var occupiedQuantity = occupiedApplications
+                        .Where(application => string.Equals(
+                            application.DetailId, selectedContext.DetailId, StringComparison.Ordinal))
+                        .Sum(application => application.RefundQty);
+                    var remainingQuantity = Math.Max(0, detail.Quantity - occupiedQuantity);
+                    if (selectedContext.RefundQty > remainingQuantity)
+                        throw new Exception($"商品“{detail.ProductName}”最多还可申请退款 {remainingQuantity} 件");
                 }
                 // 同一次多选申请在一个事务中写入；任一商品失败则全部回滚。
                 foreach (var selectedContext in contexts)
@@ -175,6 +198,42 @@ namespace FreshColdChain.Services
                 _result.IsSuccess = false;
                 _result.ErrorMessage = $"系统错误：{ex.Message}";
                 return _result;
+            }
+        }
+
+        public async Task<Result> CancelRefundApplicationAsync(
+            string orderId,
+            string refundId,
+            string customerId)
+        {
+            await _uow.BeginAsync();
+            try
+            {
+                var application = await _irefundRepository.GetByIdAsync(refundId, _uow.Transaction);
+                if (application == null ||
+                    !string.Equals(application.OrderId, orderId, StringComparison.Ordinal))
+                    throw new Exception("退款申请不存在");
+                if (!string.Equals(application.Status, "Pending", StringComparison.Ordinal))
+                    throw new Exception("仅待审核的退款申请可以取消");
+
+                var cancelled = await _irefundRepository.TryUpdateStatusAsync(
+                    refundId,
+                    "Pending",
+                    "Cancelled",
+                    customerId,
+                    null,
+                    _uow.Transaction);
+                if (!cancelled)
+                    throw new Exception("退款申请状态已变化，请刷新后重试");
+
+                await _uow.CommitAsync();
+                return new Result { IsSuccess = true };
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                return new Result { IsSuccess = false, ErrorMessage = $"系统错误：{ex.Message}" };
             }
         }
 

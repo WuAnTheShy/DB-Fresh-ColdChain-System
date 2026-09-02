@@ -70,6 +70,21 @@ public sealed class RefundsApiController(
         });
     }
 
+    [HttpDelete("{refundId}")]
+    public async Task<IActionResult> CancelRefund(string orderId, string refundId)
+    {
+        var authorization = await AuthorizeOrderAsync(orderId);
+        if (authorization != null) return authorization;
+
+        var result = await refundService.CancelRefundApplicationAsync(
+            orderId,
+            refundId,
+            SignedInCustomerId!);
+        return result.IsSuccess
+            ? Ok(new { message = "退款申请已取消，可重新选择未退款商品" })
+            : ApiBadRequest(result.ErrorMessage ?? "取消退款申请失败");
+    }
+
     private async Task<IActionResult?> AuthorizeOrderAsync(string orderId)
     {
         var customerId = SignedInCustomerId;

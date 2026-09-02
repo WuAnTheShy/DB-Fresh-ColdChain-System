@@ -147,4 +147,7 @@ export const api = {
     method: 'POST',
     body: jsonBody(payload),
   }),
+  cancelOrderRefund: (orderId, refundId) => request(`/api/orders/${orderId}/refunds/${refundId}`, {
+    method: 'DELETE',
+  }),
 }

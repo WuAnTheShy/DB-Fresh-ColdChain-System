@@ -104,6 +104,10 @@ internal static class ConsumerMessageScenarioTests
 
         public Task<Result> Refund(GroupC_RefundRequest refundRequest) => Success();
         public Task<Result> ApplyRefund(GroupC_RefundRequest refundRequest) => Success();
+        public Task<Result> CancelRefundApplicationAsync(
+            string orderId,
+            string refundId,
+            string customerId) => Success();
         public Task<Result> ApplyCheckoutBatchRefundAsync(
             string checkoutBatchId,
             string customerId,
