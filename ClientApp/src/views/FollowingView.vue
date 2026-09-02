@@ -8,14 +8,19 @@ import { useShop } from '../state/shop'
 const { followedLeaderIds, followingError, followingLoading, leaderById, products } = useShop()
 
 const followedLeaders = computed(() => followedLeaderIds.value.map(leaderById).filter(Boolean))
+const publishedTimestamp = (value) => {
+  const timestamp = new Date(value).getTime()
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
 const feedItems = computed(() => followedLeaders.value
   .flatMap((leader) => products
     .filter((product) => product.leaderId === leader.id)
     .map((product) => ({ leader, product, publishedAt: product.publishedAt })))
-  .sort((left, right) => new Date(right.publishedAt) - new Date(left.publishedAt)))
+  .sort((left, right) => publishedTimestamp(right.publishedAt) - publishedTimestamp(left.publishedAt)))
 
 function formatFeedTime(value) {
   const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return '发布时间未知'
   const now = new Date()
   const time = new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date)
   if (date.toDateString() === now.toDateString()) return `今天 ${time}`
