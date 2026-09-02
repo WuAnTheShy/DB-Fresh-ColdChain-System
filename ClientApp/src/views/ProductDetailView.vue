@@ -278,6 +278,8 @@ function buyNow() {
   margin: 9px 0 18px;
   color: var(--muted);
   line-height: 1.65;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .detail-leader-panel {
