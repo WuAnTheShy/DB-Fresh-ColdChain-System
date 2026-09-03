@@ -51,7 +51,7 @@ function formatFeedTime(value) {
       </aside>
 
       <section v-if="feedItems.length" class="following-feed following-main" aria-label="关注商品时间流">
-        <p>最新带货商品</p>
+        <p class="following-feed-title">最新带货商品</p>
         <article v-for="item in feedItems" :key="`${item.leader.id}-${item.product.id}`" class="following-feed-item">
           <div class="following-feed-time"><time :datetime="item.publishedAt">{{ formatFeedTime(item.publishedAt)
               }}</time></div>
@@ -59,6 +59,7 @@ function formatFeedTime(value) {
             <ProductCard :product="item.product" />
           </div>
         </article>
+        <p class="list-end-tip">到底了~</p>
       </section>
 
       <div v-else class="store-empty following-empty following-main">
@@ -99,7 +100,7 @@ function formatFeedTime(value) {
   position: relative;
 }
 
-.following-feed > p {
+.following-feed-title {
   display: flex;
   min-height: 44px;
   align-items: center;
@@ -191,7 +192,7 @@ function formatFeedTime(value) {
     max-width: none;
   }
 
-  .following-feed > p {
+  .following-feed-title {
     min-height: 0;
     margin-bottom: 10px;
     padding: 10px 12px;
@@ -220,4 +221,5 @@ function formatFeedTime(value) {
     border-width: 2px;
   }
 }
+
 </style>
