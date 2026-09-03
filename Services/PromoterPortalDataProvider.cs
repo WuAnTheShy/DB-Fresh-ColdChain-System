@@ -141,7 +141,8 @@ namespace FreshColdChain.Services
                 CanApply = !IsDisabled(promoter.Status) && !hasPending && promoter.CurrentBalance > 0,
                 BlockReason = blockReason,
                 Form = form ?? new WithdrawalApplyForm(),
-                Records = records
+                Records = records,
+                PayAccounts = BuildPayAccounts(promoter)
             };
         }
 
@@ -161,7 +162,10 @@ namespace FreshColdChain.Services
                 return (false, "提现金额必须大于 0。");
             if (form.ApplyAmount > promoter.CurrentBalance)
                 return (false, "提现金额不能超过可提现余额。");
-            if (string.IsNullOrWhiteSpace(form.AccountInfo))
+            var boundAccount = promoter.GetBoundPayAccount(form.AccountPlatform);
+            if (string.IsNullOrWhiteSpace(boundAccount))
+                return (false, $"请先绑定{PromoterPayAccounts.Label(form.AccountPlatform)}收款账户。");
+            if (string.IsNullOrWhiteSpace(form.AccountInfo) && string.IsNullOrWhiteSpace(boundAccount))
                 return (false, "请填写收款账户信息。");
 
             if (!DemoWithdrawals.ContainsKey(promoterId))
@@ -171,7 +175,7 @@ namespace FreshColdChain.Services
             {
                 WithdrawalId = $"WD{DateTime.Now:yyyyMMddHHmmss}",
                 ApplyAmount = form.ApplyAmount,
-                AccountInfo = $"{MapPlatformLabel(form.AccountPlatform)}：{form.AccountInfo}",
+                AccountInfo = PromoterPayAccounts.FormatAccountInfo(form.AccountPlatform, boundAccount),
                 ApplyTime = DateTime.Now,
                 AuditStatus = "Pending",
                 AuditStatusLabel = "待审核",
@@ -250,7 +254,8 @@ namespace FreshColdChain.Services
                 CurrentTierRate = performance.CurrentTierRate,
                 TotalAsset = promoter.CurrentBalance + promoter.PendingBalance + promoter.FrozenAmount,
                 StatusLabel = statusLabel,
-                StatusBadgeClass = statusClass
+                StatusBadgeClass = statusClass,
+                PayAccounts = BuildPayAccounts(promoter)
             };
         }
 
@@ -316,12 +321,14 @@ namespace FreshColdChain.Services
             return ("白银团长", 1000, 50m, false);
         }
 
-        private static string MapPlatformLabel(string platform) => platform switch
-        {
-            "Alipay" => "支付宝",
-            "BankCard" => "银行卡",
-            _ => "微信"
-        };
+        private static List<PromoterPayAccountItem> BuildPayAccounts(GroupC_CrmPromoter promoter) =>
+            PromoterPayAccounts.All.Select(platform => new PromoterPayAccountItem
+            {
+                Platform = platform,
+                Label = PromoterPayAccounts.Label(platform),
+                Placeholder = PromoterPayAccounts.Placeholder(platform),
+                AccountNo = promoter.GetBoundPayAccount(platform)
+            }).ToList();
 
         private static GroupC_CrmPromoter BuildDemoPromoter(string promoterId) => new()
         {
