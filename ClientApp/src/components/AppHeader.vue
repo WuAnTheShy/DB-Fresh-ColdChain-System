@@ -446,7 +446,7 @@ async function logout() {
     grid-template-columns: 40px auto 1fr auto;
     grid-template-rows: 50px 47px;
     gap: 0 8px;
-    padding: 5px 0 6px;
+    padding: 5px 8px 6px;
   }
 
   .store-brand {
@@ -456,6 +456,7 @@ async function logout() {
   .global-search {
     grid-column: 1 / -1;
     grid-row: 2;
+    grid-template-columns: 1fr 46px;
     height: 42px;
   }
 

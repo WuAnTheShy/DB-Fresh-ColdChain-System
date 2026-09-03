@@ -51,7 +51,7 @@ a:hover { color: #c7511f; }
   margin-right: auto;
   margin-left: auto;
 }
-.header-inner { width: 100%; max-width: none; margin-right: 0; margin-left: 0; padding-right: 16px; padding-left: 16px; }
+.header-inner { width: 100%; max-width: none; margin-right: auto; margin-left: auto; padding-right: 16px; padding-left: 16px; }
 .page-space { padding-top: 16px; }
 
 /* ---------- 共享品牌(AppHeader / ShopFooter 共用) ---------- */
