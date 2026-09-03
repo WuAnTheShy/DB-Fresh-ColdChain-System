@@ -1,12 +1,5 @@
-<script setup>
-function backToTop() {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
-</script>
-
 <template>
   <footer class="store-footer">
-    <button class="back-to-top" type="button" @click="backToTop">返回顶部</button>
     <div class="footer-links store-container">
       <section>
         <h2>了解我们</h2>
@@ -47,19 +40,6 @@ function backToTop() {
   margin-top: 18px;
   background: var(--brand);
   color: #ddd;
-}
-
-.back-to-top {
-  width: 100%;
-  min-height: 48px;
-  border: 0;
-  background: #37475a;
-  color: #fff;
-  font-size: 12px;
-}
-
-.back-to-top:hover {
-  background: #485769;
 }
 
 .footer-links {
