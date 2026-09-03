@@ -43,7 +43,7 @@
                     <span class="nav-icon">☺</span> 个人资料
                 </a>
                 <a asp-controller="Promoters" asp-action="ProductListing"
-                   class="nav-link @(currentAction == "ProductListing" ? "active" : "")">
+                   class="nav-link @(currentAction is "ProductListing" or "EntryDetail" ? "active" : "")">
                     <span class="nav-icon">📦</span> 商品上架
                 </a>
                 <a asp-controller="Promoters" asp-action="BoundConsumers"

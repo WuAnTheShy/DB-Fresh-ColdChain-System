@@ -9,6 +9,32 @@
         <h5>🏭 供应商列表</h5>
         <a asp-controller="Suppliers" asp-action="Create" class="btn btn-sm btn-primary">+ 新增供应商</a>
     </div>
+    @{
+        var allProductNames = Model
+            .SelectMany(s => s.ProductNames ?? Enumerable.Empty<string>())
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Distinct()
+            .OrderBy(n => n)
+            .ToList();
+    }
+    <div class="content-card-body pb-0">
+        <div class="mb-3">
+            <div class="fw-semibold mb-2">全部商品（@allProductNames.Count）</div>
+            @if (!allProductNames.Any())
+            {
+                <p class="text-muted small mb-0">暂无商品名称。</p>
+            }
+            else
+            {
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var name in allProductNames)
+                    {
+                        <span class="badge text-bg-light border">@name</span>
+                    }
+                </div>
+            }
+        </div>
+    </div>
     <div class="content-card-body p-0">
         @if (!Model.Any())
         {
@@ -29,6 +55,7 @@
                             <th>信用等级</th>
                             <th>资质到期日</th>
                             <th>供货产品数</th>
+                            <th>供货商品</th>
                             <th>状态</th>
                             <th>操作</th>
                         </tr>
@@ -53,6 +80,16 @@
                                 <td>@item.CreditLevel</td>
                                 <td class="small text-muted">@item.ExpiryDate?.ToString("yyyy-MM-dd")</td>
                                 <td>@item.ProductCount</td>
+                                <td class="small" style="max-width: 280px;">
+                                    @if (item.ProductNames == null || !item.ProductNames.Any())
+                                    {
+                                        <span class="text-muted">暂无商品</span>
+                                    }
+                                    else
+                                    {
+                                        @string.Join("、", item.ProductNames)
+                                    }
+                                </td>
                                 <td><span class="badge @badge">@text</span></td>
                                 <td>
                                     @if (item.Status == "Active")

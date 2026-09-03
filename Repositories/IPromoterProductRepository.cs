@@ -28,6 +28,9 @@ public interface IPromoterProductRepository
     /// <summary>查询团长已入团商品详情（含商品名、供应商名、报价、推荐价、团长定价）</summary>
     Task<List<PromoterProductEntryDetailDto>> GetActiveEntriesDetailAsync(string promoterId, IDbTransaction? transaction = null);
 
+    /// <summary>查询指定（商品 × 供应商）入团组合的详情；不存在或非 Active 时返回 null</summary>
+    Task<PromoterProductEntryDetailDto?> GetActiveEntryDetailAsync(string promoterId, string productId, string supplierId, IDbTransaction? transaction = null);
+
     /// <summary>查询团长当前所有已入团的（商品，供应商，团长定价）组合</summary>
     Task<List<(string ProductId, string SupplierId, decimal? PromoterPrice)>> GetActiveEntriesByPromoterAsync(string promoterId, IDbTransaction? transaction = null);
 

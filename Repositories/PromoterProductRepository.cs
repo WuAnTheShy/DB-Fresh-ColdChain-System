@@ -90,6 +90,22 @@ public class PromoterProductRepository : IPromoterProductRepository
         return result.ToList();
     }
 
+    public async Task<PromoterProductEntryDetailDto?> GetActiveEntryDetailAsync(string promoterId, string productId, string supplierId, IDbTransaction? transaction = null)
+    {
+        const string sql = @"
+            SELECT E.PRODUCTID, E.SUPPLIERID, E.PROMOTERPRICE, E.PROMOTERDESC,
+                   P.PRODUCTNAME, P.UNIT, P.DEFAULTPRICE, P.DESCRIPTION,
+                   S.SUPPLIERNAME,
+                   SP.SUPPLYPRICE
+            FROM CRM_PRODUCT_ENTRIES E
+            JOIN INV_PRODUCTS P ON P.PRODUCTID = E.PRODUCTID
+            JOIN INV_SUPPLIERS S ON S.SUPPLIERID = E.SUPPLIERID
+            LEFT JOIN INV_SUPPLIERPRICES SP ON SP.SUPPLIERID = E.SUPPLIERID AND SP.PRODUCTID = E.PRODUCTID
+            WHERE E.PROMOTERID = :PromoterId AND E.PRODUCTID = :ProductId AND E.SUPPLIERID = :SupplierId AND E.STATUS = 'Active'";
+        return await _uow.Connection.QueryFirstOrDefaultAsync<PromoterProductEntryDetailDto>(sql,
+            new { PromoterId = promoterId, ProductId = productId, SupplierId = supplierId }, transaction);
+    }
+
     public async Task<List<(string ProductId, string SupplierId, decimal? PromoterPrice)>> GetActiveEntriesByPromoterAsync(string promoterId, IDbTransaction? transaction = null)
     {
         const string sql = @"

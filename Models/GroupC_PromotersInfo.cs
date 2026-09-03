@@ -18,6 +18,16 @@ namespace FreshColdChain.Models
         public DateTime? LastSettlementTime { get; set; }            // 最近一次结算时间
         public string Remark { get; set; } = string.Empty;           // 备注  
         public string LoginAccount { get; set; } = string.Empty;     // 登录账号
-        public string LoginPassword { get; set; } = string.Empty;    // 登录密码 
+        public string LoginPassword { get; set; } = string.Empty;    // 登录密码
+        public string? WeChatAccount { get; set; }                   // 绑定的微信号
+        public string? AlipayAccount { get; set; }                   // 绑定的支付宝账号
+        public string? BankCardAccount { get; set; }                 // 绑定的银行卡号
+
+        public string? GetBoundPayAccount(string? platform) => PromoterPayAccounts.Normalize(platform) switch
+        {
+            PromoterPayAccounts.Alipay => AlipayAccount,
+            PromoterPayAccounts.BankCard => BankCardAccount,
+            _ => WeChatAccount
+        };
     }
 }
