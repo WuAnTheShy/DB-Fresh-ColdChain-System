@@ -110,6 +110,7 @@ public sealed class GroupCPromoterFeaturedProduct
     public string SupplierId { get; init; } = string.Empty;
 
     public decimal SalePrice { get; init; }
+    public DateTime PublishedAt { get; init; }
     public string? Description { get; init; }
     public IReadOnlyList<string> ImageUrls { get; init; } = [];
 }
@@ -126,6 +127,7 @@ public sealed class ConsumerCatalogProduct
     public decimal SalePrice { get; init; }
     public int AvailableStock { get; init; }
     public string PromoterId { get; init; } = string.Empty;
+    public DateTime PublishedAt { get; init; }
     public string? Description { get; init; }
     public IReadOnlyList<string> ImageUrls { get; init; } = [];
 }

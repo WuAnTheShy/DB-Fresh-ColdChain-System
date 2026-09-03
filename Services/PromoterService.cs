@@ -101,6 +101,7 @@ namespace FreshColdChain.Services
             {
                 ProductID = p.ProductID,
                 ProductName = p.ProductName,
+                PublishedAt = p.CreateTime,
                 Unit = p.Unit,
                 SupplierID = p.SupplierID,
                 SupplierName = p.SupplierName,

@@ -34,6 +34,9 @@ public class GroupC_FeaturedProductDto
     public string ProductID { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
 
+    /// <summary>商品加入团长带货列表的时间</summary>
+    public DateTime PublishedAt { get; set; }
+
     /// <summary>商品计量单位（如：斤 / 盒 / 箱）</summary>
     public string? Unit { get; set; }
 

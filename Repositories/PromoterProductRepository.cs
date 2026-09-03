@@ -75,6 +75,7 @@ public class PromoterProductRepository : IPromoterProductRepository
         // 表/列名以共享库（COLDCHAIN）实际结构为准：INV_SUPPLIERPRICES、DEFAULTPRICE、SUPPLYPRICE
         const string sql = @"
             SELECT E.PRODUCTID, E.SUPPLIERID, E.PROMOTERPRICE, E.PROMOTERDESC,
+                   E.CREATETIME AS CreateTime,
                    P.PRODUCTNAME, P.UNIT, P.DEFAULTPRICE, P.DESCRIPTION,
                    S.SUPPLIERNAME,
                    SP.SUPPLYPRICE

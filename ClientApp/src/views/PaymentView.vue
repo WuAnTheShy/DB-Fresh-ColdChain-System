@@ -1,7 +1,6 @@
 <script setup>
 import { Building2, CheckCircle2, Clock3, CreditCard, ShieldCheck, Smartphone } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { api } from '../services/api'
 
 const props = defineProps({ batchId: { type: String, required: true } })
@@ -52,7 +51,6 @@ onBeforeUnmount(() => window.clearInterval(timer))
 
 <template>
   <div class="store-container page-space payment-page">
-    <StoreBreadcrumb :items="[{ label: '我的订单', to: '/orders' }, { label: '模拟支付' }]" />
     <div v-if="error" class="alert alert-danger">{{ error }}</div>
     <div v-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在读取结算批次</div>
     <section v-else-if="summary" class="payment-layout">

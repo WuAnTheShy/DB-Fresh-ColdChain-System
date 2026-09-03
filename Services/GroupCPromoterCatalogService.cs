@@ -77,6 +77,7 @@ public sealed class GroupCPromoterCatalogService(
             ProductId = entry.ProductID,
             SupplierId = entry.SupplierID,
             SalePrice = entry.Price,
+            PublishedAt = entry.PublishedAt,
             Description = entry.PromoterDesc,
             ImageUrls = entry.Images
         }).ToList();

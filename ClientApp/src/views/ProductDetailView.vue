@@ -4,14 +4,13 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import QuantityStepper from '../components/QuantityStepper.vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
 import { useCustomerContext } from '../state/customer'
 
 const props = defineProps({ id: { type: String, required: true } })
 const route = useRoute()
 const router = useRouter()
-const { products, catalogLoaded, catalogLoading, catalogError, productById, leaderById, loadCatalog, addToCart, isLeaderFollowed } = useShop()
+const { products, catalogLoaded, catalogLoading, catalogError, productById, leaderById, loadCatalog, addToCart, buyNowProduct, isLeaderFollowed } = useShop()
 const { isAuthenticated, deliveryLocation } = useCustomerContext()
 const product = computed(() => productById(props.id))
 const leader = computed(() => leaderById(product.value?.leaderId))
@@ -50,16 +49,14 @@ function add() {
 }
 
 function buyNow() {
-  add()
-  router.push('/cart')
+  if (!product.value || !leader.value) return
+  buyNowProduct(product.value.id, quantity.value)
+  router.push('/checkout')
 }
 </script>
 
 <template>
   <div v-if="product && leader" class="store-container page-space product-detail-page">
-    <StoreBreadcrumb
-      :items="[{ label: product.shortName, to: `/category/${product.category}` }, { label: product.name }]" />
-
     <section class="product-detail-main">
       <div class="product-gallery">
         <div class="product-main-image"><img :src="product.image" :alt="product.name"
@@ -278,6 +275,8 @@ function buyNow() {
   margin: 9px 0 18px;
   color: var(--muted);
   line-height: 1.65;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .detail-leader-panel {

@@ -46,6 +46,17 @@ public interface IOrderRepository
         int offset,
         IDbTransaction? transaction = null);
 
+    Task<int> CountSupplierFulfillmentOrdersAsync(
+        string supplierId,
+        SupplierFulfillmentQuery query,
+        IDbTransaction? transaction = null);
+
+    Task<List<SupplierFulfillmentOrderListItem>> GetSupplierFulfillmentOrdersAsync(
+        string supplierId,
+        SupplierFulfillmentQuery query,
+        int offset,
+        IDbTransaction? transaction = null);
+
     Task<OrderDetailHeader?> GetDetailHeaderAsync(
         string orderId,
         IDbTransaction? transaction = null);

@@ -1,7 +1,6 @@
 <script setup>
 import { BadgeCheck, Bell, ChevronRight, Coins, MapPin, PackageSearch, Save, TicketPercent, UserRound } from '@lucide/vue'
 import { onMounted, reactive, ref } from 'vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { ApiError, api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
 import { avatarUrl, presetAvatars } from '../assets/avatars'
@@ -33,7 +32,6 @@ onMounted(loadProfile)
 
 <template>
   <div class="store-container page-space profile-page">
-    <StoreBreadcrumb :items="[{ label: '个人中心' }]" />
     <div v-if="error" class="alert alert-danger">{{ error }}</div>
     <div v-if="success" class="alert alert-success">{{ success }}</div>
     <div v-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在读取账户信息</div>

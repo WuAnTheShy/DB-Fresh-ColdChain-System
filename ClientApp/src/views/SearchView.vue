@@ -3,7 +3,6 @@ import { RefreshCw, SearchX, SlidersHorizontal } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
 import { useCustomerContext } from '../state/customer'
 
@@ -38,7 +37,6 @@ watch(() => route.fullPath, () => {
 
 <template>
   <div class="store-container page-space">
-    <StoreBreadcrumb :items="[{ label: categoryName || (keyword ? `搜索：${keyword}` : '全部商品') }]" />
     <div class="listing-header">
       <div><span class="title-icon"><SlidersHorizontal :size="22" /></span><div><h1>{{ pageTitle }}</h1></div></div>
       <span>共 {{ results.length }} 件商品</span>
@@ -55,7 +53,10 @@ watch(() => route.fullPath, () => {
         <div v-if="catalogUsingFallback" class="alert alert-warning" role="status">真实目录暂时不可用，当前为只读兜底展示，暂不可下单。</div>
         <div v-if="catalogLoading" class="store-loading" role="status">正在读取商品目录…</div>
         <div v-else-if="catalogError && !catalogUsingFallback" class="store-empty" role="alert"><strong>商品目录读取失败</strong><span>{{ catalogError }}</span><button class="btn btn-outline-secondary" type="button" @click="loadCatalog(true)"><RefreshCw :size="15" />重新加载</button></div>
-        <div v-else-if="results.length" class="product-grid listing-product-grid"><ProductCard v-for="product in results" :key="product.id" :product="product" /></div>
+        <template v-else-if="results.length">
+          <div class="product-grid listing-product-grid"><ProductCard v-for="product in results" :key="product.id" :product="product" /></div>
+          <p class="list-end-tip">到底了~</p>
+        </template>
         <div v-else class="store-empty"><SearchX :size="34" /><strong>没有找到符合条件的商品</strong><span>请清除筛选条件或尝试其他关键词</span><RouterLink class="btn btn-outline-secondary" to="/search">查看全部商品</RouterLink></div>
       </section>
     </div>

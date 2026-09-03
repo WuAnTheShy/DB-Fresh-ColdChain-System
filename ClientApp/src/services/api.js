@@ -123,14 +123,14 @@ export const api = {
     method: 'POST',
     body: jsonBody(payload),
   }),
+  quoteCheckoutFreight: (payload) => request('/api/orders/freight-quote', {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
   getCheckoutBatch: (checkoutBatchId) => request(`/api/orders/batches/${encodeURIComponent(checkoutBatchId)}`),
   payCheckoutBatch: (checkoutBatchId, payload) => request(`/api/orders/batches/${encodeURIComponent(checkoutBatchId)}/pay`, {
     method: 'POST',
     body: jsonBody(payload),
-  }),
-  transitionOrder: (orderId, targetStatus) => request(`/api/orders/${orderId}/transition`, {
-    method: 'POST',
-    body: jsonBody({ targetStatus }),
   }),
   cancelOrder: (orderId) => request(`/api/orders/${orderId}/cancel`, {
     method: 'POST',
@@ -143,7 +143,11 @@ export const api = {
     method: 'POST',
     body: jsonBody(payload),
   }),
-  applyCheckoutBatchRefund: (batchId, payload) => request(`/api/orders/batches/${encodeURIComponent(batchId)}/refunds`, {
-    method: 'POST', body: jsonBody(payload),
+  previewOrderRefund: (orderId, payload) => request(`/api/orders/${orderId}/refunds/preview`, {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
+  cancelOrderRefund: (orderId, refundId) => request(`/api/orders/${orderId}/refunds/${refundId}`, {
+    method: 'DELETE',
   }),
 }

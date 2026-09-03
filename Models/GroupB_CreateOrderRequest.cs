@@ -47,3 +47,20 @@ public sealed class CreateOrderItemRequest
     [Range(1, 9999, ErrorMessage = "商品数量必须在1到9999之间")]
     public int Quantity { get; set; } = 1;
 }
+
+/// <summary>
+/// 确认订单页的运费预估请求。最终运费仍以下单时服务端重新计算的结果为准。
+/// </summary>
+public sealed class CheckoutFreightQuoteRequest
+{
+    [Required(ErrorMessage = "消费者ID不能为空")]
+    [StringLength(36, ErrorMessage = "消费者ID不能超过36个字符")]
+    public string CustomerId { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "收货地址ID不能为空")]
+    [StringLength(36, ErrorMessage = "收货地址ID不能超过36个字符")]
+    public string AddressId { get; set; } = string.Empty;
+
+    [MinLength(1, ErrorMessage = "至少需要一件商品才能计算运费")]
+    public List<CreateOrderItemRequest> Items { get; set; } = [];
+}
