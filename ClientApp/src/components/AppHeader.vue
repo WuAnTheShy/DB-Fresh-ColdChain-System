@@ -1,15 +1,16 @@
 <script setup>
-import { LogOut, MapPin, Menu, Search, ShoppingCart, X } from '@lucide/vue'
+import { LogOut, MapPin, Menu, Search, ShoppingCart, UserRound, X } from '@lucide/vue'
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useShop } from '../state/shop'
+import { avatarUrl } from '../assets/avatars'
 import { api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
 
 const router = useRouter()
 const route = useRoute()
 const { categories, cartCount } = useShop()
-const { customerName, isAuthenticated, deliveryLocation, clearCustomer } = useCustomerContext()
+const { customerName, isAuthenticated, deliveryLocation, avatar, clearCustomer } = useCustomerContext()
 const keyword = ref(String(route.query.q ?? ''))
 const loggingOut = ref(false)
 
@@ -66,9 +67,9 @@ async function logout() {
 
         <div class="header-account-area d-none d-md-flex">
           <RouterLink class="header-account" :to="isAuthenticated ? '/profile' : '/auth'">
+            <i class="header-account-avatar"><img v-if="isAuthenticated && avatarUrl(avatar)" :src="avatarUrl(avatar)" :alt="`${customerName}的头像`" /><UserRound v-else :size="21" /></i>
             <span><small>{{ isAuthenticated ? `你好，${customerName}` : '你好，请登录' }}</small><strong>账户与会员</strong></span>
           </RouterLink>
-          <button v-if="isAuthenticated" class="header-logout" type="button" :disabled="loggingOut" title="退出登录" aria-label="退出登录" @click="logout"><LogOut :size="17" /></button>
         </div>
         <RouterLink class="header-account d-none d-lg-flex" to="/orders">
           <span><small>退换货</small><strong>与订单</strong></span>
@@ -148,10 +149,9 @@ async function logout() {
   text-decoration: none;
 }
 
-.header-account-area { position: relative; align-items: center; }
-.header-account-area .header-account { padding-right: 31px; }
-.header-logout { position: absolute; right: 4px; display: inline-flex; width: 27px; height: 36px; align-items: center; justify-content: center; border: 0; background: transparent; color: #ddd; }
-.header-logout:hover { color: var(--amber); }
+.header-account-area { align-items: center; }
+.header-account-avatar { display: inline-flex; width: 33px; height: 33px; flex: 0 0 33px; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(255,255,255,.28); border-radius: 50%; background: var(--amber); color: #2e2209; }
+.header-account-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 .delivery-location {
   padding: 7px;
