@@ -1,6 +1,6 @@
 # GroupB 完成情况
 
-更新日期：2026-09-01
+更新日期：2026-09-02
 
 ## 1. 职责边界
 
@@ -56,13 +56,14 @@ B 组负责以下 8 张核心表：
 ## 4. 当前验证结果
 
 - `dotnet build tests/FreshColdChain.Tests/FreshColdChain.Tests.csproj -c Release --no-restore`：主项目与测试项目均为 0 警告、0 错误。
-- `dotnet run --project tests/FreshColdChain.Tests/FreshColdChain.Tests.csproj -c Release`：44 个事务/业务场景通过。
+- `dotnet run --project tests/FreshColdChain.Tests/FreshColdChain.Tests.csproj -c Release`：53 个事务/业务场景通过。
   - 下单与结算事务：13 个。
   - 客户营销与认证：13 个。
   - 订单生命周期与退款：12 个。
   - 跨组契约与数据最小化：2 个。
   - 消息中心跨组组合：1 个。
-  - A 组服务适配：3 个。
+  - A 组服务适配与物流兜底：6 个。
+  - 供应商履约：6 个。
 - `pwsh -NoProfile -File tests/verify-groupb-boundaries.ps1`：跨组 Repository/表直连、真实服务接入和唯一初始化入口检查通过。
 - `pwsh -NoProfile -File tests/verify-groupb-ddl.ps1`：8 张核心表、1 张扩展表、必需列、演示数据和职责边界检查通过。
 - `npm audit --audit-level=high`：0 个已知漏洞。
@@ -81,3 +82,67 @@ Oracle 集成测试未执行：仓库未提供隔离测试库或可清理的测�
 - 下单阶段只校验库存、不写 `LockedQty`；A 组发货时以行锁和 FEFO 扣减做最终库存裁决。
 - C 组支付审计日志当前使用独立连接，外层订单回滚时存在日志先提交风险；该问题属于 C 组代码，B 组不越界修改。
 - 正式部署前必须通过环境变量或 Secret 提供 Oracle 连接字符串，并在隔离 schema 执行 `groupB_ddl.sql`。
+
+## 6. 物流完善阶段 1
+
+- 消费者订单 API 已移除通用状态流转入口，消费者不能再将本人订单直接标记为已发货。
+- MVC 订单管理入口增加管理员会话过滤器；后续接入 C 组 RBAC 时只替换过滤器，不读取 C 组权限表。
+- Vue API 客户端同步删除未使用的通用状态流转方法。
+- 测试 Stub 已适配 A 组新增的商品图文接口，恢复主项目与测试项目编译基线。
+- 边界检查增加消费者发货入口和管理端权限过滤器的静态门禁。
+
+## 7. 物流完善阶段 2
+
+- `ILogisticsService` 新增供应商级发货、完整物流快照和追加轨迹事件契约。
+- 建立 `PENDING`、`PACKING`、`SHIPPED`、`IN_TRANSIT`、`OUT_FOR_DELIVERY`、
+  `DELIVERED`、`EXCEPTION`、`RETURNING`、`RETURNED` 稳定物流状态代码。
+- 新增承运商、预计送达、温区、物流事件、温度和异常信息 DTO，不在 B 组落 A 组物流表。
+- A 组尚未提供高级物流接口时使用 `IGroupALogisticsExtensionProvider` 隔离兜底；
+  当前实现使用配置化内存数据并明确返回 `DataSource=FALLBACK`。
+- 兜底配置集中在 `GroupB:LogisticsFallback`，未来只需替换 DI 注册即可对接 A 组真实实现。
+
+## 8. 物流完善阶段 3
+
+- 新增供应商履约工作台，只展示当前 `SupplierId` 会话所属的订单和商品。
+- 支持按状态、订单号、收货人和手机号筛选，并提供分页结果。
+- 发货表单支持承运商、外部运单号、温区、预计送达时间和备注；服务端始终以会话供应商覆盖表单身份。
+- 供应商发货通过 `ILogisticsService.CreateSupplierShipmentAsync` 调用 A 组，不直接操作库存或物流表。
+- 多供应商订单只有在所有供应商均发货后，B 组订单才从 `PAID` 原子推进至 `SHIPPED`。
+- 同一供应商重复发货保持幂等；跨供应商查看和发货均被拒绝。
+- 供应商导航已用履约工作台替换原始 ID 手工发货入口。
+
+## 9. 物流完善阶段 4
+
+- `ILogisticsService` 新增结构化 `QuoteFreightAsync`，原金额接口继续兼容现有调用方。
+- 报价结果包含金额、目的省市区、货值、A 组规则摘要、计算时间、数据源和商品计费项。
+- B 组下单和结算批次改用结构化报价，并将 JSON 快照保存到 `Biz_Orders.FreightQuoteSnapshot`。
+- 新增幂等 Oracle 迁移 `20260902_add_freight_quote_snapshot.sql`，只修改 B 组订单表。
+- 创建订单响应同步返回结构化报价，便于前端展示和联调审计。
+- B 组只保存 A 组报价结果，不实现或复制 A 组地区、温层、首续重算法。
+
+## 10. 物流完善阶段 5
+
+- 新增物流状态机，限制已发货、运输中、派送中、签收、异常和退回之间的合法跳转。
+- 供应商可为本人已发货包裹追加地点、描述、发生时间和可选运输温度。
+- Controller 丢弃客户端订单/供应商身份，始终使用路由订单和当前供应商会话。
+- 冷藏温度超出 0～8℃、冷冻温度高于 -18℃时，兜底 Provider 自动标记温控异常。
+- 超过预计送达时间且尚未签收/退回的包裹自动标记延误异常并追加轨迹事件。
+- 供应商详情页展示物流轨迹、温度、异常原因和更新表单。
+
+## 11. 物流完善阶段 6
+
+- 消费者订单详情 API 新增 `packages`，按供应商履约单元输出脱敏后的多包裹、承运商、运单、温区、预计送达、轨迹和异常信息。
+- 消费者响应不暴露 `SupplierId`；运费快照计费项也移除供应商标识，仅返回展示所需字段。
+- Vue 订单详情增加多包裹卡片、物流时间线、温度点位和异常提示，待发货时保留明确的备货占位状态。
+- 单件确认收货只在所属包裹状态为 `DELIVERED` 时开放，不能再仅凭订单已发货状态提前确认。
+- MVC 管理端订单详情增加报价依据、目的地、承运商、温区、预计送达、轨迹和兜底来源标识。
+- 前端物流状态徽标覆盖待发货、备货、运输、派送、签收、异常和退回状态。
+
+## 12. 物流完善阶段 7
+
+- 物流轨迹命令新增调用方生成的 `EventId`，供应商表单、B 组 Service 和兜底 Provider 均按事件编号保持幂等。
+- 新增 `GroupB-logistics-required-interfaces.md`，明确 A 组 4 个 P0 物流接口和 C 组统一权限接口的字段、事务、幂等、错误码及验收标准。
+- 明确现有 C 组退款可用 `LiabilityType=Logistics`，结构化物流异常证据列为 P1 扩展。
+- README 补充运费快照迁移与供应商履约入口，跨组契约补充事件幂等要求。
+- Release 编译、53 个自动化场景、边界检查、DDL 检查、npm 安全审计和 Vue 生产构建全部通过。
+- 未向未知共享 Oracle schema 执行写入验证；正式联调仍需按接口文档在隔离 schema 完成事务重放测试。

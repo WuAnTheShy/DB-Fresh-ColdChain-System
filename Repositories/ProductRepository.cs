@@ -1,5 +1,7 @@
 using Dapper;
 using FreshColdChain.Models;
+using Oracle.ManagedDataAccess.Client;
+using Oracle.ManagedDataAccess.Types;
 
 namespace FreshColdChain.Repositories;
 
@@ -58,11 +60,91 @@ public class ProductRepository : BaseRepository<InvProduct>, IProductRepository
     public async Task<List<InvProductImage>> GetAllProductImagesAsync()
     {
         var sql = """
-            SELECT ImageID, ProductID, ImageUrl, SortOrder, CreateTime
+            SELECT ImageID, ProductID, SupplierID, ImageUrl, SortOrder, CreateTime,
+                   CASE WHEN DBMS_LOB.GETLENGTH(ImageData) IS NULL THEN 0 ELSE 1 END AS HasData
             FROM Inv_ProductImages
             ORDER BY ProductID, SortOrder
             """;
         var items = await _uow.Connection.QueryAsync<InvProductImage>(sql, null, _uow.Transaction);
         return items.ToList();
+    }
+
+    public async Task<List<InvProductImage>> GetProductImagesAsync(string productId)
+    {
+        var sql = """
+            SELECT ImageID, ProductID, SupplierID, ImageUrl, SortOrder, CreateTime,
+                   CASE WHEN DBMS_LOB.GETLENGTH(ImageData) IS NULL THEN 0 ELSE 1 END AS HasData
+            FROM Inv_ProductImages
+            WHERE ProductID = :ProductId
+            ORDER BY SortOrder, CreateTime
+            """;
+        var items = await _uow.Connection.QueryAsync<InvProductImage>(sql, new { ProductId = productId }, _uow.Transaction);
+        return items.ToList();
+    }
+
+    public async Task<InvProductImage?> GetProductImageByIdAsync(string imageId)
+    {
+        var sql = """
+            SELECT ImageID, ProductID, SupplierID, ImageUrl, SortOrder, CreateTime
+            FROM Inv_ProductImages
+            WHERE ImageID = :ImageId
+            """;
+        return await _uow.Connection.QuerySingleOrDefaultAsync<InvProductImage>(sql, new { ImageId = imageId }, _uow.Transaction);
+    }
+
+    public async Task AddProductImageAsync(InvProductImage image)
+    {
+        // BLOB 列不能用 Dapper 匿名参数插入，改用 ODP.NET 原生参数
+        var cmd = (OracleCommand)_uow.Connection.CreateCommand();
+        cmd.BindByName = true;
+        cmd.CommandText = """
+            INSERT INTO Inv_ProductImages (ImageID, ProductID, ImageUrl, ImageData, ImageType, SortOrder, CreateTime)
+            VALUES (:ImageID, :ProductID, :ImageUrl, :ImageData, :ImageType, :SortOrder, :CreateTime)
+            """;
+        cmd.Parameters.Add(new OracleParameter("ImageID", image.ImageID));
+        cmd.Parameters.Add(new OracleParameter("ProductID", image.ProductID));
+        cmd.Parameters.Add(new OracleParameter("ImageUrl", image.ImageUrl));
+        cmd.Parameters.Add(new OracleParameter("ImageData", OracleDbType.Blob)
+        {
+            Value = image.ImageData ?? (object)DBNull.Value
+        });
+        cmd.Parameters.Add(new OracleParameter("ImageType", OracleDbType.Varchar2)
+        {
+            Value = image.ImageType ?? (object)DBNull.Value
+        });
+        cmd.Parameters.Add(new OracleParameter("SortOrder", image.SortOrder));
+        cmd.Parameters.Add(new OracleParameter("CreateTime", image.CreateTime));
+        if (_uow.Transaction is OracleTransaction oracleTx)
+            cmd.Transaction = oracleTx;
+
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task<(byte[]? Data, string? ContentType)?> GetProductImageDataAsync(string imageId)
+    {
+        // BLOB 读取：ODP.NET 返回 OracleBlob，取 .Value 得到 byte[]
+        var cmd = (OracleCommand)_uow.Connection.CreateCommand();
+        cmd.BindByName = true;
+        cmd.CommandText = "SELECT ImageData, ImageType FROM Inv_ProductImages WHERE ImageID = :ImageId";
+        cmd.Parameters.Add(new OracleParameter("ImageId", imageId));
+
+        using var reader = await cmd.ExecuteReaderAsync();
+        if (!await reader.ReadAsync()) return null;
+
+        // ODP.NET 托管驱动索引器直接返回 byte[]；若驱动版本返回 OracleBlob 则取 .Value 兜底
+        byte[]? data = reader["ImageData"] switch
+        {
+            byte[] bytes => bytes,
+            OracleBlob blob => blob.Value,
+            _ => null
+        };
+        var contentType = reader["ImageType"] as string;
+        return (data, contentType);
+    }
+
+    public async Task DeleteProductImageAsync(string imageId)
+    {
+        var sql = "DELETE FROM Inv_ProductImages WHERE ImageID = :ImageId";
+        await _uow.Connection.ExecuteAsync(sql, new { ImageId = imageId }, _uow.Transaction);
     }
 }

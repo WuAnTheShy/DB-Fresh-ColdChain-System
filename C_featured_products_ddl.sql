@@ -37,12 +37,9 @@ ALTER TABLE CRM_PRODUCT_ENTRIES ADD (
 COMMENT ON COLUMN CRM_PRODUCT_ENTRIES.PromoterDesc
     IS '团长带货介绍文字（给消费者端展示；入团时默认复制 Inv_Products.Description，团长可修改/重写）';
 
--- 4.（可选）演示数据：给现有商品配 1-3 张图片 + 商品文字介绍
---    图片地址请按实际部署路径调整（放在 wwwroot/images/products/ 下）
-INSERT INTO Inv_ProductImages (ImageID, ProductID, ImageUrl, SortOrder)
-SELECT 'IMG_' || SUBSTR(ProductID, 1, 30) || '_1', ProductID, '/images/products/' || ProductName || '_1.png', 1
-FROM Inv_Products WHERE NOT EXISTS (SELECT 1 FROM Inv_ProductImages i WHERE i.ProductID = Inv_Products.ProductID);
-
+-- 4.（可选）演示数据：给现有商品初始化商品文字介绍
+--    商品图片由供应商登录门户（供应商“我的报价”页）上传，
+--    文件保存到 wwwroot/images/products/，数据库登记到 Inv_ProductImages。
 UPDATE Inv_Products
    SET Description = '【' || ProductName || '】产地直发，新鲜采摘，冷链配送，保障品质。'
  WHERE Description IS NULL;

@@ -1,7 +1,6 @@
 <script setup>
 import { Bell, CheckCircle2, Clock3, PackageSearch, RotateCcw } from '@lucide/vue'
 import { onMounted, ref } from 'vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
 
@@ -18,7 +17,6 @@ onMounted(async () => {
 
 <template>
   <div class="store-container page-space messages-page">
-    <StoreBreadcrumb :items="[{ label: '会员中心', to: '/profile' }, { label: '消息中心' }]" />
     <div class="messages-title"><Bell :size="25" /><div><h1>消息中心</h1><p>订单、支付和退款状态会长期保留在这里</p></div></div>
     <div v-if="error" class="alert alert-danger">{{ error }}</div>
     <div v-else-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在加载消息</div>

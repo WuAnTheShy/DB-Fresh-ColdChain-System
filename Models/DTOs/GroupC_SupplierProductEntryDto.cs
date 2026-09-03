@@ -42,6 +42,9 @@ public class PromoterProductEntryDetailDto
     public string ProductID { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
 
+    /// <summary>商品加入团长带货列表的时间</summary>
+    public DateTime CreateTime { get; set; }
+
     /// <summary>商品计量单位（如：斤 / 盒 / 箱）</summary>
     public string? Unit { get; set; }
 
@@ -57,9 +60,18 @@ public class PromoterProductEntryDetailDto
     /// <summary>商品文字介绍（供应商维护，团长可参考/复制/改写）</summary>
     public string? Description { get; set; }
 
-    /// <summary>团长带货介绍文字（入团时默认复制供应商文字，团长可修改/重写）</summary>
+    /// <summary>
+    /// 团长带货介绍存储值：空=无介绍；以 /uploads/promoter-desc/*.json 开头且以 .json 结尾=图文内容文件相对路径；
+    /// 其它非空串=历史纯文字（兼容读取，团长保存图文介绍后转为相对路径）。
+    /// </summary>
     public string? PromoterDesc { get; set; }
 
     /// <summary>商品图片（按展示顺序，最多 3 张）</summary>
     public List<string> Images { get; set; } = new();
+
+    /// <summary>商品平台状态（INV_PRODUCTS.STATUS：ACTIVE=上架，其它=下架）</summary>
+    public string? ProductStatus { get; set; }
+
+    /// <summary>商品是否仍处于平台在售状态（供应商下架后为 false，团长端应显示“已下架”）</summary>
+    public bool IsProductActive => string.Equals(ProductStatus, "ACTIVE", StringComparison.OrdinalIgnoreCase);
 }

@@ -54,6 +54,7 @@ public sealed class ConsumerCatalogService(
                     SalePrice = featured.SalePrice,
                     AvailableStock = product.AvailableStock,
                     PromoterId = promoter.PromoterId,
+                    PublishedAt = featured.PublishedAt,
                     Description = featured.Description,
                     ImageUrls = featured.ImageUrls
                 });

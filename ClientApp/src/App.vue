@@ -1,6 +1,7 @@
 <script setup>
 import { watch } from 'vue'
 import AppHeader from './components/AppHeader.vue'
+import BackToTopButton from './components/BackToTopButton.vue'
 import MobileBottomNav from './components/MobileBottomNav.vue'
 import ShopFooter from './components/ShopFooter.vue'
 import { useCustomerContext } from './state/customer'
@@ -23,6 +24,7 @@ watch(customerId, (id) => {
       <RouterView />
     </main>
     <ShopFooter />
+    <BackToTopButton />
     <MobileBottomNav />
   </div>
 </template>

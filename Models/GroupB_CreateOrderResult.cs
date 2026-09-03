@@ -10,6 +10,7 @@ public sealed class CreateOrderResult
     public decimal GoodsAmount { get; init; }
     public decimal DiscountAmount { get; init; }
     public decimal FreightAmount { get; init; }
+    public FreightCalculationResult? FreightQuote { get; init; }
     public decimal FinalAmount { get; init; }
     public int PointsEarned { get; init; }
     public int PointsUsed { get; init; }

@@ -265,6 +265,45 @@ internal sealed class FakeOrderRepository : IOrderRepository
         return Task.FromResult(orders);
     }
 
+    public Task<int> CountSupplierFulfillmentOrdersAsync(
+        string supplierId,
+        SupplierFulfillmentQuery query,
+        IDbTransaction? transaction = null) =>
+        Task.FromResult(FilterSupplierFulfillmentOrders(supplierId, query).Count());
+
+    public Task<List<SupplierFulfillmentOrderListItem>> GetSupplierFulfillmentOrdersAsync(
+        string supplierId,
+        SupplierFulfillmentQuery query,
+        int offset,
+        IDbTransaction? transaction = null)
+    {
+        var result = FilterSupplierFulfillmentOrders(supplierId, query)
+            .OrderByDescending(order => order.CreatedAt)
+            .Skip(offset)
+            .Take(query.PageSize)
+            .Select(order =>
+            {
+                var details = Details.Where(detail =>
+                    detail.OrderId == order.OrderId && detail.SupplierId == supplierId).ToList();
+                return new SupplierFulfillmentOrderListItem
+                {
+                    OrderId = order.OrderId,
+                    OrderNo = order.OrderNo,
+                    CustomerName = "测试消费者",
+                    ReceiverName = order.ReceiverName,
+                    ReceiverPhone = order.ReceiverPhone,
+                    ShippingAddress = order.ShippingAddress,
+                    OrderStatus = order.OrderStatus,
+                    ItemCount = details.Count,
+                    TotalQuantity = details.Sum(detail => detail.Quantity),
+                    SupplierAmount = details.Sum(detail => detail.SubTotal),
+                    CreatedAt = order.CreatedAt
+                };
+            })
+            .ToList();
+        return Task.FromResult(result);
+    }
+
     public Task<OrderDetailHeader?> GetDetailHeaderAsync(
         string orderId,
         IDbTransaction? transaction = null)
@@ -285,6 +324,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
                 TotalAmount = order.TotalAmount,
                 DiscountAmount = order.DiscountAmount,
                 FreightAmount = order.FreightAmount,
+                FreightQuoteSnapshot = order.FreightQuoteSnapshot,
                 FinalAmount = order.FinalAmount,
                 PointsEarned = order.PointsEarned,
                 PointsUsed = order.PointsUsed,
@@ -424,6 +464,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
             TotalAmount = order.TotalAmount,
             DiscountAmount = order.DiscountAmount,
             FreightAmount = order.FreightAmount,
+            FreightQuoteSnapshot = order.FreightQuoteSnapshot,
             FinalAmount = order.FinalAmount,
             CommBaseAmount = order.CommBaseAmount,
             CommBonusAmount = order.CommBonusAmount,
@@ -449,9 +490,31 @@ internal sealed class FakeOrderRepository : IOrderRepository
              order.OrderNo.Contains(
                  request.Keyword,
                  StringComparison.OrdinalIgnoreCase) ||
-             "测试消费者".Contains(
-                 request.Keyword,
-                 StringComparison.OrdinalIgnoreCase)));
+              "测试消费者".Contains(
+                  request.Keyword,
+                  StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private IEnumerable<BizOrder> FilterSupplierFulfillmentOrders(
+        string supplierId,
+        SupplierFulfillmentQuery query)
+    {
+        var allowedStatuses = new[]
+        {
+            OrderStatusCodes.Paid,
+            OrderStatusCodes.Shipped,
+            OrderStatusCodes.Completed
+        };
+        return Orders.Where(order =>
+            allowedStatuses.Contains(order.OrderStatus, StringComparer.Ordinal) &&
+            Details.Any(detail =>
+                detail.OrderId == order.OrderId && detail.SupplierId == supplierId) &&
+            (!query.Status.HasValue ||
+             order.OrderStatus == OrderStatusCodes.ToCode(query.Status.Value)) &&
+            (query.Keyword == null ||
+             order.OrderNo.Contains(query.Keyword, StringComparison.OrdinalIgnoreCase) ||
+             order.ReceiverName.Contains(query.Keyword, StringComparison.OrdinalIgnoreCase) ||
+             order.ReceiverPhone.Contains(query.Keyword, StringComparison.OrdinalIgnoreCase)));
     }
 
     private static void Stage(IDbTransaction? transaction, Action action)
@@ -1248,17 +1311,46 @@ internal sealed class FakeLogisticsService : ILogisticsService
     public decimal FreightAmount { get; set; }
     public Exception? ShipmentExceptionToThrow { get; set; }
     public List<string> ShippedOrderIds { get; } = [];
+    public HashSet<string> ShippedSupplierKeys { get; } = new(StringComparer.Ordinal);
     public FreightCalculationRequest? LastFreightRequest { get; private set; }
     public List<FreightCalculationRequest> FreightRequests { get; } = [];
 
-    public Task<decimal> CalculateFreightAsync(
+    public Task<FreightCalculationResult> QuoteFreightAsync(
         FreightCalculationRequest request,
         IDbTransaction transaction,
         CancellationToken cancellationToken = default)
     {
         LastFreightRequest = request;
         FreightRequests.Add(request);
-        return Task.FromResult(FreightAmount);
+        return Task.FromResult(new FreightCalculationResult
+        {
+            FreightAmount = FreightAmount,
+            GoodsAmount = request.GoodsAmount,
+            Province = request.Province,
+            City = request.City,
+            District = request.District,
+            RuleSummary = "测试运费规则",
+            CalculatedAt = DateTime.Now,
+            DataSource = LogisticsDataSources.Fallback,
+            Items = request.Items.Select(item => new FreightCalculationItemResult
+            {
+                ProductId = item.ProductId,
+                ProductName = item.ProductName,
+                SupplierId = item.SupplierId,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                SubTotal = item.SubTotal
+            }).ToList()
+        });
+    }
+
+    public async Task<decimal> CalculateFreightAsync(
+        FreightCalculationRequest request,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await QuoteFreightAsync(request, transaction, cancellationToken);
+        return result.FreightAmount;
     }
 
     public Task CreateShipmentAsync(
@@ -1272,6 +1364,35 @@ internal sealed class FakeLogisticsService : ILogisticsService
         ((FakeOrderTransaction)transaction).Stage(
             () => ShippedOrderIds.Add(request.OrderId));
         return Task.CompletedTask;
+    }
+
+    public Task<SupplierLogisticsSnapshot> CreateSupplierShipmentAsync(
+        FulfillmentOrderRequest request,
+        SupplierShipmentCommand command,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default)
+    {
+        if (ShipmentExceptionToThrow != null)
+            throw ShipmentExceptionToThrow;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var key = CreateSupplierKey(request.OrderId, command.SupplierId);
+        ShippedSupplierKeys.Add(key);
+        ((FakeOrderTransaction)transaction).Stage(
+            () => ShippedOrderIds.Add(request.OrderId));
+        return Task.FromResult(new SupplierLogisticsSnapshot
+        {
+            OrderId = request.OrderId,
+            SupplierId = command.SupplierId,
+            CarrierCode = command.CarrierCode,
+            CarrierName = command.CarrierName,
+            TrackingNo = command.TrackingNo,
+            PackageTemperature = command.PackageTemperature,
+            StatusCode = LogisticsStatusCodes.Shipped,
+            ShippedAt = DateTime.Now,
+            EstimatedArrivalAt = command.EstimatedArrivalAt,
+            DataSource = LogisticsDataSources.Fallback
+        });
     }
 
     public Task<IReadOnlyList<SupplierFulfillmentStatus>> GetSupplierStatusesAsync(
@@ -1289,6 +1410,76 @@ internal sealed class FakeLogisticsService : ILogisticsService
             .ToList();
         return Task.FromResult(statuses);
     }
+
+    public Task<IReadOnlyList<SupplierLogisticsSnapshot>> GetSupplierLogisticsAsync(
+        string orderId,
+        IReadOnlyList<string> supplierIds,
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<SupplierLogisticsSnapshot> snapshots = supplierIds
+            .Select(supplierId =>
+            {
+                var isShipped = ShippedSupplierKeys.Contains(
+                    CreateSupplierKey(orderId, supplierId));
+                return new SupplierLogisticsSnapshot
+                {
+                    OrderId = orderId,
+                    SupplierId = supplierId,
+                    CarrierCode = isShipped ? "TEST" : null,
+                    CarrierName = isShipped ? "测试冷链" : null,
+                    TrackingNo = $"TRACK-{orderId}-{supplierId}",
+                    PackageTemperature = isShipped ? "FROZEN" : "CHILLED",
+                    StatusCode = isShipped
+                        ? LogisticsStatusCodes.Shipped
+                        : LogisticsStatusCodes.Pending,
+                    ShippedAt = isShipped ? DateTime.Now.AddHours(-1) : null,
+                    EstimatedArrivalAt = isShipped ? DateTime.Now.AddHours(12) : null,
+                    DataSource = LogisticsDataSources.Fallback,
+                    Events = isShipped
+                        ?
+                        [
+                            new LogisticsTrackingEventSnapshot
+                            {
+                                EventId = $"EVENT-{supplierId}",
+                                StatusCode = LogisticsStatusCodes.Shipped,
+                                Location = "测试仓",
+                                Description = "冷链包裹已出库",
+                                OccurredAt = DateTime.Now.AddHours(-1),
+                                TemperatureCelsius = -20m
+                            }
+                        ]
+                        : []
+                };
+            })
+            .ToList();
+        return Task.FromResult(snapshots);
+    }
+
+    public Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
+        LogisticsTrackingEventCommand command,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new SupplierLogisticsSnapshot
+        {
+            OrderId = command.OrderId,
+            SupplierId = command.SupplierId,
+            StatusCode = command.StatusCode,
+            DataSource = LogisticsDataSources.Fallback,
+            Events =
+            [
+                new LogisticsTrackingEventSnapshot
+                {
+                    StatusCode = command.StatusCode,
+                    Location = command.Location,
+                    Description = command.Description,
+                    OccurredAt = command.OccurredAt,
+                    TemperatureCelsius = command.TemperatureCelsius
+                }
+            ]
+        });
+
+    private static string CreateSupplierKey(string orderId, string supplierId) =>
+        $"{orderId}|{supplierId}";
 }
 
 internal sealed class FakeCommissionService : ICommissionService

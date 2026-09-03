@@ -18,4 +18,14 @@ public class ProductEntryDetailViewModel
 
     /// <summary>该（商品 × 供应商）入团组合的详情数据</summary>
     public PromoterProductEntryDetailDto Entry { get; set; } = new();
+
+    /// <summary>
+    /// 该供应商上传的该商品的所有图片（一次全量提供，供团长编辑图文介绍时插入；不再只取前 3 张）。
+    /// </summary>
+    public List<string> SupplierImages { get; set; } = new();
+
+    /// <summary>
+    /// 当前已保存的图文介绍内容（若为历史纯文字则自动包装为单段），供图文编辑器回填。
+    /// </summary>
+    public PromoterRichContent? RichContent { get; set; }
 }

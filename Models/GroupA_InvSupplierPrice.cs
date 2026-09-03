@@ -30,6 +30,11 @@ public class InvSupplierPrice
     [Column("ShelfLifeHours")]
     public int? ShelfLifeHours { get; set; }
 
+    /// <summary>该供应商对该商品的文字介绍；null 时兜底展示 Inv_Products.Description</summary>
+    [Column("Description")]
+    [MaxLength(2000)]
+    public string? Description { get; set; }
+
     [Column("UpdateTime")]
     public DateTime UpdateTime { get; set; } = DateTime.Now;
 

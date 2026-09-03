@@ -90,6 +90,99 @@ public class SuppliersController : Controller
         return RedirectToAction(nameof(MyQuotes));
     }
 
+    /// <summary>商品信息编辑页：文字介绍 + 图片管理（须已报价的商品）</summary>
+    [HttpGet]
+    public async Task<IActionResult> EditProductInfo(string productId)
+    {
+        var supplierId = HttpContext.Session.GetString("SupplierId");
+        if (string.IsNullOrEmpty(supplierId))
+            return RedirectToAction(nameof(Login));
+
+        var r = await _service.GetProductInfoForSupplierAsync(supplierId, productId);
+        if (!r.IsSuccess)
+        {
+            TempData["Error"] = r.Message;
+            return RedirectToAction(nameof(MyQuotes));
+        }
+
+        ViewBag.SupplierName = (await _service.GetSupplierByIdAsync(supplierId)).Data?.SupplierName;
+        return View(r.Data);
+    }
+
+    /// <summary>供应商维护自己供货商品的文字介绍（图片由供应商提供，文字供团长参考/复制/改写）</summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetMyDescription(string productId, string? description)
+    {
+        var supplierId = HttpContext.Session.GetString("SupplierId");
+        if (string.IsNullOrEmpty(supplierId))
+            return RedirectToAction(nameof(Login));
+
+        var r = await _service.UpdateProductDescriptionAsync(supplierId, productId, description);
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
+        return RedirectToAction(nameof(EditProductInfo), new { productId });
+    }
+
+    /// <summary>
+    /// 供应商上传自己供货商品的图片（二进制直接写入 Inv_ProductImages.ImageData BLOB，
+    /// 之后统一通过 /images/product/{ImageID} 接口读取，多机部署也不会出现文件丢失）。
+    /// 仅允许 jpg/png/webp/gif，单张不超过 5MB。
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(10 * 1024 * 1024)]
+    public async Task<IActionResult> UploadMyProductImage(string productId, IFormFile? imageFile)
+    {
+        var supplierId = HttpContext.Session.GetString("SupplierId");
+        if (string.IsNullOrEmpty(supplierId))
+            return RedirectToAction(nameof(Login));
+
+        if (imageFile == null || imageFile.Length == 0)
+        {
+            TempData["Error"] = "请选择要上传的图片文件";
+            return RedirectToAction(nameof(MyQuotes));
+        }
+
+        // 文件类型白名单 + 大小校验（供应商照片为商品展示图）
+        var allowedContentTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "image/jpeg", "image/png", "image/webp", "image/gif"
+        };
+        if (!allowedContentTypes.Contains(imageFile.ContentType))
+        {
+            TempData["Error"] = "仅支持 jpg / png / webp / gif 格式的图片";
+            return RedirectToAction(nameof(MyQuotes));
+        }
+        const long maxBytes = 5 * 1024 * 1024;
+        if (imageFile.Length > maxBytes)
+        {
+            TempData["Error"] = "单张图片不能超过 5MB";
+            return RedirectToAction(nameof(MyQuotes));
+        }
+
+        // 读入内存后交给服务层写入数据库 BLOB
+        using var ms = new MemoryStream();
+        await imageFile.CopyToAsync(ms);
+        var r = await _service.AddProductImageAsync(supplierId, productId, ms.ToArray(), imageFile.ContentType);
+
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
+        return RedirectToAction(nameof(EditProductInfo), new { productId });
+    }
+
+    /// <summary>供应商删除自己供货商品的某张图片（BLOB 随行删除）</summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteMyProductImage(string imageId, string productId)
+    {
+        var supplierId = HttpContext.Session.GetString("SupplierId");
+        if (string.IsNullOrEmpty(supplierId))
+            return RedirectToAction(nameof(Login));
+
+        var r = await _service.DeleteProductImageAsync(supplierId, imageId);
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
+        return RedirectToAction(nameof(EditProductInfo), new { productId });
+    }
+
     [HttpPost]
     public IActionResult Logout()
     {

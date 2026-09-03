@@ -1,7 +1,6 @@
 <script setup>
 import { CheckCircle2, RefreshCw, TicketPercent } from '@lucide/vue'
 import { onMounted, ref } from 'vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
 
@@ -20,7 +19,6 @@ onMounted(loadCoupons)
 
 <template>
   <div class="store-container page-space coupons-page">
-    <StoreBreadcrumb :items="[{ label: '领券中心' }]" />
     <div class="account-page-header"><div><TicketPercent :size="26" /><span><h1>领券中心</h1></span></div><button class="refresh-button" type="button" title="刷新优惠券" @click="loadCoupons"><RefreshCw :size="18" /></button></div>
     <div v-if="error" class="alert alert-danger">{{ error }}</div><div v-if="success" class="alert alert-success">{{ success }}</div>
     <div v-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在读取优惠券</div>

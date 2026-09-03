@@ -4,6 +4,7 @@ using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
 using FreshColdChain.Repositories;
 using FreshColdChain.Services;
+using Microsoft.Extensions.Options;
 
 namespace FreshColdChain.Tests;
 
@@ -15,7 +16,10 @@ internal static class GroupAAdapterScenarioTests
         {
             ("库存适配器只通过 A 组服务返回可信快照", InventoryAdapterUsesServiceContractsAsync),
             ("物流适配器通过 A 组服务报价发货并查询状态", LogisticsAdapterUsesServiceContractsAsync),
-            ("A 组尚未发货时返回待发货状态", MissingTraceReturnsPendingAsync)
+            ("A 组尚未发货时返回待发货状态", MissingTraceReturnsPendingAsync),
+            ("高级物流缺失时配置化兜底并识别温控异常", LogisticsFallbackTracksTemperatureExceptionAsync),
+            ("兜底轨迹按事件编号保持幂等", LogisticsFallbackEventIsIdempotentAsync),
+            ("兜底物流超过预计时间后标记延误", LogisticsFallbackDetectsDelayAsync)
         };
 
         var failed = 0;
@@ -116,7 +120,10 @@ internal static class GroupAAdapterScenarioTests
                 }
             ])
         };
-        var adapter = new GroupALogisticsServiceAdapter(unitOfWork, coldChainService);
+        var adapter = new GroupALogisticsServiceAdapter(
+            unitOfWork,
+            coldChainService,
+            CreateExtensionProvider());
         using var transaction = new FakeOrderTransaction();
         var items = new List<FulfillmentOrderItem>
         {
@@ -157,13 +164,162 @@ internal static class GroupAAdapterScenarioTests
             new StubColdChainLogisticsService
             {
                 TraceResponse = ApiResponse<List<DeliveryTraceDto>>.Fail("未找到", 404)
-            });
+            },
+            CreateExtensionProvider());
 
         var statuses = await adapter.GetSupplierStatusesAsync("ORDER1", ["SUP2", "SUP1", "SUP2"]);
 
         AssertEx.Equal(2, statuses.Count);
         AssertEx.True(statuses.All(status => status.StatusName == "待发货"));
     }
+
+    private static async Task LogisticsFallbackTracksTemperatureExceptionAsync()
+    {
+        var provider = CreateExtensionProvider();
+        var adapter = new GroupALogisticsServiceAdapter(
+            new AttachedTransactionUnitOfWork(),
+            new StubColdChainLogisticsService(),
+            provider);
+        using var transaction = new FakeOrderTransaction();
+        var order = new FulfillmentOrderRequest
+        {
+            OrderId = "ORDER1",
+            Items =
+            [
+                new FulfillmentOrderItem
+                {
+                    ProductId = "P1",
+                    ProductName = "车厘子",
+                    SupplierId = "SUP1",
+                    Quantity = 1,
+                    UnitPrice = 50m,
+                    SubTotal = 50m
+                }
+            ]
+        };
+
+        var shipment = await adapter.CreateSupplierShipmentAsync(
+            order,
+            new SupplierShipmentCommand
+            {
+                SupplierId = "SUP1",
+                CarrierCode = "CUSTOM",
+                CarrierName = "自定义承运商",
+                TrackingNo = "CUSTOM-TRACK",
+                PackageTemperature = "CHILLED"
+            },
+            transaction);
+        var exception = await adapter.AppendTrackingEventAsync(
+            new LogisticsTrackingEventCommand
+            {
+                OrderId = "ORDER1",
+                SupplierId = "SUP1",
+                StatusCode = LogisticsStatusCodes.InTransit,
+                Location = "杭州中转场",
+                Description = "运输温度采集",
+                TemperatureCelsius = 12m,
+                OccurredAt = DateTime.Now.AddHours(1)
+            },
+            transaction);
+
+        AssertEx.Equal("自定义承运商", shipment.CarrierName);
+        AssertEx.Equal("CUSTOM-TRACK", shipment.TrackingNo);
+        AssertEx.True(shipment.IsFallback);
+        AssertEx.Equal(1, shipment.Events.Count);
+        AssertEx.Equal(LogisticsStatusCodes.Exception, exception.StatusCode);
+        AssertEx.True(exception.HasException);
+        AssertEx.True(exception.Events.Last().IsTemperatureException);
+    }
+
+    private static async Task LogisticsFallbackDetectsDelayAsync()
+    {
+        var provider = CreateExtensionProvider();
+        using var transaction = new FakeOrderTransaction();
+        await provider.RegisterShipmentAsync(
+            new LogisticsShipmentRegistration
+            {
+                DeliveryId = "DEL1",
+                OrderId = "ORDER1",
+                SupplierId = "SUP1",
+                BaseTrackingNo = "TRACK1",
+                BaseStatus = LogisticsStatusCodes.Shipped,
+                ShippedAt = DateTime.Now.AddDays(-2),
+                Command = new SupplierShipmentCommand
+                {
+                    SupplierId = "SUP1",
+                    PackageTemperature = "CHILLED",
+                    EstimatedArrivalAt = DateTime.Now.AddMinutes(-1)
+                }
+            },
+            transaction);
+
+        var result = await provider.GetSnapshotAsync(new LogisticsTraceSeed
+        {
+            DeliveryId = "DEL1",
+            OrderId = "ORDER1",
+            SupplierId = "SUP1",
+            TrackingNo = "TRACK1",
+            StatusCode = LogisticsStatusCodes.Shipped,
+            ShippedAt = DateTime.Now.AddDays(-2)
+        });
+
+        AssertEx.Equal(LogisticsStatusCodes.Exception, result.StatusCode);
+        AssertEx.True(result.HasException);
+        AssertEx.Equal("测试包裹已延误", result.ExceptionMessage);
+    }
+
+    private static async Task LogisticsFallbackEventIsIdempotentAsync()
+    {
+        var provider = CreateExtensionProvider();
+        using var transaction = new FakeOrderTransaction();
+        await provider.RegisterShipmentAsync(
+            new LogisticsShipmentRegistration
+            {
+                DeliveryId = "DEL-IDEMPOTENT",
+                OrderId = "ORDER-IDEMPOTENT",
+                SupplierId = "SUP1",
+                BaseTrackingNo = "TRACK-IDEMPOTENT",
+                BaseStatus = LogisticsStatusCodes.Shipped,
+                ShippedAt = DateTime.Now.AddHours(-1),
+                Command = new SupplierShipmentCommand
+                {
+                    SupplierId = "SUP1",
+                    PackageTemperature = "CHILLED"
+                }
+            },
+            transaction);
+        var command = new LogisticsTrackingEventCommand
+        {
+            EventId = "EVENT-IDEMPOTENT",
+            OrderId = "ORDER-IDEMPOTENT",
+            SupplierId = "SUP1",
+            StatusCode = LogisticsStatusCodes.InTransit,
+            Location = "杭州中转场",
+            Description = "包裹运输中",
+            OccurredAt = DateTime.Now,
+            TemperatureCelsius = 4m
+        };
+
+        var first = await provider.AppendTrackingEventAsync(command, transaction);
+        var second = await provider.AppendTrackingEventAsync(command, transaction);
+
+        AssertEx.Equal(first.Events.Count, second.Events.Count);
+        AssertEx.Equal(1, second.Events.Count(item => item.EventId == command.EventId));
+    }
+
+    private static FallbackGroupALogisticsExtensionProvider CreateExtensionProvider() =>
+        new(Options.Create(new GroupALogisticsFallbackOptions
+        {
+            CarrierCode = "TEST_CARRIER",
+            CarrierName = "测试承运商",
+            OriginLocation = "测试冷链仓",
+            ShippedDescription = "测试包裹已出库",
+            DelayDescription = "测试包裹已延误",
+            EstimatedTransitHours = 24,
+            ChilledMinimumCelsius = 0,
+            ChilledMaximumCelsius = 8,
+            FrozenMaximumCelsius = -18
+        }));
 }
 
 internal sealed class AttachedTransactionUnitOfWork : IUnitOfWork
@@ -197,6 +353,7 @@ internal sealed class StubProductInventoryService : IProductInventoryService
             : ApiResponse<InventoryDto>.Fail("不存在", 404));
 
     public Task<ApiResponse<PagedResult<ProductDto>>> GetProductsAsync(int pageIndex, int pageSize, string? keyword = null) => throw new NotSupportedException();
+    public Task<ApiResponse<ProductSupplierMediaDto>> GetSupplierProductMediaAsync(string productId, string? supplierId) => throw new NotSupportedException();
     public Task<ApiResponse<ProductDto>> CreateProductAsync(CreateProductDto dto) => throw new NotSupportedException();
     public Task<ApiResponse<ProductDto>> UpdateProductAsync(string id, UpdateProductDto dto) => throw new NotSupportedException();
     public Task<ApiResponse> DeleteProductAsync(string id) => throw new NotSupportedException();
@@ -228,6 +385,11 @@ internal sealed class StubSupplierService : ISupplierService
     public Task<ApiResponse> SetSupplyPriceAsync(string supplierId, string productId, decimal supplyPrice, int? shelfLifeHours = null) => throw new NotSupportedException();
     public Task<ApiResponse<SupplierDto>> SupplierLoginAsync(string loginAccount, string password) => throw new NotSupportedException();
     public Task<ApiResponse<List<SupplierProductQuoteDto>>> GetAllProductQuotesForSupplierAsync(string supplierId) => throw new NotSupportedException();
+    public Task<ApiResponse<SupplierProductQuoteDto>> GetProductInfoForSupplierAsync(string supplierId, string productId) => throw new NotSupportedException();
+    public Task<ApiResponse> UpdateProductDescriptionAsync(string supplierId, string productId, string? description) => throw new NotSupportedException();
+    public Task<ApiResponse> AddProductImageAsync(string supplierId, string productId, byte[] imageData, string imageType) => throw new NotSupportedException();
+    public Task<ApiResponse<ProductImageContentDto>> GetProductImageContentAsync(string imageId) => throw new NotSupportedException();
+    public Task<ApiResponse<string>> DeleteProductImageAsync(string supplierId, string imageId) => throw new NotSupportedException();
     public Task<ApiResponse<List<SupplierAccountDto>>> FindSupplierAccountAsync(string? supplierId = null, string? supplierName = null, string? loginAccount = null, string? contactPhone = null) => throw new NotSupportedException();
     public Task<ApiResponse<bool>> VerifySupplierPasswordAsync(string loginAccount, string password) => throw new NotSupportedException();
     public Task<ApiResponse<List<SupplierProductEntryDto>>> SearchSupplierProductEntriesAsync(string? keyword) => throw new NotSupportedException();

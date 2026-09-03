@@ -37,8 +37,9 @@ public class GroupC_CrmProductEntry
     public decimal? PromoterPrice { get; set; }
 
     /// <summary>
-    /// 团长带货介绍文字（给消费者端展示）。
-    /// 入团时默认复制供应商商品文字（Inv_Products.Description），团长可修改/重写。
+    /// 团长带货介绍存储值（图文介绍改造后）：空=无介绍；
+    /// /uploads/promoter-desc/*.json=图文内容文件相对路径；
+    /// 其它非空串=历史纯文字介绍（兼容读取，团长保存图文介绍后转为相对路径）。
     /// </summary>
     [Column("PROMOTERDESC")]
     [MaxLength(2000)]

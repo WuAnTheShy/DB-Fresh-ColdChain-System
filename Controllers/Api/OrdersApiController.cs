@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FreshColdChain.Controllers.Api;
@@ -8,7 +9,9 @@ namespace FreshColdChain.Controllers.Api;
 [ApiController]
 [Route("api/orders")]
 public sealed class OrdersApiController(
-    IOrderService orderService) : GroupBApiController
+    IOrderService orderService,
+    ICustomerService customerService,
+    IColdChainLogisticsService coldChainLogisticsService) : GroupBApiController
 {
     [HttpGet]
     public async Task<IActionResult> GetOrders([FromQuery] OrderQueryRequest request)
@@ -108,20 +111,80 @@ public sealed class OrdersApiController(
                 order.UpdatedAt
             },
             detail.CustomerName,
-            details = detail.Details.Select(item => new
+            details = detail.Details.Select(item =>
             {
-                item.OrderDetailId,
-                item.OrderId,
-                item.ProductId,
-                item.ProductName,
-                item.Quantity,
-                item.UnitPrice,
-                item.SubTotal,
-                item.ReceiptStatus,
-                item.ReceivedAt,
-                canConfirmReceipt = order.OrderStatus == OrderStatusCodes.Shipped &&
-                    !string.Equals(item.ReceiptStatus, "RECEIVED", StringComparison.Ordinal)
+                var package = detail.SupplierGroups.FirstOrDefault(group =>
+                    group.Items.Any(groupItem =>
+                        groupItem.OrderDetailId == item.OrderDetailId));
+                return new
+                {
+                    item.OrderDetailId,
+                    item.OrderId,
+                    item.ProductId,
+                    item.ProductName,
+                    item.Quantity,
+                    item.UnitPrice,
+                    item.SubTotal,
+                    item.ReceiptStatus,
+                    item.ReceivedAt,
+                    canConfirmReceipt = package?.Logistics.StatusCode ==
+                        LogisticsStatusCodes.Delivered &&
+                        !string.Equals(item.ReceiptStatus, "RECEIVED", StringComparison.Ordinal)
+                };
             }),
+            packages = detail.SupplierGroups.Select((group, index) => new
+            {
+                packageNumber = index + 1,
+                group.SubTotal,
+                itemIds = group.Items.Select(item => item.OrderDetailId),
+                logistics = new
+                {
+                    group.Logistics.CarrierCode,
+                    group.Logistics.CarrierName,
+                    group.Logistics.TrackingNo,
+                    group.Logistics.PackageTemperature,
+                    group.Logistics.StatusCode,
+                    group.Logistics.StatusName,
+                    group.Logistics.ShippedAt,
+                    group.Logistics.EstimatedArrivalAt,
+                    group.Logistics.DeliveredAt,
+                    group.Logistics.HasException,
+                    group.Logistics.ExceptionMessage,
+                    group.Logistics.DataSource,
+                    group.Logistics.IsFallback,
+                    events = group.Logistics.Events.Select(item => new
+                    {
+                        item.EventId,
+                        item.StatusCode,
+                        item.StatusName,
+                        item.Location,
+                        item.Description,
+                        item.OccurredAt,
+                        item.TemperatureCelsius,
+                        item.IsTemperatureException
+                    })
+                }
+            }),
+            freightQuote = detail.FreightQuote == null ? null : new
+            {
+                detail.FreightQuote.SchemaVersion,
+                detail.FreightQuote.FreightAmount,
+                detail.FreightQuote.GoodsAmount,
+                detail.FreightQuote.Province,
+                detail.FreightQuote.City,
+                detail.FreightQuote.District,
+                detail.FreightQuote.RuleSummary,
+                detail.FreightQuote.CalculatedAt,
+                detail.FreightQuote.DataSource,
+                items = detail.FreightQuote.Items.Select(item => new
+                {
+                    item.ProductId,
+                    item.ProductName,
+                    item.Quantity,
+                    item.UnitPrice,
+                    item.SubTotal
+                })
+            },
             detail.CanComplete,
             detail.CanCancel,
             detail.StatusName
@@ -144,23 +207,73 @@ public sealed class OrdersApiController(
         return StatusCode(StatusCodes.Status201Created, result);
     }
 
-    [HttpPost("{orderId}/transition")]
-    public async Task<IActionResult> TransitionOrder(
-        string orderId,
-        OrderTransitionRequest request,
-        CancellationToken cancellationToken)
+    [HttpPost("freight-quote")]
+    public async Task<IActionResult> QuoteFreight(CheckoutFreightQuoteRequest request)
     {
-        if (request.TargetStatus == OrderStatus.Completed)
-            return BadRequest(new { message = "请在订单详情中按商品分别确认收货" });
+        var signedInCustomerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(signedInCustomerId)) return ApiUnauthorized();
+        if (!string.Equals(request.CustomerId, signedInCustomerId, StringComparison.Ordinal))
+            return ApiForbidden();
 
-        var authorizationError = await AuthorizeOrderAsync(orderId);
-        if (authorizationError != null) return authorizationError;
+        var address = await customerService.GetAddressForEditAsync(
+            signedInCustomerId,
+            request.AddressId);
+        if (address == null) return ApiNotFound("收货地址不存在或不属于当前消费者");
 
-        await orderService.TransitionOrderAsync(
-            orderId,
-            request.TargetStatus!.Value,
-            cancellationToken);
-        return NoContent();
+        var normalizedItems = request.Items
+            .GroupBy(item => new { item.PromoterId, item.ProductId })
+            .Select(group => new
+            {
+                group.Key.PromoterId,
+                group.Key.ProductId,
+                Quantity = group.Sum(item => item.Quantity),
+                ClientUnitPrice = group.First().ClientUnitPrice
+            })
+            .ToList();
+        if (normalizedItems.Count == 0 || normalizedItems.Any(item =>
+                string.IsNullOrWhiteSpace(item.PromoterId) ||
+                string.IsNullOrWhiteSpace(item.ProductId) ||
+                item.Quantity <= 0 ||
+                item.ClientUnitPrice is not > 0))
+            return ApiBadRequest("运费计算商品信息无效");
+
+        decimal freightAmount = 0;
+        var groupQuotes = new List<object>();
+        foreach (var promoterGroup in normalizedItems
+                     .GroupBy(item => item.PromoterId, StringComparer.Ordinal)
+                     .OrderBy(group => group.Key, StringComparer.Ordinal))
+        {
+            var goodsAmount = promoterGroup.Sum(item =>
+                item.ClientUnitPrice!.Value * item.Quantity);
+            var quote = await coldChainLogisticsService.QuoteFreightAsync(new FreightQuoteRequest
+            {
+                Province = address.Province,
+                City = address.City,
+                District = address.District,
+                GoodsAmount = goodsAmount,
+                Items = promoterGroup.Select(item => new FreightItemDto
+                {
+                    ProductID = item.ProductId,
+                    Quantity = item.Quantity
+                }).ToList()
+            });
+            if (!quote.IsSuccess || quote.Data == null)
+                return ApiBadRequest($"冷链运费计算失败：{quote.Message}");
+
+            freightAmount += quote.Data.FreightAmount;
+            groupQuotes.Add(new
+            {
+                promoterId = promoterGroup.Key,
+                freightAmount = quote.Data.FreightAmount,
+                quote.Data.RuleSummary
+            });
+        }
+
+        return Ok(new
+        {
+            freightAmount = decimal.Round(freightAmount, 2),
+            groups = groupQuotes
+        });
     }
 
     [HttpPost("{orderId}/cancel")]
@@ -205,11 +318,4 @@ public sealed class OrdersApiController(
             ? null
             : ApiForbidden();
     }
-}
-
-public sealed class OrderTransitionRequest
-{
-    [Required(ErrorMessage = "请选择目标状态")]
-    [EnumDataType(typeof(OrderStatus), ErrorMessage = "目标状态无效")]
-    public OrderStatus? TargetStatus { get; set; }
 }

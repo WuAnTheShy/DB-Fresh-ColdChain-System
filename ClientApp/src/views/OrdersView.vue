@@ -2,7 +2,6 @@
 import { BadgeCheck, ChevronLeft, ChevronRight, PackageSearch, Search, ShoppingBag } from '@lucide/vue'
 import { onMounted, reactive, ref } from 'vue'
 import StatusBadge from '../components/StatusBadge.vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
 
@@ -44,7 +43,6 @@ onMounted(loadOrders)
 
 <template>
   <div class="store-container page-space orders-page">
-    <StoreBreadcrumb :items="[{ label: '我的订单' }]" />
     <div class="account-page-header"><div><PackageSearch :size="26" /><span><h1>我的订单</h1></span></div><form class="order-search" @submit.prevent="search"><input v-model.trim="filters.keyword" type="search" placeholder="搜索订单号" /><button type="submit" title="搜索订单"><Search :size="18" /></button></form></div>
 
     <nav class="order-tabs" aria-label="订单状态">

@@ -35,10 +35,12 @@ public class ProductInventoryService : IProductInventoryService
     public async Task<ApiResponse<PagedResult<ProductDto>>> GetProductsAsync(int pageIndex, int pageSize, string? keyword = null)
     {
         var (items, total) = await _productRepo.GetPagedWithDetailsAsync(pageIndex, pageSize, keyword);
+        var dtos = items.Select(MapToDto).ToList();
+        await AttachProductImagesAsync(dtos);
         return ApiResponse<PagedResult<ProductDto>>.Success(new PagedResult<ProductDto>
         {
             PageIndex = pageIndex, PageSize = pageSize, TotalCount = total,
-            Items = items.Select(MapToDto).ToList()
+            Items = dtos
         });
     }
 
@@ -46,7 +48,82 @@ public class ProductInventoryService : IProductInventoryService
     {
         var p = await _productRepo.GetByIdWithDetailsAsync(id);
         if (p == null) return ApiResponse<ProductDto>.Fail("产品不存在", 404);
-        return ApiResponse<ProductDto>.Success(MapToDto(p));
+        var dto = MapToDto(p);
+        await AttachProductImagesAsync(new[] { dto });
+        return ApiResponse<ProductDto>.Success(dto);
+    }
+
+    public async Task<ApiResponse<ProductSupplierMediaDto>> GetSupplierProductMediaAsync(string productId, string? supplierId)
+    {
+        try
+        {
+            var product = await _productRepo.GetByIdAsync(productId);
+            if (product == null) return ApiResponse<ProductSupplierMediaDto>.Fail("产品不存在", 404);
+
+            // 报价该商品的供应商（下拉选项）
+            var quotes = await _supplierPriceRepo.GetQuotesByProductWithSupplierAsync(productId);
+            var media = new ProductSupplierMediaDto
+            {
+                Suppliers = quotes
+                    .Where(q => q.Supplier != null)
+                    .GroupBy(q => q.SupplierID)
+                    .Select(g => new SupplierMediaOptionDto
+                    {
+                        SupplierID = g.Key,
+                        SupplierName = g.First().Supplier!.SupplierName
+                    })
+                    .OrderBy(o => o.SupplierName)
+                    .ToList()
+            };
+
+            // 选中供应商后，取其简介与图片
+            if (!string.IsNullOrWhiteSpace(supplierId))
+            {
+                var quote = quotes.FirstOrDefault(q => q.SupplierID == supplierId);
+                var option = media.Suppliers.FirstOrDefault(s => s.SupplierID == supplierId);
+                media.SelectedSupplierID = supplierId;
+                media.SelectedSupplierName = option?.SupplierName ?? supplierId;
+                media.Description = quote?.Description ?? product.Description;
+
+                var allImages = (await _productRepo.GetAllProductImagesAsync())
+                    .Where(img => img.HasData)
+                    .ToList();
+                media.Images = allImages
+                    .Where(img => img.ProductID == productId
+                                  && (img.SupplierID == supplierId || img.SupplierID == null))
+                    .OrderBy(img => img.SupplierID != supplierId) // 该供应商的图在前，平台通用图在后
+                    .ThenBy(img => img.SortOrder)
+                    .ThenBy(img => img.CreateTime)
+                    .Take(3)
+                    .Select(img => img.ImageUrl)
+                    .ToList();
+            }
+
+            return ApiResponse<ProductSupplierMediaDto>.Success(media);
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<ProductSupplierMediaDto>.Fail($"查询供应商图文失败：{ex.Message}");
+        }
+    }
+
+    /// <summary>为产品 DTO 批量附加商品图片（按商品分组，取展示顺序前 3 张）</summary>
+    private async Task AttachProductImagesAsync(IEnumerable<ProductDto> dtos)
+    {
+        var imageMap = (await _productRepo.GetAllProductImagesAsync())
+            .Where(img => img.HasData) // 仅展示真正有二进制数据的图片
+            .GroupBy(img => img.ProductID)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderBy(img => img.SortOrder)
+                      .Select(img => img.ImageUrl)
+                      .Take(3)
+                      .ToList());
+        foreach (var dto in dtos)
+        {
+            if (imageMap.TryGetValue(dto.ProductID, out var urls))
+                dto.Images = urls;
+        }
     }
 
     public async Task<ApiResponse<ProductDto>> CreateProductAsync(CreateProductDto dto)
@@ -429,6 +506,7 @@ public class ProductInventoryService : IProductInventoryService
         Unit = p.Unit, WeightKG = p.WeightKG, VolumeLitre = p.VolumeLitre,
         ExpiryHours = p.ExpiryHours, StorageReq = p.StorageReq,
         DefaultPrice = p.DefaultPrice, Status = p.Status,
-        AvailableStock = p.StockSummary?.AvailableQty ?? 0
+        AvailableStock = p.StockSummary?.AvailableQty ?? 0,
+        Description = p.Description
     };
 }

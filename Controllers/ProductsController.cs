@@ -23,10 +23,14 @@ public class ProductsController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Details(string id)
+    public async Task<IActionResult> Details(string id, string? supplierId)
     {
         var r = await _service.GetProductByIdAsync(id);
         if (!r.IsSuccess) return NotFound(r.Message);
+
+        // 供应商图文区块：下拉选择供应商后显示其简介与图片
+        var media = await _service.GetSupplierProductMediaAsync(id, supplierId);
+        ViewBag.Media = media.Data ?? new ProductSupplierMediaDto();
         return View(r.Data);
     }
 

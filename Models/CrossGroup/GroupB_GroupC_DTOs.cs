@@ -8,6 +8,12 @@
         public bool IsSuccess { get; set; } = false;                //是否成功
         public string ErrorMessage { get; set; } = string.Empty;    //错误信息
     }
+    public class RefundPreviewResult : Result
+    {
+        public decimal RefundAmount { get; set; }
+        public decimal GoodsRefundAmount { get; set; }
+        public decimal FreightRefundAmount { get; set; }
+    }
     public class CommissionResult:Result
     {
         public decimal CommBaseAmount { get; set; } = 0;            //基础佣金
