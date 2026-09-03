@@ -548,5 +548,11 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
     grid-template-columns: 1fr;
     gap: 9px;
   }
+
+  /* 移动端今日推荐商品列表单列 */
+  .product-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
 }
 </style>

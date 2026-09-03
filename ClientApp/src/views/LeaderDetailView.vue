@@ -283,5 +283,11 @@ async function handleFollow() {
   .leader-stat-row>div>svg {
     display: none;
   }
+
+  /* 移动端团长带货商品列表单列 */
+  .product-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
 }
 </style>
