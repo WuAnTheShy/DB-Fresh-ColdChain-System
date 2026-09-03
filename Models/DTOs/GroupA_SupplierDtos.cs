@@ -10,6 +10,8 @@ public class SupplierDto
     public string? ContactPhone { get; set; }
     public string? LoginAccount { get; set; }
     public int ProductCount { get; set; }
+    /// <summary>该供应商关联的商品名称（仅名称）</summary>
+    public List<string> ProductNames { get; set; } = new();
     /// <summary>状态: Pending / Active / Disabled / Rejected</summary>
     public string Status { get; set; } = "Active";
 }

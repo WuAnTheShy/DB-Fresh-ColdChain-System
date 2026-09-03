@@ -390,7 +390,21 @@ public class SupplierService : ISupplierService
     public async Task<ApiResponse<List<SupplierDto>>> GetAllSuppliersAsync()
     {
         var all = await _repo.GetAllAsync();
-        return ApiResponse<List<SupplierDto>>.Success(all.Select(MapToDto).ToList());
+        var products = await _productRepo.GetAllAsync();
+        var namesBySupplier = products
+            .Where(p => !string.IsNullOrWhiteSpace(p.SupplierID) && !string.IsNullOrWhiteSpace(p.ProductName))
+            .GroupBy(p => p.SupplierID!)
+            .ToDictionary(g => g.Key, g => g.Select(p => p.ProductName).Distinct().ToList());
+
+        var list = all.Select(s =>
+        {
+            var dto = MapToDto(s);
+            dto.ProductNames = namesBySupplier.GetValueOrDefault(s.SupplierID) ?? new List<string>();
+            dto.ProductCount = dto.ProductNames.Count;
+            return dto;
+        }).ToList();
+
+        return ApiResponse<List<SupplierDto>>.Success(list);
     }
 
     /// <summary>按状态查询供应商（如 Pending 待审核列表）</summary>
@@ -444,7 +458,7 @@ public class SupplierService : ISupplierService
         CreditLevel = s.CreditLevel, ContactPhone = s.ContactPhone,
         LoginAccount = s.LoginAccount,
         Status = s.Status,
-        // SQL 聚合查出来的产品数优先（列表页）；否则用已加载的 Products（详情页）
-        ProductCount = s.ProductCount > 0 ? s.ProductCount : (s.Products?.Count ?? 0)
+        ProductCount = s.ProductCount > 0 ? s.ProductCount : (s.Products?.Count ?? 0),
+        ProductNames = s.Products?.Select(p => p.ProductName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().ToList() ?? new()
     };
 }
