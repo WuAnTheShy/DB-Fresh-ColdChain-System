@@ -1,5 +1,5 @@
 <script setup>
-import { AlertTriangle, BadgeCheck, Ban, Check, CheckCircle2, ChevronLeft, Clock3, CreditCard, MapPin, PackageCheck, RefreshCw, RotateCcw, Snowflake, Truck } from '@lucide/vue'
+import { AlertTriangle, BadgeCheck, Ban, Check, CheckCircle2, ChevronLeft, Clock3, CreditCard, MapPin, PackageCheck, RefreshCw, RotateCcw, Snowflake, Truck, X } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { api } from '../services/api'
@@ -12,6 +12,7 @@ const acting = ref(false)
 const detail = ref(null)
 const error = ref('')
 const success = ref('')
+const cancelDialogOpen = ref(false)
 const timeline = computed(() => {
   const status = detail.value?.order?.orderStatus
   const progress = { PENDING_PAYMENT: 0, PAID: 1, SHIPPED: 2, COMPLETED: 3 }[status] ?? 0
@@ -31,6 +32,13 @@ async function loadOrder() {
 async function runAction(action, message) {
   acting.value = true; error.value = ''; success.value = ''
   try { await action(); success.value = message; await loadOrder() } catch (requestError) { error.value = requestError.message } finally { acting.value = false }
+}
+function cancelPendingOrder() {
+  cancelDialogOpen.value = true
+}
+function confirmCancelOrder() {
+  cancelDialogOpen.value = false
+  runAction(() => api.cancelOrder(props.id), '订单已取消')
 }
 onMounted(loadOrder)
 </script>
@@ -201,8 +209,8 @@ onMounted(loadOrder)
             <RouterLink v-if="['PAID', 'SHIPPED', 'COMPLETED', 'REFUNDING'].includes(detail.order.orderStatus)"
               class="btn btn-outline-danger" :to="`/orders/${id}/refund`">
               <RotateCcw :size="16" />申请退款
-            </RouterLink><button v-if="detail.canCancel" class="btn btn-outline-danger" type="button" :disabled="acting"
-              @click="runAction(() => api.cancelOrder(id), '订单已取消')">
+            </RouterLink><button v-if="detail.order.orderStatus === 'PENDING_PAYMENT'" class="btn btn-outline-danger"
+              type="button" :disabled="acting" @click="cancelPendingOrder">
               <Ban :size="17" />取消订单
             </button><button class="btn btn-outline-secondary" type="button" @click="loadOrder">
               <RefreshCw :size="16" />刷新状态
@@ -211,6 +219,17 @@ onMounted(loadOrder)
         </aside>
       </div>
     </template>
+
+    <div v-if="cancelDialogOpen" class="cancel-dialog-backdrop" role="presentation" @click.self="cancelDialogOpen = false">
+      <section class="cancel-dialog" role="dialog" aria-modal="true" aria-labelledby="cancel-dialog-title">
+        <button class="cancel-dialog-close" type="button" aria-label="关闭" @click="cancelDialogOpen = false"><X :size="20" /></button>
+        <span class="cancel-dialog-icon"><Ban :size="30" /></span>
+        <h2 id="cancel-dialog-title">取消待支付订单？</h2>
+        <p v-if="detail?.order?.checkoutBatchId">将同时关闭同批次的其他子订单，并归还已使用的优惠券与积分。</p>
+        <p v-else>取消后将归还已使用的优惠券与积分。</p>
+        <div><button class="btn btn-outline-secondary" type="button" :disabled="acting" @click="cancelDialogOpen = false">再想想</button><button class="btn btn-outline-danger" type="button" :disabled="acting" @click="confirmCancelOrder"><span v-if="acting" class="spinner-border spinner-border-sm"></span>确认取消</button></div>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -719,5 +738,66 @@ onMounted(loadOrder)
   .parcel-facts {
     grid-template-columns: 1fr;
   }
+}
+
+.cancel-dialog-backdrop {
+  position: fixed;
+  z-index: 1080;
+  display: grid;
+  padding: 18px;
+  background: rgba(10, 25, 20, .52);
+  inset: 0;
+  place-items: center;
+}
+
+.cancel-dialog {
+  position: relative;
+  width: min(440px, 100%);
+  padding: 30px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .22);
+  text-align: center;
+}
+
+.cancel-dialog-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  padding: 5px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.cancel-dialog-icon {
+  display: inline-flex;
+  width: 58px;
+  height: 58px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fdeaea;
+  color: var(--danger);
+}
+
+.cancel-dialog h2 {
+  margin: 14px 0 7px;
+  font-size: 21px;
+}
+
+.cancel-dialog p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.cancel-dialog>div {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
 }
 </style>

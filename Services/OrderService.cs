@@ -828,6 +828,18 @@ public sealed class OrderService : IOrderService
             cancellationToken.ThrowIfCancellationRequested();
             var context = await GetLockedOrderContextAsync(orderId, transaction);
             var currentStatus = OrderStatusCodes.Parse(context.Order.OrderStatus);
+
+            // 待支付订单属于结算批次，冻结的优惠券/积分挂在批次维度，
+            // 只能整批取消（与支付超时自动关闭逻辑保持一致），不能单独取消某一个子订单。
+            if (currentStatus == OrderStatus.PendingPayment)
+            {
+                await CancelPendingCheckoutBatchAsync(
+                    context,
+                    transaction,
+                    cancellationToken);
+                return;
+            }
+
             OrderStateMachine.EnsureTransition(
                 currentStatus,
                 OrderStatus.Cancelled);
@@ -894,6 +906,74 @@ public sealed class OrderService : IOrderService
                 throw new OrderBusinessException("订单状态已变化，请刷新后重试");
             }
         });
+    }
+
+    /// <summary>
+    /// 取消整个待支付结算批次：归还冻结积分与核销的用户券，并将批次内所有
+    /// 待支付子订单一并置为已取消。任一步失败整体回滚。
+    /// </summary>
+    private async Task CancelPendingCheckoutBatchAsync(
+        LockedOrderContext context,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var orders = new List<BizOrder>();
+        if (!string.IsNullOrWhiteSpace(context.Order.CheckoutBatchId))
+        {
+            orders = await _orderRepo.GetByCheckoutBatchForUpdateAsync(
+                context.Order.CheckoutBatchId,
+                context.Customer.CustomerId,
+                transaction);
+            if (orders.Count == 0)
+                throw new OrderBusinessException("结算批次不存在或不属于当前消费者");
+            if (orders.Any(order =>
+                order.OrderStatus != OrderStatusCodes.PendingPayment))
+            {
+                throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
+            }
+        }
+        else
+        {
+            orders.Add(context.Order);
+        }
+
+        var pointsToRestore = orders.Sum(order => order.PointsUsed);
+        if (pointsToRestore > 0)
+        {
+            var restoredBalance = checked(context.Customer.Points + pointsToRestore);
+            await _customerRepo.UpdatePointsAsync(
+                context.Customer.CustomerId,
+                restoredBalance,
+                transaction);
+            await _pointRepo.InsertLogAsync(new CrmPointLog
+            {
+                PointLogId = GroupBIds.NewId(),
+                CustomerId = context.Customer.CustomerId,
+                ChangeAmount = pointsToRestore,
+                BalanceAfter = restoredBalance,
+                ChangeType = "ORDER_REDEEM_RESTORE",
+                OrderId = orders[0].OrderId
+            }, transaction);
+        }
+
+        foreach (var order in orders)
+        {
+            _ = await _couponRepo.RestoreCouponForCancelledOrderAsync(
+                order.OrderId,
+                context.Customer.CustomerId,
+                transaction);
+
+            if (!await _orderRepo.TryUpdateStatusAsync(
+                order.OrderId,
+                OrderStatus.PendingPayment,
+                OrderStatus.Cancelled,
+                transaction))
+            {
+                throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
+            }
+        }
     }
 
     /// <summary>
