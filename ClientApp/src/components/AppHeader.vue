@@ -1,6 +1,6 @@
 <script setup>
 import { LogOut, MapPin, Menu, Search, ShoppingCart, UserRound, X } from '@lucide/vue'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useShop } from '../state/shop'
 import { avatarUrl } from '../assets/avatars'
@@ -13,6 +13,11 @@ const { categories, cartCount } = useShop()
 const { customerName, isAuthenticated, deliveryLocation, avatar, clearCustomer } = useCustomerContext()
 const keyword = ref(String(route.query.q ?? ''))
 const loggingOut = ref(false)
+
+const navCategories = computed(() => {
+  const sortKey = (name) => (name === '其他' || name === '其它' ? 1 : 0)
+  return [...categories].sort((a, b) => sortKey(a.name) - sortKey(b.name))
+})
 
 watch(() => route.query.q, (value) => {
   keyword.value = String(value ?? '')
@@ -57,7 +62,7 @@ async function logout() {
         <form class="global-search" role="search" @submit.prevent="search">
           <select class="search-category d-none d-md-block" aria-label="商品分类">
             <option>全部</option>
-            <option v-for="category in categories" :key="category.slug">{{ category.name }}</option>
+            <option v-for="category in navCategories" :key="category.slug">{{ category.name }}</option>
           </select>
           <input v-model="keyword" type="search" placeholder="搜索鲜邻团" aria-label="搜索" />
           <button type="submit" aria-label="提交搜索" title="搜索">
@@ -88,7 +93,7 @@ async function logout() {
           <Menu :size="17" />全部分类
         </RouterLink>
         <RouterLink to="/following">我的关注</RouterLink>
-        <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`">{{
+        <RouterLink v-for="category in navCategories" :key="category.slug" :to="`/category/${category.slug}`">{{
           category.name }}</RouterLink>
         <RouterLink to="/coupons">领券中心</RouterLink>
       </div>
@@ -105,7 +110,7 @@ async function logout() {
       <div class="offcanvas-body">
         <p class="mobile-menu-label">商城导航</p>
         <RouterLink to="/following" data-bs-dismiss="offcanvas">我的关注</RouterLink>
-        <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`"
+        <RouterLink v-for="category in navCategories" :key="category.slug" :to="`/category/${category.slug}`"
           data-bs-dismiss="offcanvas">{{ category.name }}</RouterLink>
         <RouterLink to="/coupons" data-bs-dismiss="offcanvas">领券中心</RouterLink>
         <RouterLink to="/addresses" data-bs-dismiss="offcanvas">收货地址</RouterLink>
