@@ -59,7 +59,7 @@ async function handleFollow() {
           <span class="verified-label">
             <BadgeCheck :size="16" />平台认证团长
           </span>
-          <h1>{{ leader.name }}团长</h1>
+          <h1>{{ leader.name }}</h1>
           <p>{{ leader.description }}</p>
           <span class="leader-area">
             <MapPin :size="16" />{{ leader.area }}
