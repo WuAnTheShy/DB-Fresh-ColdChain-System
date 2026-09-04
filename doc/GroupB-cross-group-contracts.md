@@ -136,8 +136,8 @@ Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
 
 ### 3.5 高级物流扩展接口与兜底
 
-A 组当前公开接口尚不能接收承运商、外部运单号、预计送达时间、轨迹事件和运输温度。
-B 组因此新增 `IGroupALogisticsExtensionProvider`，但不修改 A 组现有接口和数据表：
+A 组通过 `IGroupALogisticsExtensionProvider` 接收承运商、外部运单号、预计送达时间、轨迹事件和运输温度。
+用户授权后新增 A 组 Oracle 实现及两张扩展表，B 组仍只调用接口：
 
 ```csharp
 Task<SupplierLogisticsSnapshot> RegisterShipmentAsync(
@@ -155,15 +155,16 @@ Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
     CancellationToken cancellationToken = default);
 ```
 
-当前 `FallbackGroupALogisticsExtensionProvider` 的约束：
+默认 `OracleGroupALogisticsExtensionProvider`，部署前必须执行增量迁移。事务、配置、历史单兼容及验收边界见 `groupA-logistics-persistence.md`。
+`FallbackGroupALogisticsExtensionProvider` 仅允许在 Development 环境显式配置启用，约束如下：
 
 - 仅在进程内保存模拟扩展数据，不写任何 A/B/C 业务表。
 - 承运商、发货地点、描述、时效和温区阈值均来自 `GroupB:LogisticsFallback` 配置。
 - 所有结果明确标记 `DataSource=FALLBACK`，调用方不得将其误认为正式承运商回传数据。
-- A 组提供正式能力后，新建 Provider 实现并替换 DI 注册，B 组订单与页面无需改写。
+- 生产环境不允许使用 Fallback，也不允许 Oracle 异常时静默退回内存。
 - 正式实现的写操作必须使用 B 组传入事务，禁止自行提交或回滚。
 - B 组在调用 `AppendTrackingEventAsync` 前执行物流状态机校验和供应商归属校验。
-- `LogisticsTrackingEventCommand.EventId` 由 B 组生成；正式实现必须按该字段幂等，重复请求不得新增事件。
+- `LogisticsTrackingEventCommand.EventId` 由 B 组生成；Oracle 实现按编号和载荷校验幂等，重复请求不得新增事件，不同载荷必须拒绝。
 - 兜底实现按配置温区阈值识别温控异常，并在超过预计送达时间后生成延误异常。
 - A 组正式实现应返回稳定事件 ID，并对相同事件请求提供幂等保护。
 

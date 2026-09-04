@@ -26,19 +26,7 @@ public static class GroupBServiceCollectionExtensions
         services.AddScoped<IPasswordHasher<CrmCustomer>, PasswordHasher<CrmCustomer>>();
         services.AddScoped<IGroupAInventoryGateway, GroupAInventoryServiceAdapter>();
         services.AddScoped<IGroupAProductCatalogService, GroupAProductCatalogService>();
-        services.AddOptions<GroupALogisticsFallbackOptions>()
-            .Bind(configuration.GetSection(GroupALogisticsFallbackOptions.SectionName))
-            .Validate(options =>
-                    !string.IsNullOrWhiteSpace(options.CarrierCode) &&
-                    !string.IsNullOrWhiteSpace(options.CarrierName) &&
-                    !string.IsNullOrWhiteSpace(options.OriginLocation) &&
-                    !string.IsNullOrWhiteSpace(options.ShippedDescription) &&
-                    !string.IsNullOrWhiteSpace(options.DelayDescription) &&
-                    options.EstimatedTransitHours > 0,
-                "B 组物流兜底配置不完整")
-            .ValidateOnStart();
-        services.AddSingleton<IGroupALogisticsExtensionProvider,
-            FallbackGroupALogisticsExtensionProvider>();
+        services.AddGroupALogisticsPersistence(configuration);
         services.AddScoped<ILogisticsService, GroupALogisticsServiceAdapter>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<ISupplierFulfillmentService, SupplierFulfillmentService>();
