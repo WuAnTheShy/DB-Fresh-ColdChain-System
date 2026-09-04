@@ -366,23 +366,34 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
 }
 
 .category-tile {
-  height: 170px;
+  display: flex;
+  height: auto;
+  flex-direction: column;
   border: 0;
-  border-radius: 4px;
-  background: #eaeded;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
 }
 
 .category-tile img {
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  object-fit: cover;
   opacity: 1;
 }
 
 .category-tile>span {
-  padding: 50px 15px 15px;
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .72));
+  position: static;
+  align-items: center;
+  padding: 9px 4px 4px;
+  background: none;
+  text-align: center;
 }
 
 .category-tile strong {
-  font-size: 18px;
+  color: var(--ink);
+  font-size: 16px;
 }
 
 .section-title-row>span {
@@ -536,12 +547,20 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
   }
 
   .category-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 9px;
   }
 
   .category-tile {
-    height: 120px;
+    height: auto;
+  }
+
+  .category-tile>span {
+    padding-top: 6px;
+  }
+
+  .category-tile strong {
+    font-size: 13px;
   }
 
   .leader-grid {
