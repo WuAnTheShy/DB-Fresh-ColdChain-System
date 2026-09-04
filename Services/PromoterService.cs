@@ -32,9 +32,11 @@ namespace FreshColdChain.Services
 		private readonly IPCRRepository _pcrRepository;
 		// 商品仓库（用于商品图片）
 		private readonly IProductRepository _productRepository;
-		
+		// 团长图文介绍（文件存储：数据库存相对路径，实际内容为 wwwroot 下 JSON 文件）
+		private readonly PromoterIntroStore _introStore;
+
         // 构造函数
-        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPromoterProductRepository iproductRepository,IPCRRepository pcrRepository, IProductRepository productRepository)
+        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPromoterProductRepository iproductRepository,IPCRRepository pcrRepository, IProductRepository productRepository, PromoterIntroStore introStore)
         {
             _uow = uow;
             _ipromoterRepository = ipromoterRepository;
@@ -43,6 +45,7 @@ namespace FreshColdChain.Services
             _iproductRepository = iproductRepository;
 			_pcrRepository = pcrRepository;
 			_productRepository = productRepository;
+			_introStore = introStore;
         }
 
 
@@ -91,13 +94,15 @@ namespace FreshColdChain.Services
 
         /// <summary>
         /// 查询团长带货商品（消费者端查看团长带货接口）：
-        /// 返回已入团商品的（团长文字介绍、售价、商品图片等）。
-        /// 文字介绍优先取团长写的（PromoterDesc），未填写时兜底为供应商商品文字（Description）。
+        /// 返回已入团商品的（团长带货介绍存储值、售价、商品图片等）。
+        /// 介绍存储值语义：空=无介绍；/uploads/promoter-desc/*.json=图文内容文件相对路径（图文介绍改造后格式）；
+        /// 未填写时兜底为供应商商品文字（Description，兼容消费者端纯文本简介）。
         /// </summary>
         public async Task<List<GroupC_FeaturedProductDto>> GetPromoterFeaturedProductsAsync(string promoterId)
         {
             var items = await GetProductEntryDetailsAsync(promoterId);
-            return items.Select(p => new GroupC_FeaturedProductDto
+            // 供应商已下架商品不再对消费者端可见；团长端列表仍展示并标注“已下架”
+            return items.Where(p => p.IsProductActive).Select(p => new GroupC_FeaturedProductDto
             {
                 ProductID = p.ProductID,
                 ProductName = p.ProductName,
@@ -675,13 +680,24 @@ namespace FreshColdChain.Services
             }
         }
 
-        /// <summary>更新已入团（商品，供应商）组合的团长带货介绍文字（团长主动书写/改写）</summary>
-        public async Task<bool> UpdateEntryDescriptionAsync(string promoterId, string productId, string supplierId, string? promoterDesc)
+        /// <summary>
+        /// 更新已入团（商品，供应商）组合的团长带货介绍。
+        /// 团长端提交的是富文本 JSON（title + 多段 text/images）：
+        /// 保存时把图文内容写入 wwwroot/uploads/promoter-desc/ 下 JSON 文件，
+        /// 数据库 PROMOTERDESC 仅存该文件的相对路径；内容为空时删除文件并置空。
+        /// </summary>
+        public async Task<bool> UpdateEntryDescriptionAsync(string promoterId, string productId, string supplierId, string? contentJson)
         {
+            // 解析（非法 JSON 会返回错误信息并抛异常），空内容代表“清除介绍”
+            var (content, error) = PromoterIntroStore.TryParse(contentJson);
+            if (error != null) throw new InvalidOperationException(error);
+
+            var stored = await _introStore.SaveAsync(promoterId, productId, supplierId, content);
+
             await _uow.BeginAsync();
             try
             {
-                var result = await _iproductRepository.UpdateEntryDescriptionAsync(promoterId, productId, supplierId, promoterDesc, _uow.Transaction);
+                var result = await _iproductRepository.UpdateEntryDescriptionAsync(promoterId, productId, supplierId, stored, _uow.Transaction);
                 await _uow.CommitAsync();
                 return result;
             }
@@ -690,6 +706,49 @@ namespace FreshColdChain.Services
                 await _uow.RollbackAsync();
                 throw;
             }
+        }
+
+        /// <summary>
+        /// 查询“该供应商上传的该商品”的全部图片（一次全量返回，供团长编辑图文介绍时选择插入）。
+        /// 商品图片按商品维度存放于 Inv_ProductImages，不截取数量限制。
+        /// </summary>
+        public async Task<List<string>> GetSupplierProductImagesAsync(string productId)
+        {
+            var images = await _productRepository.GetAllProductImagesAsync();
+            return images
+                .Where(img => string.Equals(img.ProductID, productId, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(img => img.SortOrder)
+                .ThenBy(img => img.CreateTime)
+                .Select(img => img.ImageUrl)
+                .Where(url => !string.IsNullOrWhiteSpace(url))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        /// <summary>
+        /// 消费者端读取「团长推文」：团长对某商品的图文介绍（标题 + 段落）。
+        /// 仅返回该团长有效入团且平台在售（IsProductActive）的商品；
+        /// 商品不在该团长在售列表返回 null；无介绍内容返回 HasIntro=false。
+        /// </summary>
+        public async Task<GroupC_PromoterIntroResult?> GetProductIntroAsync(string promoterId, string productId)
+        {
+            if (string.IsNullOrWhiteSpace(promoterId) || string.IsNullOrWhiteSpace(productId)) return null;
+
+            var items = await GetProductEntryDetailsAsync(promoterId);
+            var entry = items.FirstOrDefault(x =>
+                string.Equals(x.ProductID, productId, StringComparison.OrdinalIgnoreCase) && x.IsProductActive);
+            if (entry == null) return null;
+
+            var rich = await _introStore.LoadAsync(entry.PromoterDesc);
+            if (rich == null || rich.IsEmpty())
+                return new GroupC_PromoterIntroResult();
+
+            return new GroupC_PromoterIntroResult
+            {
+                HasIntro = true,
+                Title = rich.Title,
+                Sections = rich.Sections
+            };
         }
 
         /// <summary>将（商品，供应商）从团长入团商品中移除（软删除）</summary>

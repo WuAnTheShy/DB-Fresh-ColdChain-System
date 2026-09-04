@@ -50,6 +50,7 @@ builder.Services.AddGroupBModule(builder.Configuration);
 // C组
 builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<WithdrawalService>();
+builder.Services.AddScoped<PromoterIntroStore>();
 builder.Services.AddScoped<PromoterService>();
 builder.Services.AddScoped<SystemAdminService>();
 builder.Services.AddScoped<ITableLogService, TableLogService>();

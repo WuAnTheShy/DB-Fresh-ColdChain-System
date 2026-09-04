@@ -52,7 +52,11 @@ public class GroupC_FeaturedProductDto
     /// <summary>消费者看到的售价：团长定价（未定价时为商品推荐价）</summary>
     public decimal Price { get; set; }
 
-    /// <summary>团长带货介绍文字（给消费者端展示；缺省时兜底为供应商商品文字）</summary>
+    /// <summary>
+    /// 团长带货介绍存储值：空=无介绍；/uploads/promoter-desc/*.json=图文内容文件相对路径；
+    /// 其它非空串=历史纯文字介绍（兼容，由读取端包装为单段文字）；
+    /// 消费者端目录接口在团长未填写介绍时可能兜底为供应商商品文字。
+    /// </summary>
     public string PromoterDesc { get; set; } = string.Empty;
 
     /// <summary>商品图片（按展示顺序，最多 3 张）</summary>

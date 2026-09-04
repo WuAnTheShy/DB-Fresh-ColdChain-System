@@ -1,9 +1,10 @@
 <script setup>
-import { Apple, BadgeCheck, Beef, Check, ChevronRight, Clock3, Fish, Leaf, LockKeyhole, MapPin, Milk, PackageCheck, ShieldCheck, ShoppingBasket, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
+import { Apple, BadgeCheck, Beef, Check, ChevronRight, Clock3, Fish, Leaf, LockKeyhole, MapPin, Milk, PackageCheck, PenLine, ShieldCheck, ShoppingBasket, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import QuantityStepper from '../components/QuantityStepper.vue'
+import { api } from '../services/api'
 import { useShop } from '../state/shop'
 import { useCustomerContext } from '../state/customer'
 
@@ -20,6 +21,28 @@ const related = computed(() => products.filter((item) => item.id !== String(prop
 const authLink = computed(() => ({ name: 'auth', query: { redirect: route.fullPath } }))
 const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(product.value?.leaderId))
 const followLink = computed(() => canViewPrice.value ? null : `/leaders/${leader.value?.id ?? ''}`)
+const productIntroRoute = computed(() => leader.value && product.value?.productId
+  ? `/leaders/${leader.value.id}/products/${product.value.productId}/intro`
+  : null)
+const introLoaded = ref(false)
+const introVisible = ref(false)
+let introCheckKey = ''
+async function checkIntro() {
+  const p = product.value
+  const l = leader.value
+  const key = `${l?.id ?? ''}|${p?.productId ?? ''}`
+  if (!p || !l || p.isFallback || !p.productId || key === introCheckKey) return
+  introCheckKey = key
+  introLoaded.value = false
+  try {
+    const result = await api.getPromoterProductIntro(l.id, p.productId)
+    introVisible.value = Boolean(result?.hasIntro)
+  } catch {
+    introVisible.value = false
+  } finally {
+    introLoaded.value = true
+  }
+}
 
 // 与商品卡片一致的品类标识：不同图标 + 颜色 + 背景填充圆角
 const categoryStyles = [
@@ -38,6 +61,9 @@ const categoryStyle = computed(() => {
 watch([() => props.id, catalogLoaded], () => {
   if (catalogLoaded.value && !product.value) router.replace('/search')
 }, { immediate: true })
+
+// 目录就绪或切换商品后检查该商品是否有团长推文（决定是否显示推文入口）
+watch([() => props.id, () => product.value?.leaderId, () => product.value?.isFallback], () => checkIntro())
 
 onMounted(() => loadCatalog().catch(() => { }))
 
@@ -149,6 +175,15 @@ function buyNow() {
               :class="`storage-text storage-text-${product.storageType.toLowerCase()}`">{{ product.storage
               }}</em></small></span>
       </div>
+    </section>
+
+    <section v-if="introVisible && productIntroRoute" class="promoter-intro-entry">
+      <div class="promoter-intro-entry-icon"><PenLine :size="20" /></div>
+      <div class="promoter-intro-entry-copy">
+        <strong>{{ leader.name }}团长 · 推荐语</strong>
+        <span>团长为这款商品撰写了图文推文，去听听他的推荐理由</span>
+      </div>
+      <RouterLink :to="productIntroRoute" class="promoter-intro-entry-link">查看团长推文<ChevronRight :size="15" /></RouterLink>
     </section>
 
     <section class="product-description-section">
@@ -641,6 +676,75 @@ function buyNow() {
   .detail-info-band>div {
     min-height: 68px;
     padding: 7px;
+  }
+}
+
+.promoter-intro-entry {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+  padding: 13px 16px;
+  border: 1px solid #f0d3a0;
+  border-left: 4px solid #e8a33d;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #fff9ee, #fff);
+}
+
+.promoter-intro-entry-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 12px;
+  background: #fdeed3;
+  color: #c77d1e;
+}
+
+.promoter-intro-entry-copy {
+  min-width: 0;
+}
+
+.promoter-intro-entry-copy strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.promoter-intro-entry-copy span {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.promoter-intro-entry-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.promoter-intro-entry-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 767.98px) {
+  .promoter-intro-entry {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+  }
+
+  .promoter-intro-entry-icon {
+    width: 40px;
+    height: 40px;
   }
 }
 </style>

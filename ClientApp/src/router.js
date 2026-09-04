@@ -4,6 +4,7 @@ import SearchView from './views/SearchView.vue'
 import LeaderDetailView from './views/LeaderDetailView.vue'
 import FollowingView from './views/FollowingView.vue'
 import ProductDetailView from './views/ProductDetailView.vue'
+import PromoterIntroView from './views/PromoterIntroView.vue'
 import CartView from './views/CartView.vue'
 import CheckoutView from './views/CheckoutView.vue'
 import OrderSuccessView from './views/OrderSuccessView.vue'
@@ -28,6 +29,7 @@ const router = createRouter({
     { path: '/leaders/:id', name: 'leader-detail', component: LeaderDetailView, props: true },
     { path: '/following', name: 'following', component: FollowingView, meta: { requiresAuth: true } },
     { path: '/products/:id', name: 'product-detail', component: ProductDetailView, props: true },
+    { path: '/leaders/:leaderId/products/:productId/intro', name: 'promoter-intro', component: PromoterIntroView, props: true },
     { path: '/cart', name: 'cart', component: CartView, meta: { requiresAuth: true } },
     { path: '/checkout', name: 'checkout', component: CheckoutView, meta: { requiresAuth: true } },
     { path: '/order-success/:id', name: 'order-success', component: OrderSuccessView, props: true, meta: { requiresAuth: true } },
