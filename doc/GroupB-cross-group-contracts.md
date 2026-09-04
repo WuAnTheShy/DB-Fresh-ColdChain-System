@@ -215,7 +215,7 @@ Task<IReadOnlyList<GroupCPromoterProductValidation>> ValidatePromoterProductsAsy
 
 - 批次支付通过 C 组现有 `IPaymentService.CreatePaymentRecord` 写支付流水，B 组不再调用 C 组 Repository。
 - 消息中心先由 B 组仓储查询消费者订单，再按订单调用 C 组现有 `IRefundService.GetOrderRefundsAsync`，最后在 B 组 `ConsumerMessageService` 中合并排序。
-- C 组支付服务当前将审计日志写入独立连接，外层订单事务回滚时可能留下已提交日志；这是 C 组实现问题，B 组不越界修改。
+- 经用户授权，C 组支付服务已将事务传递到审计服务和仓储；支付流水与审计共用发起方连接及事务，审计失败按支付失败返回，由事务所有者回滚。未提供事务的其他审计调用仍保留独立写入行为。
 
 ## 5. C 组调用 B 组：退款积分扣回
 
@@ -241,7 +241,7 @@ Task DeductPointsForPartialRefundAsync(
 
 - 提供外部事务时，B 组直接复用该事务，成功或异常均不提交、回滚或释放它；失败异常交由发起方处理。
 - 未提供外部事务时保留 B 组自有事务行为，兼容旧调用方，但不能保证与 C 组退款原子提交。
-- 当前 C 组 `RefundService` 尚未传入自身事务。必须在整单和部分退款调用中传入 `externalTransaction: _uow.Transaction`，并确保事务有效、任何失败都由 C 组整体回滚；仅更新 B 组接口不代表跨组退款已修复。
+- C 组 `RefundService` 的整单和部分退款调用已传入当前事务；退款记录及佣金撤销相关审计也复用同一事务。任何扣积分、审核末步、佣金或审计失败均中止退款，由 C 组整体回滚。真实 Oracle 原子性仍需隔离数据库验收。
 - 消费者和订单 ID 必须为非空、最长 36 位字符串，且订单必须属于指定消费者。
 - 订单和消费者记录会在同一事务内按固定顺序锁定。
 - 同一订单只允许生成一条 `REFUND_DEDUCT` 流水；订单已经是“已退款”时重复调用直接成功返回。

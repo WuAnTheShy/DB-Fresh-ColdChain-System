@@ -13,6 +13,8 @@ var groupAAdapterExitCode =
     await GroupAAdapterScenarioTests.RunAllAsync();
 var supplierFulfillmentExitCode =
     await SupplierFulfillmentScenarioTests.RunAllAsync();
+var financialTransactionExitCode =
+    await FinancialTransactionScenarioTests.RunAllAsync();
 
 Environment.ExitCode =
     orderExitCode == 0 &&
@@ -21,6 +23,7 @@ Environment.ExitCode =
     externalContractExitCode == 0 &&
     consumerMessageExitCode == 0 &&
     groupAAdapterExitCode == 0 &&
-    supplierFulfillmentExitCode == 0
+    supplierFulfillmentExitCode == 0 &&
+    financialTransactionExitCode == 0
     ? 0
     : 1;

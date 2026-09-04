@@ -1,11 +1,13 @@
 ﻿using FreshColdChain.Models.CrossGroup;
 using FreshColdChain.Models;
+using System.Data;
 namespace FreshColdChain.Interfaces
 {
     public interface ITableLogService
     {
-        //表修改日志记录函数（独立连接，自建事务）
-        Task<bool> WriteTableChangeLog(GroupC_LogAuditrails? logData = null);
+        // 有外部事务时与业务共同提交；未传事务时保留独立写入方式。
+        Task<bool> WriteTableChangeLog(GroupC_LogAuditrails? logData = null,
+            IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
 
         //组合查询操作日志（管理端）：时间区间 [startTime, endTime) + 表名 + 操作类型 + 操作者ID
         Task<List<GroupC_LogAuditrails>> SearchLogsAsync(DateTime? startTime, DateTime? endTime,

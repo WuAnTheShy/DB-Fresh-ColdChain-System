@@ -1,0 +1,296 @@
+using System.Data;
+using System.Reflection;
+using FreshColdChain.Interfaces;
+using FreshColdChain.Models;
+using FreshColdChain.Models.CrossGroup_C;
+using FreshColdChain.Models.DTOs;
+using FreshColdChain.Repositories;
+using FreshColdChain.Services;
+
+namespace FreshColdChain.Tests;
+
+internal static class FinancialTransactionScenarioTests
+{
+    public static async Task<int> RunAllAsync()
+    {
+        var scenarios = new (string Name, Func<Task> Run)[]
+        {
+            ("真实支付服务的流水和审计共用外部事务", PaymentExternalTransactionAsync),
+            ("支付自有事务在审计失败时整体回滚", PaymentOwnedTransactionAsync),
+            ("外部支付审计失败不接管调用方事务", PaymentExternalFailureAsync),
+            ("C组审核末步失败时B组积分订单同时回滚", RefundAuditTransactionAsync),
+            ("C组直接退款与审计共同提交回滚", DirectRefundTransactionAsync),
+            ("退款佣金撤销失败不能继续批准退款", RefundCommissionFailureAsync),
+            ("佣金仓储返回更新失败时拒绝批准退款", RefundCommissionRecordFailureAsync)
+        };
+        var failures = 0;
+        foreach (var (name, run) in scenarios)
+        {
+            try { await run(); Console.WriteLine($"PASS {name}"); }
+            catch (Exception exception) { failures++; Console.WriteLine($"FAIL {name}\n{exception}"); }
+        }
+        Console.WriteLine($"跨组财务事务场景总数: {scenarios.Length}, 通过: {scenarios.Length - failures}, 失败: {failures}");
+        return failures == 0 ? 0 : 1;
+    }
+
+    private static PaymentRequest Payment() => new()
+    {
+        orderID = TestIds.Order, payMethod = "Mock", status = "Success", payAmount = 100m
+    };
+
+    private static async Task PaymentExternalTransactionAsync()
+    {
+        foreach (var commit in new[] { false, true })
+        {
+            var uow = new FinancialUnitOfWork();
+            var payments = new FakePaymentRepository();
+            var logs = new FinancialLogRepository();
+            var service = new PaymentService(uow, payments, new TableLogService(logs));
+            using var transaction = new FakeOrderTransaction();
+            var result = await service.CreatePaymentRecord(Payment(), transaction);
+            AssertEx.True(result.IsSuccess);
+            AssertEx.True(ReferenceEquals(transaction, logs.LastTransaction));
+            AssertEx.True(uow.LastTransaction == null);
+            AssertEx.True(!transaction.Committed && !transaction.RolledBack);
+            AssertEx.Equal(0, payments.Records.Count);
+            AssertEx.Equal(0, logs.Records.Count);
+            if (commit) transaction.Commit(); else transaction.Rollback();
+            AssertEx.Equal(commit ? 1 : 0, payments.Records.Count);
+            AssertEx.Equal(commit ? 1 : 0, logs.Records.Count);
+        }
+    }
+
+    private static async Task PaymentOwnedTransactionAsync()
+    {
+        foreach (var fail in new[] { false, true })
+        {
+            var uow = new FinancialUnitOfWork();
+            var payments = new FakePaymentRepository();
+            var logs = new FinancialLogRepository { ThrowOnInsert = fail };
+            var service = new PaymentService(uow, payments, new TableLogService(logs));
+            var result = await service.CreatePaymentRecord(Payment());
+            AssertEx.Equal(!fail, result.IsSuccess);
+            AssertEx.Equal(!fail, uow.LastTransaction!.Committed);
+            AssertEx.Equal(fail, uow.LastTransaction.RolledBack);
+            AssertEx.Equal(fail ? 0 : 1, payments.Records.Count);
+            AssertEx.Equal(fail ? 0 : 1, logs.Records.Count);
+            AssertEx.True(ReferenceEquals(uow.LastTransaction, logs.LastTransaction));
+        }
+    }
+
+    private static async Task PaymentExternalFailureAsync()
+    {
+        var uow = new FinancialUnitOfWork();
+        var payments = new FakePaymentRepository();
+        var logs = new FinancialLogRepository { ThrowOnInsert = true };
+        var service = new PaymentService(uow, payments, new TableLogService(logs));
+        using var transaction = new FakeOrderTransaction();
+        var result = await service.CreatePaymentRecord(Payment(), transaction);
+        AssertEx.True(!result.IsSuccess);
+        AssertEx.True(!transaction.Committed && !transaction.RolledBack);
+        AssertEx.True(uow.LastTransaction == null);
+        transaction.Rollback();
+        AssertEx.Equal(0, payments.Records.Count);
+        AssertEx.Equal(0, logs.Records.Count);
+    }
+
+    private static async Task RefundAuditTransactionAsync()
+    {
+        foreach (var partial in new[] { false, true })
+        foreach (var failFinalUpdate in new[] { false, true })
+        {
+            var context = SeedOrder();
+            var uow = new FinancialUnitOfWork();
+            var application = new FinRefund
+            {
+                RefundId = "REF-TX", OrderId = TestIds.Order, Status = "Pending",
+                DetailId = partial ? "DETAIL-TX" : null, SupplierId = partial ? "SUP1" : null,
+                RefundQty = partial ? 1 : 0, RefundAmount = partial ? 50m : 100m
+            };
+            var refunds = FinancialProxy.Create<IRefundRepository>((method, args) => method.Name switch
+            {
+                nameof(IRefundRepository.GetByIdAsync) => Task.FromResult<FinRefund?>(application),
+                nameof(IRefundRepository.TryUpdateStatusAsync) => FinalizeRefund(args!),
+                _ => throw new NotSupportedException(method.Name)
+            });
+            Task<bool> FinalizeRefund(object?[] args)
+            {
+                AssertEx.True(ReferenceEquals(uow.Transaction, args[5]));
+                if (failFinalUpdate) return Task.FromResult(false);
+                ((FakeOrderTransaction)args[5]!).Stage(() => application.Status = (string)args[2]!);
+                return Task.FromResult(true);
+            }
+            var service = RefundService(context, uow, refunds, new FinancialLogRepository());
+            var result = await service.AuditRefund("REF-TX", true, "ADMIN");
+            AssertEx.Equal(!failFinalUpdate, result.IsSuccess);
+            AssertEx.True(context.TransactionManager.LastTransaction == null);
+            AssertEx.Equal(!failFinalUpdate, uow.LastTransaction!.Committed);
+            AssertEx.Equal(failFinalUpdate, uow.LastTransaction.RolledBack);
+            AssertEx.Equal(failFinalUpdate ? "Pending" : "Approved", application.Status);
+            AssertEx.Equal(failFinalUpdate ? 100 : partial ? 90 : 80, context.CustomerRepository.Customer.Points);
+            AssertEx.Equal(failFinalUpdate ? OrderStatusCodes.Paid : partial ? OrderStatusCodes.Refunding : OrderStatusCodes.Refunded,
+                context.OrderRepository.Orders.Single().OrderStatus);
+            AssertEx.Equal(failFinalUpdate ? 0 : 1, context.PointRepository.Logs.Count);
+        }
+    }
+
+    private static async Task DirectRefundTransactionAsync()
+    {
+        foreach (var failAudit in new[] { false, true })
+        {
+            var context = SeedOrder();
+            var uow = new FinancialUnitOfWork();
+            var logs = new FinancialLogRepository { ThrowOnInsert = failAudit };
+            var records = new List<FinRefund>();
+            var refunds = FinancialProxy.Create<IRefundRepository>((method, args) =>
+            {
+                if (method.Name != nameof(IRefundRepository.InsertRefundAsync)) throw new NotSupportedException(method.Name);
+                AssertEx.True(ReferenceEquals(uow.Transaction, args![1]));
+                ((FakeOrderTransaction)args[1]!).Stage(() => records.Add((FinRefund)args[0]!));
+                return Task.CompletedTask;
+            });
+            var service = RefundService(context, uow, refunds, logs);
+            var result = await service.Refund(new GroupC_RefundRequest { OrderId = TestIds.Order, LiabilityType = "Customer" });
+            AssertEx.Equal(!failAudit, result.IsSuccess);
+            AssertEx.True(context.TransactionManager.LastTransaction == null);
+            AssertEx.True(ReferenceEquals(uow.LastTransaction, logs.LastTransaction));
+            AssertEx.Equal(failAudit ? 0 : 1, records.Count);
+            AssertEx.Equal(failAudit ? 0 : 1, logs.Records.Count);
+            AssertEx.Equal(failAudit ? 100 : 80, context.CustomerRepository.Customer.Points);
+            AssertEx.Equal(failAudit ? OrderStatusCodes.Paid : OrderStatusCodes.Refunded, context.OrderRepository.Orders.Single().OrderStatus);
+        }
+    }
+
+    private static async Task RefundCommissionFailureAsync()
+    {
+        var context = SeedOrder();
+        context.OrderRepository.Orders.Single().OrderStatus = OrderStatusCodes.Completed;
+        var uow = new FinancialUnitOfWork();
+        var record = new CommissionRecord { RecordId = "COMM-TX", PromoterId = "PROM-TX", SignDate = DateTime.Now, CommBaseAmount = 10m };
+        var commission = FinancialProxy.Create<ICommissionRepository>((method, _) =>
+            method.Name == nameof(ICommissionRepository.GetByOrderIdAsync)
+                ? Task.FromResult<CommissionRecord?>(record) : throw new InvalidOperationException("佣金撤销失败后不应继续更新佣金记录"));
+        var promoter = FinancialProxy.Create<IPromoterRepository>((method, _) => method.Name switch
+        {
+            nameof(IPromoterRepository.GroupC_FindPromoterRecordAsync) => Task.FromResult<GroupC_CrmPromoter?>(new() { TotalSales = 1000m, PendingBalance = 100m }),
+            nameof(IPromoterRepository.GroupC_UpdatePromoterTotalSalesAsync) => throw new InvalidOperationException("模拟团长销售额撤销失败"),
+            _ => throw new NotSupportedException(method.Name)
+        });
+        var refunds = FinancialProxy.Create<IRefundRepository>((method, _) => method.Name == nameof(IRefundRepository.GetByIdAsync)
+            ? Task.FromResult<FinRefund?>(new() { RefundId = "REF-TX", OrderId = TestIds.Order, RefundAmount = 100m, Status = "Pending" })
+            : throw new InvalidOperationException("佣金撤销失败后不应批准退款"));
+        var service = RefundService(context, uow, refunds, new FinancialLogRepository(), commission, promoter);
+        var result = await service.AuditRefund("REF-TX", true, "ADMIN");
+        AssertEx.True(!result.IsSuccess);
+        AssertEx.True(result.ErrorMessage?.Contains("模拟团长销售额撤销失败", StringComparison.Ordinal) == true);
+        AssertEx.True(uow.LastTransaction!.RolledBack && !uow.LastTransaction.Committed);
+        AssertEx.Equal(100, context.CustomerRepository.Customer.Points);
+        AssertEx.Equal(OrderStatusCodes.Completed, context.OrderRepository.Orders.Single().OrderStatus);
+    }
+
+    private static async Task RefundCommissionRecordFailureAsync()
+    {
+        foreach (var failStatus in new[] { false, true })
+        {
+            var context = SeedOrder();
+            context.OrderRepository.Orders.Single().OrderStatus = OrderStatusCodes.Completed;
+            var uow = new FinancialUnitOfWork();
+            var commission = FinancialProxy.Create<ICommissionRepository>((method, _) => method.Name switch
+            {
+                nameof(ICommissionRepository.GetByOrderIdAsync) => Task.FromResult<CommissionRecord?>(new()
+                    { RecordId = "COMM-TX", PromoterId = "REMOVED-PROMOTER", SignDate = DateTime.Now }),
+                nameof(ICommissionRepository.UpdateStatusAsync) => Task.FromResult(!failStatus),
+                nameof(ICommissionRepository.UpdateRefundedAmountAsync) => Task.FromResult(false),
+                _ => throw new NotSupportedException(method.Name)
+            });
+            var promoter = FinancialProxy.Create<IPromoterRepository>((method, _) =>
+                method.Name == nameof(IPromoterRepository.GroupC_FindPromoterRecordAsync)
+                    ? Task.FromResult<GroupC_CrmPromoter?>(null) : throw new NotSupportedException(method.Name));
+            var refunds = FinancialProxy.Create<IRefundRepository>((method, _) =>
+                method.Name == nameof(IRefundRepository.GetByIdAsync)
+                    ? Task.FromResult<FinRefund?>(new() { RefundId = "REF-TX", OrderId = TestIds.Order, RefundAmount = 100m })
+                    : throw new InvalidOperationException("佣金更新失败后不应批准退款"));
+            var result = await RefundService(context, uow, refunds, new FinancialLogRepository(), commission, promoter)
+                .AuditRefund("REF-TX", true, "ADMIN");
+            AssertEx.True(!result.IsSuccess);
+            AssertEx.True(result.ErrorMessage?.Contains(failStatus ? "退款佣金状态更新失败" : "佣金已退金额更新失败", StringComparison.Ordinal) == true);
+            AssertEx.True(uow.LastTransaction!.RolledBack && !uow.LastTransaction.Committed);
+            AssertEx.Equal(100, context.CustomerRepository.Customer.Points);
+            AssertEx.Equal(OrderStatusCodes.Completed, context.OrderRepository.Orders.Single().OrderStatus);
+        }
+    }
+
+    private static TestContext SeedOrder()
+    {
+        var context = TestContext.Create();
+        context.CustomerRepository.Customer.Points = 100;
+        context.OrderRepository.Orders.Add(new BizOrder
+        {
+            OrderId = TestIds.Order, CustomerId = TestIds.Customer, OrderNo = "ORD-FIN-TX",
+            OrderStatus = OrderStatusCodes.Paid, TotalAmount = 100m, FinalAmount = 100m,
+            PointsEarned = 20, CreatedAt = DateTime.Now
+        });
+        context.OrderRepository.Details.Add(new BizOrderDetail
+        {
+            OrderId = TestIds.Order, OrderDetailId = "DETAIL-TX", ProductId = "P1", ProductName = "测试商品",
+            SupplierId = "SUP1", Quantity = 2, UnitPrice = 50m, SubTotal = 100m
+        });
+        return context;
+    }
+
+    private static RefundService RefundService(TestContext context, FinancialUnitOfWork uow,
+        IRefundRepository refunds, FinancialLogRepository logs, ICommissionRepository? commissions = null,
+        IPromoterRepository? promoters = null) => new(uow,
+        promoters ?? FinancialProxy.Create<IPromoterRepository>(), FinancialProxy.Create<IPromoterService>(), refunds,
+        new TableLogService(logs), commissions ?? FinancialProxy.Create<ICommissionRepository>((method, _) =>
+            method.Name == nameof(ICommissionRepository.GetByOrderIdAsync)
+                ? Task.FromResult<CommissionRecord?>(null) : throw new NotSupportedException(method.Name)),
+        context.Service, context.OrderRepository, context.CustomerRepository,
+        FinancialProxy.Create<IColdChainLogisticsService>(), FinancialProxy.Create<ILogExpressDeliveryRepository>((method, _) =>
+            method.Name == nameof(ILogExpressDeliveryRepository.GetByOrderIdAsync)
+                ? Task.FromResult(new List<LogExpressDelivery>()) : throw new NotSupportedException(method.Name)));
+}
+
+internal sealed class FinancialUnitOfWork : IUnitOfWork
+{
+    public FakeOrderTransaction? LastTransaction { get; private set; }
+    public IDbConnection Connection => LastTransaction?.Connection ?? throw new InvalidOperationException("事务尚未开启");
+    public IDbTransaction? Transaction { get; private set; }
+    public Task BeginAsync() { LastTransaction = new(); Transaction = LastTransaction; return Task.CompletedTask; }
+    public Task CommitAsync() { Transaction!.Commit(); Transaction = null; return Task.CompletedTask; }
+    public Task RollbackAsync() { Transaction!.Rollback(); Transaction = null; return Task.CompletedTask; }
+    public void AttachExternalTransaction(IDbTransaction transaction) => throw new NotSupportedException();
+    public void Dispose() { }
+}
+
+internal sealed class FinancialLogRepository : ITableLogRepository
+{
+    public List<GroupC_LogAuditrails> Records { get; } = [];
+    public IDbTransaction? LastTransaction { get; private set; }
+    public bool ThrowOnInsert { get; init; }
+    public Task GroupC_AddLogRecordAsync(GroupC_LogAuditrails logData,
+        CancellationToken cancellationToken = default, IDbTransaction? transaction = null)
+    {
+        LastTransaction = transaction;
+        if (ThrowOnInsert) throw new InvalidOperationException("模拟审计写入失败");
+        if (transaction is FakeOrderTransaction staged) staged.Stage(() => Records.Add(logData));
+        else Records.Add(logData);
+        return Task.CompletedTask;
+    }
+    public Task<List<GroupC_LogAuditrails>> SearchAsync(DateTime? start, DateTime? end, string? table, string? action, string? user) => throw new NotSupportedException();
+    public Task<List<string>> GetDistinctTableNamesAsync() => throw new NotSupportedException();
+}
+
+// 仅用于场景测试：未明确声明的调用立即失败，避免大量不相关仓储方法的空实现。
+public class FinancialProxy : DispatchProxy
+{
+    public Func<MethodInfo, object?[]?, object?>? Handler { get; set; }
+    protected override object? Invoke(MethodInfo? method, object?[]? args) =>
+        Handler != null ? Handler(method!, args) : throw new NotSupportedException(method?.Name);
+    public static T Create<T>(Func<MethodInfo, object?[]?, object?>? handler = null) where T : class
+    {
+        var instance = Create<T, FinancialProxy>();
+        ((FinancialProxy)(object)instance).Handler = handler;
+        return instance;
+    }
+}
