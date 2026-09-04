@@ -1,3 +1,4 @@
+using System.Data;
 using FreshColdChain.Models;
 
 namespace FreshColdChain.Interfaces;
@@ -53,7 +54,8 @@ public interface IOrderService
         string customerId,
         string orderId,
         int pointsToDeduct,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        IDbTransaction? externalTransaction = null);
 
     /// <summary>
     /// 部分退款时按比例扣回积分并将订单置为"退款中" - 供 C 组调用。
@@ -62,7 +64,8 @@ public interface IOrderService
         string customerId,
         string orderId,
         int pointsToDeduct,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        IDbTransaction? externalTransaction = null);
 
     Task<CrmMemberLevel?> GetCustomerLevelAsync(string customerId);
 }

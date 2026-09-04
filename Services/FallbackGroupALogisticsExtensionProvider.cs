@@ -67,8 +67,10 @@ public sealed class FallbackGroupALogisticsExtensionProvider(
 
         if (_snapshots.TryGetValue(CreateKey(seed.OrderId, seed.SupplierId), out var stored))
         {
-            var evaluated = EvaluateDelay(MergeBaseTrace(stored, seed));
-            _snapshots[CreateKey(seed.OrderId, seed.SupplierId)] = evaluated;
+            var evaluated = _snapshots.AddOrUpdate(
+                CreateKey(seed.OrderId, seed.SupplierId),
+                stored,
+                (_, latest) => EvaluateDelay(MergeBaseTrace(latest, seed)));
             return Task.FromResult(evaluated);
         }
 
@@ -100,7 +102,11 @@ public sealed class FallbackGroupALogisticsExtensionProvider(
             Events = events
         };
 
-        return Task.FromResult(EvaluateDelay(snapshot));
+        // 查询恢复的基础发货单也必须进入缓存，否则下一次追加轨迹会找不到记录。
+        return Task.FromResult(_snapshots.AddOrUpdate(
+            CreateKey(seed.OrderId, seed.SupplierId),
+            _ => EvaluateDelay(snapshot),
+            (_, latest) => EvaluateDelay(MergeBaseTrace(latest, seed))));
     }
 
     public Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
@@ -174,7 +180,8 @@ public sealed class FallbackGroupALogisticsExtensionProvider(
         LogisticsTraceSeed seed)
     {
         var baseStatus = LogisticsStatusCodes.Normalize(seed.StatusCode);
-        var status = baseStatus == LogisticsStatusCodes.Pending
+        // 发货后状态由扩展轨迹维护；基础发货单仅补充身份与发货时间，不能覆盖后续进度。
+        var status = LogisticsStatusCodes.IsShippedOrLater(stored.StatusCode)
             ? stored.StatusCode
             : baseStatus;
         return new SupplierLogisticsSnapshot

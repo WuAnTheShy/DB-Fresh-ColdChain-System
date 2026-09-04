@@ -1312,6 +1312,7 @@ internal sealed class FakeLogisticsService : ILogisticsService
     public Exception? ShipmentExceptionToThrow { get; set; }
     public List<string> ShippedOrderIds { get; } = [];
     public HashSet<string> ShippedSupplierKeys { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, string> SupplierStatuses { get; } = new(StringComparer.Ordinal);
     public FreightCalculationRequest? LastFreightRequest { get; private set; }
     public List<FreightCalculationRequest> FreightRequests { get; } = [];
 
@@ -1429,7 +1430,9 @@ internal sealed class FakeLogisticsService : ILogisticsService
                     CarrierName = isShipped ? "测试冷链" : null,
                     TrackingNo = $"TRACK-{orderId}-{supplierId}",
                     PackageTemperature = isShipped ? "FROZEN" : "CHILLED",
-                    StatusCode = isShipped
+                    StatusCode = SupplierStatuses.TryGetValue(CreateSupplierKey(orderId, supplierId), out var status)
+                        ? status
+                        : isShipped
                         ? LogisticsStatusCodes.Shipped
                         : LogisticsStatusCodes.Pending,
                     ShippedAt = isShipped ? DateTime.Now.AddHours(-1) : null,

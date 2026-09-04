@@ -19,6 +19,8 @@ internal static class GroupAAdapterScenarioTests
             ("A 组尚未发货时返回待发货状态", MissingTraceReturnsPendingAsync),
             ("高级物流缺失时配置化兜底并识别温控异常", LogisticsFallbackTracksTemperatureExceptionAsync),
             ("兜底轨迹按事件编号保持幂等", LogisticsFallbackEventIsIdempotentAsync),
+            ("物流更新后刷新不被基础发货状态覆盖", LogisticsStatusSurvivesRefreshAsync),
+            ("已有发货单可恢复兜底轨迹并继续更新", ExistingShipmentCanResumeTrackingAsync),
             ("兜底物流超过预计时间后标记延误", LogisticsFallbackDetectsDelayAsync)
         };
 
@@ -305,6 +307,56 @@ internal static class GroupAAdapterScenarioTests
 
         AssertEx.Equal(first.Events.Count, second.Events.Count);
         AssertEx.Equal(1, second.Events.Count(item => item.EventId == command.EventId));
+    }
+
+    private static async Task LogisticsStatusSurvivesRefreshAsync()
+    {
+        var provider = CreateExtensionProvider();
+        using var transaction = new FakeOrderTransaction();
+        var registration = new LogisticsShipmentRegistration
+        {
+            DeliveryId = "DEL-REFRESH", OrderId = "ORDER-REFRESH", SupplierId = "SUP1",
+            BaseTrackingNo = "TRACK-REFRESH", ShippedAt = DateTime.Now,
+            Command = new SupplierShipmentCommand { SupplierId = "SUP1" }
+        };
+        await provider.RegisterShipmentAsync(registration, transaction);
+        foreach (var status in new[] { LogisticsStatusCodes.InTransit, LogisticsStatusCodes.Exception,
+            LogisticsStatusCodes.InTransit, LogisticsStatusCodes.OutForDelivery, LogisticsStatusCodes.Delivered })
+        {
+            var updated = await provider.AppendTrackingEventAsync(new LogisticsTrackingEventCommand
+            {
+                OrderId = registration.OrderId, SupplierId = registration.SupplierId,
+                StatusCode = status, Description = "回归轨迹", OccurredAt = DateTime.Now
+            }, transaction);
+            var refreshed = await provider.GetSnapshotAsync(new LogisticsTraceSeed
+            {
+                OrderId = registration.OrderId, SupplierId = registration.SupplierId,
+                DeliveryId = registration.DeliveryId, StatusCode = LogisticsStatusCodes.Shipped,
+                ShippedAt = registration.ShippedAt
+            });
+            AssertEx.Equal(status, refreshed.StatusCode);
+            AssertEx.Equal(updated.Events.Count, refreshed.Events.Count);
+        }
+    }
+
+    private static async Task ExistingShipmentCanResumeTrackingAsync()
+    {
+        var provider = CreateExtensionProvider();
+        using var transaction = new FakeOrderTransaction();
+        var seed = new LogisticsTraceSeed
+        {
+            OrderId = "ORDER-RESTART", SupplierId = "SUP1", DeliveryId = "DEL-RESTART",
+            StatusCode = LogisticsStatusCodes.Shipped, ShippedAt = DateTime.Now
+        };
+        var first = await provider.GetSnapshotAsync(seed);
+        var second = await provider.GetSnapshotAsync(seed);
+        AssertEx.Equal(first.Events.Single().EventId, second.Events.Single().EventId);
+        var updated = await provider.AppendTrackingEventAsync(new LogisticsTrackingEventCommand
+        {
+            OrderId = seed.OrderId, SupplierId = seed.SupplierId, StatusCode = LogisticsStatusCodes.InTransit,
+            Description = "重启后继续配送", OccurredAt = DateTime.Now
+        }, transaction);
+        AssertEx.Equal(2, updated.Events.Count);
     }
 
     private static FallbackGroupALogisticsExtensionProvider CreateExtensionProvider() =>

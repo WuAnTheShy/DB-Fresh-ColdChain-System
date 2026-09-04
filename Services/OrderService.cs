@@ -287,7 +287,7 @@ public sealed class OrderService : IOrderService
         return closed;
     }
 
-    /// <summary>发货满七天后自动确认子订单内全部商品收货，并完成订单。</summary>
+    /// <summary>发货满七天且全部包裹已签收后，自动确认商品收货并完成订单。</summary>
     public async Task<int> AutoConfirmShippedOrdersAsync(CancellationToken cancellationToken = default)
     {
         var candidates = await _orderRepo.GetShippedOrdersBeforeAsync(DateTime.Now.AddDays(-7));
@@ -300,6 +300,9 @@ public sealed class OrderService : IOrderService
                 var context = await GetLockedOrderContextAsync(candidate.OrderId, transaction);
                 if (context.Order.OrderStatus != OrderStatusCodes.Shipped ||
                     (context.Order.UpdatedAt ?? context.Order.CreatedAt) > DateTime.Now.AddDays(-7))
+                    return false;
+
+                if (!await ArePackagesDeliveredAsync(context.Order.OrderId, context.Details, cancellationToken))
                     return false;
 
                 foreach (var detail in context.Details.Where(detail =>
@@ -764,7 +767,7 @@ public sealed class OrderService : IOrderService
                 OrderStatus.Shipped),
             CanComplete = OrderStateMachine.CanTransition(
                 status,
-                OrderStatus.Completed),
+                OrderStatus.Completed) && ArePackagesDelivered(orderId, details, logisticsSnapshots),
             CanCancel = OrderStateMachine.CanTransition(
                 status,
                 OrderStatus.Cancelled)
@@ -799,6 +802,8 @@ public sealed class OrderService : IOrderService
             }
             else
             {
+                if (!await ArePackagesDeliveredAsync(orderId, context.Details, cancellationToken))
+                    throw new OrderBusinessException("全部包裹签收后才能完成订单");
                 await RegisterCompletedOrderCommissionAsync(
                     context,
                     transaction,
@@ -983,7 +988,8 @@ public sealed class OrderService : IOrderService
         string customerId,
         string orderId,
         int pointsToDeduct,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IDbTransaction? externalTransaction = null)
     {
         if (!GroupBIds.IsValid(customerId))
             throw new OrderBusinessException("消费者ID格式不正确");
@@ -992,7 +998,7 @@ public sealed class OrderService : IOrderService
         if (pointsToDeduct < 0)
             throw new OrderBusinessException("扣回积分不能为负数");
 
-        await _transactionManager.ExecuteAsync(async transaction =>
+        await ExecuteRefundOperationAsync(externalTransaction, async transaction =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = await GetLockedOrderContextAsync(orderId, transaction);
@@ -1089,7 +1095,8 @@ public sealed class OrderService : IOrderService
         string customerId,
         string orderId,
         int pointsToDeduct,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IDbTransaction? externalTransaction = null)
     {
         if (!GroupBIds.IsValid(customerId))
             throw new OrderBusinessException("消费者ID格式不正确");
@@ -1098,7 +1105,7 @@ public sealed class OrderService : IOrderService
         if (pointsToDeduct < 0)
             throw new OrderBusinessException("扣回积分不能为负数");
 
-        await _transactionManager.ExecuteAsync(async transaction =>
+        await ExecuteRefundOperationAsync(externalTransaction, async transaction =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = await GetLockedOrderContextAsync(orderId, transaction);
@@ -1216,6 +1223,9 @@ public sealed class OrderService : IOrderService
             if (context.Order.OrderStatus != OrderStatusCodes.Shipped)
                 throw new OrderBusinessException("商品发货后才能确认收货");
 
+            if (!await ArePackagesDeliveredAsync(orderId, [detail], cancellationToken))
+                throw new OrderBusinessException("该商品所属包裹尚未签收，暂时不能确认收货");
+
             if (!await _orderRepo.TryConfirmDetailReceiptAsync(
                 orderDetailId,
                 orderId,
@@ -1245,6 +1255,46 @@ public sealed class OrderService : IOrderService
                 throw new OrderBusinessException("订单状态已变化，请刷新后重试");
             }
         });
+    }
+
+    /// <summary>退款由 C 组发起时复用其事务，B 组不提交、回滚或释放调用方事务。</summary>
+    private Task ExecuteRefundOperationAsync(
+        IDbTransaction? externalTransaction,
+        Func<IDbTransaction, Task> operation)
+    {
+        if (externalTransaction == null)
+            return _transactionManager.ExecuteAsync(operation);
+        if (externalTransaction.Connection?.State != ConnectionState.Open)
+            throw new OrderBusinessException("退款外部事务已失效");
+        return operation(externalTransaction);
+    }
+
+    private async Task<bool> ArePackagesDeliveredAsync(
+        string orderId,
+        IReadOnlyList<BizOrderDetail> details,
+        CancellationToken cancellationToken)
+    {
+        if (details.Count == 0 || details.Any(item => string.IsNullOrWhiteSpace(item.SupplierId)))
+            return false;
+
+        var supplierIds = details.Select(item => item.SupplierId!)
+            .Distinct(StringComparer.Ordinal).ToList();
+        var snapshots = await _logisticsService.GetSupplierLogisticsAsync(
+            orderId, supplierIds, cancellationToken);
+        return ArePackagesDelivered(orderId, details, snapshots);
+    }
+
+    private static bool ArePackagesDelivered(
+        string orderId,
+        IReadOnlyList<BizOrderDetail> details,
+        IReadOnlyList<SupplierLogisticsSnapshot> snapshots)
+    {
+        if (details.Count == 0 || details.Any(item => string.IsNullOrWhiteSpace(item.SupplierId)))
+            return false;
+        var supplierIds = details.Select(item => item.SupplierId!).Distinct(StringComparer.Ordinal);
+        return supplierIds.All(supplierId => snapshots.Any(snapshot =>
+            snapshot.OrderId == orderId && snapshot.SupplierId == supplierId &&
+            snapshot.StatusCode == LogisticsStatusCodes.Delivered));
     }
 
     private static IReadOnlyList<BatchOrderItem> ValidateAndNormalizeBatchRequest(

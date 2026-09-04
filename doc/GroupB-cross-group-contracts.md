@@ -1,10 +1,10 @@
 # GroupB 跨组接口契约
 
-更新日期：2026-09-02
+更新日期：2026-09-04
 
 ## 1. 通用事务规则
 
-- 跨组写操作的事务由业务发起方 B 组创建、提交或回滚。
+- 跨组写操作的事务由业务发起方创建、提交或回滚：下单由 B 组控制，财务退款由 C 组控制。
 - A/C 组实现必须使用传入的 `IDbTransaction` 及其 `Connection`。
 - 接口实现不得新建独立连接写数据，不得自行 `Commit` 或 `Rollback`。
 - B 组只传递完成业务所需的可信快照，不允许其他组直接修改 B 组表。
@@ -226,11 +226,22 @@ Task DeductPointsForRefundAsync(
     string customerId,
     string orderId,
     int pointsToDeduct,
-    CancellationToken cancellationToken = default);
+    CancellationToken cancellationToken = default,
+    IDbTransaction? externalTransaction = null);
+
+Task DeductPointsForPartialRefundAsync(
+    string customerId,
+    string orderId,
+    int pointsToDeduct,
+    CancellationToken cancellationToken = default,
+    IDbTransaction? externalTransaction = null);
 ```
 
 当前行为：
 
+- 提供外部事务时，B 组直接复用该事务，成功或异常均不提交、回滚或释放它；失败异常交由发起方处理。
+- 未提供外部事务时保留 B 组自有事务行为，兼容旧调用方，但不能保证与 C 组退款原子提交。
+- 当前 C 组 `RefundService` 尚未传入自身事务。必须在整单和部分退款调用中传入 `externalTransaction: _uow.Transaction`，并确保事务有效、任何失败都由 C 组整体回滚；仅更新 B 组接口不代表跨组退款已修复。
 - 消费者和订单 ID 必须为非空、最长 36 位字符串，且订单必须属于指定消费者。
 - 订单和消费者记录会在同一事务内按固定顺序锁定。
 - 同一订单只允许生成一条 `REFUND_DEDUCT` 流水；订单已经是“已退款”时重复调用直接成功返回。
