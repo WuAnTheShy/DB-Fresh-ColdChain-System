@@ -50,6 +50,21 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         return result.ToList();
     }
 
+    /// <summary>查询某商品在某供应商下的全部批次（含供应商信息）</summary>
+    public async Task<List<InvStockBatch>> GetByProductAndSupplierWithSupplierAsync(string productId, string supplierId)
+    {
+        var sql = """
+            SELECT b.*, s.* FROM Inv_StockBatches b
+            LEFT JOIN Inv_Suppliers s ON b.SupplierID = s.SupplierID
+            WHERE b.ProductID = :Id AND b.SupplierID = :SupplierId
+            ORDER BY b.ExpiryDate ASC NULLS LAST, b.ProductionDate ASC
+            """;
+        var result = await _uow.Connection.QueryAsync<InvStockBatch, InvSupplier, InvStockBatch>(sql,
+            (batch, supplier) => { batch.Supplier = supplier; return batch; },
+            new { Id = productId, SupplierId = supplierId }, _uow.Transaction, splitOn: "SUPPLIERNAME");
+        return result.ToList();
+    }
+
     /// <summary>将已过期但仍为ACTIVE的批次标记为EXPIRED</summary>
     public async Task<int> MarkExpiredBatchesAsync()
     {

@@ -1,11 +1,13 @@
 //负责处理与生鲜产品和商品库存相关的页面跳转与请求交互
 
 using Microsoft.AspNetCore.Mvc;
+using FreshColdChain.Filters;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models.DTOs;
 
 namespace FreshColdChain.Controllers;
 
+[RequireSupplier]
 public class ProductsController : Controller
 {
     private readonly IProductInventoryService _service;
@@ -35,10 +37,12 @@ public class ProductsController : Controller
     }
 
     [HttpGet]
+    [RequireAdmin]
     public IActionResult Create() => View(new CreateProductDto());
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequireAdmin]
     public async Task<IActionResult> Create(CreateProductDto dto)
     {
         var r = await _service.CreateProductAsync(dto);
@@ -47,6 +51,7 @@ public class ProductsController : Controller
     }
 
     [HttpGet]
+    [RequireAdmin]
     public async Task<IActionResult> Edit(string id)
     {
         var r = await _service.GetProductByIdAsync(id);
@@ -57,12 +62,13 @@ public class ProductsController : Controller
             ProductName = p.ProductName, Unit = p.Unit,
             WeightKG = p.WeightKG, VolumeLitre = p.VolumeLitre,
             ExpiryHours = p.ExpiryHours, StorageReq = p.StorageReq,
-            DefaultPrice = p.DefaultPrice, Status = p.Status
+            Description = p.Description
         });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequireAdmin]
     public async Task<IActionResult> Edit(string id, UpdateProductDto dto)
     {
         var r = await _service.UpdateProductAsync(id, dto);
@@ -72,6 +78,7 @@ public class ProductsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequireAdmin]
     public async Task<IActionResult> Delete(string id)
     {
         var r = await _service.DeleteProductAsync(id);

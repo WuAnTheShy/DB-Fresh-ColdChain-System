@@ -1,39 +1,8 @@
 @{
+    Layout = "_SupplierPortalLayout";
     ViewData["Title"] = "供应商首页";
 }
-
-<div class="text-center my-5">
-    <h1 class="display-4">生鲜冷链团购分销供应链系统</h1>
-    <p class="lead text-muted">数据库课程设计项目</p>
-</div>
-
-<div class="row g-4 mt-3">
-    <div class="col-md-4">
-        <div class="card text-center h-100 shadow-sm">
-            <div class="card-body">
-                <h3 class="card-title">📦</h3>
-                <h5>产品与库存</h5>
-                <p class="text-muted">管理产品信息、库存出入库、低库存预警</p>
-                <a class="btn btn-primary" asp-controller="Products" asp-action="Index">进入管理</a>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card text-center h-100 shadow-sm">
-            <div class="card-body">
-                <h3 class="card-title">🏭</h3>
-                <h5>供应商入口</h5>
-                @if (!string.IsNullOrEmpty(Context.Session.GetString("SupplierId")))
-                {
-                    <p class="text-muted">已登录：@Context.Session.GetString("SupplierName")</p>
-                    <a class="btn btn-success" asp-controller="Suppliers" asp-action="MyQuotes">进入报价管理</a>
-                }
-                else
-                {
-                    <p class="text-muted">供应商登录，维护自己产品的供货价</p>
-                    <a class="btn btn-primary" asp-controller="Suppliers" asp-action="Login">供应商登录</a>
-                }
-            </div>
-        </div>
-    </div>
+<div class="text-center py-5">
+    <div class="display-6 mb-2">欢迎，@Context.Session.GetString("SupplierName")</div>
+    <p class="text-muted">请使用左侧菜单管理您的货物、定价规则与物流发货。</p>
 </div>

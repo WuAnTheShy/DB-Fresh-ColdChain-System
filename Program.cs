@@ -6,6 +6,10 @@ using FreshColdChain.Services.Supplier;
 using FreshColdChainSystem.Repositories;
 using Microsoft.AspNetCore.Identity;
 using System.Text.Json.Serialization;
+using Oracle.ManagedDataAccess.Client;
+
+// Oracle 参数按名称绑定（Dapper 命名参数依赖此设置，否则按位置绑定会绑错参数）
+OracleConfiguration.BindByName = true;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +27,7 @@ builder.Services.AddScoped<IStockSummaryRepository, StockSummaryRepository>();
 builder.Services.AddScoped<IStockBatchRepository, StockBatchRepository>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<IPriceRuleRepository, PriceRuleRepository>();
+builder.Services.AddScoped<IGoodsRepository, GoodsRepository>();
 builder.Services.AddScoped<ILogFreightTemplateRepository, LogFreightTemplateRepository>();
 builder.Services.AddScoped<ILogExpressDeliveryRepository, LogExpressDeliveryRepository>();
 builder.Services.AddScoped<ILogFulfillmentBatchItemRepository, LogFulfillmentBatchItemRepository>();
@@ -51,6 +56,7 @@ builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
 builder.Services.AddScoped<IColdChainLogisticsService, ColdChainLogisticsService>();
 builder.Services.AddScoped<IPricingService, PricingService>();
+builder.Services.AddScoped<IGoodsService, GoodsService>();
 
 // B组
 builder.Services.AddScoped<IOrderTransactionManager, OracleOrderTransactionManager>();

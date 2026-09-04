@@ -1,6 +1,9 @@
 @model PagedResult<PriceRuleDto>
 @{
     ViewData["Title"] = "定价规则管理";
+    ViewData["BackController"] = "SuppliersHome";
+    ViewData["BackAction"] = "Index";
+    ViewData["BackText"] = "返回供应商首页";
 }
 
 <h3>💰 定价规则管理</h3>

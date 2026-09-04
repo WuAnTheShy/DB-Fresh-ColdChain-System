@@ -74,7 +74,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                 ProductID = product.ProductID,
                 ProductName = product.ProductName,
                 Quantity = item.Quantity,
-                UnitPrice = product.DefaultPrice
+                UnitPrice = 0m // 物品不再有单一售价（售价为货物级），展示价由下单侧传入
             });
 
             // 2. 确定温区：默认 CHILLED（冷藏），读取商品 StorageReq 字段

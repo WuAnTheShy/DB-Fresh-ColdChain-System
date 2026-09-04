@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using FreshColdChain.Filters;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
@@ -6,6 +7,7 @@ using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Controllers;
 
+[RequireSupplier]
 public class ColdChainLogisticsController : Controller
 {
     private readonly IColdChainLogisticsService _logistics;
@@ -28,6 +30,7 @@ public class ColdChainLogisticsController : Controller
     // ========== 运费模板管理 ==========
 
     [HttpGet]
+    [RequireAdmin]
     public async Task<IActionResult> Index()
     {
         var list = await _templates.GetAllAsync();
@@ -35,10 +38,12 @@ public class ColdChainLogisticsController : Controller
     }
 
     [HttpGet]
+    [RequireAdmin]
     public IActionResult CreateTemplate() => View(new LogFreightTemplate());
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequireAdmin]
     public async Task<IActionResult> CreateTemplate(LogFreightTemplate template)
     {
         try
@@ -55,6 +60,7 @@ public class ColdChainLogisticsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequireAdmin]
     public async Task<IActionResult> DeleteTemplate(string id)
     {
         var t = await _templates.GetByIdAsync(id);
@@ -72,6 +78,7 @@ public class ColdChainLogisticsController : Controller
     }
 
     [HttpGet]
+    [RequireAdmin]
     public async Task<IActionResult> EditTemplate(string id)
     {
         var t = await _templates.GetByIdAsync(id);
@@ -81,6 +88,7 @@ public class ColdChainLogisticsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequireAdmin]
     public async Task<IActionResult> EditTemplate(string id, LogFreightTemplate template)
     {
         if (id != template.TemplateID) { TempData["Error"] = "参数错误"; return RedirectToAction(nameof(Index)); }
@@ -121,15 +129,8 @@ public class ColdChainLogisticsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Quote(FreightQuoteRequest request)
     {
-        // 根据商品明细自动计算货值总额
-        decimal goodsAmount = 0;
-        foreach (var item in request.Items)
-        {
-            var product = await _products.GetByIdAsync(item.ProductID);
-            if (product != null)
-                goodsAmount += product.DefaultPrice * item.Quantity;
-        }
-        request.GoodsAmount = goodsAmount;
+        // 物品不再有单一售价（售价为货物级），货值总额由下单侧按货物售价传入
+        request.GoodsAmount = 0;
 
         var result = await _logistics.QuoteFreightAsync(request);
         if (!result.IsSuccess)
