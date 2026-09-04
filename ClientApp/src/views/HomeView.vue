@@ -53,8 +53,7 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
           <h2>按品类选购</h2>
         </div>
       </div>
-      <div v-if="catalogLoading" class="leader-state" role="status">正在读取商品分类…</div>
-      <div v-else-if="catalogError && !catalogUsingFallback" class="leader-state leader-state-error" role="alert">
+      <div v-if="catalogError && !catalogUsingFallback" class="leader-state leader-state-error" role="alert">
         <span>{{ catalogError }}</span><button class="btn btn-sm btn-outline-secondary" type="button"
           @click="loadCatalog(true)">
           <RefreshCw :size="14" />重新加载
