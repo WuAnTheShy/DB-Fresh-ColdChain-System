@@ -17,6 +17,8 @@ var financialTransactionExitCode =
     await FinancialTransactionScenarioTests.RunAllAsync();
 var freightAggregationExitCode =
     await FreightAggregationScenarioTests.RunAllAsync();
+var authorizationExitCode =
+    await AuthorizationScenarioTests.RunAllAsync();
 
 Environment.ExitCode =
     orderExitCode == 0 &&
@@ -27,6 +29,7 @@ Environment.ExitCode =
     groupAAdapterExitCode == 0 &&
     supplierFulfillmentExitCode == 0 &&
     financialTransactionExitCode == 0 &&
-    freightAggregationExitCode == 0
+    freightAggregationExitCode == 0 &&
+    authorizationExitCode == 0
     ? 0
     : 1;

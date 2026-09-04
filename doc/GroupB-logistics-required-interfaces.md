@@ -1,7 +1,8 @@
 # B 组物流体系正式对接接口文档
 
-版本：1.0  
-日期：2026-09-02  
+版本：1.1
+
+日期：2026-09-04
 调用方：B 组订单与履约模块  
 协作方：A 组库存/冷链物流、C 组统一认证与退款
 
@@ -13,7 +14,7 @@
 | P0 | A 组 | 供应商级发货登记 | 基础发货已接，高级字段使用兜底 | 持久化承运商、外部运单、温区和预计送达 |
 | P0 | A 组 | 供应商级完整物流快照 | 基础发货单已接，高级轨迹使用兜底 | 返回事件、温度、异常和稳定状态代码 |
 | P0 | A 组 | 追加物流轨迹事件 | 当前为进程内兜底 | 按 `EventId` 幂等持久化并参与 B 组事务 |
-| P0 | C 组 | 统一角色/权限判定 | 当前仅校验统一登录写入的 Session | 提供稳定权限契约或标准 Claims |
+| P0 | C 组 | 统一角色/权限判定 | 已接 IGroupCAuthorizationService 与逐动作权限 | 部署时确认实际角色 ID 的授权映射，并验证停用与拒绝路径 |
 | P1 | C 组 | 物流责任退款证据 | 已有 `LiabilityType=Logistics` | 可选扩展结构化物流异常证据 |
 
 P0 接口未正式接入时，`FallbackGroupALogisticsExtensionProvider` 仅用于开发联调和演示，不能作为生产物流记录来源。
@@ -123,7 +124,7 @@ B 组在调用前校验供应商归属、订单状态和物流状态机。A 组�
 
 ## 4. C 组 P0 统一权限接口
 
-当前 B 组只读取统一登录写入的 `AdminName` 或 `SupplierId` Session，不读取 C 组用户/权限表。正式部署时 C 组需要提供标准 Claims，或实现等价服务：
+当前已实现 `IGroupCAuthorizationService`。B 组读取统一登录写入的 `AdminId` 或 `SupplierId` Session，逐动作调用 C 组服务，不读取 C 组用户/权限表：
 
 ```csharp
 Task<GroupCAuthorizationResult> AuthorizeAsync(
@@ -143,6 +144,15 @@ Task<GroupCAuthorizationResult> AuthorizeAsync(
 | `groupb.fulfillment.write` | 供应商登记发货、追加本人轨迹 |
 
 返回结果至少包含 `IsAllowed`、`SubjectId`、`RoleCode` 和可选拒绝原因。供应商数据范围仍由 B 组使用当前登录的 `SupplierId` 对订单明细做二次校验，不能只依赖前端字段或权限接口返回的 `resourceId`。
+
+实现约定：
+
+- 角色权限位于 `GroupC:Authorization:RolePermissions`，键为真实 `SYS_ROLES.RoleId`，不是角色名称。已有模型没有权限表，本次不增加数据库表、不引入认证框架。
+- 默认只为 C 组管理员注册使用的 `r_admin` 显式授予订单读/管理权限；其他角色必须配置，不自动继承权限。只读角色只配置 `groupb.orders.read`。
+- C 组每次从自己的仓储检查管理员和角色存在且状态为 `Enable`/`Enabled`，不把登录时的角色快照当作永久授权。未知状态一律拒绝。
+- 供应商读写权限由 `SupplierPermissions` 显式配置，同时通过 A 组服务检查账号状态 `Active` 和资质未过期。`resourceId` 必须等于当前供应商 ID；具体订单归属仍由履约服务校验。
+- `OrderController` 和 `SupplierFulfillmentController` 的每个动作都有 `GroupBPermissionAttribute`。未声明动作、身份不匹配或权限不满足返回 403；授权故障返回 503，不降级为仅校验 Session。
+- 新管理员登录写入 `AdminId`；只有 `AdminName` 的旧会话必须重新登录。此次入口控制范围是上述 B 组后台，不代表其他组所有后台入口已完成权限审计。
 
 ## 5. C 组 P1 物流责任退款协作
 

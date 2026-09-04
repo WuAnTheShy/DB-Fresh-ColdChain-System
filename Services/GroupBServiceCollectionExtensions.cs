@@ -49,6 +49,8 @@ public static class GroupBServiceCollectionExtensions
         services.AddScoped<IGroupCPromoterCatalogService, GroupCPromoterCatalogService>();
         services.AddScoped<IConsumerCatalogService, ConsumerCatalogService>();
         services.AddScoped<GroupBApiExceptionFilter>();
+        services.Configure<GroupCAuthorizationOptions>(configuration.GetSection(GroupCAuthorizationOptions.SectionName));
+        services.AddScoped<IGroupCAuthorizationService, GroupCAuthorizationService>();
         services.AddScoped<GroupBAdminSessionAuthorizationFilter>();
         services.AddScoped<GroupBSupplierSessionAuthorizationFilter>();
         services.AddScoped<GroupBDailyMaintenanceService>();
