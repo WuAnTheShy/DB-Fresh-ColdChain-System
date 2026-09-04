@@ -11,6 +11,10 @@ public static class GroupALogisticsServiceCollectionExtensions
     public static IServiceCollection AddGroupALogisticsPersistence(this IServiceCollection services,
         IConfiguration configuration)
     {
+        services.Configure<DemoCarrierOptions>(configuration.GetSection(DemoCarrierOptions.SectionName));
+        services.AddScoped<IGroupACarrierRepository, GroupACarrierRepository>();
+        services.AddScoped<GroupADemoCarrierService>();
+        services.AddScoped<FreshColdChain.Controllers.Api.DemoCarrierAuthorizationFilter>();
         services.AddOptions<GroupALogisticsOptions>()
             .Bind(configuration.GetSection(GroupALogisticsOptions.SectionName))
             .Validate(options => options.Provider is "Oracle" or "Fallback", "物流 Provider 只支持 Oracle 或 Fallback")

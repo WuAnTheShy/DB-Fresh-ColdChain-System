@@ -1,0 +1,68 @@
+@model ShipmentsPage
+@{ Layout = null; var selected = Model.Selected; }
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>冷链物流商模拟器</title>
+    <link rel="stylesheet" href="/lib/bootstrap.min.css" /><link rel="stylesheet" href="/css/carrier.css" />
+</head>
+<body>
+<header class="carrier-header"><h1>冷链物流商模拟器</h1><a href="@Model.ShopUrl" target="_blank" rel="noopener">打开商城</a></header>
+<main class="carrier-main">
+    <p class="demo-notice">演示操作会写入 Oracle，请使用测试运单</p>
+    @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
+    @if (Model.Error != null) { <div class="alert alert-danger" role="alert">@Model.Error</div> }
+    <div class="carrier-workspace">
+        <section class="shipment-list panel">
+            <div class="panel-heading"><h2>运单列表</h2>
+                <form asp-action="Index" asp-route-id="" method="get" class="search-form"><label class="visually-hidden" for="keyword">运单号或订单编号</label>
+                    <input id="keyword" name="keyword" value="@Model.Keyword" maxlength="100" class="form-control" placeholder="运单号 / 订单编号" />
+                    <button class="btn btn-primary" type="submit">查询</button>
+                </form>
+            </div>
+            <div class="table-responsive"><table class="table shipment-table"><thead><tr><th>运单号</th><th>订单</th><th>状态</th></tr></thead>
+                <tbody>@foreach (var shipment in Model.Shipments) {
+                    <tr class="@(selected?.DeliveryId == shipment.DeliveryId ? "selected" : "")">
+                        <td><a asp-action="Index" asp-route-id="@shipment.DeliveryId" asp-route-keyword="@Model.Keyword">@(shipment.TrackingNo ?? shipment.DeliveryId)</a></td>
+                        <td>@shipment.OrderId</td><td>@shipment.StatusName</td>
+                    </tr>
+                }</tbody></table></div>
+            @if (Model.Shipments.Count == 0 && Model.Error == null) { <p class="empty-state">没有匹配的授权运单。请调整查询条件；首次演示请运行启动脚本的 -Seed 选项。</p> }
+            <div class="list-footer"><a class="btn btn-outline-primary" asp-action="Index" asp-route-id="@selected?.DeliveryId" asp-route-keyword="@Model.Keyword">刷新列表</a><small>最多显示 100 条</small></div>
+        </section>
+        <section class="shipment-detail panel">
+        @if (selected == null) { <div class="empty-state"><h2>选择一张运单</h2><p>选中左侧运单后，即可查看轨迹并上报物流进度。</p></div> }
+        else {
+            <div class="detail-heading"><h2>@(selected.TrackingNo ?? selected.DeliveryId)</h2>
+                <p>供应商 @selected.SupplierId · @(selected.PackageTemperature switch { "CHILLED" => "冷藏", "FROZEN" => "冷冻", "AMBIENT" => "常温", _ => selected.PackageTemperature }) · 预计送达 @(selected.EstimatedArrivalAt?.ToString("MM-dd HH:mm") ?? "未设置")</p>
+            </div>
+            <h3>物流轨迹</h3>
+            @if (selected.HasException) { <div class="alert alert-warning">@selected.ExceptionMessage</div> }
+            <ol class="timeline">@foreach (var item in selected.Events) {
+                <li class="@(item.IsTemperatureException ? "temperature-error" : "")"><div><strong>@item.StatusName</strong><time>@item.OccurredAt.ToString("MM-dd HH:mm:ss")</time></div>
+                    <p>@item.Location @if (item.TemperatureCelsius.HasValue) { <span> / @item.TemperatureCelsius ℃</span> }</p><p>@item.Description</p>
+                </li>
+            }</ol>
+            <div class="event-form"><h3>上报物流事件</h3>
+                <form asp-action="Update" method="post">
+                    <input type="hidden" name="DeliveryId" value="@Model.Input.DeliveryId" /><input type="hidden" name="EventId" value="@Model.Input.EventId" />
+                    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+                    <div class="row g-3">
+                        <div class="col-sm-6"><label for="status" class="form-label">物流状态</label><select id="status" name="StatusCode" class="form-select">
+                            @foreach (var status in ShipmentsPage.StatusNames) { <option value="@status.Key" selected="@(status.Key == Model.Input.StatusCode)">@status.Value</option> }
+                        </select></div>
+                        <div class="col-sm-6"><label for="occurred" class="form-label">发生时间</label><input id="occurred" name="OccurredAt" class="form-control" type="datetime-local" step="1" value="@Model.Input.OccurredAt.ToString("yyyy-MM-ddTHH:mm:ss")" required /></div>
+                        <div class="col-sm-6"><label for="location" class="form-label">当前位置</label><input id="location" name="Location" class="form-control" maxlength="200" value="@Model.Input.Location" /></div>
+                        <div class="col-sm-6"><label for="temperature" class="form-label">温度（℃）</label><input id="temperature" name="TemperatureCelsius" class="form-control" type="number" step="0.1" value="@Model.Input.TemperatureCelsius" /></div>
+                        <div class="col-12"><label for="description" class="form-label">事件说明</label><textarea id="description" name="Description" class="form-control" maxlength="500" rows="2" required>@Model.Input.Description</textarea></div>
+                        <div class="col-12"><button type="submit" class="btn btn-primary w-100">提交物流更新</button></div>
+                    </div>
+                </form>
+                <p class="form-note">提交后请在商城刷新物流。状态须符合流转规则；温度超限将记录为物流异常。</p>
+            </div>
+        }
+        </section>
+    </div>
+</main>
+</body></html>
