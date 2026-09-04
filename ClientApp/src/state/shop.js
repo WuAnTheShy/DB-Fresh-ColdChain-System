@@ -8,18 +8,27 @@ import seafoodImage from '../assets/categories/seafood.jpg'
 import dairyBakeryImage from '../assets/categories/dairy-bakery.jpg'
 import otherGroceryImage from '../assets/categories/other-grocery.jpg'
 
-export const categories = reactive([])
+// 首页与分类导航始终保留完整的六个常用品类；商品目录只负责填充各品类商品，
+// 避免某个品类暂时没有在团商品时，对应入口也随接口结果一起消失。
+export const categories = reactive([
+  { slug: '时令水果', name: '时令水果', icon: '樱桃', image: seasonalFruitImage },
+  { slug: '蔬菜豆品', name: '蔬菜豆品', icon: '青菜', image: vegetableTofuImage },
+  { slug: '肉禽蛋品', name: '肉禽蛋品', icon: '鲜肉', image: meatEggsImage },
+  { slug: '海鲜水产', name: '海鲜水产', icon: '三文鱼', image: seafoodImage },
+  { slug: '乳品烘焙', name: '乳品烘焙', icon: '牛奶', image: dairyBakeryImage },
+  { slug: '其他', name: '其他', icon: '杂货', image: otherGroceryImage },
+])
 export const leaders = reactive([])
 export const products = reactive([])
 
 const categoryVisuals = [
-  { pattern: /果|fruit/i, icon: '水果', image: seasonalFruitImage },
-  { pattern: /菜|豆|vegetable/i, icon: '蔬菜', image: vegetableTofuImage },
-  { pattern: /肉|禽|蛋|meat|egg/i, icon: '鲜肉', image: meatEggsImage },
-  { pattern: /海|水产|fish|seafood/i, icon: '水产', image: seafoodImage },
-  { pattern: /乳|奶|烘焙|dairy|bakery/i, icon: '乳品', image: dairyBakeryImage },
+  { pattern: /果|fruit/i, name: '时令水果', icon: '水果', image: seasonalFruitImage },
+  { pattern: /菜|豆|vegetable/i, name: '蔬菜豆品', icon: '蔬菜', image: vegetableTofuImage },
+  { pattern: /肉|禽|蛋|meat|egg/i, name: '肉禽蛋品', icon: '鲜肉', image: meatEggsImage },
+  { pattern: /海|水产|fish|seafood/i, name: '海鲜水产', icon: '水产', image: seafoodImage },
+  { pattern: /乳|奶|烘焙|dairy|bakery/i, name: '乳品烘焙', icon: '乳品', image: dairyBakeryImage },
 ]
-const defaultCategoryVisual = { icon: '杂货', image: otherGroceryImage }
+const defaultCategoryVisual = { name: '其他', icon: '杂货', image: otherGroceryImage }
 const leaderCovers = [seasonalFruitImage, vegetableTofuImage, seafoodImage]
 const leadersLoading = ref(false)
 const leadersLoaded = ref(false)
@@ -56,12 +65,6 @@ function categoryVisual(name) {
   return categoryVisuals.find((item) => item.pattern.test(name)) ?? defaultCategoryVisual
 }
 
-function normalizeCategory(name) {
-  const normalizedName = String(name ?? '').trim() || '其他'
-  const visual = categoryVisual(normalizedName)
-  return { slug: normalizedName, name: normalizedName, icon: visual.icon, image: visual.image }
-}
-
 // 温区展示文字映射（兼容英文枚举与中文值，大小写不敏感）
 const storageLabels = {
   CHILLED: '冷藏',
@@ -89,8 +92,9 @@ function storageTypeOf(value) {
 }
 
 function normalizeProduct(item) {
-  const categoryName = String(item.categoryName ?? '').trim() || '其他'
-  const visual = categoryVisual(categoryName)
+  const sourceCategoryName = String(item.categoryName ?? '').trim() || '其他'
+  const visual = categoryVisual(sourceCategoryName)
+  const categoryName = visual.name
   const images = (Array.isArray(item.imageUrls) ? item.imageUrls : [])
     .map((url) => String(url ?? '').trim())
     .filter(Boolean)
@@ -136,13 +140,7 @@ function applyCatalogResult(result, usingFallback = false) {
   const normalizedProducts = (Array.isArray(result?.products) ? result.products : [])
     .map((item) => normalizeProduct({ ...item, isFallback: usingFallback || item.isFallback }))
     .filter((product) => product.id && product.productId && product.leaderId && product.price > 0 && product.stock > 0)
-  const categoryNames = Array.isArray(result?.categories)
-    ? result.categories
-    : normalizedProducts.map((product) => product.category)
-  const normalizedCategories = [...new Set(categoryNames
-    .map((name) => String(name ?? '').trim()).filter(Boolean))].map(normalizeCategory)
   products.splice(0, products.length, ...normalizedProducts)
-  categories.splice(0, categories.length, ...normalizedCategories)
   catalogUsingFallback.value = usingFallback
   reconcileCart()
   catalogLoaded.value = true
