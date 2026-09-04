@@ -1,6 +1,6 @@
 <script setup>
 import { Apple, BadgeCheck, Beef, Check, ChevronRight, Clock3, Fish, Leaf, LockKeyhole, MapPin, Milk, PackageCheck, PenLine, ShieldCheck, ShoppingBasket, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
 import QuantityStepper from '../components/QuantityStepper.vue'
@@ -24,23 +24,23 @@ const followLink = computed(() => canViewPrice.value ? null : `/leaders/${leader
 const productIntroRoute = computed(() => leader.value && product.value?.productId
   ? `/leaders/${leader.value.id}/products/${product.value.productId}/intro`
   : null)
-const introLoaded = ref(false)
 const introVisible = ref(false)
-let introCheckKey = ''
+const introError = ref('')
+let introRequestId = 0
 async function checkIntro() {
+  const requestId = ++introRequestId
+  introVisible.value = false
+  introError.value = ''
   const p = product.value
   const l = leader.value
-  const key = `${l?.id ?? ''}|${p?.productId ?? ''}`
-  if (!p || !l || p.isFallback || !p.productId || key === introCheckKey) return
-  introCheckKey = key
-  introLoaded.value = false
+  if (!p || !l || p.isFallback || !p.productId) return
   try {
     const result = await api.getPromoterProductIntro(l.id, p.productId)
+    if (requestId !== introRequestId) return
     introVisible.value = Boolean(result?.hasIntro)
-  } catch {
-    introVisible.value = false
-  } finally {
-    introLoaded.value = true
+  } catch (error) {
+    if (requestId !== introRequestId) return
+    if (error?.status !== 404) introError.value = '团长推荐信息暂时读取失败，请重试'
   }
 }
 
@@ -63,7 +63,10 @@ watch([() => props.id, catalogLoaded], () => {
 }, { immediate: true })
 
 // 目录就绪或切换商品后检查该商品是否有团长推文（决定是否显示推文入口）
-watch([() => props.id, () => product.value?.leaderId, () => product.value?.isFallback], () => checkIntro())
+watch([() => props.id, () => leader.value?.id, () => product.value?.productId, () => product.value?.isFallback],
+  () => checkIntro(), { immediate: true, flush: 'sync' })
+// 切换商品或离开页面后，旧请求不能覆盖新页面的推文入口。
+onUnmounted(() => { introRequestId++ })
 
 onMounted(() => loadCatalog().catch(() => { }))
 
@@ -184,6 +187,11 @@ function buyNow() {
         <span>团长为这款商品撰写了图文推文，去听听他的推荐理由</span>
       </div>
       <RouterLink :to="productIntroRoute" class="promoter-intro-entry-link">查看团长推文<ChevronRight :size="15" /></RouterLink>
+    </section>
+    <section v-else-if="introError" class="promoter-intro-entry" role="alert">
+      <div class="promoter-intro-entry-icon"><PenLine :size="20" /></div>
+      <div class="promoter-intro-entry-copy"><strong>{{ introError }}</strong></div>
+      <button class="btn btn-outline-secondary" type="button" @click="checkIntro">重新加载</button>
     </section>
 
     <section class="product-description-section">

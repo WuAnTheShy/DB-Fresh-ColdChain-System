@@ -1,6 +1,6 @@
 <script setup>
 import { ArrowLeft, BadgeCheck, FileText, PenLine } from '@lucide/vue'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { api } from '../services/api'
 import { useShop } from '../state/shop'
 
@@ -8,7 +8,7 @@ const props = defineProps({
   leaderId: { type: String, required: true },
   productId: { type: String, required: true },
 })
-const { products, leaderById, catalogLoading, catalogError, leadersLoading, loadLeaders, loadCatalog } = useShop()
+const { products, leaderById, catalogLoading, catalogError, leadersLoading, leadersError, loadLeaders, loadCatalog } = useShop()
 const leader = computed(() => leaderById(props.leaderId))
 const product = computed(() => products.find((item) =>
   item.productId === String(props.productId) && item.leaderId === String(props.leaderId)))
@@ -16,42 +16,47 @@ const intro = ref(null)
 const introLoaded = ref(false)
 const introError = ref('')
 const notFound = ref(false)
+const baseError = computed(() => catalogError.value || leadersError.value ||
+  (product.value?.isFallback ? '当前为缓存目录，请重新加载后查看团长推文' : ''))
+let introRequestId = 0
 
-onMounted(async () => {
-  await loadBase()
-  await fetchIntro()
-})
+watch([() => props.leaderId, () => props.productId], () => fetchIntro(), { immediate: true, flush: 'sync' })
+onUnmounted(() => { introRequestId++ })
 
-watch(() => [props.leaderId, props.productId], async () => {
-  await loadBase()
-  await fetchIntro()
-})
-
-async function loadBase() {
+async function loadBase(force = false) {
   try {
-    await Promise.all([loadLeaders(), loadCatalog()])
+    await Promise.all([loadLeaders(force), loadCatalog(force)])
   } catch {
     // 目录读取失败时保留页面加载/失败状态，允许消费者重试
   }
 }
 
-async function fetchIntro() {
+async function fetchIntro(forceBase = false) {
+  const requestId = ++introRequestId
+  const leaderId = props.leaderId
+  const productId = props.productId
+  // 请求开始即清空上一商品的正文，旧请求完成后也不能改变当前页面。
+  intro.value = null
   introLoaded.value = false
   introError.value = ''
   notFound.value = false
-  if (!leader.value || !product.value) {
+  await loadBase(forceBase)
+  if (requestId !== introRequestId) return
+  if (baseError.value || !leader.value || !product.value) {
     introLoaded.value = true
     return
   }
   try {
-    const result = await api.getPromoterProductIntro(leader.value.id, product.value.productId)
+    const result = await api.getPromoterProductIntro(leaderId, productId)
+    if (requestId !== introRequestId) return
     intro.value = result?.hasIntro ? result : null
   } catch (error) {
+    if (requestId !== introRequestId) return
     if (error?.status === 404) notFound.value = true
     else introError.value = error?.message || '推文读取失败'
     intro.value = null
   } finally {
-    introLoaded.value = true
+    if (requestId === introRequestId) introLoaded.value = true
   }
 }
 </script>
@@ -65,7 +70,7 @@ async function fetchIntro() {
       <span class="pi-crumb-sep">/</span><em>团长推文</em>
     </nav>
 
-    <template v-if="product && leader">
+    <template v-if="product && leader && !baseError">
       <header class="pi-head">
         <div class="pi-head-product">
           <img :src="product.image" :alt="product.name" @error="$event.target.style.opacity = 0" />
@@ -109,7 +114,7 @@ async function fetchIntro() {
           <FileText :size="34" />
           <strong>推文读取失败</strong>
           <span>{{ introError }}</span>
-          <button class="btn btn-outline-secondary" type="button" @click="fetchIntro">重新加载</button>
+          <button class="btn btn-outline-secondary" type="button" @click="fetchIntro()">重新加载</button>
         </div>
 
         <div v-else-if="notFound" class="pi-state">
@@ -130,6 +135,13 @@ async function fetchIntro() {
 
     <div v-else-if="catalogLoading || leadersLoading" class="pi-state pi-page-state" role="status">
       <span class="pi-spinner"></span>正在加载…
+    </div>
+
+    <div v-else-if="baseError" class="pi-state pi-page-state" role="alert">
+      <FileText :size="34" />
+      <strong>团长或商品信息读取失败</strong>
+      <span>{{ baseError }}</span>
+      <button class="btn btn-outline-secondary" type="button" @click="fetchIntro(true)">重新加载</button>
     </div>
 
     <div v-else class="pi-state pi-page-state">
