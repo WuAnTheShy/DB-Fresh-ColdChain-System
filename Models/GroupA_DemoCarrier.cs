@@ -1,0 +1,33 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace FreshColdChain.Models;
+
+/// <summary>独立物流商演示接入，默认关闭；必须明确配置测试供应商范围。</summary>
+public sealed class DemoCarrierOptions
+{
+    public const string SectionName = "GroupA:DemoCarrier";
+    public bool Enabled { get; set; }
+    public string ApiKey { get; set; } = "";
+    public string[] SupplierIds { get; set; } = [];
+}
+
+public sealed class CarrierEventCommand
+{
+    [Required, StringLength(36)] public string EventId { get; set; } = GroupBIds.NewId();
+    [Required, StringLength(30)] public string StatusCode { get; set; } = LogisticsStatusCodes.InTransit;
+    [StringLength(200, ErrorMessage = "当前位置最多 200 字")] public string? Location { get; set; }
+    [Required, StringLength(500)] public string Description { get; set; } = "";
+    public DateTime OccurredAt { get; set; } = DateTime.Now;
+    public decimal? TemperatureCelsius { get; set; }
+}
+
+public sealed class CarrierShipmentSummary
+{
+    public string DeliveryId { get; set; } = "";
+    public string OrderId { get; set; } = "";
+    public string SupplierId { get; set; } = "";
+    public string? TrackingNo { get; set; }
+    public string? StatusCode { get; set; }
+    public string StatusName => LogisticsStatusCodes.GetName(StatusCode);
+    public DateTime ShippedAt { get; set; }
+}

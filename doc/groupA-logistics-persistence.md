@@ -2,6 +2,14 @@
 
 日期：2026-09-04。用户授权后的跨组实现，只在 `dev-groupB` 提交。
 
+## 2026-09-05 更新：演示库迁移已执行
+
+用户随后明确授权修改当前 Oracle。已执行 `groupA_logistics_persistence.sql` 的三个增量 DDL 块：基础表增加 `UQ_LED_ORDER_SUPPLIER`，新建 `Log_LogisticsDetails`、`Log_LogisticsEvents`；约束检查均为 `ENABLED / VALIDATED`。迁移前基础物流表为空、无重复归属；没有删除或改写原有业务数据。
+
+随后创建 3 张专用测试运单以及必要的测试账号、地址、禁用供应商和下架商品，未扣真实库存、未创建真实支付。第一次外键失败已确认事务完整回滚，再补齐测试商品父记录后成功创建。真实 Oracle 时间精度、重试、回滚、范围隔离和重启持久性已验证。独立模拟器及操作说明见 [CarrierSimulator/README.md](../CarrierSimulator/README.md)。
+
+以下 2026-09-04 验收记录为历史快照；其中“未迁移”不再描述本机当前连接的数据库。其他环境仍须分别迁移和验收，不能由本次演示推断已生产上线。
+
 ## 实现与事务边界
 
 - `OracleGroupALogisticsExtensionProvider` 默认替代进程内兜底。A 组仓储读取基础发货单，`Log_LogisticsDetails` 保存承运商、外部运单号、温区、预计送达、备注；`Log_LogisticsEvents` 保存轨迹及温度。B 组不直接访问这两张表。
