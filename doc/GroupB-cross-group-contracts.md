@@ -113,7 +113,8 @@ Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
 - 当前 `GroupALogisticsServiceAdapter` 调用 A 组 `IColdChainLogisticsService.QuoteFreightAsync` 返回真实冷链运费。
 - `FreightCalculationResult` 同时返回目的地、货值、规则摘要、计算时间、数据源和商品计费项。
 - B 组将完整结果序列化到 `Biz_Orders.FreightQuoteSnapshot`，但不解释或重新计算 A 组规则。
-- A 组后续应在自身实现中按“供应商 + 温区 + 命中模板”聚合重量，并确保首重费和包装费按包裹收取；该算法不在 B 组实现。
+- A 组 `ColdChainLogisticsService` 已按“供应商 + 温区 + 命中模板”聚合重量，每个计费包裹只收一次首重费及包装费；B 组仅适配接口，不复制算法。
+- `FreightItemDto.SupplierID` 传订单侧已校验的供应商快照，旧调用未传时取商品当前供应商，仍缺失则拒绝报价；退款前后报价也传订单供应商快照。包邮阈值继续使用本次请求货值，不更改为分包货值。
 
 ### 3.2 创建物流
 

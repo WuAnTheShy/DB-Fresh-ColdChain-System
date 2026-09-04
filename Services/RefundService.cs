@@ -663,6 +663,7 @@ namespace FreshColdChain.Services
                 .Select(detail => new FreightItemDto
                 {
                     ProductID = detail.ProductId,
+                    SupplierID = detail.SupplierId,
                     Quantity = Math.Max(0, detail.Quantity -
                         occupiedByDetail.GetValueOrDefault(detail.OrderDetailId))
                 })
@@ -672,6 +673,7 @@ namespace FreshColdChain.Services
                 .Select(detail => new FreightItemDto
                 {
                     ProductID = detail.ProductId,
+                    SupplierID = detail.SupplierId,
                     Quantity = Math.Max(0, detail.Quantity -
                         occupiedByDetail.GetValueOrDefault(detail.OrderDetailId) -
                         selectedByDetail.GetValueOrDefault(detail.OrderDetailId))
