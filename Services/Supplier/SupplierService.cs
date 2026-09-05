@@ -14,8 +14,8 @@ public class SupplierService : ISupplierService
     private readonly IProductRepository _productRepo;
     private readonly IGoodsRepository _goodsRepo;
 
-    public SupplierService(ISupplierRepository repo, ISupplierPriceRepository priceRepo, IProductRepository productRepo,
-        IGoodsRepository goodsRepo)
+    public SupplierService(ISupplierRepository repo, ISupplierPriceRepository priceRepo,
+        IProductRepository productRepo, IGoodsRepository goodsRepo)
     {
         _repo = repo;
         _priceRepo = priceRepo;
@@ -593,9 +593,11 @@ public class SupplierService : ISupplierService
         var all = await _repo.GetAllAsync();
         var goods = await _goodsRepo.GetAllAsync();
         var namesBySupplier = goods
-            .Where(g => !string.IsNullOrWhiteSpace(g.SupplierID) && !string.IsNullOrWhiteSpace(g.Product?.ProductName))
-            .GroupBy(g => g.SupplierID)
-            .ToDictionary(g => g.Key, g => g.Select(item => item.Product!.ProductName).Distinct().ToList());
+            .Where(item => !string.IsNullOrWhiteSpace(item.SupplierID) &&
+                           !string.IsNullOrWhiteSpace(item.Product?.ProductName))
+            .GroupBy(item => item.SupplierID)
+            .ToDictionary(group => group.Key,
+                group => group.Select(item => item.Product!.ProductName).Distinct().ToList());
 
         var list = all.Select(s =>
         {

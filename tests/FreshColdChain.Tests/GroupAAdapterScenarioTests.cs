@@ -53,10 +53,7 @@ internal static class GroupAAdapterScenarioTests
             Product = new ProductDto
             {
                 ProductID = "P1",
-                ProductName = "车厘子",
-                SupplierName = "测试供应商",
-                DefaultPrice = 50m,
-                Status = "ACTIVE"
+                ProductName = "车厘子"
             },
             Inventory = new InventoryDto
             {
@@ -80,6 +77,17 @@ internal static class GroupAAdapterScenarioTests
         var adapter = new GroupAInventoryServiceAdapter(
             unitOfWork,
             productService,
+            new StubGoodsService
+            {
+                Goods =
+                [
+                    new GoodsDto
+                    {
+                        ProductID = "P1", ProductName = "车厘子", SupplierID = "SUP1",
+                        SupplierName = "测试供应商", SalePrice = 50m, Status = "ACTIVE"
+                    }
+                ]
+            },
             supplierService);
         using var transaction = new FakeOrderTransaction();
 
@@ -447,6 +455,19 @@ internal sealed class StubSupplierService : ISupplierService
     public Task<ApiResponse<List<SupplierProductEntryDto>>> SearchSupplierProductEntriesAsync(string? keyword) => throw new NotSupportedException();
     public Task<ApiResponse<List<SupplierDto>>> GetSuppliersByStatusAsync(string status) => throw new NotSupportedException();
     public Task<ApiResponse> SetSupplierStatusAsync(string supplierId, string targetStatus) => throw new NotSupportedException();
+}
+
+internal sealed class StubGoodsService : IGoodsService
+{
+    public required List<GoodsDto> Goods { get; init; }
+
+    public Task<ApiResponse<List<GoodsDto>>> GetAllGoodsAsync(string? keyword = null) =>
+        Task.FromResult(ApiResponse<List<GoodsDto>>.Success(Goods));
+
+    public Task<ApiResponse<List<GoodsDto>>> GetSupplierGoodsAsync(string supplierId) => throw new NotSupportedException();
+    public Task<ApiResponse<GoodsDto>> AddGoodsAsync(string supplierId, CreateGoodsDto dto) => throw new NotSupportedException();
+    public Task<ApiResponse> UpdateGoodsAsync(string supplierId, string productId, UpdateGoodsDto dto) => throw new NotSupportedException();
+    public Task<ApiResponse> SetGoodsStatusAsync(string supplierId, string productId, string status) => throw new NotSupportedException();
 }
 
 internal sealed class StubColdChainLogisticsService : IColdChainLogisticsService

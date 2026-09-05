@@ -90,7 +90,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                     SupplierID = supplierId,
                     ProductName = product.ProductName,
                     Quantity = item.Quantity,
-                    UnitPrice = 0m
+                    UnitPrice = 0m // 售价属于供应商货物，不再从通用物品读取
                 });
             }
 
