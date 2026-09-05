@@ -1,4 +1,4 @@
-param([int]$ShopPort = 5064, [int]$CarrierPort = 5077, [switch]$Seed)
+param([int]$ShopPort = 5064, [int]$CarrierPort = 5077)
 $ErrorActionPreference = 'Stop'
 $repoPath = Split-Path $PSScriptRoot -Parent
 Set-Location -LiteralPath $repoPath
@@ -10,10 +10,6 @@ dotnet build FreshColdChain.csproj -c Release --nologo
 if ($LASTEXITCODE -ne 0) { throw '商城编译失败' }
 dotnet build CarrierSimulator/CarrierSimulator.csproj -c Release --nologo
 if ($LASTEXITCODE -ne 0) { throw '模拟器编译失败' }
-if ($Seed) {
-    dotnet run --project tests/CarrierDemoFixture -c Release -- --seed
-    if ($LASTEXITCODE -ne 0) { throw '演示数据创建失败，未启动服务' }
-}
 $demoKey = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 $logPath = Join-Path $repoPath 'tmp/carrier-demo'
 $null = New-Item -ItemType Directory -Path $logPath -Force

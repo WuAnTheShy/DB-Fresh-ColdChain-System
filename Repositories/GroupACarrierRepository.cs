@@ -18,8 +18,7 @@ public sealed class GroupACarrierRepository(IUnitOfWork unitOfWork) : IGroupACar
         if (!includeAll && supplierIds.Length == 0) return [];
         return (await unitOfWork.Connection.QueryAsync<CarrierShipmentSummary>(new CommandDefinition("""
             SELECT d.DeliveryID AS DeliveryId, d.OrderID AS OrderId, d.SupplierID AS SupplierId,
-                COALESCE(x.TrackingNo, d.TrackingNo) AS TrackingNo, d.LogisticsStatus AS StatusCode, d.ShippedAt,
-                CASE WHEN d.DeliveryID LIKE 'CARRIER-DEMO-%' OR d.OrderID LIKE 'ORDER-DEMO-%' THEN 1 ELSE 0 END AS IsDemoData
+                COALESCE(x.TrackingNo, d.TrackingNo) AS TrackingNo, d.LogisticsStatus AS StatusCode, d.ShippedAt
             FROM Log_ExpressDeliveries d LEFT JOIN Log_LogisticsDetails x ON x.DeliveryId = d.DeliveryID
             WHERE (:IncludeAll = 1 OR d.SupplierID IN :SupplierIds)
                 AND (:Keyword IS NULL OR INSTR(d.OrderID, :Keyword) > 0

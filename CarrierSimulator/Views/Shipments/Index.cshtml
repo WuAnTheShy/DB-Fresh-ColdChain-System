@@ -24,11 +24,11 @@
             <div class="table-responsive"><table class="table shipment-table"><thead><tr><th>运单号</th><th>订单</th><th>状态</th></tr></thead>
                 <tbody>@foreach (var shipment in Model.Shipments) {
                     <tr class="@(selected?.DeliveryId == shipment.DeliveryId ? "selected" : "")">
-                        <td><a asp-action="Index" asp-route-id="@shipment.DeliveryId" asp-route-keyword="@Model.Keyword">@(shipment.TrackingNo ?? shipment.DeliveryId)</a>@if (shipment.IsDemoData) { <small class="demo-label">测试</small> }</td>
+                        <td><a asp-action="Index" asp-route-id="@shipment.DeliveryId" asp-route-keyword="@Model.Keyword">@(shipment.TrackingNo ?? shipment.DeliveryId)</a></td>
                         <td>@shipment.OrderId</td><td>@shipment.StatusName</td>
                     </tr>
                 }</tbody></table></div>
-            @if (Model.Shipments.Count == 0 && Model.Error == null) { <p class="empty-state">没有匹配的授权运单。请调整查询条件；首次演示请运行启动脚本的 -Seed 选项。</p> }
+            @if (Model.Shipments.Count == 0 && Model.Error == null) { <p class="empty-state">Oracle 中暂无匹配的真实物流记录。请先由供应商为真实订单发货，或调整查询条件。</p> }
             <div class="list-footer"><a class="btn btn-outline-primary" asp-action="Index" asp-route-id="@selected?.DeliveryId" asp-route-keyword="@Model.Keyword">刷新列表</a><small>最多显示 100 条</small></div>
         </section>
         <section class="shipment-detail panel">

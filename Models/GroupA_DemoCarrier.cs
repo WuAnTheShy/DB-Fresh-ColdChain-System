@@ -31,5 +31,4 @@ public sealed class CarrierShipmentSummary
     public string? StatusCode { get; set; }
     public string StatusName => LogisticsStatusCodes.GetName(StatusCode);
     public DateTime ShippedAt { get; set; }
-    public bool IsDemoData { get; set; }
 }
