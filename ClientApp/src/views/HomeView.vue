@@ -8,12 +8,12 @@ const { categories, products, catalogLoading, catalogError, catalogUsingFallback
 const promoProducts = computed(() => products.slice(0, 3))
 const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
 const categoryVisualScale = {
-  时令水果: { scale: 0.88 },
-  蔬菜豆品: { scale: 0.86 },
-  肉禽蛋品: { scale: 0.9 },
-  海鲜水产: { scale: 0.98 },
-  乳品烘焙: { scale: 1.13, shiftX: '-2.7%' },
-  其他: { scale: 1.15 },
+  时令水果: { scale: 0.8 },
+  蔬菜豆品: { scale: 0.8 },
+  肉禽蛋品: { scale: 0.8 },
+  海鲜水产: { scale: 0.85 },
+  乳品烘焙: { scale: 0.93 },
+  其他: { scale: 1.03 },
 }
 </script>
 
@@ -377,11 +377,19 @@ const categoryVisualScale = {
   display: flex;
   height: auto;
   flex-direction: column;
+  overflow: visible;
   border: 2px solid transparent;
   border-radius: 10px;
   background: #fff;
   color: var(--ink);
   transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.category-tile:hover,
+.category-tile:focus-visible,
+.category-tile:active,
+.category-tile.router-link-active {
+  z-index: 2;
 }
 
 .category-tile img {
@@ -396,6 +404,13 @@ const categoryVisualScale = {
   transform-origin: center;
 }
 
+.category-tile:hover img,
+.category-tile:focus-visible img,
+.category-tile:active img,
+.category-tile.router-link-active img {
+  transform: translateX(var(--category-shift-x, 0%)) scale(calc(var(--category-scale, 1) * 1.2));
+}
+
 /* 仅图片部分高亮：橙色背衬在图片下方，固定大小（与第一张图片一致），自左向右绘制 */
 .category-tile::before {
   content: "";
@@ -406,7 +421,7 @@ const categoryVisualScale = {
   width: 100%;
   aspect-ratio: 1;
   border-radius: 10px;
-  background: var(--amber);
+  background: rgba(254, 189, 105, .5);
   transform: scale(0.8);
   transform-origin: center;
   clip-path: inset(0 100% 0 0);
@@ -414,7 +429,10 @@ const categoryVisualScale = {
   pointer-events: none;
 }
 
-.category-tile:hover::before {
+.category-tile:hover::before,
+.category-tile:focus-visible::before,
+.category-tile:active::before,
+.category-tile.router-link-active::before {
   clip-path: inset(0 0 0 0);
 }
 
@@ -427,8 +445,19 @@ const categoryVisualScale = {
 }
 
 .category-tile strong {
+  display: inline-block;
   color: var(--ink);
   font-size: 16px;
+  transform-origin: center;
+  transition: color .16s ease, transform .16s ease;
+}
+
+.category-tile:hover strong,
+.category-tile:focus-visible strong,
+.category-tile:active strong,
+.category-tile.router-link-active strong {
+  color: #c7511f;
+  transform: scale(1.1);
 }
 
 .section-title-row>span {
