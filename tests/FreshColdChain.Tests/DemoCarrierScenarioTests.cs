@@ -20,6 +20,7 @@ internal static class DemoCarrierScenarioTests
         var failures = 0;
         var cases = new (string Name, Func<Task> Run)[] {
             ("物流商接口默认关闭、生产禁用及密钥校验", AuthorizationAsync),
+            ("物流商列表区分真实订单与已交接运单", SearchIncludesPendingOrdersAsync),
             ("物流商只使用数据库中的订单供应商身份并提交同一事务", () => TransactionAsync("success")),
             ("物流商越权运单拒绝且回滚", () => TransactionAsync("missing")),
             ("物流事件业务失败回滚", () => TransactionAsync("failure"))
@@ -30,6 +31,41 @@ internal static class DemoCarrierScenarioTests
             catch (Exception exception) { failures++; Console.WriteLine($"FAIL {name}: {exception}"); }
         }
         return failures == 0 ? 0 : 1;
+    }
+
+    private static async Task SearchIncludesPendingOrdersAsync()
+    {
+        var repository = FinancialProxy.Create<IGroupACarrierRepository>((method, args) =>
+        {
+            AssertEx.Equal(nameof(IGroupACarrierRepository.SearchAsync), method.Name);
+            AssertEx.True((bool)args![0]!);
+            AssertEx.Equal("ORD-REAL", (string)args[2]!);
+            return Task.FromResult<IReadOnlyList<CarrierShipmentSummary>>
+            ([
+                new()
+                {
+                    OrderId = "ORDER-PAID", OrderNo = "ORD-REAL", SupplierId = "SUP-1",
+                    OrderStatusCode = OrderStatusCodes.Paid
+                },
+                new()
+                {
+                    DeliveryId = "DEL-REAL", OrderId = "ORDER-SHIPPED", OrderNo = "ORD-SHIPPED",
+                    SupplierId = "SUP-1", OrderStatusCode = OrderStatusCodes.Shipped,
+                    StatusCode = LogisticsStatusCodes.InTransit
+                }
+            ]);
+        });
+        var service = new GroupADemoCarrierService(new FinancialUnitOfWork(), repository,
+            FinancialProxy.Create<IGroupALogisticsExtensionProvider>(),
+            Options.Create(new DemoCarrierOptions { IncludeAllDatabaseShipments = true }));
+
+        var result = await service.SearchAsync("ORD-REAL", CancellationToken.None);
+
+        AssertEx.Equal(2, result.Count);
+        AssertEx.True(!result[0].HasShipment);
+        AssertEx.Equal("待供应商发货", result[0].StatusName);
+        AssertEx.True(result[1].HasShipment);
+        AssertEx.Equal("运输中", result[1].StatusName);
     }
 
     private static async Task AuthorizationAsync()

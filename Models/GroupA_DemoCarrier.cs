@@ -24,11 +24,29 @@ public sealed class CarrierEventCommand
 
 public sealed class CarrierShipmentSummary
 {
-    public string DeliveryId { get; set; } = "";
+    public string? DeliveryId { get; set; }
     public string OrderId { get; set; } = "";
+    public string OrderNo { get; set; } = "";
     public string SupplierId { get; set; } = "";
     public string? TrackingNo { get; set; }
     public string? StatusCode { get; set; }
-    public string StatusName => LogisticsStatusCodes.GetName(StatusCode);
-    public DateTime ShippedAt { get; set; }
+    public string OrderStatusCode { get; set; } = "";
+    public string OrderStatusName => OrderStatusCode switch
+    {
+        OrderStatusCodes.PendingPayment => "待支付",
+        OrderStatusCodes.Paid => "已支付",
+        OrderStatusCodes.Shipped => "已发货",
+        OrderStatusCodes.Completed => "已完成",
+        OrderStatusCodes.Cancelled => "已取消",
+        OrderStatusCodes.Refunding => "退款中",
+        OrderStatusCodes.Refunded => "已退款",
+        "DELIVERED" => "历史已送达",
+        _ => OrderStatusCode
+    };
+    public bool HasShipment => !string.IsNullOrWhiteSpace(DeliveryId);
+    public string StatusName => HasShipment
+        ? LogisticsStatusCodes.GetName(StatusCode)
+        : OrderStatusCode == OrderStatusCodes.Paid ? "待供应商发货" : "历史运单缺失";
+    public DateTime CreatedAt { get; set; }
+    public DateTime? ShippedAt { get; set; }
 }

@@ -38,7 +38,7 @@ public sealed class ShipmentsController(CarrierClient client, IOptions<CarrierCl
         try
         {
             page.Shipments = await client.SearchAsync(keyword, token);
-            id ??= page.Shipments.FirstOrDefault()?.DeliveryId;
+            id ??= page.Shipments.FirstOrDefault(item => item.HasShipment)?.DeliveryId;
             if (id != null)
             {
                 page.Selected = await client.GetAsync(id, token);
