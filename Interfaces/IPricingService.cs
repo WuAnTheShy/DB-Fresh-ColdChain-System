@@ -21,12 +21,12 @@ public interface IPricingService
     /// <summary>创建价格规则</summary>
     Task<ApiResponse<PriceRuleDto>> CreateRuleAsync(SavePriceRuleDto dto);
 
-    /// <summary>更新价格规则</summary>
-    Task<ApiResponse<PriceRuleDto>> UpdateRuleAsync(string ruleId, SavePriceRuleDto dto);
+    /// <summary>更新价格规则（supplierId 非空时校验归属）</summary>
+    Task<ApiResponse<PriceRuleDto>> UpdateRuleAsync(string ruleId, SavePriceRuleDto dto, string? supplierId = null);
 
-    /// <summary>按 ID 获取单条规则</summary>
-    Task<ApiResponse<PriceRuleDto>> GetRuleByIdAsync(string ruleId);
+    /// <summary>按 ID 获取单条规则（supplierId 非空时校验归属）</summary>
+    Task<ApiResponse<PriceRuleDto>> GetRuleByIdAsync(string ruleId, string? supplierId = null);
 
-    /// <summary>删除价格规则</summary>
-    Task<ApiResponse> DeleteRuleAsync(string ruleId);
+    /// <summary>删除价格规则（supplierId 非空时校验归属）</summary>
+    Task<ApiResponse> DeleteRuleAsync(string ruleId, string? supplierId = null);
 }

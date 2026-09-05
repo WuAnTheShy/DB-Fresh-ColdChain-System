@@ -20,10 +20,7 @@ public class PricesController : Controller
     [HttpGet]
     public async Task<IActionResult> Index(int pageIndex = 1, int pageSize = 15)
     {
-        // 普通供应商只看自己的规则；供应商管理员看全部
-        var supplierId = SupplierSession.IsSupplierAdmin(HttpContext.Session)
-            ? null : SupplierSession.GetSupplierId(HttpContext.Session);
-        var r = await _pricing.GetAllRulesAsync(pageIndex, pageSize, supplierId);
+        var r = await _pricing.GetAllRulesAsync(pageIndex, pageSize, ScopedSupplierId());
         return View(r.Data);
     }
 
@@ -54,7 +51,7 @@ public class PricesController : Controller
     [HttpGet]
     public async Task<IActionResult> Edit(string id)
     {
-        var r = await _pricing.GetRuleByIdAsync(id);
+        var r = await _pricing.GetRuleByIdAsync(id, ScopedSupplierId());
         if (!r.IsSuccess)
         {
             TempData["Error"] = r.Message;
@@ -84,7 +81,7 @@ public class PricesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(string id, SavePriceRuleDto dto)
     {
-        var r = await _pricing.UpdateRuleAsync(id, dto);
+        var r = await _pricing.UpdateRuleAsync(id, dto, ScopedSupplierId());
         if (!r.IsSuccess)
         {
             ModelState.AddModelError("", r.Message);
@@ -100,7 +97,7 @@ public class PricesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(string id)
     {
-        var r = await _pricing.DeleteRuleAsync(id);
+        var r = await _pricing.DeleteRuleAsync(id, ScopedSupplierId());
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(Index));
     }
@@ -126,4 +123,8 @@ public class PricesController : Controller
         ViewBag.Result = r.Data;
         return View(request);
     }
+
+    /// <summary>当前供应商 ID：管理员返回 null（可操作全部），普通供应商返回自己的 ID</summary>
+    private string? ScopedSupplierId()
+        => SupplierSession.IsSupplierAdmin(HttpContext.Session) ? null : SupplierSession.GetSupplierId(HttpContext.Session);
 }

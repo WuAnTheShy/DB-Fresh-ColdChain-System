@@ -123,14 +123,22 @@ public class ColdChainLogisticsController : Controller
     // ========== 运费报价 ==========
 
     [HttpGet]
-    public IActionResult Quote() => View(new FreightQuoteRequest());
+    public IActionResult Quote()
+    {
+        var model = new FreightQuoteRequest();
+        // 普通供应商的货值按自己货物售价计算，供应商固定为自己
+        if (!SupplierSession.IsSupplierAdmin(HttpContext.Session))
+            model.SupplierID = SupplierSession.GetSupplierId(HttpContext.Session);
+        return View(model);
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Quote(FreightQuoteRequest request)
     {
-        // 物品不再有单一售价（售价为货物级），货值总额由下单侧按货物售价传入
-        request.GoodsAmount = 0;
+        // 普通供应商的货值按自己货物售价计算；管理员可指定供应商
+        if (string.IsNullOrEmpty(request.SupplierID) && !SupplierSession.IsSupplierAdmin(HttpContext.Session))
+            request.SupplierID = SupplierSession.GetSupplierId(HttpContext.Session);
 
         var result = await _logistics.QuoteFreightAsync(request);
         if (!result.IsSuccess)

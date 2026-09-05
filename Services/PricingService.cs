@@ -93,7 +93,7 @@ public class PricingService : IPricingService
         // 4. 遍历规则取第一个命中
         foreach (var rule in rules)
         {
-            if (await IsRuleTriggeredAsync(rule, product, request.Quantity, now))
+            if (await IsRuleTriggeredAsync(rule, product, request.SupplierID, request.Quantity, now))
             {
                 var finalPrice = ComputeFinalPrice(rule, basePrice);
                 return ApiResponse<PriceCalculationResult>.Success(new PriceCalculationResult
@@ -124,16 +124,16 @@ public class PricingService : IPricingService
     /// <summary>
     /// 判断当前规则是否满足触发条件
     /// </summary>
-    private async Task<bool> IsRuleTriggeredAsync(BizPriceRule rule, InvProduct product, decimal quantity, DateTime now)
+    private async Task<bool> IsRuleTriggeredAsync(BizPriceRule rule, InvProduct product, string supplierId, decimal quantity, DateTime now)
     {
         var triggerType = NormalizeTriggerType(rule.TriggerType);
         return triggerType switch
         {
             "TimeBased" => IsTimeInWindow(rule.TimeWindow, now),
             "BulkDiscount" => IsBulkMatch(rule, quantity),
-            "ExpiryApproaching" => await IsProductExpiringSoonAsync(product, rule.TimeWindow, now),
+            "ExpiryApproaching" => await IsProductExpiringSoonAsync(product, supplierId, rule.TimeWindow, now),
             "ManualPrice" => rule.ManualPrice.HasValue,
-            _ => true // 未知类型默认触发（向后兼容）
+            _ => false // 未知类型不触发，避免误判导致无条件打折
         };
     }
 
@@ -202,7 +202,7 @@ public class PricingService : IPricingService
     /// 临期折扣：查询产品批次，有批次在阈值时间内过期则触发。
     /// 阈值从 TimeWindow 解析（如 "EXPIRY_LESS_THAN_3_DAYS" → 72h），默认 24 小时。
     /// </summary>
-    private async Task<bool> IsProductExpiringSoonAsync(InvProduct product, string? timeWindow, DateTime now)
+    private async Task<bool> IsProductExpiringSoonAsync(InvProduct product, string supplierId, string? timeWindow, DateTime now)
     {
         if (product.ExpiryHours is not > 0) return false;
 
@@ -210,7 +210,8 @@ public class PricingService : IPricingService
         var batches = await _batchRepo.GetByProductIdAsync(product.ProductID);
         var threshold = now.AddHours(thresholdHours);
 
-        return batches.Any(b => b.ExpiryDate.HasValue && b.ExpiryDate.Value <= threshold);
+        // 临期判断只看该供应商自己的批次（每家一套规则）
+        return batches.Any(b => b.SupplierID == supplierId && b.ExpiryDate.HasValue && b.ExpiryDate.Value <= threshold);
     }
 
     /// <summary>从 TimeWindow 解析临期天数阈值，如 EXPIRY_LESS_THAN_3_DAYS → 72h，解析失败默认 24h</summary>
@@ -322,11 +323,15 @@ public class PricingService : IPricingService
         }
     }
 
-    public async Task<ApiResponse<PriceRuleDto>> UpdateRuleAsync(string ruleId, SavePriceRuleDto dto)
+    public async Task<ApiResponse<PriceRuleDto>> UpdateRuleAsync(string ruleId, SavePriceRuleDto dto, string? supplierId = null)
     {
         var rule = await _ruleRepo.GetByIdAsync(ruleId);
         if (rule == null)
             return ApiResponse<PriceRuleDto>.Fail("规则不存在", 404);
+
+        // 归属校验：普通供应商只能操作自己的规则
+        if (supplierId != null && rule.SupplierID != supplierId)
+            return ApiResponse<PriceRuleDto>.Fail("无权操作该规则", 403);
 
         // 校验 TriggerType 和对应字段
         if (dto.TriggerType == "ManualPrice" && dto.ManualPrice == null)
@@ -362,21 +367,27 @@ public class PricingService : IPricingService
         }
     }
 
-    public async Task<ApiResponse<PriceRuleDto>> GetRuleByIdAsync(string ruleId)
+    public async Task<ApiResponse<PriceRuleDto>> GetRuleByIdAsync(string ruleId, string? supplierId = null)
     {
         var rule = await _ruleRepo.GetByIdAsync(ruleId);
         if (rule == null)
             return ApiResponse<PriceRuleDto>.Fail("规则不存在", 404);
 
+        if (supplierId != null && rule.SupplierID != supplierId)
+            return ApiResponse<PriceRuleDto>.Fail("无权查看该规则", 403);
+
         var product = await _productRepo.GetByIdAsync(rule.ProductID);
         return ApiResponse<PriceRuleDto>.Success(MapToDto(rule, product));
     }
 
-    public async Task<ApiResponse> DeleteRuleAsync(string ruleId)
+    public async Task<ApiResponse> DeleteRuleAsync(string ruleId, string? supplierId = null)
     {
         var rule = await _ruleRepo.GetByIdAsync(ruleId);
         if (rule == null)
             return ApiResponse.Fail("规则不存在", 404);
+
+        if (supplierId != null && rule.SupplierID != supplierId)
+            return ApiResponse.Fail("无权操作该规则", 403);
 
         try
         {
