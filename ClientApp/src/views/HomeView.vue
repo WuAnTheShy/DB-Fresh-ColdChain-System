@@ -332,10 +332,6 @@ const categoryVisualScale = {
   transition: transform .18s ease;
 }
 
-.category-tile:hover img {
-  transform: scale(1.01);
-}
-
 .category-tile>span {
   position: absolute;
   inset: auto 0 0;
@@ -398,7 +394,7 @@ const categoryVisualScale = {
   transform-origin: center;
 }
 
-/* 仅图片部分高亮：橙色背衬在图片下方，略小于图片尺寸，并自左向右绘制 */
+/* 仅图片部分高亮：橙色背衬在图片下方，固定大小（与第一张图片一致），自左向右绘制 */
 .category-tile::before {
   content: "";
   position: absolute;
@@ -409,10 +405,10 @@ const categoryVisualScale = {
   aspect-ratio: 1;
   border-radius: 10px;
   background: var(--amber);
-  transform: translateX(var(--category-shift-x, 0%)) scale(calc(var(--category-scale, 1) * 0.96));
+  transform: scale(0.8);
   transform-origin: center;
   clip-path: inset(0 100% 0 0);
-  transition: clip-path .32s cubic-bezier(.4, 0, .2, 1);
+  transition: clip-path .2s cubic-bezier(.4, 0, .2, 1);
   pointer-events: none;
 }
 
