@@ -1,12 +1,12 @@
 import { computed, reactive, ref } from 'vue'
 import { api } from '../services/api'
 import { avatarUrl } from '../assets/avatars'
-import seasonalFruitImage from '../assets/categories/seasonal-fruit.jpg'
-import vegetableTofuImage from '../assets/categories/vegetable-tofu.jpg'
-import meatEggsImage from '../assets/categories/meat-eggs.jpg'
-import seafoodImage from '../assets/categories/seafood.jpg'
-import dairyBakeryImage from '../assets/categories/dairy-bakery.jpg'
-import otherGroceryImage from '../assets/categories/other-grocery.jpg'
+import seasonalFruitImage from '../assets/categories/seasonal-fruit.png'
+import vegetableTofuImage from '../assets/categories/vegetable-tofu.png'
+import meatEggsImage from '../assets/categories/meat-eggs.png'
+import seafoodImage from '../assets/categories/seafood.png'
+import dairyBakeryImage from '../assets/categories/dairy-bakery.png'
+import otherGroceryImage from '../assets/categories/other-grocery.png'
 
 // 首页与分类导航始终保留完整的六个常用品类；商品目录只负责填充各品类商品，
 // 避免某个品类暂时没有在团商品时，对应入口也随接口结果一起消失。
