@@ -1,13 +1,12 @@
 <script setup>
 import { BadgeCheck, Clock3, RefreshCw, ShieldCheck, Snowflake, Truck, UsersRound } from '@lucide/vue'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import ProductCard from '../components/ProductCard.vue'
 import { useShop } from '../state/shop'
 
 const { categories, products, catalogLoading, catalogError, catalogUsingFallback, leaders, leadersLoading, leadersError, loadCatalog, loadLeaders } = useShop()
 const promoProducts = computed(() => products.slice(0, 3))
 const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
-const selectedCategory = ref('')
 const categoryVisualScale = {
   时令水果: { scale: 0.88 },
   蔬菜豆品: { scale: 0.86 },
@@ -69,11 +68,10 @@ const categoryVisualScale = {
         </button></div>
       <div class="category-grid">
         <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`"
-          class="category-tile" :class="{ 'category-tile-selected': selectedCategory === category.slug }"
-          :style="{
+          class="category-tile" :style="{
             '--category-scale': categoryVisualScale[category.slug]?.scale ?? 1,
             '--category-shift-x': categoryVisualScale[category.slug]?.shiftX ?? '0%',
-          }" @pointerdown="selectedCategory = category.slug">
+          }">
           <img :src="category.image" :alt="category.name" />
           <span><strong>{{ category.name }}</strong></span>
         </RouterLink>
@@ -335,7 +333,7 @@ const categoryVisualScale = {
 }
 
 .category-tile:hover img {
-  transform: scale(1.025);
+  transform: scale(1.01);
 }
 
 .category-tile>span {
@@ -389,6 +387,8 @@ const categoryVisualScale = {
 }
 
 .category-tile img {
+  position: relative;
+  z-index: 1;
   height: auto;
   aspect-ratio: 1;
   border-radius: 10px;
@@ -398,21 +398,26 @@ const categoryVisualScale = {
   transform-origin: center;
 }
 
-.category-tile:hover img {
-  transform: translateX(var(--category-shift-x, 0%)) scale(var(--category-scale, 1));
+/* 仅图片部分高亮：橙色背衬在图片下方，略小于图片尺寸，并自左向右绘制 */
+.category-tile::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: var(--amber);
+  transform: translateX(var(--category-shift-x, 0%)) scale(calc(var(--category-scale, 1) * 0.96));
+  transform-origin: center;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path .32s cubic-bezier(.4, 0, .2, 1);
+  pointer-events: none;
 }
 
-.category-tile:hover {
-  background: #fff8ed;
-}
-
-.category-tile-selected,
-.category-tile:active,
-.category-tile:focus-visible {
-  border-color: #ff9900;
-  outline: 0;
-  background: #fff0d9;
-  box-shadow: 0 0 0 3px rgba(255, 153, 0, .22);
+.category-tile:hover::before {
+  clip-path: inset(0 0 0 0);
 }
 
 .category-tile>span {
