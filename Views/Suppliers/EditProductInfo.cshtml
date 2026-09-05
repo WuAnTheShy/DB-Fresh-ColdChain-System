@@ -1,11 +1,13 @@
 @model SupplierProductQuoteDto
 @{
     ViewData["Title"] = "商品信息";
+    ViewData["BackController"] = "Suppliers";
+    ViewData["BackAction"] = "MyQuotes";
+    ViewData["BackText"] = "返回我的报价";
     var supplierName = ViewBag.SupplierName as string ?? "供应商";
 }
 <div class="d-flex justify-content-between align-items-center">
     <h3>商品信息 — @Model.ProductName</h3>
-    <a class="btn btn-outline-secondary btn-sm" asp-action="MyQuotes">← 返回我的报价</a>
 </div>
 <p class="text-muted small">
     @supplierName 维护的文字介绍与图片会提供给团长端（团长可参考/复制/改写您的文字，展示您的前 3 张图片）。

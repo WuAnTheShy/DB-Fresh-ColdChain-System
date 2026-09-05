@@ -134,7 +134,6 @@ public class SupplierService : ISupplierService
             var imageMap = await LoadProductImageMapAsync(supplierId);
 
             var list = products
-                .Where(p => p.Status == "ACTIVE")
                 .Select(p =>
                 {
                     quoteMap.TryGetValue(p.ProductID, out var q);
@@ -504,7 +503,6 @@ public class SupplierService : ISupplierService
 
             // 全量数据源（演示/中小规模可直接内存过滤，避免多次连库）
             var products = (await _productRepo.GetAllAsync())
-                .Where(p => p.Status == "ACTIVE")
                 .ToList();
             var productMap = products.ToDictionary(p => p.ProductID);
 
@@ -548,7 +546,7 @@ public class SupplierService : ISupplierService
                     ProductName = p.ProductName,
                     Unit = p.Unit,
                     SupplyPrice = q.SupplyPrice,
-                    DefaultPrice = p.DefaultPrice,
+                    DefaultPrice = q.SupplyPrice,
                     ExpiryHours = q.ShelfLifeHours ?? p.ExpiryHours,
                     Description = q.Description ?? p.Description, // 该供应商的简介，未写时兜底商品通用介绍
                     Images = GetDisplayImages(p.ProductID, q.SupplierID)

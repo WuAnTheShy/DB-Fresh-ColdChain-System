@@ -11,14 +11,7 @@
         <div class="mb-3"><label class="form-label">体积(L)</label><input asp-for="VolumeLitre" class="form-control" type="number" step="0.01" /></div>
         <div class="mb-3"><label class="form-label">保质期(小时)</label><input asp-for="ExpiryHours" class="form-control" type="number" /></div>
         <div class="mb-3"><label class="form-label">存储温区</label><input asp-for="StorageReq" class="form-control" /></div>
-        <div class="mb-3"><label class="form-label">默认价格</label><input asp-for="DefaultPrice" class="form-control" type="number" step="0.01" /></div>
-        <div class="mb-3">
-            <label class="form-label">状态</label>
-            <select asp-for="Status" class="form-select">
-                <option value="ACTIVE">上架</option>
-                <option value="INACTIVE">下架</option>
-            </select>
-        </div>
+        <div class="mb-3"><label class="form-label">物品描述</label><textarea asp-for="Description" class="form-control"></textarea></div>
         <button type="submit" class="btn btn-primary">保存</button>
         <a class="btn btn-outline-secondary" asp-action="Index">取消</a>
     </form>

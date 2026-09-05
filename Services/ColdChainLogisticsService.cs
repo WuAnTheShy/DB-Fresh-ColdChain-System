@@ -90,7 +90,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                     SupplierID = supplierId,
                     ProductName = product.ProductName,
                     Quantity = item.Quantity,
-                    UnitPrice = product.DefaultPrice
+                    UnitPrice = 0m
                 });
             }
 
