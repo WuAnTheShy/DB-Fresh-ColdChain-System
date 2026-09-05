@@ -97,3 +97,19 @@ public class ShipmentSummaryDto
     public DateTime ShippedAt { get; set; }
     public int ItemCount { get; set; }
 }
+
+// ========== 页面下拉选项 ==========
+
+/// <summary>下拉选项通用项（Value=提交值，Text=显示文本）</summary>
+public class OptionItemDto
+{
+    public string Value { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
+}
+
+/// <summary>有发货记录的订单摘要（溯源订单下拉数据源）</summary>
+public class ShippedOrderOptionDto
+{
+    public string OrderID { get; set; } = string.Empty;
+    public string? OrderNo { get; set; }
+}
