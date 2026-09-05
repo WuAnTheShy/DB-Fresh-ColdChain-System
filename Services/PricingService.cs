@@ -24,6 +24,7 @@ public class PricingService : IPricingService
     private readonly IPriceRuleRepository _ruleRepo;
     private readonly IProductRepository _productRepo;
     private readonly IStockBatchRepository _batchRepo;
+    private readonly IGoodsRepository _goodsRepo;
     private readonly IUnitOfWork _uow;
 
     /// <summary>
@@ -55,11 +56,13 @@ public class PricingService : IPricingService
         IPriceRuleRepository ruleRepo,
         IProductRepository productRepo,
         IStockBatchRepository batchRepo,
+        IGoodsRepository goodsRepo,
         IUnitOfWork uow)
     {
         _ruleRepo = ruleRepo;
         _productRepo = productRepo;
         _batchRepo = batchRepo;
+        _goodsRepo = goodsRepo;
         _uow = uow;
     }
 
@@ -69,27 +72,35 @@ public class PricingService : IPricingService
     {
         if (string.IsNullOrWhiteSpace(request.ProductID) || request.Quantity <= 0)
             return ApiResponse<PriceCalculationResult>.Fail("商品 ID 和数量无效");
+        if (string.IsNullOrWhiteSpace(request.SupplierID))
+            return ApiResponse<PriceCalculationResult>.Fail("请指定供应商（售价为货物级）");
 
-        // 1. 查商品
+        // 1. 查物品
         var product = await _productRepo.GetByIdAsync(request.ProductID);
         if (product == null)
-            return ApiResponse<PriceCalculationResult>.Fail("商品不存在", 404);
+            return ApiResponse<PriceCalculationResult>.Fail("物品不存在", 404);
 
-        // 2. 查所有启用的规则（已在 Repository 层按 Priority 排序）
+        // 2. 售价为货物级：取该供应商对物品的售价作为基准价
+        var goods = await _goodsRepo.GetAsync(request.ProductID, request.SupplierID);
+        if (goods == null)
+            return ApiResponse<PriceCalculationResult>.Fail("该供应商未对此物品建立货物", 404);
+        var basePrice = goods.SalePrice; // 售价
+
+        // 3. 查该供应商在该商品上启用的规则（每家有自己一套规则）
         var now = request.ReferenceTime ?? DateTime.Now;
-        var rules = await _ruleRepo.GetActiveByProductIdAsync(request.ProductID, now);
+        var rules = await _ruleRepo.GetActiveByProductAsync(request.ProductID, request.SupplierID, now);
 
-        // 3. 遍历规则取第一个命中
+        // 4. 遍历规则取第一个命中
         foreach (var rule in rules)
         {
             if (await IsRuleTriggeredAsync(rule, product, request.Quantity, now))
             {
-                var finalPrice = ComputeFinalPrice(rule, product.DefaultPrice);
+                var finalPrice = ComputeFinalPrice(rule, basePrice);
                 return ApiResponse<PriceCalculationResult>.Success(new PriceCalculationResult
                 {
                     ProductID = product.ProductID,
-                    DefaultPrice = product.DefaultPrice,
-                    FinalPrice = finalPrice,
+                    DefaultPrice = basePrice,      // 售价（基准）
+                    FinalPrice = finalPrice,       // supplyprice（规则约束后）
                     MatchedRuleName = rule.RuleName,
                     MatchedRuleID = rule.RuleID,
                     TriggerType = rule.TriggerType
@@ -97,12 +108,12 @@ public class PricingService : IPricingService
             }
         }
 
-        // 4. 无规则命中，返回默认价格
+        // 5. 无规则命中，supplyprice = 售价
         return ApiResponse<PriceCalculationResult>.Success(new PriceCalculationResult
         {
             ProductID = product.ProductID,
-            DefaultPrice = product.DefaultPrice,
-            FinalPrice = product.DefaultPrice,
+            DefaultPrice = basePrice,
+            FinalPrice = basePrice,
             MatchedRuleName = null,
             MatchedRuleID = null
         });
@@ -235,20 +246,22 @@ public class PricingService : IPricingService
 
     // ==================== 规则管理 CRUD ====================
 
-    public async Task<ApiResponse<List<PriceRuleDto>>> GetRulesByProductAsync(string productId)
+    public async Task<ApiResponse<List<PriceRuleDto>>> GetRulesByProductAsync(string productId, string? supplierId = null)
     {
-        var rules = await _ruleRepo.GetByProductIdAsync(productId);
+        var rules = await _ruleRepo.GetByProductAsync(productId, supplierId);
         var product = await _productRepo.GetByIdAsync(productId);
 
         var list = rules.Select(r => MapToDto(r, product)).ToList();
         return ApiResponse<List<PriceRuleDto>>.Success(list);
     }
 
-    public async Task<ApiResponse<PagedResult<PriceRuleDto>>> GetAllRulesAsync(int pageIndex, int pageSize)
+    public async Task<ApiResponse<PagedResult<PriceRuleDto>>> GetAllRulesAsync(int pageIndex, int pageSize, string? supplierId = null)
     {
-        // 数据库级分页，避免全表加载
-        var paged = await _ruleRepo.GetPagedAsync(pageIndex, pageSize);
-        var total = await _ruleRepo.CountAsync();
+        // 供应商传 supplierId 只看自己家的规则；null 表示管理员看全部
+        var all = await _ruleRepo.GetAllAsync();
+        var filtered = supplierId == null ? all : all.Where(r => r.SupplierID == supplierId).ToList();
+        var total = filtered.Count;
+        var paged = filtered.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToList();
 
         // 批量加载关联产品名
         var productIds = paged.Select(r => r.ProductID).Distinct().ToList();
@@ -281,6 +294,7 @@ public class PricingService : IPricingService
         var rule = new BizPriceRule
         {
             ProductID = dto.ProductID,
+            SupplierID = dto.SupplierID,
             RuleName = dto.RuleName,
             TriggerType = dto.TriggerType,
             TimeWindow = dto.TimeWindow,
@@ -384,6 +398,7 @@ public class PricingService : IPricingService
     {
         RuleID = r.RuleID,
         ProductID = r.ProductID,
+        SupplierID = r.SupplierID,
         ProductName = product?.ProductName,
         RuleName = r.RuleName,
         TriggerType = NormalizeTriggerType(r.TriggerType),

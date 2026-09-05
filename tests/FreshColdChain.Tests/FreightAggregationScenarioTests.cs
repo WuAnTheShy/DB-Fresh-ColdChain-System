@@ -31,9 +31,9 @@ internal static class FreightAggregationScenarioTests
         return failures == 0 ? 0 : 1;
     }
 
-    private static InvProduct Product(string id, string supplier = "SUP1", string zone = "CHILLED", decimal weight = 1m) => new()
+    private static InvProduct Product(string id, string zone = "CHILLED", decimal weight = 1m) => new()
     {
-        ProductID = id, ProductName = id, SupplierID = supplier, StorageReq = zone, WeightKG = weight, DefaultPrice = 50m
+        ProductID = id, ProductName = id, StorageReq = zone, WeightKG = weight
     };
 
     private static LogFreightTemplate Rule(string id = "RULE1", string zone = "*") => new()
@@ -67,7 +67,7 @@ internal static class FreightAggregationScenarioTests
     private static async Task SamePackageAsync()
     {
         var service = Service([Product("P1"), Product("P2")], Rule());
-        var quote = await Quote(service, Request(new() { ProductID = "P1", Quantity = 1 }, new() { ProductID = "P2", Quantity = 1 }));
+        var quote = await Quote(service, Request(new() { ProductID = "P1", SupplierID = "SUP1", Quantity = 1 }, new() { ProductID = "P2", SupplierID = "SUP1", Quantity = 1 }));
         AssertEx.Equal(15m, quote.FreightAmount);
         AssertEx.Equal(2, quote.Items.Count);
         AssertEx.True(quote.RuleSummary.Contains("1 个计费包裹", StringComparison.Ordinal));
@@ -77,8 +77,10 @@ internal static class FreightAggregationScenarioTests
     {
         foreach (var differentSupplier in new[] { false, true })
         {
-            var service = Service([Product("P1"), Product("P2", differentSupplier ? "SUP2" : "SUP1", differentSupplier ? "CHILLED" : "FROZEN")], Rule());
-            var quote = await Quote(service, Request(new() { ProductID = "P1", Quantity = 1 }, new() { ProductID = "P2", Quantity = 1 }));
+            var service = Service([Product("P1"), Product("P2", differentSupplier ? "CHILLED" : "FROZEN")], Rule());
+            var quote = await Quote(service, Request(
+                new() { ProductID = "P1", SupplierID = "SUP1", Quantity = 1 },
+                new() { ProductID = "P2", SupplierID = differentSupplier ? "SUP2" : "SUP1", Quantity = 1 }));
             AssertEx.Equal(26m, quote.FreightAmount);
         }
     }
@@ -86,8 +88,8 @@ internal static class FreightAggregationScenarioTests
     private static async Task DuplicateItemsAsync()
     {
         var service = Service([Product("P1")], Rule());
-        var split = await Quote(service, Request(new() { ProductID = "P1", Quantity = 1 }, new() { ProductID = "P1", Quantity = 2 }));
-        var merged = await Quote(service, Request(new FreightItemDto { ProductID = "P1", Quantity = 3 }));
+        var split = await Quote(service, Request(new() { ProductID = "P1", SupplierID = "SUP1", Quantity = 1 }, new() { ProductID = "P1", SupplierID = "SUP1", Quantity = 2 }));
+        var merged = await Quote(service, Request(new FreightItemDto { ProductID = "P1", SupplierID = "SUP1", Quantity = 3 }));
         AssertEx.Equal(17m, split.FreightAmount);
         AssertEx.Equal(merged.FreightAmount, split.FreightAmount);
         AssertEx.Equal(1, split.Items.Count);
@@ -99,7 +101,7 @@ internal static class FreightAggregationScenarioTests
         var rule = Rule();
         rule.FreeShippingThreshold = 100m;
         var service = Service([Product("P1", weight: 1.01m)], rule);
-        var request = Request(new FreightItemDto { ProductID = "P1", Quantity = 1 });
+        var request = Request(new FreightItemDto { ProductID = "P1", SupplierID = "SUP1", Quantity = 1 });
         AssertEx.Equal(0m, (await Quote(service, request)).FreightAmount);
         request.GoodsAmount = 99.99m;
         AssertEx.Equal(15m, (await Quote(service, request)).FreightAmount);
@@ -115,7 +117,7 @@ internal static class FreightAggregationScenarioTests
         var district = Rule("DISTRICT");
         district.DestinationDistrict = "西湖区";
         district.BaseFee = 30m;
-        var request = Request(new FreightItemDto { ProductID = "P1", Quantity = 1 });
+        var request = Request(new FreightItemDto { ProductID = "P1", SupplierID = "SUP1", Quantity = 1 });
         AssertEx.Equal(23m, (await Quote(Service([Product("P1")], wildcard, exactZone), request)).FreightAmount);
         AssertEx.Equal(33m, (await Quote(Service([Product("P1")], exactZone, wildcard, district), request)).FreightAmount);
         // 仓储返回顺序不应改变同优先级的选择。
@@ -125,7 +127,8 @@ internal static class FreightAggregationScenarioTests
     private static async Task InvalidInputAsync()
     {
         var request = Request(new FreightItemDto { ProductID = "P1", Quantity = 1 });
-        AssertEx.True(!(await Service([Product("P1", supplier: "")], Rule()).QuoteFreightAsync(request)).IsSuccess);
+        AssertEx.True(!(await Service([Product("P1")], Rule()).QuoteFreightAsync(request)).IsSuccess);
+        request.Items[0].SupplierID = "SUP1";
         var invalidRule = Rule();
         invalidRule.ExtraWeightUnit = 0;
         AssertEx.True(!(await Service([Product("P1")], invalidRule).QuoteFreightAsync(request)).IsSuccess);
@@ -137,13 +140,13 @@ internal static class FreightAggregationScenarioTests
     private static async Task AdapterPreservesSupplierAsync()
     {
         var adapter = new GroupALogisticsServiceAdapter(new AttachedTransactionUnitOfWork(),
-            Service([Product("P1", "CURRENT-SUPPLIER")], Rule()), FinancialProxy.Create<IGroupALogisticsExtensionProvider>());
+            Service([Product("P1")], Rule()), FinancialProxy.Create<IGroupALogisticsExtensionProvider>());
         using var transaction = new FakeOrderTransaction();
         var quote = await adapter.QuoteFreightAsync(new FreightCalculationRequest
         {
             GoodsAmount = 100m,
-            Items = [new() { ProductId = "P1", SupplierId = "ORDER-SUP1", Quantity = 1 },
-                new() { ProductId = "P1", SupplierId = "ORDER-SUP2", Quantity = 1 }]
+            Items = [new() { ProductId = "P1", SupplierId = "ORDER-SUP1", Quantity = 1, UnitPrice = 50m, SubTotal = 50m },
+                new() { ProductId = "P1", SupplierId = "ORDER-SUP2", Quantity = 1, UnitPrice = 50m, SubTotal = 50m }]
         }, transaction);
         AssertEx.Equal(26m, quote.FreightAmount);
         AssertEx.Equal("ORDER-SUP1", quote.Items[0].SupplierId);

@@ -364,11 +364,7 @@ public sealed class OrderService : IOrderService
                     transaction)
                 ?? throw new OrderBusinessException("收货地址不存在或不属于当前消费者");
 
-            var reservationItems = batchItems.Select(item => new InventoryAvailabilityItem
-            {
-                ProductId = item.ProductId,
-                Quantity = item.Quantity
-            }).ToList();
+            var reservationItems = await ResolveBatchInventoryItemsAsync(batchItems, cancellationToken);
             var snapshots = await _inventoryService.CheckAvailabilityAsync(
                 reservationItems,
                 transaction,
@@ -1464,6 +1460,41 @@ public sealed class OrderService : IOrderService
         if (validated.Count != snapshots.Count)
             throw new OrderBusinessException("团长商品校验结果不完整");
         return snapshots.Select(snapshot => validated[snapshot.ProductId]).ToList();
+    }
+
+    private async Task<List<InventoryAvailabilityItem>> ResolveBatchInventoryItemsAsync(
+        IReadOnlyList<BatchOrderItem> batchItems,
+        CancellationToken cancellationToken)
+    {
+        if (_promoterCatalogService == null)
+            throw new OrderBusinessException("团长商品目录服务未配置，暂时无法结算");
+
+        var result = new List<InventoryAvailabilityItem>(batchItems.Count);
+        foreach (var promoterGroup in batchItems.GroupBy(item => item.PromoterId, StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var featured = await _promoterCatalogService.GetFeaturedProductsAsync(
+                promoterGroup.Key,
+                cancellationToken);
+            foreach (var item in promoterGroup)
+            {
+                var supplierIds = featured
+                    .Where(product => product.ProductId == item.ProductId)
+                    .Select(product => product.SupplierId)
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+                if (supplierIds.Count > 1)
+                    throw new OrderBusinessException($"团长 {promoterGroup.Key} 的商品 {item.ProductId} 缺少唯一供应商归属");
+                result.Add(new InventoryAvailabilityItem
+                {
+                    ProductId = item.ProductId,
+                    SupplierId = supplierIds.SingleOrDefault(),
+                    Quantity = item.Quantity
+                });
+            }
+        }
+        return result;
     }
 
     private async Task RegisterCompletedOrderCommissionAsync(

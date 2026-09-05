@@ -1,0 +1,62 @@
+@model List<GoodsDto>
+@{
+    ViewData["Title"] = "我的货物";
+    ViewData["BackController"] = "SuppliersHome";
+    ViewData["BackAction"] = "Index";
+    ViewData["BackText"] = "返回供应商首页";
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>我的货物</h3>
+    <a class="btn btn-success" asp-action="Add">对物品建立货物</a>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+
+<table class="table table-striped table-hover">
+    <thead class="table-dark"><tr><th>物品</th><th>分类</th><th>售价（= 团长进价）</th><th>温区</th><th>保质期(小时)</th><th>状态</th><th>操作</th></tr></thead>
+    <tbody>
+    @if (Model.Any())
+    {
+        @foreach (var g in Model)
+        {
+            <tr>
+                <td>@g.ProductName</td>
+                <td>@g.CategoryName</td>
+                <td>
+                    <form asp-action="Edit" method="post" class="d-flex gap-1 align-items-center">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="productId" value="@g.ProductID" />
+                        <input type="number" step="0.01" name="SalePrice" value="@g.SalePrice" class="form-control form-control-sm" style="width:110px" />
+                        <button type="submit" class="btn btn-sm btn-primary">改价</button>
+                    </form>
+                </td>
+                <td>@g.StorageReq</td>
+                <td>@g.ShelfLifeHours</td>
+                <td>@(g.Status == "ACTIVE" ? "上架" : "下架")</td>
+                <td>
+                    <form asp-action="ToggleStatus" method="post" style="display:inline">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="productId" value="@g.ProductID" />
+                        <input type="hidden" name="status" value="@(g.Status == "ACTIVE" ? "INACTIVE" : "ACTIVE")" />
+                        <button type="submit" class="btn btn-sm @(g.Status == "ACTIVE" ? "btn-warning" : "btn-success")">
+                            @(g.Status == "ACTIVE" ? "下架" : "上架")
+                        </button>
+                    </form>
+                    <a class="btn btn-sm btn-info" asp-controller="Goods" asp-action="StockIn" asp-route-productId="@g.ProductID">进货/库存</a>
+                </td>
+            </tr>
+        }
+    }
+    else
+    {
+        <tr><td colspan="7" class="text-center">你还没有货物，点右上角「对物品建立货物」开始供货。</td></tr>
+    }
+    </tbody>
+</table>

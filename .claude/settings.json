@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -vE \"^\\\\s*//\")",
+      "Bash(grep -vE \"//|=>|private|readonly\")",
+      "Bash(sed 's/^ *//')",
+      "Bash(xargs grep -l \"Dashboard\\\\|我的货物\\\\|全部货物\\\\|SuppliersHome\")"
+    ]
+  }
+}

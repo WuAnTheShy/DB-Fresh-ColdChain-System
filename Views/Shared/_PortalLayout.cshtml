@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] — 生鲜冷链团购分销供应链系统</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+</head>
+<body class="bg-light">
+    <div class="container py-4">
+        @{
+            var backController = ViewData["BackController"] as string;
+            var backAction = ViewData["BackAction"] as string;
+            var backText = (ViewData["BackText"] as string) ?? "返回";
+        }
+        @if (!string.IsNullOrEmpty(backAction))
+        {
+            <a class="btn btn-outline-secondary btn-sm mb-3" asp-controller="@backController" asp-action="@backAction">← @backText</a>
+        }
+        @RenderBody()
+    </div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

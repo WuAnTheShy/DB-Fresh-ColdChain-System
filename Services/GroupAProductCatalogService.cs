@@ -5,11 +5,12 @@ using FreshColdChain.Models.DTOs;
 namespace FreshColdChain.Services;
 
 /// <summary>
-/// 将 A 组公开商品与供应商服务适配为 B 组只读目录契约。
+/// 将 A 组公开的物品、货物与供应商服务适配为 B 组只读目录契约。
 /// B 组不直接访问 A 组 Repository 或数据表。
 /// </summary>
 public sealed class GroupAProductCatalogService(
     IProductInventoryService productInventoryService,
+    IGoodsService goodsService,
     ISupplierService supplierService) : IGroupAProductCatalogService
 {
     public async Task<GroupAProductSearchResult> SearchSellableProductsAsync(
@@ -29,7 +30,7 @@ public sealed class GroupAProductCatalogService(
             .Where(product => string.IsNullOrWhiteSpace(request.Category) ||
                 string.Equals(product.CategoryName, request.Category.Trim(), StringComparison.OrdinalIgnoreCase))
             .OrderBy(product => product.ProductName, StringComparer.Ordinal)
-            .ThenBy(product => product.ProductId, StringComparer.Ordinal)
+            .ThenBy(product => product.SupplierId, StringComparer.Ordinal)
             .ToList();
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, 50);
@@ -78,55 +79,50 @@ public sealed class GroupAProductCatalogService(
         var supplierResponse = await supplierService.GetAllSuppliersAsync();
         if (!supplierResponse.IsSuccess || supplierResponse.Data == null)
             throw new GroupBBusinessException("商品供应商目录暂时不可用");
-
-        var suppliersByName = supplierResponse.Data
+        var activeSupplierIds = supplierResponse.Data
             .Where(supplier => string.Equals(supplier.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
-            .Where(supplier => !string.IsNullOrWhiteSpace(supplier.SupplierName))
-            .GroupBy(supplier => supplier.SupplierName.Trim(), StringComparer.OrdinalIgnoreCase)
-            .Where(group => group.Select(item => item.SupplierID).Distinct(StringComparer.Ordinal).Count() == 1)
-            .ToDictionary(
-                group => group.Key,
-                group => group.First().SupplierID,
-                StringComparer.OrdinalIgnoreCase);
+            .Select(supplier => supplier.SupplierID)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var goodsResponse = await goodsService.GetAllGoodsAsync();
+        if (!goodsResponse.IsSuccess || goodsResponse.Data == null)
+            throw new GroupBBusinessException("货物目录暂时不可用");
 
         const int pageSize = 50;
         var pageIndex = 1;
-        var result = new List<GroupAConsumerProduct>();
+        var productMap = new Dictionary<string, ProductDto>(StringComparer.Ordinal);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var response = await productInventoryService.GetProductsAsync(pageIndex, pageSize);
             if (!response.IsSuccess || response.Data == null)
                 throw new GroupBBusinessException("商品目录暂时不可用");
-
             foreach (var product in response.Data.Items)
-            {
-                if (!string.Equals(product.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase) ||
-                    product.DefaultPrice <= 0 ||
-                    string.IsNullOrWhiteSpace(product.SupplierName) ||
-                    !suppliersByName.TryGetValue(product.SupplierName.Trim(), out var supplierId))
-                {
-                    continue;
-                }
+                productMap[product.ProductID] = product;
+            if (pageIndex >= response.Data.TotalPages) break;
+            pageIndex++;
+        }
 
-                result.Add(new GroupAConsumerProduct
+        return goodsResponse.Data
+            .Where(goods => activeSupplierIds.Contains(goods.SupplierID))
+            .Where(goods => string.Equals(goods.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+            .Where(goods => goods.SalePrice > 0 && productMap.ContainsKey(goods.ProductID))
+            .Select(goods =>
+            {
+                var product = productMap[goods.ProductID];
+                return new GroupAConsumerProduct
                 {
                     ProductId = product.ProductID,
                     ProductName = product.ProductName,
                     CategoryName = product.CategoryName,
                     Unit = product.Unit,
-                    StorageRequirement = product.StorageReq,
-                    SalePrice = product.DefaultPrice,
+                    StorageRequirement = goods.StorageReq ?? product.StorageReq,
+                    SalePrice = goods.SalePrice,
                     IsInStock = product.AvailableStock > 0,
                     AvailableStock = Math.Max(0, product.AvailableStock),
-                    SupplierId = supplierId
-                });
-            }
-
-            if (pageIndex >= response.Data.TotalPages) break;
-            pageIndex++;
-        }
-
-        return result;
+                    SupplierId = goods.SupplierID
+                };
+            })
+            .ToList();
     }
 }

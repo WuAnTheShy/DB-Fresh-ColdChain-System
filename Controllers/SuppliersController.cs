@@ -1,6 +1,7 @@
 //负责管理与供应商（合作商）相关的交互请求
 
 using Microsoft.AspNetCore.Mvc;
+using FreshColdChain.Filters;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models.DTOs;
 
@@ -13,6 +14,7 @@ public class SuppliersController : Controller
     public SuppliersController(ISupplierService service) => _service = service;
 
     [HttpGet]
+    [RequireAdmin]
     public async Task<IActionResult> Index(int pageIndex = 1, int pageSize = 10)
     {
         var r = await _service.GetSuppliersAsync(pageIndex, pageSize);
@@ -53,6 +55,12 @@ public class SuppliersController : Controller
             return View();
         }
         HttpContext.Session.SetString("SupplierId", r.Data!.SupplierID);
+        // 固定账号 admin = 供应商管理员，直接进入全部货物
+        if (string.Equals(loginAccount, SupplierSession.AdminAccount, StringComparison.OrdinalIgnoreCase))
+        {
+            HttpContext.Session.SetString(SupplierSession.IsAdminKey, "true");
+            return RedirectToAction("AdminIndex", "Goods");
+        }
         return RedirectToAction(nameof(MyQuotes));
     }
 
@@ -191,10 +199,12 @@ public class SuppliersController : Controller
     }
 
     [HttpGet]
+    [RequireAdmin]
     public IActionResult Create() => View(new CreateSupplierDto());
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequireAdmin]
     public async Task<IActionResult> Create(CreateSupplierDto dto)
     {
         var r = await _service.CreateSupplierAsync(dto);
@@ -203,6 +213,7 @@ public class SuppliersController : Controller
     }
 
     [HttpGet]
+    [RequireAdmin]
     public async Task<IActionResult> Edit(string id)
     {
         var r = await _service.GetSupplierByIdAsync(id);
@@ -217,6 +228,7 @@ public class SuppliersController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequireAdmin]
     public async Task<IActionResult> Edit(string id, CreateSupplierDto dto)
     {
         var r = await _service.UpdateSupplierAsync(id, dto);
@@ -226,6 +238,7 @@ public class SuppliersController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [RequireAdmin]
     public async Task<IActionResult> Delete(string id)
     {
         var r = await _service.DeleteSupplierAsync(id);

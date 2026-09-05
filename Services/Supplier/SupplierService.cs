@@ -12,12 +12,15 @@ public class SupplierService : ISupplierService
     private readonly ISupplierRepository _repo;
     private readonly ISupplierPriceRepository _priceRepo;
     private readonly IProductRepository _productRepo;
+    private readonly IGoodsRepository _goodsRepo;
 
-    public SupplierService(ISupplierRepository repo, ISupplierPriceRepository priceRepo, IProductRepository productRepo)
+    public SupplierService(ISupplierRepository repo, ISupplierPriceRepository priceRepo,
+        IProductRepository productRepo, IGoodsRepository goodsRepo)
     {
         _repo = repo;
         _priceRepo = priceRepo;
         _productRepo = productRepo;
+        _goodsRepo = goodsRepo;
     }
 
     public async Task<ApiResponse<PagedResult<SupplierDto>>> GetSuppliersAsync(int pageIndex, int pageSize)
@@ -134,7 +137,6 @@ public class SupplierService : ISupplierService
             var imageMap = await LoadProductImageMapAsync(supplierId);
 
             var list = products
-                .Where(p => p.Status == "ACTIVE")
                 .Select(p =>
                 {
                     quoteMap.TryGetValue(p.ProductID, out var q);
@@ -504,7 +506,6 @@ public class SupplierService : ISupplierService
 
             // 全量数据源（演示/中小规模可直接内存过滤，避免多次连库）
             var products = (await _productRepo.GetAllAsync())
-                .Where(p => p.Status == "ACTIVE")
                 .ToList();
             var productMap = products.ToDictionary(p => p.ProductID);
 
@@ -548,7 +549,7 @@ public class SupplierService : ISupplierService
                     ProductName = p.ProductName,
                     Unit = p.Unit,
                     SupplyPrice = q.SupplyPrice,
-                    DefaultPrice = p.DefaultPrice,
+                    DefaultPrice = q.SupplyPrice,
                     ExpiryHours = q.ShelfLifeHours ?? p.ExpiryHours,
                     Description = q.Description ?? p.Description, // 该供应商的简介，未写时兜底商品通用介绍
                     Images = GetDisplayImages(p.ProductID, q.SupplierID)
@@ -590,11 +591,13 @@ public class SupplierService : ISupplierService
     public async Task<ApiResponse<List<SupplierDto>>> GetAllSuppliersAsync()
     {
         var all = await _repo.GetAllAsync();
-        var products = await _productRepo.GetAllAsync();
-        var namesBySupplier = products
-            .Where(p => !string.IsNullOrWhiteSpace(p.SupplierID) && !string.IsNullOrWhiteSpace(p.ProductName))
-            .GroupBy(p => p.SupplierID!)
-            .ToDictionary(g => g.Key, g => g.Select(p => p.ProductName).Distinct().ToList());
+        var goods = await _goodsRepo.GetAllAsync();
+        var namesBySupplier = goods
+            .Where(item => !string.IsNullOrWhiteSpace(item.SupplierID) &&
+                           !string.IsNullOrWhiteSpace(item.Product?.ProductName))
+            .GroupBy(item => item.SupplierID)
+            .ToDictionary(group => group.Key,
+                group => group.Select(item => item.Product!.ProductName).Distinct().ToList());
 
         var list = all.Select(s =>
         {
