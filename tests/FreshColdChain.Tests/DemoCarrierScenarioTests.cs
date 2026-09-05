@@ -35,17 +35,18 @@ internal static class DemoCarrierScenarioTests
     private static async Task AuthorizationAsync()
     {
         var key = new string('k', 64);
-        foreach (var scenario in new[] { "disabled", "production", "fallback", "empty-scope", "missing", "wrong", "valid" })
+        foreach (var scenario in new[] { "disabled", "production", "fallback", "empty-scope", "missing", "wrong", "valid", "all-database" })
         {
             var settings = new DemoCarrierOptions { Enabled = scenario != "disabled", ApiKey = key,
-                SupplierIds = scenario == "empty-scope" ? [] : ["SUP-DEMO"] };
+                IncludeAllDatabaseShipments = scenario == "all-database",
+                SupplierIds = scenario is "empty-scope" or "all-database" ? [] : ["SUP-DEMO"] };
             var environment = FinancialProxy.Create<IHostEnvironment>((_, _) => scenario == "production" ? "Production" : "Development");
             var filter = new DemoCarrierAuthorizationFilter(Options.Create(settings),
                 Options.Create(new GroupALogisticsOptions { Provider = scenario == "fallback" ? "InMemory" : "Oracle" }), environment);
             var context = new AuthorizationFilterContext(new ActionContext(new DefaultHttpContext(), new RouteData(), new ActionDescriptor()), []);
             if (scenario != "missing") context.HttpContext.Request.Headers["X-Carrier-Key"] = scenario == "wrong" ? "invalid" : key;
             await filter.OnAuthorizationAsync(context);
-            if (scenario == "valid") AssertEx.True(context.Result == null);
+            if (scenario is "valid" or "all-database") AssertEx.True(context.Result == null);
             else if (scenario is "disabled" or "production" or "fallback") AssertEx.True(context.Result is NotFoundResult);
             else AssertEx.True(context.Result is UnauthorizedObjectResult);
         }
@@ -58,8 +59,9 @@ internal static class DemoCarrierScenarioTests
         var repository = FinancialProxy.Create<IGroupACarrierRepository>((_, args) =>
         {
             AssertEx.Equal("DEL-DEMO", (string)args![0]!);
-            AssertEx.Equal("SUP-DEMO", ((string[])args[1]!)[0]);
-            AssertEx.True(ReferenceEquals(uow.Transaction, args[2]));
+            AssertEx.True((bool)args![1]!);
+            AssertEx.Equal(0, ((string[])args[2]!).Length);
+            AssertEx.True(ReferenceEquals(uow.Transaction, args[3]));
             return Task.FromResult<LogExpressDelivery?>(scenario == "missing" ? null : new() { OrderID = "ORDER-DB", SupplierID = "SUP-DEMO" });
         });
         var logistics = FinancialProxy.Create<IGroupALogisticsExtensionProvider>((_, args) =>
@@ -73,7 +75,7 @@ internal static class DemoCarrierScenarioTests
             return Task.FromResult(new SupplierLogisticsSnapshot());
         });
         var service = new GroupADemoCarrierService(uow, repository, logistics,
-            Options.Create(new DemoCarrierOptions { SupplierIds = ["SUP-DEMO"] }));
+            Options.Create(new DemoCarrierOptions { IncludeAllDatabaseShipments = true }));
         var failed = false;
         try { var result = await service.AppendAsync("DEL-DEMO", new(), CancellationToken.None); AssertEx.True((result == null) == (scenario == "missing")); }
         catch (InvalidOperationException) when (scenario == "failure") { failed = true; }

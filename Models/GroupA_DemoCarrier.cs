@@ -2,12 +2,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FreshColdChain.Models;
 
-/// <summary>独立物流商演示接入，默认关闭；必须明确配置测试供应商范围。</summary>
+/// <summary>独立物流商演示接入，默认关闭；可读取全部 Oracle 运单或限制供应商范围。</summary>
 public sealed class DemoCarrierOptions
 {
     public const string SectionName = "GroupA:DemoCarrier";
     public bool Enabled { get; set; }
     public string ApiKey { get; set; } = "";
+    public bool IncludeAllDatabaseShipments { get; set; }
     public string[] SupplierIds { get; set; } = [];
 }
 
@@ -30,4 +31,5 @@ public sealed class CarrierShipmentSummary
     public string? StatusCode { get; set; }
     public string StatusName => LogisticsStatusCodes.GetName(StatusCode);
     public DateTime ShippedAt { get; set; }
+    public bool IsDemoData { get; set; }
 }

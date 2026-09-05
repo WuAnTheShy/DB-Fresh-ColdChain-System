@@ -148,9 +148,12 @@ if (args.Contains("--verify"))
     using var independent = new UnitOfWork(new OracleDbConnectionFactory(config));
     var after = await new GroupALogisticsRepository(independent).GetEventsAsync("CARRIER-DEMO-DEL-02");
     if (after.Count != before.Count) throw new InvalidOperationException("真实 Oracle 事务回滚验证失败");
-    var search = await new GroupACarrierRepository(independent).SearchAsync([supplierId], "DEMO-002", CancellationToken.None);
+    var search = await new GroupACarrierRepository(independent).SearchAsync(false, [supplierId], "DEMO-002", CancellationToken.None);
     if (search.Count != 1) throw new InvalidOperationException("真实 Oracle 运单查询验证失败");
-    var denied = await new GroupACarrierRepository(independent).FindAsync("CARRIER-DEMO-DEL-02", ["NOT-AUTHORIZED"], null, CancellationToken.None);
+    var allSearch = await new GroupACarrierRepository(independent).SearchAsync(true, [], "ORDER-DEMO-02", CancellationToken.None);
+    if (allSearch.Count != 1 || !allSearch[0].IsDemoData)
+        throw new InvalidOperationException("真实 Oracle 全部运单查询或测试数据标记验证失败");
+    var denied = await new GroupACarrierRepository(independent).FindAsync("CARRIER-DEMO-DEL-02", false, ["NOT-AUTHORIZED"], null, CancellationToken.None);
     if (denied != null) throw new InvalidOperationException("供应商隔离验证失败");
     Console.WriteLine("PASS Oracle 已提交轨迹读取、TIMESTAMP(7) 精度、同事件重试、事务回滚、运单查询和供应商隔离。");
 }

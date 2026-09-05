@@ -45,7 +45,7 @@ try {
         GroupA__Logistics__Provider = 'Oracle'
         GroupA__DemoCarrier__Enabled = 'true'
         GroupA__DemoCarrier__ApiKey = $demoKey
-        GroupA__DemoCarrier__SupplierIds__0 = 'SUP-CARRIER-DEMO'
+        GroupA__DemoCarrier__IncludeAllDatabaseShipments = 'true'
     }
     $carrier = Start-DemoService "$repoPath/CarrierSimulator/bin/Release/net10.0/CarrierSimulator.dll" "$repoPath/CarrierSimulator" @{
         ASPNETCORE_URLS = "http://localhost:$CarrierPort"

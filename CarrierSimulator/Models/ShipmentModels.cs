@@ -9,6 +9,7 @@ public sealed class ShipmentSummary
     public string SupplierId { get; set; } = "";
     public string? TrackingNo { get; set; }
     public string StatusName { get; set; } = "";
+    public bool IsDemoData { get; set; }
 }
 public sealed class ShipmentDetail
 {

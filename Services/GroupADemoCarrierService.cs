@@ -9,11 +9,11 @@ public sealed class GroupADemoCarrierService(IUnitOfWork unitOfWork, IGroupACarr
     IGroupALogisticsExtensionProvider logistics, IOptions<DemoCarrierOptions> options)
 {
     public Task<IReadOnlyList<CarrierShipmentSummary>> SearchAsync(string? keyword, CancellationToken token) =>
-        repository.SearchAsync(options.Value.SupplierIds, keyword, token);
+        repository.SearchAsync(options.Value.IncludeAllDatabaseShipments, options.Value.SupplierIds, keyword, token);
 
     public async Task<SupplierLogisticsSnapshot?> GetAsync(string deliveryId, CancellationToken token)
     {
-        var delivery = await repository.FindAsync(deliveryId, options.Value.SupplierIds, null, token);
+        var delivery = await repository.FindAsync(deliveryId, options.Value.IncludeAllDatabaseShipments, options.Value.SupplierIds, null, token);
         return delivery == null ? null : await logistics.GetSnapshotAsync(new()
             { OrderId = delivery.OrderID, SupplierId = delivery.SupplierID }, token);
     }
@@ -23,7 +23,8 @@ public sealed class GroupADemoCarrierService(IUnitOfWork unitOfWork, IGroupACarr
         await unitOfWork.BeginAsync();
         try
         {
-            var delivery = await repository.FindAsync(deliveryId, options.Value.SupplierIds, unitOfWork.Transaction, token);
+            var delivery = await repository.FindAsync(deliveryId, options.Value.IncludeAllDatabaseShipments,
+                options.Value.SupplierIds, unitOfWork.Transaction, token);
             if (delivery == null) { await unitOfWork.RollbackAsync(); return null; }
             var result = await logistics.AppendTrackingEventAsync(new()
             {

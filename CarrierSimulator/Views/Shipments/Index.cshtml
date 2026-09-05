@@ -10,7 +10,7 @@
 <body>
 <header class="carrier-header"><h1>冷链物流商模拟器</h1><a href="@Model.ShopUrl" target="_blank" rel="noopener">打开商城</a></header>
 <main class="carrier-main">
-    <p class="demo-notice">演示操作会写入 Oracle，请使用测试运单</p>
+    <p class="demo-notice">当前显示 Oracle 中的真实物流记录；提交操作会直接更新所选运单</p>
     @if (TempData["Success"] is string success) { <div class="alert alert-success" role="status">@success</div> }
     @if (Model.Error != null) { <div class="alert alert-danger" role="alert">@Model.Error</div> }
     <div class="carrier-workspace">
@@ -24,7 +24,7 @@
             <div class="table-responsive"><table class="table shipment-table"><thead><tr><th>运单号</th><th>订单</th><th>状态</th></tr></thead>
                 <tbody>@foreach (var shipment in Model.Shipments) {
                     <tr class="@(selected?.DeliveryId == shipment.DeliveryId ? "selected" : "")">
-                        <td><a asp-action="Index" asp-route-id="@shipment.DeliveryId" asp-route-keyword="@Model.Keyword">@(shipment.TrackingNo ?? shipment.DeliveryId)</a></td>
+                        <td><a asp-action="Index" asp-route-id="@shipment.DeliveryId" asp-route-keyword="@Model.Keyword">@(shipment.TrackingNo ?? shipment.DeliveryId)</a>@if (shipment.IsDemoData) { <small class="demo-label">测试</small> }</td>
                         <td>@shipment.OrderId</td><td>@shipment.StatusName</td>
                     </tr>
                 }</tbody></table></div>

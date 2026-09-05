@@ -50,7 +50,7 @@ public sealed class DemoCarrierAuthorizationFilter(IOptions<DemoCarrierOptions> 
         var settings = options.Value;
         if (!environment.IsDevelopment() || !settings.Enabled || logisticsOptions.Value.Provider != "Oracle")
             context.Result = new NotFoundResult();
-        else if (settings.ApiKey.Length < 32 || settings.SupplierIds.Length == 0 ||
+        else if (settings.ApiKey.Length < 32 || (!settings.IncludeAllDatabaseShipments && settings.SupplierIds.Length == 0) ||
             !context.HttpContext.Request.Headers.TryGetValue("X-Carrier-Key", out var header) || header.Count != 1 ||
             header.ToString().Length > 256 || !CryptographicOperations.FixedTimeEquals(
                 SHA256.HashData(Encoding.UTF8.GetBytes(header.ToString())), SHA256.HashData(Encoding.UTF8.GetBytes(settings.ApiKey))))

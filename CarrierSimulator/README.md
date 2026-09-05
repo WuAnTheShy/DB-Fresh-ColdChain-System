@@ -1,10 +1,16 @@
 # 独立冷链物流商模拟器
 
-这是独立启动的 ASP.NET Core MVC + Bootstrap 应用，不是商城内嵌页面，也不是真实物流公司服务。模拟器通过受控 HTTP 接口读写商城的 Oracle 物流数据，不持有数据库账号、不绕过状态机直接执行 SQL。
+这是独立启动的 ASP.NET Core MVC + Bootstrap 应用，不是商城内嵌页面，也不是真实物流公司服务。模拟器通过受控 HTTP 接口读取 Oracle 中已有的全部物流记录，并把更新写回所选真实运单；它不持有数据库账号，也不绕过状态机直接执行 SQL。
 
 ## 本机演示
 
-使用 PowerShell 7，在仓库根目录运行：
+使用 PowerShell 7，在仓库根目录运行。默认不造测试数据，直接读取数据库已有物流：
+
+```powershell
+pwsh -NoProfile -File scripts/Start-CarrierDemo.ps1
+```
+
+数据库没有物流时，才显式添加演示运单：
 
 ```powershell
 pwsh -NoProfile -File scripts/Start-CarrierDemo.ps1 -Seed
@@ -18,7 +24,7 @@ pwsh -NoProfile -File scripts/Start-CarrierDemo.ps1 -Seed
 - 两个服务的日志：`tmp/carrier-demo/*.log`，文件名含进程编号。
 - 保持启动终端运行；Ctrl+C 会关闭本次启动的两个进程。再次启动会生成新的接口密钥。
 
-`-Seed` 只新增专用演示账号、地址、禁用供应商、下架商品和 3 张零金额运单，不覆盖已有演示数据，不产生支付记录或扣减真实库存。编号冲突会报错并回滚。重复运行不会重置已演示的物流状态。
+页面会显示 Oracle `Log_ExpressDeliveries` 中已有的运单，扩展信息和轨迹来自 `Log_LogisticsDetails`、`Log_LogisticsEvents`；不是前端固定数组。测试种子会在列表中明确标记“测试”。`-Seed` 只新增专用演示账号、地址、禁用供应商、下架商品和 3 张零金额运单，不覆盖已有演示数据，不产生支付记录或扣减真实库存。编号冲突会报错并回滚。重复运行不会重置已演示的物流状态。
 
 ## 演示步骤
 
@@ -42,7 +48,7 @@ POST /api/demo-carrier/shipments/{deliveryId}/events
 
 上报字段为 `eventId`、`statusCode`、`occurredAt`、`location`、`temperatureCelsius`、`description`。`eventId` 必须稳定：重试使用同一编号和载荷；内容改变必须是新事件。后台从运单确定订单和供应商，不信任外部传入的归属。事件、元数据及基础物流状态共用事务与行锁。
 
-默认接口关闭。只有 `Development`、Oracle Provider、`GroupA:DemoCarrier:Enabled=true`、至少 32 字符的独立 `ApiKey` 和明确 `SupplierIds` 白名单同时满足才可用。请求需要 `X-Carrier-Key`；启动脚本仅授权 `SUP-CARRIER-DEMO`。密钥只在服务端进程环境中传递，不进入浏览器。模拟器自身只允许本机 IP/Host，并使用防伪令牌保护写入。
+默认接口关闭。只有 `Development`、Oracle Provider、`GroupA:DemoCarrier:Enabled=true` 和至少 32 字符的独立 `ApiKey` 同时满足才可用。请求需要 `X-Carrier-Key`；启动脚本设置 `IncludeAllDatabaseShipments=true`，因此仅在本机开发演示期间读取并操作全部数据库运单。密钥只在服务端进程环境中传递，不进入浏览器。模拟器自身只允许本机 IP/Host，并使用防伪令牌保护写入。若需要模拟某一家受限物流商，可关闭该选项并配置 `SupplierIds` 白名单。
 
 这不是生产接入方案：真实物流公司仍需外部 API/回调接入、每家独立凭据与权限、HTTPS、密钥轮换、审计及重试运维。这里不开放公网、不提供任意 SQL 或删除历史轨迹功能。
 
