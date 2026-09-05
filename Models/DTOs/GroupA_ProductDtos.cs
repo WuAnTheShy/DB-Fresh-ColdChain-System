@@ -12,6 +12,11 @@ public class ProductDto
     public string? StorageReq { get; set; }
     public int AvailableStock { get; set; }
 
+    // 兼容跨组商品目录：价格、上下架状态和供应商归属于 Inv_Goods。
+    public decimal DefaultPrice { get; set; }
+    public string Status { get; set; } = "ACTIVE";
+    public string? SupplierName { get; set; }
+
     /// <summary>商品文字介绍（供应商维护）</summary>
     public string? Description { get; set; }
 

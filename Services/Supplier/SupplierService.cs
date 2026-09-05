@@ -12,12 +12,15 @@ public class SupplierService : ISupplierService
     private readonly ISupplierRepository _repo;
     private readonly ISupplierPriceRepository _priceRepo;
     private readonly IProductRepository _productRepo;
+    private readonly IGoodsRepository _goodsRepo;
 
-    public SupplierService(ISupplierRepository repo, ISupplierPriceRepository priceRepo, IProductRepository productRepo)
+    public SupplierService(ISupplierRepository repo, ISupplierPriceRepository priceRepo, IProductRepository productRepo,
+        IGoodsRepository goodsRepo)
     {
         _repo = repo;
         _priceRepo = priceRepo;
         _productRepo = productRepo;
+        _goodsRepo = goodsRepo;
     }
 
     public async Task<ApiResponse<PagedResult<SupplierDto>>> GetSuppliersAsync(int pageIndex, int pageSize)
@@ -588,11 +591,11 @@ public class SupplierService : ISupplierService
     public async Task<ApiResponse<List<SupplierDto>>> GetAllSuppliersAsync()
     {
         var all = await _repo.GetAllAsync();
-        var products = await _productRepo.GetAllAsync();
-        var namesBySupplier = products
-            .Where(p => !string.IsNullOrWhiteSpace(p.SupplierID) && !string.IsNullOrWhiteSpace(p.ProductName))
-            .GroupBy(p => p.SupplierID!)
-            .ToDictionary(g => g.Key, g => g.Select(p => p.ProductName).Distinct().ToList());
+        var goods = await _goodsRepo.GetAllAsync();
+        var namesBySupplier = goods
+            .Where(g => !string.IsNullOrWhiteSpace(g.SupplierID) && !string.IsNullOrWhiteSpace(g.Product?.ProductName))
+            .GroupBy(g => g.SupplierID)
+            .ToDictionary(g => g.Key, g => g.Select(item => item.Product!.ProductName).Distinct().ToList());
 
         var list = all.Select(s =>
         {

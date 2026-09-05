@@ -71,7 +71,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
             if (product == null || item.Quantity <= 0 || product.WeightKG is not > 0)
                 return ApiResponse<FreightQuoteDto>.Fail("商品、数量或计费重量无效");
 
-            var supplierId = string.IsNullOrWhiteSpace(item.SupplierID) ? product.SupplierID : item.SupplierID;
+            var supplierId = item.SupplierID;
             if (string.IsNullOrWhiteSpace(supplierId))
                 return ApiResponse<FreightQuoteDto>.Fail($"商品 {product.ProductName} 缺少供应商，无法分包计费");
             supplierId = supplierId.Trim();
