@@ -12,11 +12,11 @@ public interface IPricingService
     /// <summary>计算商品实时价格</summary>
     Task<ApiResponse<PriceCalculationResult>> CalculatePriceAsync(PriceCalculationRequest request);
 
-    /// <summary>按产品 ID 查询该商品的所有价格规则</summary>
-    Task<ApiResponse<List<PriceRuleDto>>> GetRulesByProductAsync(string productId);
+    /// <summary>按产品 ID 查询该商品的价格规则（供应商可选，null 表示全部）</summary>
+    Task<ApiResponse<List<PriceRuleDto>>> GetRulesByProductAsync(string productId, string? supplierId = null);
 
-    /// <summary>获取所有价格规则（管理列表）</summary>
-    Task<ApiResponse<PagedResult<PriceRuleDto>>> GetAllRulesAsync(int pageIndex, int pageSize);
+    /// <summary>获取价格规则（管理列表，供应商可选，null 表示全部）</summary>
+    Task<ApiResponse<PagedResult<PriceRuleDto>>> GetAllRulesAsync(int pageIndex, int pageSize, string? supplierId = null);
 
     /// <summary>创建价格规则</summary>
     Task<ApiResponse<PriceRuleDto>> CreateRuleAsync(SavePriceRuleDto dto);

@@ -12,6 +12,7 @@ public class ProductInventoryService : IProductInventoryService
     private readonly IStockBatchRepository _batchRepo;
     private readonly ICategoryRepository _categoryRepo;
     private readonly ISupplierPriceRepository _supplierPriceRepo;
+    private readonly IGoodsRepository _goodsRepo;
     private readonly IUnitOfWork _uow;
 
     public ProductInventoryService(
@@ -20,6 +21,7 @@ public class ProductInventoryService : IProductInventoryService
         IStockBatchRepository batchRepo,
         ICategoryRepository categoryRepo,
         ISupplierPriceRepository supplierPriceRepo,
+        IGoodsRepository goodsRepo,
         IUnitOfWork uow)
     {
         _productRepo = productRepo;
@@ -27,6 +29,7 @@ public class ProductInventoryService : IProductInventoryService
         _batchRepo = batchRepo;
         _categoryRepo = categoryRepo;
         _supplierPriceRepo = supplierPriceRepo;
+        _goodsRepo = goodsRepo;
         _uow = uow;
     }
 
@@ -35,7 +38,9 @@ public class ProductInventoryService : IProductInventoryService
     public async Task<ApiResponse<PagedResult<ProductDto>>> GetProductsAsync(int pageIndex, int pageSize, string? keyword = null)
     {
         var (items, total) = await _productRepo.GetPagedWithDetailsAsync(pageIndex, pageSize, keyword);
-        var dtos = items.Select(MapToDto).ToList();
+        var dtos = new List<ProductDto>(items.Count);
+        foreach (var item in items)
+            dtos.Add(await MapToDtoAsync(item));
         await AttachProductImagesAsync(dtos);
         return ApiResponse<PagedResult<ProductDto>>.Success(new PagedResult<ProductDto>
         {
@@ -48,7 +53,7 @@ public class ProductInventoryService : IProductInventoryService
     {
         var p = await _productRepo.GetByIdWithDetailsAsync(id);
         if (p == null) return ApiResponse<ProductDto>.Fail("产品不存在", 404);
-        var dto = MapToDto(p);
+        var dto = await MapToDtoAsync(p);
         await AttachProductImagesAsync(new[] { dto });
         return ApiResponse<ProductDto>.Success(dto);
     }
@@ -131,34 +136,19 @@ public class ProductInventoryService : IProductInventoryService
         var product = new InvProduct
         {
             ProductName = dto.ProductName, CategoryID = dto.CategoryID,
-            SupplierID = dto.SupplierID, Unit = dto.Unit,
-            WeightKG = dto.WeightKG, VolumeLitre = dto.VolumeLitre,
+            Unit = dto.Unit, WeightKG = dto.WeightKG, VolumeLitre = dto.VolumeLitre,
             ExpiryHours = dto.ExpiryHours, StorageReq = dto.StorageReq,
-            DefaultPrice = dto.DefaultPrice, Status = "ACTIVE"
+            Description = dto.Description
         };
 
         try
         {
-            await _uow.BeginAsync();
             await _productRepo.AddAsync(product);
-
-            var summary = new InvStockSummary
-            {
-                ProductID = product.ProductID,
-                TotalQty = dto.InitialStock,
-                LockedQty = 0,
-                AvailableQty = dto.InitialStock
-            };
-            await _stockRepo.AddAsync(summary);
-            product.StockSummary = summary;
-
-            await _uow.CommitAsync();
-            return ApiResponse<ProductDto>.Success(MapToDto(product), "产品创建成功");
+            return ApiResponse<ProductDto>.Success(await MapToDtoAsync(product), "物品创建成功");
         }
         catch (Exception ex)
         {
-            await _uow.RollbackAsync();
-            return ApiResponse<ProductDto>.Fail($"产品创建失败：{ex.Message}");
+            return ApiResponse<ProductDto>.Fail($"物品创建失败：{ex.Message}");
         }
     }
 
@@ -174,20 +164,18 @@ public class ProductInventoryService : IProductInventoryService
         if (dto.VolumeLitre.HasValue) p.VolumeLitre = dto.VolumeLitre;
         if (dto.ExpiryHours.HasValue) p.ExpiryHours = dto.ExpiryHours;
         if (dto.StorageReq != null) p.StorageReq = dto.StorageReq;
-        if (dto.DefaultPrice.HasValue) p.DefaultPrice = dto.DefaultPrice.Value;
-        if (dto.Status != null) p.Status = dto.Status;
+        if (dto.Description != null) p.Description = dto.Description;
 
         _productRepo.Update(p);
-        return ApiResponse<ProductDto>.Success(MapToDto(p), "产品更新成功");
+        return ApiResponse<ProductDto>.Success(await MapToDtoAsync(p), "物品更新成功");
     }
 
     public async Task<ApiResponse> DeleteProductAsync(string id)
     {
         var p = await _productRepo.GetByIdAsync(id);
-        if (p == null) return ApiResponse.Fail("产品不存在", 404);
-        p.Status = "INACTIVE";
-        _productRepo.Update(p);
-        return ApiResponse.Success("产品已下架");
+        if (p == null) return ApiResponse.Fail("物品不存在", 404);
+        _productRepo.Delete(p);
+        return ApiResponse.Success("物品已删除");
     }
 
     // ========== 跨组接口（供 C 组调用）==========
@@ -285,18 +273,20 @@ public class ProductInventoryService : IProductInventoryService
             if (product == null)
                 return ApiResponse.Fail("产品不存在", 404);
 
-            // 入库供应商：表单选择的优先，未选则回退到产品的默认供应商
-            var effectiveSupplierId = string.IsNullOrWhiteSpace(supplierId) ? product.SupplierID : supplierId;
-            if (string.IsNullOrWhiteSpace(effectiveSupplierId))
-                return ApiResponse.Fail("该产品未关联供应商，且未选择入库供应商，无法入库");
-            var quote = await _supplierPriceRepo.GetQuoteAsync(effectiveSupplierId, dto.ProductID);
-            if (quote == null)
-                return ApiResponse.Fail($"所选供应商尚未对此产品报价，请先在供应商入口报价");
+            // 入库供应商：必须显式选择（该物品可多供应商供货）
+            if (string.IsNullOrWhiteSpace(supplierId))
+                return ApiResponse.Fail("请选择供应商（该物品可多供应商供货）");
+            var effectiveSupplierId = supplierId;
 
-            // 过期日期自动计算：生产日期 + 所选供应商声明的保质期（未声明用产品典型值）
-            var shelfHours = quote.ShelfLifeHours ?? product.ExpiryHours;
+            // 货物级进货：该供应商须已对此物品建立货物，进价取货物售价
+            var goods = await _goodsRepo.GetAsync(dto.ProductID, effectiveSupplierId);
+            if (goods == null)
+                return ApiResponse.Fail("该供应商未对此物品建立货物，请先在「我的货物」建立");
+
+            // 过期日期自动计算：生产日期 + 货物声明的保质期（未声明用物品默认值）
+            var shelfHours = goods.ShelfLifeHours ?? product.ExpiryHours;
             if (shelfHours is not > 0)
-                return ApiResponse.Fail("无法确定该产品的保质期，请先在供应商报价或产品信息中设置保质期");
+                return ApiResponse.Fail("无法确定该产品的保质期，请先在货物或物品信息中设置保质期");
             var expiryDate = productionDate.Value.AddHours(shelfHours.Value);
 
             await _uow.BeginAsync();
@@ -332,7 +322,7 @@ public class ProductInventoryService : IProductInventoryService
                 ProductID = dto.ProductID,
                 SupplierID = effectiveSupplierId,
                 BatchNo = batchNo,
-                InPrice = quote.SupplyPrice,
+                InPrice = goods.SalePrice,
                 ProductionDate = productionDate,
                 ExpiryDate = expiryDate,
                 InitialQty = dto.Quantity,
@@ -453,10 +443,10 @@ public class ProductInventoryService : IProductInventoryService
 
         try
         {
-            // 进价由供应商决定：自动取该供应商对该产品的供货价
-            var quote = await _supplierPriceRepo.GetQuoteAsync(dto.SupplierID ?? "", dto.ProductID);
-            if (quote == null)
-                return ApiResponse<StockBatchDto>.Fail("该供应商尚未对此产品报价，请先在供应商详情页设置供货价");
+            // 进价由供应商决定：自动取该供应商对该物品的货物售价
+            var goods = await _goodsRepo.GetAsync(dto.ProductID, dto.SupplierID ?? "");
+            if (goods == null)
+                return ApiResponse<StockBatchDto>.Fail("该供应商未对此物品建立货物，请先在「我的货物」建立");
 
             await _uow.BeginAsync();
 
@@ -464,7 +454,7 @@ public class ProductInventoryService : IProductInventoryService
             {
                 ProductID = dto.ProductID, SupplierID = dto.SupplierID,
                 BatchNo = dto.BatchNo, ProductionDate = dto.ProductionDate,
-                ExpiryDate = dto.ExpiryDate, InPrice = quote.SupplyPrice,
+                ExpiryDate = dto.ExpiryDate, InPrice = goods.SalePrice,
                 InitialQty = dto.InitialQty, CurrentQty = dto.InitialQty,
                 Status = "ACTIVE"
             };
@@ -498,15 +488,26 @@ public class ProductInventoryService : IProductInventoryService
 
     // ========== 映射 ==========
 
-    private static ProductDto MapToDto(InvProduct p) => new()
+    private async Task<ProductDto> MapToDtoAsync(InvProduct p)
     {
-        ProductID = p.ProductID, ProductName = p.ProductName,
-        CategoryName = p.Category?.CategoryName,
-        SupplierName = p.Supplier?.SupplierName,
-        Unit = p.Unit, WeightKG = p.WeightKG, VolumeLitre = p.VolumeLitre,
-        ExpiryHours = p.ExpiryHours, StorageReq = p.StorageReq,
-        DefaultPrice = p.DefaultPrice, Status = p.Status,
-        AvailableStock = p.StockSummary?.AvailableQty ?? 0,
-        Description = p.Description
-    };
+        var goods = await _goodsRepo.GetByProductAsync(p.ProductID);
+        var primary = goods
+            .Where(g => string.Equals(g.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+            .Where(g => g.SalePrice > 0)
+            .OrderBy(g => g.Supplier?.SupplierName ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+
+        return new ProductDto
+        {
+            ProductID = p.ProductID, ProductName = p.ProductName,
+            CategoryName = p.Category?.CategoryName,
+            Unit = p.Unit, WeightKG = p.WeightKG, VolumeLitre = p.VolumeLitre,
+            ExpiryHours = p.ExpiryHours, StorageReq = primary?.StorageReq ?? p.StorageReq,
+            AvailableStock = p.StockSummary?.AvailableQty ?? 0,
+            Description = primary?.Description ?? p.Description,
+            DefaultPrice = primary?.SalePrice ?? 0m,
+            Status = primary?.Status ?? "INACTIVE",
+            SupplierName = primary?.Supplier?.SupplierName
+        };
+    }
 }

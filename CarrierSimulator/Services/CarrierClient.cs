@@ -23,6 +23,12 @@ public sealed class CarrierClient(HttpClient client)
         await EnsureSuccess(response, token);
         return await response.Content.ReadFromJsonAsync<ShipmentDetail>(token) ?? throw new InvalidOperationException("运单响应为空");
     }
+    public async Task<ShipmentDetail> HandoffAsync(HandoffInput input, CancellationToken token)
+    {
+        using var response = await client.PostAsJsonAsync("/api/demo-carrier/shipments/handoffs", input, token);
+        await EnsureSuccess(response, token);
+        return await response.Content.ReadFromJsonAsync<ShipmentDetail>(token) ?? throw new InvalidOperationException("接单响应为空");
+    }
     public async Task AppendAsync(EventInput input, CancellationToken token)
     {
         using var response = await client.PostAsJsonAsync("/api/demo-carrier/shipments/" + Uri.EscapeDataString(input.DeliveryId) + "/events", input, token);

@@ -1,0 +1,31 @@
+@model CreateGoodsDto
+@{
+    ViewData["Title"] = "对物品建立货物";
+    ViewData["BackController"] = "Goods";
+    ViewData["BackAction"] = "MyGoods";
+    ViewData["BackText"] = "返回我的货物";
+    var products = ViewBag.Products as List<ProductDto> ?? new List<ProductDto>();
+}
+<h3>对物品建立货物</h3>
+<p class="text-muted">选择平台已有的物品，设定你的售价与温区，即可开始供货（不设数量上限，数量通过后续进货累积）。</p>
+<div class="col-md-6">
+    <form asp-action="Add" method="post">
+        @Html.AntiForgeryToken()
+        <div class="mb-3">
+            <label class="form-label">选择物品</label>
+            <select asp-for="ProductID" class="form-select" required>
+                <option value="">— 请选择 —</option>
+                @foreach (var p in products)
+                {
+                    <option value="@p.ProductID">@p.ProductName（温区 @p.StorageReq）</option>
+                }
+            </select>
+        </div>
+        <div class="mb-3"><label class="form-label">售价（= 团长进价）</label><input asp-for="SalePrice" class="form-control" type="number" step="0.01" required /></div>
+        <div class="mb-3"><label class="form-label">温区（cold/frozen/常温）</label><input asp-for="StorageReq" class="form-control" placeholder="留空则用物品默认温区" /></div>
+        <div class="mb-3"><label class="form-label">保质期（小时，留空则用物品默认）</label><input asp-for="ShelfLifeHours" class="form-control" type="number" /></div>
+        <div class="mb-3"><label class="form-label">图文介绍</label><textarea asp-for="Description" class="form-control"></textarea></div>
+        <button type="submit" class="btn btn-success">建立货物</button>
+        <a class="btn btn-outline-secondary" asp-action="MyGoods">取消</a>
+    </form>
+</div>

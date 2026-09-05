@@ -1,0 +1,60 @@
+@model List<GoodsDto>
+@{
+    ViewData["Title"] = "全部货物";
+    ViewData["BackController"] = "SuppliersHome";
+    ViewData["BackAction"] = "Index";
+    ViewData["BackText"] = "返回供应商首页";
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>全部货物</h3>
+    <div>
+        <a class="btn btn-outline-primary btn-sm" asp-controller="Products" asp-action="Index">物品管理</a>
+        <a class="btn btn-outline-primary btn-sm" asp-controller="Prices" asp-action="Index">定价规则</a>
+        <a class="btn btn-outline-primary btn-sm" asp-controller="ColdChainLogistics" asp-action="Index">运费模板</a>
+        <a class="btn btn-outline-primary btn-sm" asp-controller="ColdChainLogistics" asp-action="Shipments">发货管理</a>
+    </div>
+</div>
+<form method="get" class="row g-2 mb-3">
+    <div class="col-md-6">
+        <input type="text" name="keyword" class="form-control" placeholder="搜索物品/供应商..." value="@ViewBag.Keyword" />
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-primary">搜索</button>
+        <a class="btn btn-outline-secondary" asp-action="AdminIndex">清除</a>
+    </div>
+</form>
+<table class="table table-striped table-hover">
+    <thead class="table-dark"><tr><th>物品</th><th>分类</th><th>归属供应商</th><th>售价</th><th>温区</th><th>保质期(小时)</th><th>状态</th></tr></thead>
+    <tbody>
+    @if (Model.Any())
+    {
+        @foreach (var g in Model)
+        {
+            <tr>
+                <td>@g.ProductName</td>
+                <td>@g.CategoryName</td>
+                <td>@g.SupplierName</td>
+                <td>¥@g.SalePrice.ToString("F2")</td>
+                <td>@g.StorageReq</td>
+                <td>@g.ShelfLifeHours</td>
+                <td>
+                    @(g.Status == "ACTIVE" ? "上架" : "下架")
+                    <form asp-action="AdminToggleStatus" method="post" style="display:inline">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="productId" value="@g.ProductID" />
+                        <input type="hidden" name="supplierId" value="@g.SupplierID" />
+                        <input type="hidden" name="status" value="@(g.Status == "ACTIVE" ? "INACTIVE" : "ACTIVE")" />
+                        <button type="submit" class="btn btn-sm ms-1 @(g.Status == "ACTIVE" ? "btn-warning" : "btn-success")">
+                            @(g.Status == "ACTIVE" ? "下架" : "上架")
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        }
+    }
+    else
+    {
+        <tr><td colspan="7" class="text-center">暂无货物</td></tr>
+    }
+    </tbody>
+</table>
