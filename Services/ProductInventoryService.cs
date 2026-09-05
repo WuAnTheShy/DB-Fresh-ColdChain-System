@@ -38,7 +38,9 @@ public class ProductInventoryService : IProductInventoryService
     public async Task<ApiResponse<PagedResult<ProductDto>>> GetProductsAsync(int pageIndex, int pageSize, string? keyword = null)
     {
         var (items, total) = await _productRepo.GetPagedWithDetailsAsync(pageIndex, pageSize, keyword);
-        var dtos = items.Select(MapToDto).ToList();
+        var dtos = new List<ProductDto>(items.Count);
+        foreach (var item in items)
+            dtos.Add(await MapToDtoAsync(item));
         await AttachProductImagesAsync(dtos);
         return ApiResponse<PagedResult<ProductDto>>.Success(new PagedResult<ProductDto>
         {
@@ -51,7 +53,7 @@ public class ProductInventoryService : IProductInventoryService
     {
         var p = await _productRepo.GetByIdWithDetailsAsync(id);
         if (p == null) return ApiResponse<ProductDto>.Fail("产品不存在", 404);
-        var dto = MapToDto(p);
+        var dto = await MapToDtoAsync(p);
         await AttachProductImagesAsync(new[] { dto });
         return ApiResponse<ProductDto>.Success(dto);
     }
@@ -142,7 +144,7 @@ public class ProductInventoryService : IProductInventoryService
         try
         {
             await _productRepo.AddAsync(product);
-            return ApiResponse<ProductDto>.Success(MapToDto(product), "物品创建成功");
+            return ApiResponse<ProductDto>.Success(await MapToDtoAsync(product), "物品创建成功");
         }
         catch (Exception ex)
         {
@@ -165,7 +167,7 @@ public class ProductInventoryService : IProductInventoryService
         if (dto.Description != null) p.Description = dto.Description;
 
         _productRepo.Update(p);
-        return ApiResponse<ProductDto>.Success(MapToDto(p), "物品更新成功");
+        return ApiResponse<ProductDto>.Success(await MapToDtoAsync(p), "物品更新成功");
     }
 
     public async Task<ApiResponse> DeleteProductAsync(string id)
@@ -486,13 +488,26 @@ public class ProductInventoryService : IProductInventoryService
 
     // ========== 映射 ==========
 
-    private static ProductDto MapToDto(InvProduct p) => new()
+    private async Task<ProductDto> MapToDtoAsync(InvProduct p)
     {
-        ProductID = p.ProductID, ProductName = p.ProductName,
-        CategoryName = p.Category?.CategoryName,
-        Unit = p.Unit, WeightKG = p.WeightKG, VolumeLitre = p.VolumeLitre,
-        ExpiryHours = p.ExpiryHours, StorageReq = p.StorageReq,
-        AvailableStock = p.StockSummary?.AvailableQty ?? 0,
-        Description = p.Description
-    };
+        var goods = await _goodsRepo.GetByProductAsync(p.ProductID);
+        var primary = goods
+            .Where(g => string.Equals(g.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+            .Where(g => g.SalePrice > 0)
+            .OrderBy(g => g.Supplier?.SupplierName ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+
+        return new ProductDto
+        {
+            ProductID = p.ProductID, ProductName = p.ProductName,
+            CategoryName = p.Category?.CategoryName,
+            Unit = p.Unit, WeightKG = p.WeightKG, VolumeLitre = p.VolumeLitre,
+            ExpiryHours = p.ExpiryHours, StorageReq = primary?.StorageReq ?? p.StorageReq,
+            AvailableStock = p.StockSummary?.AvailableQty ?? 0,
+            Description = primary?.Description ?? p.Description,
+            DefaultPrice = primary?.SalePrice ?? 0m,
+            Status = primary?.Status ?? "INACTIVE",
+            SupplierName = primary?.Supplier?.SupplierName
+        };
+    }
 }

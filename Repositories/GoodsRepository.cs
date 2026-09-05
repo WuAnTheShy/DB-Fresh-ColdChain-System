@@ -45,6 +45,15 @@ public class GoodsRepository : IGoodsRepository
         return result.ToList();
     }
 
+    public async Task<List<InvGoods>> GetByProductAsync(string productId)
+    {
+        var sql = SelectWithDetails + " WHERE g.ProductID = :ProductId ORDER BY s.SupplierName";
+        var result = await _uow.Connection.QueryAsync<InvGoods, InvProduct, InvSupplier, InvGoods>(sql,
+            (goods, product, supplier) => { goods.Product = product; goods.Supplier = supplier; return goods; },
+            new { ProductId = productId }, _uow.Transaction, splitOn: "PRODUCTNAME,SUPPLIERNAME");
+        return result.ToList();
+    }
+
     public async Task<InvGoods?> GetAsync(string productId, string supplierId)
     {
         var sql = SelectWithDetails + " WHERE g.ProductID = :ProductId AND g.SupplierID = :SupplierId";
