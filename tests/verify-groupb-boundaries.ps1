@@ -10,6 +10,7 @@ $groupBIntegrationFiles = @(
     'Services/ConsumerMessageService.cs',
     'Services/OrderService.cs',
     'Services/GroupBMaintenanceServices.cs',
+    'Services/GroupBAuthorizationFilters.cs',
     'Repositories/ConsumerMessageRepository.cs'
 )
 $foreignRepositoryTypes = @(
@@ -19,10 +20,12 @@ $foreignRepositoryTypes = @(
     'ILogFreightTemplateRepository',
     'ILogExpressDeliveryRepository',
     'ILogFulfillmentBatchItemRepository',
+    'IGroupALogisticsRepository',
     'IPromoterRepository',
     'IRefundRepository',
     'IPaymentRepository',
     'ICommissionRepository'
+    'ISysAdminRepository'
 )
 $foreignTables = @(
     'Inv_Products',
@@ -30,6 +33,8 @@ $foreignTables = @(
     'Inv_StockBatches',
     'Log_ExpressDeliveries',
     'Log_FreightTemplates',
+    'Log_LogisticsDetails',
+    'Log_LogisticsEvents',
     'CRM_PROMOTERS',
     'CRM_PCR',
     'CRM_PSRELATION',
@@ -37,6 +42,8 @@ $foreignTables = @(
     'FIN_PAYMENTRECORDS',
     'FIN_REFUND',
     'FIN_PROCOMRECORDS'
+    'SYS_USERS'
+    'SYS_ROLES'
 )
 
 $violations = [System.Collections.Generic.List[string]]::new()
@@ -104,6 +111,14 @@ $supplierFulfillmentController = Get-Content -Raw -Encoding UTF8 -LiteralPath (
     Join-Path $repositoryRoot 'Controllers/SupplierFulfillmentController.cs')
 if ($supplierFulfillmentController -notmatch 'GroupBSupplierSessionAuthorizationFilter') {
     $violations.Add('供应商履约入口必须启用供应商会话权限过滤器')
+}
+
+$authorizationFilters = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+    Join-Path $repositoryRoot 'Services/GroupBAuthorizationFilters.cs')
+foreach ($requiredCall in @('IGroupCAuthorizationService', 'AuthorizeAsync', 'GroupBPermissionAttribute', 'AdminId')) {
+    if ($authorizationFilters -notmatch "\b$requiredCall\b") {
+        $violations.Add("B 组权限过滤器缺少 C 组授权契约或动作声明: $requiredCall")
+    }
 }
 
 if ($violations.Count -gt 0) {

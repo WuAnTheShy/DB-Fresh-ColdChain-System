@@ -14,18 +14,21 @@ namespace FreshColdChain.Controllers
         private readonly PromoterPortalDataProvider _dataProvider;
         private readonly ISupplierService _supplierService;
         private readonly PromoterService _promoterService;
-        private readonly WithdrawalService _withdrawalService;  
+        private readonly WithdrawalService _withdrawalService;
+        private readonly PromoterIntroStore _introStore;
 
         public PromotersController(
             PromoterPortalDataProvider dataProvider,
             ISupplierService supplierService,
             PromoterService promoterService,
-            WithdrawalService withdrawalService)
+            WithdrawalService withdrawalService,
+            PromoterIntroStore introStore)
         { 
             _dataProvider = dataProvider;
             _supplierService = supplierService;
             _promoterService = promoterService;
             _withdrawalService = withdrawalService;
+            _introStore = introStore;
         }
 
         public async Task<IActionResult> Dashboard()
@@ -260,12 +263,19 @@ namespace FreshColdChain.Controllers
                 return RedirectToAction("ProductListing", new { keyword });
             }
 
+            // 一次提供该供应商上传的该商品的所有图片（图文编辑器的“供应商图库”），
+            // 以及当前已保存的图文介绍内容（历史纯文字自动包装为段落）
+            var supplierImages = await _promoterService.GetSupplierProductImagesAsync(productId);
+            var richContent = await _introStore.LoadAsync(entry.PromoterDesc);
+
             return View(new ProductEntryDetailViewModel
             {
                 Keyword = keyword ?? "",
                 ProductId = productId,
                 SupplierId = supplierId,
-                Entry = entry
+                Entry = entry,
+                SupplierImages = supplierImages,
+                RichContent = richContent
             });
         }
 
@@ -339,7 +349,7 @@ namespace FreshColdChain.Controllers
         /// 给消费者端展示的始终是团长的文字。
         /// </summary>
         [HttpPost]
-        public async Task<IActionResult> UpdateEntryDescription(string productId, string supplierId, string? keyword, string? promoterDesc)
+        public async Task<IActionResult> UpdateEntryDescription(string productId, string supplierId, string? keyword, string? contentJson)
         {
             var redirect = EnsureLoggedIn();
             if (redirect != null) return redirect;
@@ -347,8 +357,10 @@ namespace FreshColdChain.Controllers
 
             try
             {
-                var success = await _promoterService.UpdateEntryDescriptionAsync(promoterId, productId, supplierId, promoterDesc);
-                TempData["SuccessMessage"] = success ? "带货介绍已保存！" : "介绍保存失败，请重试。";
+                // 团长端提交的是富文本 JSON（title + 多段 text/images），
+                // 服务层会写入 wwwroot 图文内容文件，并把相对路径存入 PROMOTERDESC。
+                var success = await _promoterService.UpdateEntryDescriptionAsync(promoterId, productId, supplierId, contentJson);
+                TempData["SuccessMessage"] = success ? "图文介绍已保存！" : "介绍保存失败，请重试。";
             }
             catch (Exception ex)
             {
@@ -357,6 +369,22 @@ namespace FreshColdChain.Controllers
 
             // 介绍编辑在独立详情页完成，保存后回到该商品详情页
             return RedirectToAction("EntryDetail", new { productId, supplierId, keyword });
+        }
+
+        /// <summary>
+        /// 团长端图文介绍编辑器上传本地图片：保存到 wwwroot/uploads/promoter-img/，
+        /// 返回可访问的相对路径；校验扩展名与大小（5MB），文件名随机生成。
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> UploadPromoterImage(IFormFile? file)
+        {
+            if (EnsureLoggedIn() != null)
+                return Json(new { ok = false, message = "登录状态已失效，请刷新页面后重试。" });
+
+            var result = await _introStore.UploadImageAsync(file);
+            return Json(result.Ok
+                ? new { ok = true, url = result.Url }
+                : new { ok = false, message = result.Message });
         }
 
 

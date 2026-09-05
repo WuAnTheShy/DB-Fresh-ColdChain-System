@@ -68,8 +68,9 @@ namespace FreshColdChain.Controllers
             else if (role == "管理员")
             {
                 var loginResult = _systemAdminService.LoginAdmin(username, password);
-                if (loginResult.IsSuccess == true)  //登录成功
+                if (loginResult.IsSuccess == true && !string.IsNullOrWhiteSpace(loginResult.UserId))
                 {
+                    HttpContext.Session.SetString("AdminId", loginResult.UserId);
                     HttpContext.Session.SetString("AdminName", username);
                     return RedirectToAction("Dashboard", "Admins");
                 }

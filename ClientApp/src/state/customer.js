@@ -81,6 +81,7 @@ export function useCustomerContext() {
   return {
     customerId: computed(() => customer.value?.customerId ?? ''),
     customerName: computed(() => customer.value?.customerName ?? ''),
+    avatar: computed(() => customer.value?.avatar ?? ''),
     isAuthenticated: computed(() => Boolean(customer.value?.customerId)),
     deliveryLocation: computed(() => {
       if (!customer.value?.customerId) return '登录后设置地址'

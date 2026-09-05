@@ -14,6 +14,7 @@ public static class OrderStateMachine
             (OrderStatus.Paid, OrderStatus.Shipped) => true,
             (OrderStatus.Shipped, OrderStatus.Completed) => true,
             (OrderStatus.Paid, OrderStatus.Cancelled) => true,
+            (OrderStatus.PendingPayment, OrderStatus.Cancelled) => true,
             _ => false
         };
     }

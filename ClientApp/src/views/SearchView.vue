@@ -90,5 +90,8 @@ watch(() => route.fullPath, () => {
   .filter-panel label { font-size: 9px; }
   .filter-panel a:not(.router-link-active), .filter-panel > div:nth-child(2) label:nth-of-type(n+3) { display: none; }
   .sort-bar { padding: 0 10px; }
+
+  /* 移动端分类 / 搜索结果商品列表单列 */
+  .product-grid.listing-product-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 }
 </style>

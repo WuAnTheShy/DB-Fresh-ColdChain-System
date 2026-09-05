@@ -185,8 +185,9 @@ namespace FreshColdChain.Services
 
             if (admin.Status == "Pending")
                 return new GroupC_AdminLoginResult { IsSuccess = false, Message = "账号尚未审核通过" };
-            if (admin.Status == "Disable")
-                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "账号已被禁用" };
+            if (!string.Equals(admin.Status, "Enable", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(admin.Status, "Enabled", StringComparison.OrdinalIgnoreCase))
+                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "账号未启用或已被锁定" };
 
             return new GroupC_AdminLoginResult
             {

@@ -13,6 +13,15 @@ var groupAAdapterExitCode =
     await GroupAAdapterScenarioTests.RunAllAsync();
 var supplierFulfillmentExitCode =
     await SupplierFulfillmentScenarioTests.RunAllAsync();
+var financialTransactionExitCode =
+    await FinancialTransactionScenarioTests.RunAllAsync();
+var freightAggregationExitCode =
+    await FreightAggregationScenarioTests.RunAllAsync();
+var authorizationExitCode =
+    await AuthorizationScenarioTests.RunAllAsync();
+var logisticsPersistenceExitCode =
+    await LogisticsPersistenceScenarioTests.RunAllAsync();
+var demoCarrierExitCode = await DemoCarrierScenarioTests.RunAllAsync();
 
 Environment.ExitCode =
     orderExitCode == 0 &&
@@ -21,6 +30,10 @@ Environment.ExitCode =
     externalContractExitCode == 0 &&
     consumerMessageExitCode == 0 &&
     groupAAdapterExitCode == 0 &&
-    supplierFulfillmentExitCode == 0
+    supplierFulfillmentExitCode == 0 &&
+    financialTransactionExitCode == 0 &&
+    freightAggregationExitCode == 0 &&
+    authorizationExitCode == 0 &&
+    logisticsPersistenceExitCode == 0 && demoCarrierExitCode == 0
     ? 0
     : 1;

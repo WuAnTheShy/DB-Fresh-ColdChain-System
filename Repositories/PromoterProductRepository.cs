@@ -77,6 +77,7 @@ public class PromoterProductRepository : IPromoterProductRepository
             SELECT E.PRODUCTID, E.SUPPLIERID, E.PROMOTERPRICE, E.PROMOTERDESC,
                    E.CREATETIME AS CreateTime,
                    P.PRODUCTNAME, P.UNIT, P.DEFAULTPRICE, P.DESCRIPTION,
+                   P.STATUS AS ProductStatus,
                    S.SUPPLIERNAME,
                    SP.SUPPLYPRICE
             FROM CRM_PRODUCT_ENTRIES E
@@ -95,6 +96,7 @@ public class PromoterProductRepository : IPromoterProductRepository
         const string sql = @"
             SELECT E.PRODUCTID, E.SUPPLIERID, E.PROMOTERPRICE, E.PROMOTERDESC,
                    P.PRODUCTNAME, P.UNIT, P.DEFAULTPRICE, P.DESCRIPTION,
+                   P.STATUS AS ProductStatus,
                    S.SUPPLIERNAME,
                    SP.SUPPLYPRICE
             FROM CRM_PRODUCT_ENTRIES E

@@ -215,9 +215,15 @@
                                 <ul class="list-unstyled small mb-2">
                                     @foreach (var lp in Model.ListedProducts.Take(5))
                                     {
-                                        <li class="d-flex justify-content-between border-bottom py-1">
+                                        <li class="d-flex justify-content-between align-items-center border-bottom py-1">
                                             <span>@lp.ProductName <span class="text-muted">· @lp.SupplierName</span></span>
-                                            <span class="text-success fw-bold">￥@((lp.PromoterPrice ?? lp.DefaultPrice).ToString("F2"))</span>
+                                            <span class="d-inline-flex align-items-center gap-2">
+                                                @if (!lp.IsProductActive)
+                                                {
+                                                    <span class="badge bg-danger">已下架</span>
+                                                }
+                                                <span class="text-success fw-bold">￥@((lp.PromoterPrice ?? lp.DefaultPrice).ToString("F2"))</span>
+                                            </span>
                                         </li>
                                     }
                                 </ul>

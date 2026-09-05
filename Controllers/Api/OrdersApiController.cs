@@ -127,7 +127,8 @@ public sealed class OrdersApiController(
                     item.SubTotal,
                     item.ReceiptStatus,
                     item.ReceivedAt,
-                    canConfirmReceipt = package?.Logistics.StatusCode ==
+                    canConfirmReceipt = order.OrderStatus == OrderStatusCodes.Shipped &&
+                        package?.Logistics.StatusCode ==
                         LogisticsStatusCodes.Delivered &&
                         !string.Equals(item.ReceiptStatus, "RECEIVED", StringComparison.Ordinal)
                 };
