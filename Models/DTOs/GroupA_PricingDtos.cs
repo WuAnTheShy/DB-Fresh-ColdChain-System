@@ -6,6 +6,8 @@ namespace FreshColdChain.Models.DTOs;
 public class PriceCalculationRequest
 {
     public string ProductID { get; set; } = string.Empty;
+    /// <summary>供应商编号（售价为货物级，必须指定供应商）</summary>
+    public string SupplierID { get; set; } = string.Empty;
     public decimal Quantity { get; set; } = 1;
     /// <summary>可选：当前时间（默认 DateTime.Now），便于测试</summary>
     public DateTime? ReferenceTime { get; set; }
@@ -34,6 +36,7 @@ public class PriceRuleDto
 {
     public string RuleID { get; set; } = string.Empty;
     public string ProductID { get; set; } = string.Empty;
+    public string? SupplierID { get; set; }
     public string? ProductName { get; set; }
     public string? RuleName { get; set; }
     public string? TriggerType { get; set; }
@@ -52,6 +55,8 @@ public class PriceRuleDto
 public class SavePriceRuleDto
 {
     public string ProductID { get; set; } = string.Empty;
+    /// <summary>归属供应商（该规则只适用此供应商的货物）</summary>
+    public string? SupplierID { get; set; }
     public string? RuleName { get; set; }
     public string? TriggerType { get; set; }
     public string? TimeWindow { get; set; }

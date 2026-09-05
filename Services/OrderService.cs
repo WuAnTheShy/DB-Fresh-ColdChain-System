@@ -287,7 +287,7 @@ public sealed class OrderService : IOrderService
         return closed;
     }
 
-    /// <summary>发货满七天后自动确认子订单内全部商品收货，并完成订单。</summary>
+    /// <summary>发货满七天且全部包裹已签收后，自动确认商品收货并完成订单。</summary>
     public async Task<int> AutoConfirmShippedOrdersAsync(CancellationToken cancellationToken = default)
     {
         var candidates = await _orderRepo.GetShippedOrdersBeforeAsync(DateTime.Now.AddDays(-7));
@@ -300,6 +300,9 @@ public sealed class OrderService : IOrderService
                 var context = await GetLockedOrderContextAsync(candidate.OrderId, transaction);
                 if (context.Order.OrderStatus != OrderStatusCodes.Shipped ||
                     (context.Order.UpdatedAt ?? context.Order.CreatedAt) > DateTime.Now.AddDays(-7))
+                    return false;
+
+                if (!await ArePackagesDeliveredAsync(context.Order.OrderId, context.Details, cancellationToken))
                     return false;
 
                 foreach (var detail in context.Details.Where(detail =>
@@ -764,7 +767,7 @@ public sealed class OrderService : IOrderService
                 OrderStatus.Shipped),
             CanComplete = OrderStateMachine.CanTransition(
                 status,
-                OrderStatus.Completed),
+                OrderStatus.Completed) && ArePackagesDelivered(orderId, details, logisticsSnapshots),
             CanCancel = OrderStateMachine.CanTransition(
                 status,
                 OrderStatus.Cancelled)
@@ -799,6 +802,8 @@ public sealed class OrderService : IOrderService
             }
             else
             {
+                if (!await ArePackagesDeliveredAsync(orderId, context.Details, cancellationToken))
+                    throw new OrderBusinessException("全部包裹签收后才能完成订单");
                 await RegisterCompletedOrderCommissionAsync(
                     context,
                     transaction,
@@ -828,6 +833,18 @@ public sealed class OrderService : IOrderService
             cancellationToken.ThrowIfCancellationRequested();
             var context = await GetLockedOrderContextAsync(orderId, transaction);
             var currentStatus = OrderStatusCodes.Parse(context.Order.OrderStatus);
+
+            // 待支付订单属于结算批次，冻结的优惠券/积分挂在批次维度，
+            // 只能整批取消（与支付超时自动关闭逻辑保持一致），不能单独取消某一个子订单。
+            if (currentStatus == OrderStatus.PendingPayment)
+            {
+                await CancelPendingCheckoutBatchAsync(
+                    context,
+                    transaction,
+                    cancellationToken);
+                return;
+            }
+
             OrderStateMachine.EnsureTransition(
                 currentStatus,
                 OrderStatus.Cancelled);
@@ -897,13 +914,82 @@ public sealed class OrderService : IOrderService
     }
 
     /// <summary>
+    /// 取消整个待支付结算批次：归还冻结积分与核销的用户券，并将批次内所有
+    /// 待支付子订单一并置为已取消。任一步失败整体回滚。
+    /// </summary>
+    private async Task CancelPendingCheckoutBatchAsync(
+        LockedOrderContext context,
+        IDbTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var orders = new List<BizOrder>();
+        if (!string.IsNullOrWhiteSpace(context.Order.CheckoutBatchId))
+        {
+            orders = await _orderRepo.GetByCheckoutBatchForUpdateAsync(
+                context.Order.CheckoutBatchId,
+                context.Customer.CustomerId,
+                transaction);
+            if (orders.Count == 0)
+                throw new OrderBusinessException("结算批次不存在或不属于当前消费者");
+            if (orders.Any(order =>
+                order.OrderStatus != OrderStatusCodes.PendingPayment))
+            {
+                throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
+            }
+        }
+        else
+        {
+            orders.Add(context.Order);
+        }
+
+        var pointsToRestore = orders.Sum(order => order.PointsUsed);
+        if (pointsToRestore > 0)
+        {
+            var restoredBalance = checked(context.Customer.Points + pointsToRestore);
+            await _customerRepo.UpdatePointsAsync(
+                context.Customer.CustomerId,
+                restoredBalance,
+                transaction);
+            await _pointRepo.InsertLogAsync(new CrmPointLog
+            {
+                PointLogId = GroupBIds.NewId(),
+                CustomerId = context.Customer.CustomerId,
+                ChangeAmount = pointsToRestore,
+                BalanceAfter = restoredBalance,
+                ChangeType = "ORDER_REDEEM_RESTORE",
+                OrderId = orders[0].OrderId
+            }, transaction);
+        }
+
+        foreach (var order in orders)
+        {
+            _ = await _couponRepo.RestoreCouponForCancelledOrderAsync(
+                order.OrderId,
+                context.Customer.CustomerId,
+                transaction);
+
+            if (!await _orderRepo.TryUpdateStatusAsync(
+                order.OrderId,
+                OrderStatus.PendingPayment,
+                OrderStatus.Cancelled,
+                transaction))
+            {
+                throw new OrderBusinessException("结算批次状态已变化，请刷新后重试");
+            }
+        }
+    }
+
+    /// <summary>
     /// 退款时扣回积分 - 供 C 组调用。
     /// </summary>
     public async Task DeductPointsForRefundAsync(
         string customerId,
         string orderId,
         int pointsToDeduct,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IDbTransaction? externalTransaction = null)
     {
         if (!GroupBIds.IsValid(customerId))
             throw new OrderBusinessException("消费者ID格式不正确");
@@ -912,7 +998,7 @@ public sealed class OrderService : IOrderService
         if (pointsToDeduct < 0)
             throw new OrderBusinessException("扣回积分不能为负数");
 
-        await _transactionManager.ExecuteAsync(async transaction =>
+        await ExecuteRefundOperationAsync(externalTransaction, async transaction =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = await GetLockedOrderContextAsync(orderId, transaction);
@@ -1009,7 +1095,8 @@ public sealed class OrderService : IOrderService
         string customerId,
         string orderId,
         int pointsToDeduct,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IDbTransaction? externalTransaction = null)
     {
         if (!GroupBIds.IsValid(customerId))
             throw new OrderBusinessException("消费者ID格式不正确");
@@ -1018,7 +1105,7 @@ public sealed class OrderService : IOrderService
         if (pointsToDeduct < 0)
             throw new OrderBusinessException("扣回积分不能为负数");
 
-        await _transactionManager.ExecuteAsync(async transaction =>
+        await ExecuteRefundOperationAsync(externalTransaction, async transaction =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = await GetLockedOrderContextAsync(orderId, transaction);
@@ -1136,6 +1223,9 @@ public sealed class OrderService : IOrderService
             if (context.Order.OrderStatus != OrderStatusCodes.Shipped)
                 throw new OrderBusinessException("商品发货后才能确认收货");
 
+            if (!await ArePackagesDeliveredAsync(orderId, [detail], cancellationToken))
+                throw new OrderBusinessException("该商品所属包裹尚未签收，暂时不能确认收货");
+
             if (!await _orderRepo.TryConfirmDetailReceiptAsync(
                 orderDetailId,
                 orderId,
@@ -1165,6 +1255,46 @@ public sealed class OrderService : IOrderService
                 throw new OrderBusinessException("订单状态已变化，请刷新后重试");
             }
         });
+    }
+
+    /// <summary>退款由 C 组发起时复用其事务，B 组不提交、回滚或释放调用方事务。</summary>
+    private Task ExecuteRefundOperationAsync(
+        IDbTransaction? externalTransaction,
+        Func<IDbTransaction, Task> operation)
+    {
+        if (externalTransaction == null)
+            return _transactionManager.ExecuteAsync(operation);
+        if (externalTransaction.Connection?.State != ConnectionState.Open)
+            throw new OrderBusinessException("退款外部事务已失效");
+        return operation(externalTransaction);
+    }
+
+    private async Task<bool> ArePackagesDeliveredAsync(
+        string orderId,
+        IReadOnlyList<BizOrderDetail> details,
+        CancellationToken cancellationToken)
+    {
+        if (details.Count == 0 || details.Any(item => string.IsNullOrWhiteSpace(item.SupplierId)))
+            return false;
+
+        var supplierIds = details.Select(item => item.SupplierId!)
+            .Distinct(StringComparer.Ordinal).ToList();
+        var snapshots = await _logisticsService.GetSupplierLogisticsAsync(
+            orderId, supplierIds, cancellationToken);
+        return ArePackagesDelivered(orderId, details, snapshots);
+    }
+
+    private static bool ArePackagesDelivered(
+        string orderId,
+        IReadOnlyList<BizOrderDetail> details,
+        IReadOnlyList<SupplierLogisticsSnapshot> snapshots)
+    {
+        if (details.Count == 0 || details.Any(item => string.IsNullOrWhiteSpace(item.SupplierId)))
+            return false;
+        var supplierIds = details.Select(item => item.SupplierId!).Distinct(StringComparer.Ordinal);
+        return supplierIds.All(supplierId => snapshots.Any(snapshot =>
+            snapshot.OrderId == orderId && snapshot.SupplierId == supplierId &&
+            snapshot.StatusCode == LogisticsStatusCodes.Delivered));
     }
 
     private static IReadOnlyList<BatchOrderItem> ValidateAndNormalizeBatchRequest(

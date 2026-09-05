@@ -1,10 +1,10 @@
 # GroupB 跨组接口契约
 
-更新日期：2026-09-02
+更新日期：2026-09-04
 
 ## 1. 通用事务规则
 
-- 跨组写操作的事务由业务发起方 B 组创建、提交或回滚。
+- 跨组写操作的事务由业务发起方创建、提交或回滚：下单由 B 组控制，财务退款由 C 组控制。
 - A/C 组实现必须使用传入的 `IDbTransaction` 及其 `Connection`。
 - 接口实现不得新建独立连接写数据，不得自行 `Commit` 或 `Rollback`。
 - B 组只传递完成业务所需的可信快照，不允许其他组直接修改 B 组表。
@@ -113,7 +113,8 @@ Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
 - 当前 `GroupALogisticsServiceAdapter` 调用 A 组 `IColdChainLogisticsService.QuoteFreightAsync` 返回真实冷链运费。
 - `FreightCalculationResult` 同时返回目的地、货值、规则摘要、计算时间、数据源和商品计费项。
 - B 组将完整结果序列化到 `Biz_Orders.FreightQuoteSnapshot`，但不解释或重新计算 A 组规则。
-- A 组后续应在自身实现中按“供应商 + 温区 + 命中模板”聚合重量，并确保首重费和包装费按包裹收取；该算法不在 B 组实现。
+- A 组 `ColdChainLogisticsService` 已按“供应商 + 温区 + 命中模板”聚合重量，每个计费包裹只收一次首重费及包装费；B 组仅适配接口，不复制算法。
+- `FreightItemDto.SupplierID` 传订单侧已校验的供应商快照，旧调用未传时取商品当前供应商，仍缺失则拒绝报价；退款前后报价也传订单供应商快照。包邮阈值继续使用本次请求货值，不更改为分包货值。
 
 ### 3.2 创建物流
 
@@ -135,8 +136,8 @@ Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
 
 ### 3.5 高级物流扩展接口与兜底
 
-A 组当前公开接口尚不能接收承运商、外部运单号、预计送达时间、轨迹事件和运输温度。
-B 组因此新增 `IGroupALogisticsExtensionProvider`，但不修改 A 组现有接口和数据表：
+A 组通过 `IGroupALogisticsExtensionProvider` 接收承运商、外部运单号、预计送达时间、轨迹事件和运输温度。
+用户授权后新增 A 组 Oracle 实现及两张扩展表，B 组仍只调用接口：
 
 ```csharp
 Task<SupplierLogisticsSnapshot> RegisterShipmentAsync(
@@ -154,15 +155,16 @@ Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(
     CancellationToken cancellationToken = default);
 ```
 
-当前 `FallbackGroupALogisticsExtensionProvider` 的约束：
+默认 `OracleGroupALogisticsExtensionProvider`，部署前必须执行增量迁移。事务、配置、历史单兼容及验收边界见 `groupA-logistics-persistence.md`。
+`FallbackGroupALogisticsExtensionProvider` 仅允许在 Development 环境显式配置启用，约束如下：
 
 - 仅在进程内保存模拟扩展数据，不写任何 A/B/C 业务表。
 - 承运商、发货地点、描述、时效和温区阈值均来自 `GroupB:LogisticsFallback` 配置。
 - 所有结果明确标记 `DataSource=FALLBACK`，调用方不得将其误认为正式承运商回传数据。
-- A 组提供正式能力后，新建 Provider 实现并替换 DI 注册，B 组订单与页面无需改写。
+- 生产环境不允许使用 Fallback，也不允许 Oracle 异常时静默退回内存。
 - 正式实现的写操作必须使用 B 组传入事务，禁止自行提交或回滚。
 - B 组在调用 `AppendTrackingEventAsync` 前执行物流状态机校验和供应商归属校验。
-- `LogisticsTrackingEventCommand.EventId` 由 B 组生成；正式实现必须按该字段幂等，重复请求不得新增事件。
+- `LogisticsTrackingEventCommand.EventId` 由 B 组生成；Oracle 实现按编号和载荷校验幂等，重复请求不得新增事件，不同载荷必须拒绝。
 - 兜底实现按配置温区阈值识别温控异常，并在超过预计送达时间后生成延误异常。
 - A 组正式实现应返回稳定事件 ID，并对相同事件请求提供幂等保护。
 
@@ -215,7 +217,7 @@ Task<IReadOnlyList<GroupCPromoterProductValidation>> ValidatePromoterProductsAsy
 
 - 批次支付通过 C 组现有 `IPaymentService.CreatePaymentRecord` 写支付流水，B 组不再调用 C 组 Repository。
 - 消息中心先由 B 组仓储查询消费者订单，再按订单调用 C 组现有 `IRefundService.GetOrderRefundsAsync`，最后在 B 组 `ConsumerMessageService` 中合并排序。
-- C 组支付服务当前将审计日志写入独立连接，外层订单事务回滚时可能留下已提交日志；这是 C 组实现问题，B 组不越界修改。
+- 经用户授权，C 组支付服务已将事务传递到审计服务和仓储；支付流水与审计共用发起方连接及事务，审计失败按支付失败返回，由事务所有者回滚。未提供事务的其他审计调用仍保留独立写入行为。
 
 ## 5. C 组调用 B 组：退款积分扣回
 
@@ -226,11 +228,22 @@ Task DeductPointsForRefundAsync(
     string customerId,
     string orderId,
     int pointsToDeduct,
-    CancellationToken cancellationToken = default);
+    CancellationToken cancellationToken = default,
+    IDbTransaction? externalTransaction = null);
+
+Task DeductPointsForPartialRefundAsync(
+    string customerId,
+    string orderId,
+    int pointsToDeduct,
+    CancellationToken cancellationToken = default,
+    IDbTransaction? externalTransaction = null);
 ```
 
 当前行为：
 
+- 提供外部事务时，B 组直接复用该事务，成功或异常均不提交、回滚或释放它；失败异常交由发起方处理。
+- 未提供外部事务时保留 B 组自有事务行为，兼容旧调用方，但不能保证与 C 组退款原子提交。
+- C 组 `RefundService` 的整单和部分退款调用已传入当前事务；退款记录及佣金撤销相关审计也复用同一事务。任何扣积分、审核末步、佣金或审计失败均中止退款，由 C 组整体回滚。真实 Oracle 原子性仍需隔离数据库验收。
 - 消费者和订单 ID 必须为非空、最长 36 位字符串，且订单必须属于指定消费者。
 - 订单和消费者记录会在同一事务内按固定顺序锁定。
 - 同一订单只允许生成一条 `REFUND_DEDUCT` 流水；订单已经是“已退款”时重复调用直接成功返回。

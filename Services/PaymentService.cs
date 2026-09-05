@@ -37,6 +37,10 @@ namespace FreshColdChain.Services
                     ownTransaction = true;
                     transaction = _uow.Transaction;
                 }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                if (transaction?.Connection?.State != ConnectionState.Open)
+                    throw new InvalidOperationException("支付事务未初始化或已失效");
                 
                 //throw new Exception("团长信息不存在");
                 if (paymentRequest.orderID == null || paymentRequest.orderID == string.Empty
@@ -106,7 +110,8 @@ namespace FreshColdChain.Services
                     PayTime = _finPaymentRecord.PayTime,
                     Remark = _finPaymentRecord.Remark
                 });
-                await _logManager.WriteTableChangeLog(_tableLog);
+                if (!await _logManager.WriteTableChangeLog(_tableLog, transaction, cancellationToken))
+                    throw new InvalidOperationException("支付审计日志写入失败");
                 // 所有业务操作成功，提交事务
                 if(ownTransaction)
                     await _uow.CommitAsync();

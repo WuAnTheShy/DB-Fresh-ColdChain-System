@@ -148,7 +148,7 @@ public sealed class SupplierLogisticsSnapshot
     public IReadOnlyList<LogisticsTrackingEventSnapshot> Events { get; init; } = [];
 }
 
-/// <summary>新增轨迹事件命令；未来由 A 组真实接口持久化。</summary>
+/// <summary>新增轨迹事件命令；由 A 组校验幂等载荷并参与调用方事务持久化。</summary>
 public sealed class LogisticsTrackingEventCommand
 {
     [Required, StringLength(36)]

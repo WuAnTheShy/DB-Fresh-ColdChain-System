@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Oracle.ManagedDataAccess.Client;
 using FreshColdChain.Models;
+using System.Data;
 
 namespace FreshColdChain.Repositories
 {
@@ -24,7 +25,8 @@ namespace FreshColdChain.Repositories
         // 异步添加审计日志记录
         public async Task GroupC_AddLogRecordAsync(
             GroupC_LogAuditrails logData,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            IDbTransaction? transaction = null)
         {
             string sql = @"
                 INSERT INTO LOG_AUDITTRAILS (
@@ -49,9 +51,21 @@ namespace FreshColdChain.Repositories
                     :OpTime
                 )";
 
+            cancellationToken.ThrowIfCancellationRequested();
+            if (transaction != null)
+            {
+                var sharedConnection = transaction.Connection;
+                if (sharedConnection?.State != ConnectionState.Open)
+                    throw new InvalidOperationException("审计外部事务已失效");
+                await sharedConnection.ExecuteAsync(new CommandDefinition(
+                    sql, logData, transaction, cancellationToken: cancellationToken));
+                return;
+            }
+
             await using var connection = CreateConnection();
             await connection.OpenAsync(cancellationToken);
-            await connection.ExecuteAsync(sql, logData);
+            await connection.ExecuteAsync(new CommandDefinition(
+                sql, logData, cancellationToken: cancellationToken));
         }
 
         // 组合查询操作日志（管理端查询页用，结果上限 500 条）

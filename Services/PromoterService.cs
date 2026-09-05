@@ -106,6 +106,7 @@ namespace FreshColdChain.Services
             {
                 ProductID = p.ProductID,
                 ProductName = p.ProductName,
+                PublishedAt = p.CreateTime,
                 Unit = p.Unit,
                 SupplierID = p.SupplierID,
                 SupplierName = p.SupplierName,
@@ -113,7 +114,6 @@ namespace FreshColdChain.Services
                 DefaultPrice = p.DefaultPrice,
                 Price = p.PromoterPrice ?? p.DefaultPrice,
                 PromoterDesc = string.IsNullOrWhiteSpace(p.PromoterDesc) ? (p.Description ?? string.Empty) : p.PromoterDesc,
-                PublishedAt = p.CreateTime,
                 Images = p.Images
             }).ToList();
         }

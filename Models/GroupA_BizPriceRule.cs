@@ -24,6 +24,11 @@ public class BizPriceRule
     [MaxLength(36)]
     public string ProductID { get; set; } = string.Empty;
 
+    /// <summary>归属供应商：该规则只适用于此供应商的货物（每家有自己一套规则）</summary>
+    [Column("SupplierID")]
+    [MaxLength(36)]
+    public string? SupplierID { get; set; }
+
     [Column("RuleName")]
     [MaxLength(100)]
     public string? RuleName { get; set; }

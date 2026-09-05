@@ -1,6 +1,9 @@
 @model SupplierDto
 @{
     ViewData["Title"] = "我的报价";
+    ViewData["BackController"] = "SuppliersHome";
+    ViewData["BackAction"] = "Index";
+    ViewData["BackText"] = "返回供应商首页";
     var quotes = ViewBag.Quotes as List<SupplierProductQuoteDto> ?? new();
 }
 <div class="d-flex justify-content-between align-items-center">

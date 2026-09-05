@@ -4,6 +4,8 @@ namespace FreshColdChain.Models.DTOs;
 public class FreightItemDto
 {
     public string ProductID { get; set; } = string.Empty;
+    /// <summary>订单侧已校验的供应商快照；旧调用未传时取商品当前供应商。</summary>
+    public string? SupplierID { get; set; }
     public int Quantity { get; set; }
 }
 
@@ -37,6 +39,7 @@ public class FreightQuoteDto
 public class FreightQuoteItemDto
 {
     public string ProductID { get; set; } = string.Empty;
+    public string SupplierID { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }

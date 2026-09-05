@@ -15,6 +15,7 @@ public sealed class SupplierFulfillmentController(
         HttpContext.Session.GetString("SupplierId")!;
 
     [HttpGet]
+    [GroupBPermission(GroupBPermissions.FulfillmentRead)]
     public async Task<IActionResult> Index(
         SupplierFulfillmentQuery query,
         CancellationToken cancellationToken)
@@ -38,6 +39,7 @@ public sealed class SupplierFulfillmentController(
     }
 
     [HttpGet]
+    [GroupBPermission(GroupBPermissions.FulfillmentRead)]
     public async Task<IActionResult> Detail(
         string id,
         CancellationToken cancellationToken)
@@ -58,6 +60,7 @@ public sealed class SupplierFulfillmentController(
     }
 
     [HttpPost]
+    [GroupBPermission(GroupBPermissions.FulfillmentWrite)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Ship(
         string id,
@@ -104,6 +107,7 @@ public sealed class SupplierFulfillmentController(
     }
 
     [HttpPost]
+    [GroupBPermission(GroupBPermissions.FulfillmentWrite)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddTrackingEvent(
         string id,

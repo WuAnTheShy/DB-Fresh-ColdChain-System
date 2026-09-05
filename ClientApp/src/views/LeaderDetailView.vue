@@ -59,7 +59,7 @@ async function handleFollow() {
           <span class="verified-label">
             <BadgeCheck :size="16" />平台认证团长
           </span>
-          <h1>{{ leader.name }}团长</h1>
+          <h1>{{ leader.name }}</h1>
           <p>{{ leader.description }}</p>
           <span class="leader-area">
             <MapPin :size="16" />{{ leader.area }}
@@ -282,6 +282,12 @@ async function handleFollow() {
 
   .leader-stat-row>div>svg {
     display: none;
+  }
+
+  /* 移动端团长带货商品列表单列 */
+  .product-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
   }
 }
 </style>

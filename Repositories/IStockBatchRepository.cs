@@ -14,6 +14,8 @@ public interface IStockBatchRepository : IBaseRepository<InvStockBatch>
     Task<int> GetMaxBatchNoByPrefixAsync(string prefix);
     /// <summary>查询批次含供应商信息</summary>
     Task<List<InvStockBatch>> GetByProductIdWithSupplierAsync(string productId);
+    /// <summary>查询某商品在某供应商下的全部批次（含供应商信息，不做过期/数量过滤，供供应商查看自己进货）</summary>
+    Task<List<InvStockBatch>> GetByProductAndSupplierWithSupplierAsync(string productId, string supplierId);
     /// <summary>将已过期但仍为ACTIVE的批次标记为EXPIRED,返回更新行数</summary>
     Task<int> MarkExpiredBatchesAsync();
     /// <summary>查某产品活跃批次合计</summary>

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using FreshColdChain.Filters;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models.DTOs;
 
@@ -7,6 +8,7 @@ namespace FreshColdChain.Controllers;
 /// <summary>
 /// 动态定价引擎 — 价格规则管理与实时价格计算
 /// </summary>
+[RequireSupplier]
 public class PricesController : Controller
 {
     private readonly IPricingService _pricing;
@@ -18,7 +20,10 @@ public class PricesController : Controller
     [HttpGet]
     public async Task<IActionResult> Index(int pageIndex = 1, int pageSize = 15)
     {
-        var r = await _pricing.GetAllRulesAsync(pageIndex, pageSize);
+        // 普通供应商只看自己的规则；供应商管理员看全部
+        var supplierId = SupplierSession.IsSupplierAdmin(HttpContext.Session)
+            ? null : SupplierSession.GetSupplierId(HttpContext.Session);
+        var r = await _pricing.GetAllRulesAsync(pageIndex, pageSize, supplierId);
         return View(r.Data);
     }
 
@@ -31,6 +36,9 @@ public class PricesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(SavePriceRuleDto dto)
     {
+        // 普通供应商的规则强制归属自己；供应商管理员可指定任意供应商
+        if (!SupplierSession.IsSupplierAdmin(HttpContext.Session))
+            dto.SupplierID = SupplierSession.GetSupplierId(HttpContext.Session);
         var r = await _pricing.CreateRuleAsync(dto);
         if (!r.IsSuccess)
         {
@@ -57,6 +65,7 @@ public class PricesController : Controller
         return View(new SavePriceRuleDto
         {
             ProductID = rule.ProductID,
+            SupplierID = rule.SupplierID,
             RuleName = rule.RuleName,
             TriggerType = rule.TriggerType,
             TimeWindow = rule.TimeWindow,
@@ -105,6 +114,9 @@ public class PricesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Calculate(PriceCalculationRequest request)
     {
+        // 普通供应商算自己货物售价；供应商管理员需在表单指定供应商
+        if (!SupplierSession.IsSupplierAdmin(HttpContext.Session))
+            request.SupplierID = SupplierSession.GetSupplierId(HttpContext.Session) ?? "";
         var r = await _pricing.CalculatePriceAsync(request);
         if (!r.IsSuccess)
         {

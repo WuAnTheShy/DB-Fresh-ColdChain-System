@@ -109,6 +109,10 @@ public sealed class GroupCPromoterFeaturedProduct
     [JsonIgnore]
     public string SupplierId { get; init; } = string.Empty;
 
+    /// <summary>供货供应商名称，消费者端用于区分同一商品的不同供货来源。</summary>
+    [JsonIgnore]
+    public string? SupplierName { get; init; }
+
     public decimal SalePrice { get; init; }
     public DateTime PublishedAt { get; init; }
     public string? Description { get; init; }
@@ -124,6 +128,13 @@ public sealed class ConsumerCatalogProduct
     public string CategoryName { get; init; } = string.Empty;
     public string? Unit { get; init; }
     public string? StorageRequirement { get; init; }
+
+    /// <summary>供货供应商 ID。同一商品可能由多个供应商分别上架，供消费者端区分。</summary>
+    public string SupplierId { get; init; } = string.Empty;
+
+    /// <summary>供货供应商名称，消费者端展示用。</summary>
+    public string? SupplierName { get; init; }
+
     public decimal SalePrice { get; init; }
     public int AvailableStock { get; init; }
     public string PromoterId { get; init; } = string.Empty;

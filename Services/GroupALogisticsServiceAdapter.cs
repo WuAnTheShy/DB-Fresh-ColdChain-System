@@ -43,6 +43,7 @@ public sealed class GroupALogisticsServiceAdapter(
             Items = request.Items.Select(item => new FreightItemDto
             {
                 ProductID = item.ProductId,
+                SupplierID = item.SupplierId,
                 Quantity = item.Quantity
             }).ToList()
         });
@@ -54,8 +55,7 @@ public sealed class GroupALogisticsServiceAdapter(
             throw new OrderBusinessException("冷链运费不能为负数");
 
         var sourceItems = response.Data.Items.ToDictionary(
-            item => item.ProductID,
-            StringComparer.Ordinal);
+            item => (item.ProductID, item.SupplierID));
         return new FreightCalculationResult
         {
             FreightAmount = response.Data.FreightAmount,
@@ -68,7 +68,7 @@ public sealed class GroupALogisticsServiceAdapter(
             DataSource = LogisticsDataSources.GroupA,
             Items = request.Items.Select(item =>
             {
-                sourceItems.TryGetValue(item.ProductId, out var quoted);
+                sourceItems.TryGetValue((item.ProductId, item.SupplierId), out var quoted);
                 return new FreightCalculationItemResult
                 {
                     ProductId = item.ProductId,
@@ -76,7 +76,7 @@ public sealed class GroupALogisticsServiceAdapter(
                     SupplierId = item.SupplierId,
                     Quantity = item.Quantity,
                     UnitPrice = quoted?.UnitPrice ?? item.UnitPrice,
-                    SubTotal = quoted?.SubTotal ?? item.SubTotal
+                    SubTotal = quoted != null ? quoted.UnitPrice * item.Quantity : item.SubTotal
                 };
             }).ToList()
         };

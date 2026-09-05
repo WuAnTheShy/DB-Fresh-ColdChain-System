@@ -18,10 +18,6 @@ public class InvProduct
     [MaxLength(36)]
     public string? CategoryID { get; set; }
 
-    [Column("SupplierID")]
-    [MaxLength(36)]
-    public string? SupplierID { get; set; }
-
     [Column("ProductName")]
     [MaxLength(100)]
     public string ProductName { get; set; } = string.Empty;
@@ -36,28 +32,22 @@ public class InvProduct
     [Column("VolumeLitre")]
     public decimal? VolumeLitre { get; set; }
 
+    /// <summary>默认保质期（小时），货物可覆盖</summary>
     [Column("ExpiryHours")]
     public int? ExpiryHours { get; set; }
 
+    /// <summary>默认温区（COLD/FROZEN/常温），货物可覆盖</summary>
     [Column("StorageReq")]
     [MaxLength(20)]
     public string? StorageReq { get; set; }
 
-    [Column("DefaultPrice")]
-    public decimal DefaultPrice { get; set; }
-
-    [Column("Status")]
-    [MaxLength(20)]
-    public string Status { get; set; } = "ACTIVE"; // ACTIVE=上架, INACTIVE=下架
-
-    /// <summary>商品文字介绍（供应商维护，团长可参考/复制/改写）</summary>
+    /// <summary>物品通用文字介绍</summary>
     [Column("Description")]
     [MaxLength(2000)]
     public string? Description { get; set; }
 
     // 导航属性
     [NotMapped] public InvCategory? Category { get; set; }
-    [NotMapped] public InvSupplier? Supplier { get; set; }
     [NotMapped] public InvStockSummary? StockSummary { get; set; }
     [NotMapped] public ICollection<BizPriceRule> PriceRules { get; set; } = new List<BizPriceRule>();
 }

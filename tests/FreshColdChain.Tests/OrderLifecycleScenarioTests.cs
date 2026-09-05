@@ -16,6 +16,11 @@ internal static class OrderLifecycleScenarioTests
             ("已支付订单发货时同步创建物流", PaidOrderShipsAsync),
             ("已发货订单完成时触发佣金登记", ShippedOrderCompletesAsync),
             ("已发货商品逐项确认且最后一项自动完成子订单", ItemReceiptCompletesAfterLastItemAsync),
+            ("未签收包裹不能通过后端直接确认收货", ReceiptRejectsUndeliveredPackageAsync),
+            ("自动收货必须等待全部包裹签收", AutoReceiptRequiresDeliveredPackagesAsync),
+            ("管理端不能完成未签收订单", AdminCompletionRequiresDeliveredPackagesAsync),
+            ("退款参与外部事务且由调用方提交回滚", RefundUsesCallerTransactionAsync),
+            ("退款写入失败时不接管调用方事务", RefundFailurePreservesCallerTransactionAsync),
             ("非法状态跳转被拒绝并回滚", InvalidTransitionRollsBackAsync),
             ("佣金登记失败时订单完成回滚", CommissionFailureRollsBackAsync),
             ("取消订单归还营销资产", CancellationCompensatesAssetsAsync),
@@ -142,6 +147,8 @@ internal static class OrderLifecycleScenarioTests
         var context = TestContext.Create();
         context.CustomerRepository.Customer.PromoterId = "PROM9";
         SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-COMPLETE-001");
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP1"] = LogisticsStatusCodes.Delivered;
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP2"] = LogisticsStatusCodes.Delivered;
 
         await context.Service.TransitionOrderAsync(TestIds.Order, OrderStatus.Completed);
 
@@ -161,6 +168,8 @@ internal static class OrderLifecycleScenarioTests
         context.CustomerRepository.Customer.PromoterId = "customer-promoter";
         SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-ITEM-RECEIPT");
         context.OrderRepository.Orders[0].PromoterId = "order-promoter";
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP1"] = LogisticsStatusCodes.Delivered;
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP2"] = LogisticsStatusCodes.Delivered;
 
         await context.Service.ConfirmOrderItemReceiptAsync(
             TestIds.Order,
@@ -182,6 +191,109 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal("order-promoter", context.CommissionService.CompletedOrders[0].promoterID);
     }
 
+    private static async Task ReceiptRejectsUndeliveredPackageAsync()
+    {
+        foreach (var status in new[] { LogisticsStatusCodes.Pending, LogisticsStatusCodes.Packing, LogisticsStatusCodes.Shipped,
+            LogisticsStatusCodes.InTransit, LogisticsStatusCodes.OutForDelivery,
+            LogisticsStatusCodes.Exception, LogisticsStatusCodes.Returning, LogisticsStatusCodes.Returned })
+        {
+            var context = TestContext.Create();
+            SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-NO-RECEIPT");
+            context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP1"] = status;
+            // 其他供应商已签收不能代替当前商品所属包裹签收。
+            context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP2"] = LogisticsStatusCodes.Delivered;
+            await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
+                context.Service.ConfirmOrderItemReceiptAsync(
+                    TestIds.Order, $"{TestIds.Order}-detail-1", TestIds.Customer));
+            AssertEx.True(context.OrderRepository.Details.All(item => item.ReceiptStatus != "RECEIVED"));
+            AssertEx.Equal(0, context.CommissionService.CompletedOrders.Count);
+            AssertRolledBack(context);
+        }
+    }
+
+    private static async Task AutoReceiptRequiresDeliveredPackagesAsync()
+    {
+        var context = TestContext.Create();
+        SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-AUTO-RECEIPT");
+        context.OrderRepository.Orders[0].CreatedAt = DateTime.Now.AddDays(-8);
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP1"] = LogisticsStatusCodes.Delivered;
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP2"] = LogisticsStatusCodes.Exception;
+        AssertEx.Equal(0, await context.Service.AutoConfirmShippedOrdersAsync());
+        AssertEx.True(context.OrderRepository.Details.All(item => item.ReceiptStatus != "RECEIVED"));
+        AssertEx.Equal(0, context.CommissionService.CompletedOrders.Count);
+
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP2"] = LogisticsStatusCodes.Delivered;
+        AssertEx.Equal(1, await context.Service.AutoConfirmShippedOrdersAsync());
+        AssertEx.Equal(OrderStatusCodes.Completed, context.OrderRepository.Orders[0].OrderStatus);
+        AssertEx.Equal(1, context.CommissionService.CompletedOrders.Count);
+    }
+
+    private static async Task AdminCompletionRequiresDeliveredPackagesAsync()
+    {
+        var context = TestContext.Create();
+        SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-ADMIN-RECEIPT");
+        AssertEx.True(!(await context.Service.GetOrderDetailAsync(TestIds.Order))!.CanComplete);
+        await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
+            context.Service.TransitionOrderAsync(TestIds.Order, OrderStatus.Completed));
+        AssertEx.Equal(0, context.CommissionService.CompletedOrders.Count);
+        AssertRolledBack(context);
+    }
+
+    private static async Task RefundUsesCallerTransactionAsync()
+    {
+        foreach (var partial in new[] { false, true })
+        foreach (var commit in new[] { false, true })
+        {
+            var context = TestContext.Create();
+            SeedOrder(context, TestIds.Order, OrderStatus.Paid, "ORD-REFUND-TX", pointsEarned: 30);
+            context.CustomerRepository.Customer.Points = 100;
+            using var transaction = new FakeOrderTransaction();
+            if (partial)
+                await context.Service.DeductPointsForPartialRefundAsync(
+                    TestIds.Customer, TestIds.Order, 10, externalTransaction: transaction);
+            else
+                await context.Service.DeductPointsForRefundAsync(
+                    TestIds.Customer, TestIds.Order, 10, externalTransaction: transaction);
+
+            AssertEx.True(context.TransactionManager.LastTransaction == null);
+            AssertEx.True(!transaction.Committed && !transaction.RolledBack);
+            AssertEx.Equal(100, context.CustomerRepository.Customer.Points);
+            AssertEx.Equal(OrderStatusCodes.Paid, context.OrderRepository.Orders[0].OrderStatus);
+            if (commit) transaction.Commit();
+            else transaction.Rollback();
+            AssertEx.Equal(commit ? 90 : 100, context.CustomerRepository.Customer.Points);
+            AssertEx.Equal(commit ? (partial ? OrderStatusCodes.Refunding : OrderStatusCodes.Refunded)
+                : OrderStatusCodes.Paid, context.OrderRepository.Orders[0].OrderStatus);
+            AssertEx.Equal(commit ? 1 : 0, context.PointRepository.Logs.Count);
+        }
+    }
+
+    private static async Task RefundFailurePreservesCallerTransactionAsync()
+    {
+        foreach (var partial in new[] { false, true })
+        {
+            var context = TestContext.Create();
+            SeedOrder(context, TestIds.Order, OrderStatus.Paid, "ORD-REFUND-FAIL", pointsEarned: 30);
+            context.CustomerRepository.Customer.Points = 100;
+            context.PointRepository.ThrowOnInsert = true;
+            using var transaction = new FakeOrderTransaction();
+
+            await AssertEx.ThrowsAsync<InvalidOperationException>(() => partial
+                ? context.Service.DeductPointsForPartialRefundAsync(
+                    TestIds.Customer, TestIds.Order, 10, externalTransaction: transaction)
+                : context.Service.DeductPointsForRefundAsync(
+                    TestIds.Customer, TestIds.Order, 10, externalTransaction: transaction));
+
+            // 异常必须交还发起方处理，B 组不能擅自结束整个跨组事务。
+            AssertEx.True(context.TransactionManager.LastTransaction == null);
+            AssertEx.True(!transaction.Committed && !transaction.RolledBack);
+            transaction.Rollback();
+            AssertEx.Equal(100, context.CustomerRepository.Customer.Points);
+            AssertEx.Equal(OrderStatusCodes.Paid, context.OrderRepository.Orders[0].OrderStatus);
+            AssertEx.Equal(0, context.PointRepository.Logs.Count);
+        }
+    }
+
     private static async Task InvalidTransitionRollsBackAsync()
     {
         var context = TestContext.Create();
@@ -201,6 +313,8 @@ internal static class OrderLifecycleScenarioTests
     {
         var context = TestContext.Create();
         SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-COMM-FAIL-001");
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP1"] = LogisticsStatusCodes.Delivered;
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP2"] = LogisticsStatusCodes.Delivered;
         context.CommissionService.ReturnFailure = true;
 
         await AssertEx.ThrowsAsync<OrderBusinessException>(() =>

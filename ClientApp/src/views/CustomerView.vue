@@ -1,11 +1,14 @@
 <script setup>
-import { BadgeCheck, Bell, ChevronRight, Coins, MapPin, PackageSearch, Save, TicketPercent, UserRound } from '@lucide/vue'
+import { BadgeCheck, Bell, ChevronRight, Coins, LogOut, MapPin, PackageSearch, Save, TicketPercent, UserRound } from '@lucide/vue'
 import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ApiError, api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
 import { avatarUrl, presetAvatars } from '../assets/avatars'
 
-const { customerId } = useCustomerContext()
+const router = useRouter()
+const { customerId, clearCustomer } = useCustomerContext()
+const loggingOut = ref(false)
 const loading = ref(true)
 const saving = ref(false)
 const notFound = ref(false)
@@ -26,6 +29,16 @@ async function loadProfile() {
 async function saveProfile() {
   saving.value = true; error.value = ''; success.value = ''
   try { await api.updateCustomer(customerId.value, { ...form, email: form.email || null }); success.value = '账户资料已更新'; await loadProfile() } catch (requestError) { error.value = requestError.message } finally { saving.value = false }
+}
+async function logout() {
+  loggingOut.value = true
+  try {
+    await api.logoutCustomer()
+    clearCustomer()
+    await router.push('/')
+  } finally {
+    loggingOut.value = false
+  }
 }
 onMounted(loadProfile)
 </script>
@@ -124,6 +137,11 @@ onMounted(loadProfile)
           <div v-else class="inline-empty">暂无收货地址</div>
         </aside>
       </div>
+      <section class="account-section profile-logout">
+        <button class="btn btn-outline-danger" type="button" :disabled="loggingOut" @click="logout">
+          <LogOut :size="17" />退出登录
+        </button>
+      </section>
     </template>
   </div>
 </template>
@@ -424,6 +442,12 @@ onMounted(loadProfile)
   color: var(--muted);
   font-size: 9px;
   line-height: 1.45;
+}
+
+.profile-logout {
+  display: flex;
+  justify-content: center;
+  margin-top: 15px;
 }
 
 @media (max-width: 767.98px) {

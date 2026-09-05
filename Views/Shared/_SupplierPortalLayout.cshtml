@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - 供应商门户</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/promoter-portal.css" asp-append-version="true" />
+</head>
+<body class="promoter-portal">
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+    var isAdmin = Context.Session.GetString("IsSupplierAdmin") == "true";
+    var backController = ViewData["BackController"] as string;
+    var backAction = ViewData["BackAction"] as string;
+    var backText = (ViewData["BackText"] as string) ?? "返回";
+}
+    <div class="portal-wrapper">
+        <aside class="portal-sidebar">
+            <div class="sidebar-brand">
+                <span class="brand-icon">供</span>
+                <div>
+                    <div class="brand-title">供应商门户</div>
+                    <div class="brand-sub">生鲜冷链团购</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                @if (isAdmin)
+                {
+                    <a asp-controller="Goods" asp-action="AdminIndex"
+                       class="nav-link @(currentController == "Goods" && currentAction == "AdminIndex" ? "active" : "")">
+                        <span class="nav-icon">📦</span> 全部货物
+                    </a>
+                }
+                else
+                {
+                    <a asp-controller="Goods" asp-action="MyGoods"
+                       class="nav-link @(currentController == "Goods" && currentAction == "MyGoods" ? "active" : "")">
+                        <span class="nav-icon">📦</span> 我的货物
+                    </a>
+                }
+                <a asp-controller="Prices" asp-action="Index"
+                   class="nav-link @(currentController == "Prices" ? "active" : "")">
+                    <span class="nav-icon">💰</span> 定价规则
+                </a>
+                <a asp-controller="ColdChainLogistics" asp-action="Quote"
+                   class="nav-link @(currentController == "ColdChainLogistics" && currentAction == "Quote" ? "active" : "")">
+                    <span class="nav-icon">🧾</span> 计算运费
+                </a>
+                <a asp-controller="ColdChainLogistics" asp-action="Shipments"
+                   class="nav-link @(currentController == "ColdChainLogistics" && currentAction == "Shipments" ? "active" : "")">
+                    <span class="nav-icon">🚚</span> 发货记录
+                </a>
+                <a asp-controller="ColdChainLogistics" asp-action="Traceability"
+                   class="nav-link @(currentController == "ColdChainLogistics" && currentAction == "Traceability" ? "active" : "")">
+                    <span class="nav-icon">🔍</span> 精准溯源
+                </a>
+                @if (isAdmin)
+                {
+                    <a asp-controller="Products" asp-action="Index"
+                       class="nav-link @(currentController == "Products" ? "active" : "")">
+                        <span class="nav-icon">🏷️</span> 物品管理
+                    </a>
+                    <a asp-controller="ColdChainLogistics" asp-action="Index"
+                       class="nav-link @(currentController == "ColdChainLogistics" && currentAction == "Index" ? "active" : "")">
+                        <span class="nav-icon">🗂️</span> 运费模板
+                    </a>
+                }
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-chip">@(isAdmin ? "供应商管理员" : "供应商")：@Context.Session.GetString("SupplierName")</div>
+                <form asp-controller="Suppliers" asp-action="Logout" method="post" class="mt-2">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-outline-light btn-sm w-100">退出登录</button>
+                </form>
+            </div>
+        </aside>
+        <main class="portal-main">
+            <header class="portal-header d-flex align-items-center justify-content-between">
+                <h1 class="page-title mb-0">@ViewData["Title"]</h1>
+                <span class="header-date text-muted small">@DateTime.Now.ToString("yyyy年MM月dd日 dddd")</span>
+            </header>
+            <div class="portal-content">
+                @if (!string.IsNullOrEmpty(backAction))
+                {
+                    <a class="btn btn-outline-secondary btn-sm mb-3" asp-controller="@backController" asp-action="@backAction">← @backText</a>
+                }
+                @RenderBody()
+            </div>
+        </main>
+    </div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

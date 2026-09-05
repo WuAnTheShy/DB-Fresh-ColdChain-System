@@ -2,6 +2,7 @@
 using FreshColdChain.Models.CrossGroup_C;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Services;
+using FreshColdChain.Filters;
 using Microsoft.AspNetCore.Mvc;
 using System.Data;
 using System.Diagnostics;
@@ -68,8 +69,9 @@ namespace FreshColdChain.Controllers
             else if (role == "管理员")
             {
                 var loginResult = _systemAdminService.LoginAdmin(username, password);
-                if (loginResult.IsSuccess == true)  //登录成功
+                if (loginResult.IsSuccess == true && !string.IsNullOrWhiteSpace(loginResult.UserId))
                 {
+                    HttpContext.Session.SetString("AdminId", loginResult.UserId);
                     HttpContext.Session.SetString("AdminName", username);
                     return RedirectToAction("Dashboard", "Admins");
                 }
@@ -86,6 +88,12 @@ namespace FreshColdChain.Controllers
                     // 避免进入供应商首页后还需二次登录
                     if (!string.IsNullOrEmpty(loginResult.SuppierId))
                         HttpContext.Session.SetString("SupplierId", loginResult.SuppierId);
+                    // 固定账号 admin = 供应商管理员，直接进入全部货物
+                    if (string.Equals(username, SupplierSession.AdminAccount, StringComparison.OrdinalIgnoreCase))
+                    {
+                        HttpContext.Session.SetString(SupplierSession.IsAdminKey, "true");
+                        return RedirectToAction("AdminIndex", "Goods");
+                    }
                     return RedirectToAction("Index", "SuppliersHome");
                 }
                 ModelState.AddModelError("", loginResult.Message);
