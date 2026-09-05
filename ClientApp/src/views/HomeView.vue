@@ -7,6 +7,14 @@ import { useShop } from '../state/shop'
 const { categories, products, catalogLoading, catalogError, catalogUsingFallback, leaders, leadersLoading, leadersError, loadCatalog, loadLeaders } = useShop()
 const promoProducts = computed(() => products.slice(0, 3))
 const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
+const categoryVisualScale = {
+  时令水果: { scale: 0.88 },
+  蔬菜豆品: { scale: 0.86 },
+  肉禽蛋品: { scale: 0.9 },
+  海鲜水产: { scale: 0.98 },
+  乳品烘焙: { scale: 1.13, shiftX: '-2.7%' },
+  其他: { scale: 1.15 },
+}
 </script>
 
 <template>
@@ -60,7 +68,10 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
         </button></div>
       <div class="category-grid">
         <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`"
-          class="category-tile">
+          class="category-tile" :style="{
+            '--category-scale': categoryVisualScale[category.slug]?.scale ?? 1,
+            '--category-shift-x': categoryVisualScale[category.slug]?.shiftX ?? '0%',
+          }">
           <img :src="category.image" :alt="category.name" />
           <span><strong>{{ category.name }}</strong></span>
         </RouterLink>
@@ -321,10 +332,6 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
   transition: transform .18s ease;
 }
 
-.category-tile:hover img {
-  transform: scale(1.025);
-}
-
 .category-tile>span {
   position: absolute;
   inset: auto 0 0;
@@ -368,18 +375,45 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
   display: flex;
   height: auto;
   flex-direction: column;
-  border: 0;
+  border: 2px solid transparent;
   border-radius: 10px;
   background: #fff;
   color: var(--ink);
+  transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
 }
 
 .category-tile img {
+  position: relative;
+  z-index: 1;
   height: auto;
   aspect-ratio: 1;
   border-radius: 10px;
   object-fit: cover;
   opacity: 1;
+  transform: translateX(var(--category-shift-x, 0%)) scale(var(--category-scale, 1));
+  transform-origin: center;
+}
+
+/* 仅图片部分高亮：橙色背衬在图片下方，固定大小（与第一张图片一致），自左向右绘制 */
+.category-tile::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: var(--amber);
+  transform: scale(0.8);
+  transform-origin: center;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path .2s cubic-bezier(.4, 0, .2, 1);
+  pointer-events: none;
+}
+
+.category-tile:hover::before {
+  clip-path: inset(0 0 0 0);
 }
 
 .category-tile>span {
