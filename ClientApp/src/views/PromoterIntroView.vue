@@ -73,7 +73,9 @@ async function fetchIntro(forceBase = false) {
     <template v-if="product && leader && !baseError">
       <header class="pi-head">
         <div class="pi-head-product">
-          <img :src="product.image" :alt="product.name" @error="$event.target.style.opacity = 0" />
+          <img :src="product.image" :alt="product.name"
+            :class="{ 'fallback-photo-tint': product.image === product.fallbackImage }"
+            @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" />
           <div class="pi-head-product-copy">
             <span class="pi-eyebrow">团长正在带货 · {{ product.category }}</span>
             <h1>{{ product.name }}</h1>

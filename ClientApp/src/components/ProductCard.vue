@@ -41,6 +41,7 @@ function handleImageError(event, index) {
   const image = event.target
   if (index === 0 && props.product.fallbackImage && image.dataset.fallbackApplied !== 'true') {
     image.dataset.fallbackApplied = 'true'
+    image.classList.add('fallback-photo-tint')
     image.src = props.product.fallbackImage
     return
   }
@@ -84,6 +85,7 @@ function handleImageError(event, index) {
 
         <div class="product-card-media">
           <img v-for="(image, index) in cardImages" :key="image" :src="image"
+            :class="{ 'fallback-photo-tint': image === product.fallbackImage }"
             :alt="index === 0 ? product.name : `${product.name}商品图${index + 1}`" loading="lazy"
             @error="handleImageError($event, index)" />
         </div>

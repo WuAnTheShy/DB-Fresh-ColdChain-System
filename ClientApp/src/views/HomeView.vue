@@ -25,7 +25,9 @@ const categoryVisualScale = {
         <div class="promo-copy">
           <h2>{{ product.shortName }}<br />{{ product.storage }}配送</h2>
         </div>
-        <img :src="product.image" :alt="product.name" @error="$event.target.src = product.fallbackImage" />
+        <img :src="product.image" :alt="product.name"
+          :class="{ 'fallback-photo-tint': product.image === product.fallbackImage }"
+          @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" />
         <strong>点击选购</strong>
       </RouterLink>
       <RouterLink class="amazon-promo-card promo-delivery" to="/search">

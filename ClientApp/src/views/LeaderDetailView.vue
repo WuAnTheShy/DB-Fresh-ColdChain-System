@@ -51,7 +51,7 @@ async function handleFollow() {
 <template>
   <div v-if="leader" class="leader-detail-page">
     <section class="leader-profile-band">
-      <img class="leader-cover" :src="leader.cover" alt="" />
+      <img class="leader-cover fallback-photo-tint" :src="leader.cover" alt="" />
       <div class="leader-cover-shade"></div>
       <div class="store-container leader-profile-content">
         <img class="leader-profile-avatar" :src="leader.avatar" :alt="`${leader.name}团长头像`" />
