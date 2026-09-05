@@ -1,5 +1,6 @@
 using Dapper;
 using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
 
 namespace FreshColdChain.Repositories;
 
@@ -29,5 +30,17 @@ public class LogExpressDeliveryRepository : BaseRepository<LogExpressDelivery>, 
     {
         var sql = """SELECT * FROM Log_ExpressDeliveries WHERE TrackingNo = :No """;
         return await _uow.Connection.QuerySingleOrDefaultAsync<LogExpressDelivery>(sql, new { No = trackingNo }, _uow.Transaction);
+    }
+
+    /// <summary>只列出已有发货单的订单；LEFT JOIN B 组 Biz_Orders 取展示用订单号</summary>
+    public async Task<List<ShippedOrderOptionDto>> GetDistinctOrdersAsync()
+    {
+        var sql = """
+            SELECT DISTINCT d.OrderID, o.OrderNo
+            FROM Log_ExpressDeliveries d
+            LEFT JOIN Biz_Orders o ON d.OrderID = o.OrderId
+            ORDER BY o.OrderNo NULLS LAST, d.OrderID
+            """;
+        return (await _uow.Connection.QueryAsync<ShippedOrderOptionDto>(sql, transaction: _uow.Transaction)).ToList();
     }
 }

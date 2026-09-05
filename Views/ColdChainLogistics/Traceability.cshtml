@@ -3,10 +3,14 @@
     ViewData["BackController"] = "SuppliersHome";
     ViewData["BackAction"] = "Index";
     ViewData["BackText"] = "返回供应商首页";
+
+    var orderOptions = ViewBag.OrderOptions as List<OptionItemDto> ?? new List<OptionItemDto>();
+    var deliveryOptions = ViewBag.DeliveryOptions as List<OptionItemDto> ?? new List<OptionItemDto>();
+    var batchOptions = ViewBag.BatchOptions as List<OptionItemDto> ?? new List<OptionItemDto>();
 }
 
 <h3>🔍 精准溯源查询</h3>
-<p class="text-muted">支持按订单 ID、发货单 ID、批次 ID 多维度追溯冷链商品流向</p>
+<p class="text-muted">支持按订单、发货单、批次多维度追溯冷链商品流向</p>
 
 @if (!string.IsNullOrWhiteSpace(ViewBag.Error))
 {
@@ -17,11 +21,21 @@
     <!-- 按订单查询 -->
     <div class="col-md-4">
         <div class="card">
-            <div class="card-header fw-bold">📋 按订单 ID 查询</div>
+            <div class="card-header fw-bold">📋 按订单查询</div>
             <div class="card-body">
                 <form asp-action="TraceByOrder" method="get">
                     <div class="mb-2">
-                        <input name="orderId" class="form-control" placeholder="输入订单 ID" required />
+                        <select name="orderId" class="form-select" required>
+                            <option value="">— 请选择订单 —</option>
+                            @foreach (var o in orderOptions)
+                            {
+                                <option value="@o.Value" selected="@(ViewBag.QueryType == "order" && ViewBag.QueryKey == o.Value)">@o.Text</option>
+                            }
+                        </select>
+                        @if (orderOptions.Count == 0)
+                        {
+                            <div class="alert alert-warning py-1 small mt-1 mb-0">暂无已发货订单，请先在"发货管理"创建发货单</div>
+                        }
                     </div>
                     <button type="submit" class="btn btn-primary btn-sm">查询溯源链路</button>
                 </form>
@@ -32,11 +46,21 @@
     <!-- 按发货单查询 -->
     <div class="col-md-4">
         <div class="card">
-            <div class="card-header fw-bold">📦 按发货单 ID 查询</div>
+            <div class="card-header fw-bold">📦 按发货单查询</div>
             <div class="card-body">
                 <form asp-action="TraceByDelivery" method="get">
                     <div class="mb-2">
-                        <input name="deliveryId" class="form-control" placeholder="输入发货单 ID" required />
+                        <select name="deliveryId" class="form-select" required>
+                            <option value="">— 请选择发货单 —</option>
+                            @foreach (var d in deliveryOptions)
+                            {
+                                <option value="@d.Value" selected="@(ViewBag.QueryType == "delivery" && ViewBag.QueryKey == d.Value)">@d.Text</option>
+                            }
+                        </select>
+                        @if (deliveryOptions.Count == 0)
+                        {
+                            <div class="alert alert-warning py-1 small mt-1 mb-0">暂无发货单，请先在"发货管理"创建发货单</div>
+                        }
                     </div>
                     <button type="submit" class="btn btn-success btn-sm">查询批次明细</button>
                 </form>
@@ -47,11 +71,21 @@
     <!-- 按批次反向溯源 -->
     <div class="col-md-4">
         <div class="card">
-            <div class="card-header fw-bold">🔬 按批次 ID 反向溯源</div>
+            <div class="card-header fw-bold">🔬 按批次反向溯源</div>
             <div class="card-body">
                 <form asp-action="TraceByBatch" method="get">
                     <div class="mb-2">
-                        <input name="batchId" class="form-control" placeholder="输入批次 ID" required />
+                        <select name="batchId" class="form-select" required>
+                            <option value="">— 请选择批次 —</option>
+                            @foreach (var b in batchOptions)
+                            {
+                                <option value="@b.Value" selected="@(ViewBag.QueryType == "batch" && ViewBag.QueryKey == b.Value)">@b.Text</option>
+                            }
+                        </select>
+                        @if (batchOptions.Count == 0)
+                        {
+                            <div class="alert alert-warning py-1 small mt-1 mb-0">暂无库存批次，请先入库</div>
+                        }
                     </div>
                     <button type="submit" class="btn btn-warning btn-sm">查询批次去向</button>
                 </form>

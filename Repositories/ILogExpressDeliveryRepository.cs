@@ -1,4 +1,5 @@
 using FreshColdChain.Models;
+using FreshColdChain.Models.DTOs;
 
 namespace FreshColdChain.Repositories;
 
@@ -15,4 +16,7 @@ public interface ILogExpressDeliveryRepository : IBaseRepository<LogExpressDeliv
 
     /// <summary>按物流单号精确查询</summary>
     Task<LogExpressDelivery?> GetByTrackingNoAsync(string trackingNo);
+
+    /// <summary>有发货记录的订单（DISTINCT OrderID + Biz_Orders.OrderNo，供溯源下拉）</summary>
+    Task<List<ShippedOrderOptionDto>> GetDistinctOrdersAsync();
 }
