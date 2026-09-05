@@ -12,8 +12,7 @@ namespace FreshColdChain.Services;
 /// </summary>
 public sealed class GroupAInventoryServiceAdapter(
     IUnitOfWork unitOfWork,
-    IProductInventoryService productInventoryService,
-    ISupplierService supplierService) : IGroupAInventoryGateway
+    IProductInventoryService productInventoryService) : IGroupAInventoryGateway
 {
     public async Task<IReadOnlyList<InventoryProductSnapshot>> CheckAvailabilityAsync(
         IReadOnlyList<InventoryAvailabilityItem> items,
@@ -27,81 +26,41 @@ public sealed class GroupAInventoryServiceAdapter(
 
         unitOfWork.AttachExternalTransaction(transaction);
         var normalized = Normalize(items);
-        var suppliers = await GetActiveSuppliersAsync(cancellationToken);
         var snapshots = new List<InventoryProductSnapshot>(normalized.Count);
 
         foreach (var item in normalized)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var productResponse = await productInventoryService.GetProductByIdAsync(item.ProductId);
-            if (!productResponse.IsSuccess || productResponse.Data == null)
-                throw new OrderBusinessException($"商品 {item.ProductId} 不存在或不可查询：{productResponse.Message}");
 
-            var product = productResponse.Data;
-            if (!string.Equals(product.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
-                throw new OrderBusinessException($"商品“{product.ProductName}”已下架");
-            if (product.DefaultPrice <= 0)
-                throw new OrderBusinessException($"商品“{product.ProductName}”价格无效");
+            // 交易身份 = (商品, 供应商)：同一商品不同供应商各自校验货物、售价与该供应商可用库存
+            var goodsResponse = await productInventoryService.GetSupplierGoodsInventoryAsync(
+                item.ProductId,
+                item.SupplierId);
+            if (!goodsResponse.IsSuccess || goodsResponse.Data == null)
+                throw new OrderBusinessException(
+                    $"商品 {item.ProductId}（供应商 {item.SupplierId}）不可销售：{goodsResponse.Message}");
 
-            var inventoryResponse = await productInventoryService.GetInventoryAsync(item.ProductId);
-            if (!inventoryResponse.IsSuccess || inventoryResponse.Data == null)
-                throw new OrderBusinessException($"商品“{product.ProductName}”缺少库存信息：{inventoryResponse.Message}");
-            if (inventoryResponse.Data.AvailableQty < item.Quantity)
+            var goods = goodsResponse.Data;
+            if (!string.Equals(goods.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+                throw new OrderBusinessException($"商品“{goods.ProductName}”已下架");
+            if (goods.SalePrice <= 0)
+                throw new OrderBusinessException($"商品“{goods.ProductName}”价格无效");
+            if (goods.AvailableQty < item.Quantity)
             {
                 throw new OrderBusinessException(
-                    $"商品“{product.ProductName}”库存不足，当前可用 {inventoryResponse.Data.AvailableQty}");
+                    $"商品“{goods.ProductName}”库存不足，当前可用 {goods.AvailableQty}，需要 {item.Quantity}");
             }
 
             snapshots.Add(new InventoryProductSnapshot
             {
-                ProductId = product.ProductID,
-                ProductName = product.ProductName,
-                SupplierId = ResolveSupplierId(product, suppliers),
-                UnitPrice = product.DefaultPrice
+                ProductId = goods.ProductID,
+                ProductName = goods.ProductName,
+                SupplierId = goods.SupplierID,
+                UnitPrice = goods.SalePrice
             });
         }
 
         return snapshots;
-    }
-
-    private async Task<IReadOnlyList<SupplierDto>> GetActiveSuppliersAsync(
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var response = await supplierService.GetAllSuppliersAsync();
-        if (!response.IsSuccess || response.Data == null)
-            throw new OrderBusinessException($"供应商目录查询失败：{response.Message}");
-
-        return response.Data
-            .Where(supplier =>
-                string.Equals(supplier.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-    }
-
-    private static string ResolveSupplierId(
-        ProductDto product,
-        IReadOnlyList<SupplierDto> suppliers)
-    {
-        if (string.IsNullOrWhiteSpace(product.SupplierName))
-            throw new OrderBusinessException($"商品“{product.ProductName}”缺少供应商");
-
-        var matches = suppliers
-            .Where(supplier => string.Equals(
-                supplier.SupplierName,
-                product.SupplierName,
-                StringComparison.OrdinalIgnoreCase))
-            .Select(supplier => supplier.SupplierID)
-            .Where(supplierId => !string.IsNullOrWhiteSpace(supplierId))
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-        return matches.Count switch
-        {
-            1 => matches[0],
-            0 => throw new OrderBusinessException(
-                $"商品“{product.ProductName}”的供应商未启用或不存在"),
-            _ => throw new OrderBusinessException(
-                $"商品“{product.ProductName}”的供应商名称不唯一，无法安全拆单")
-        };
     }
 
     private static IReadOnlyList<InventoryAvailabilityItem> Normalize(
@@ -110,17 +69,23 @@ public sealed class GroupAInventoryServiceAdapter(
         try
         {
             return items
-                .GroupBy(item => item.ProductId?.Trim() ?? string.Empty, StringComparer.Ordinal)
+                .GroupBy(item => (
+                    ProductId: item.ProductId?.Trim() ?? string.Empty,
+                    SupplierId: item.SupplierId?.Trim() ?? string.Empty))
                 .Select(group => new InventoryAvailabilityItem
                 {
-                    ProductId = group.Key,
+                    ProductId = group.Key.ProductId,
+                    SupplierId = group.Key.SupplierId,
                     Quantity = checked(group.Sum(item => item.Quantity))
                 })
                 .OrderBy(item => item.ProductId, StringComparer.Ordinal)
+                .ThenBy(item => item.SupplierId, StringComparer.Ordinal)
                 .Select(item =>
                 {
-                    if (string.IsNullOrWhiteSpace(item.ProductId) || item.Quantity is <= 0 or > 9999)
-                        throw new OrderBusinessException("库存校验商品或数量无效");
+                    if (string.IsNullOrWhiteSpace(item.ProductId) ||
+                        string.IsNullOrWhiteSpace(item.SupplierId) ||
+                        item.Quantity is <= 0 or > 9999)
+                        throw new OrderBusinessException("库存校验商品、供应商或数量无效");
                     return item;
                 })
                 .ToList();

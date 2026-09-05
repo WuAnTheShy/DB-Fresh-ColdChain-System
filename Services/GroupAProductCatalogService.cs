@@ -83,7 +83,6 @@ public sealed class GroupAProductCatalogService(
             .Where(supplier => string.Equals(supplier.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
             .Where(supplier => !string.IsNullOrWhiteSpace(supplier.SupplierName))
             .GroupBy(supplier => supplier.SupplierName.Trim(), StringComparer.OrdinalIgnoreCase)
-            .Where(group => group.Select(item => item.SupplierID).Distinct(StringComparer.Ordinal).Count() == 1)
             .ToDictionary(
                 group => group.Key,
                 group => group.First().SupplierID,

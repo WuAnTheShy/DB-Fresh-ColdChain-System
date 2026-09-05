@@ -26,6 +26,7 @@ public static class OrderStatusCodes
     public const string Cancelled = "CANCELLED";
     public const string Refunding = "REFUNDING";
     public const string Refunded = "REFUNDED";
+    public const string Delivered = "DELIVERED";
 
     public static string ToCode(OrderStatus status)
     {
@@ -53,6 +54,10 @@ public static class OrderStatusCodes
             Cancelled => OrderStatus.Cancelled,
             Refunding => OrderStatus.Refunding,
             Refunded => OrderStatus.Refunded,
+            // 历史遗留：早期版本曾把物流签收态 DELIVERED 直接写入 Biz_Orders.OrderStatus。
+            // 该值不在 CK_Order_Status 约束内，但存量数据中存在，按已完成交易兼容解析，
+            // 避免订单列表/详情在序列化时因单个脏状态整体 500。
+            Delivered => OrderStatus.Completed,
             _ => throw new ArgumentException($"未知订单状态代码: {code}", nameof(code))
         };
     }

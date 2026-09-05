@@ -367,6 +367,7 @@ public sealed class OrderService : IOrderService
             var reservationItems = batchItems.Select(item => new InventoryAvailabilityItem
             {
                 ProductId = item.ProductId,
+                SupplierId = item.SupplierId,
                 Quantity = item.Quantity
             }).ToList();
             var snapshots = await _inventoryService.CheckAvailabilityAsync(
@@ -378,9 +379,8 @@ public sealed class OrderService : IOrderService
                 snapshots,
                 cancellationToken);
             var details = CreateTrustedDetails(reservationItems, pricedSnapshots);
-            var itemsByProductId = batchItems.ToDictionary(
-                item => item.ProductId,
-                StringComparer.Ordinal);
+            var itemsByKey = batchItems.ToDictionary(
+                item => (item.ProductId, item.SupplierId));
             var goodsAmount = details.Sum(detail => detail.SubTotal);
             EnsureAmountFitsDatabase(goodsAmount);
 
@@ -403,7 +403,7 @@ public sealed class OrderService : IOrderService
             var checkoutBatchId = GroupBIds.NewId();
             var paymentExpiresAt = DateTime.Now.AddMinutes(15);
             var groupedDetails = details
-                .GroupBy(detail => itemsByProductId[detail.ProductId].PromoterId)
+                .GroupBy(detail => itemsByKey[(detail.ProductId, detail.SupplierId!)].PromoterId)
                 .OrderBy(group => group.Key, StringComparer.Ordinal)
                 .ToList();
 
@@ -530,18 +530,17 @@ public sealed class OrderService : IOrderService
                 }, transaction);
             }
 
-            var snapshotsById = pricedSnapshots.ToDictionary(
-                snapshot => snapshot.ProductId,
-                StringComparer.Ordinal);
+            var snapshotsByKey = pricedSnapshots.ToDictionary(
+                snapshot => (snapshot.ProductId, snapshot.SupplierId));
             var priceChanges = batchItems
                 .Where(item => item.ClientUnitPrice.HasValue &&
-                    item.ClientUnitPrice.Value != snapshotsById[item.ProductId].UnitPrice)
+                    item.ClientUnitPrice.Value != snapshotsByKey[(item.ProductId, item.SupplierId)].UnitPrice)
                 .Select(item => new OrderPriceChangeResult
                 {
                     ProductId = item.ProductId,
-                    ProductName = snapshotsById[item.ProductId].ProductName,
+                    ProductName = snapshotsByKey[(item.ProductId, item.SupplierId)].ProductName,
                     PreviousPrice = item.ClientUnitPrice!.Value,
-                    LatestPrice = snapshotsById[item.ProductId].UnitPrice
+                    LatestPrice = snapshotsByKey[(item.ProductId, item.SupplierId)].UnitPrice
                 })
                 .ToList();
 
@@ -1315,19 +1314,23 @@ public sealed class OrderService : IOrderService
         if (request.Items == null || request.Items.Count == 0)
             throw new OrderBusinessException("结算批次至少需要一件商品");
 
-        var normalized = new Dictionary<string, BatchOrderItem>(StringComparer.Ordinal);
+        var normalized = new Dictionary<(string ProductId, string SupplierId), BatchOrderItem>();
         foreach (var item in request.Items)
         {
             var productId = item.ProductId?.Trim() ?? string.Empty;
             var promoterId = item.PromoterId?.Trim() ?? string.Empty;
+            var supplierId = item.SupplierId?.Trim() ?? string.Empty;
             if (productId.Length is 0 or > 64)
                 throw new OrderBusinessException("商品ID不能为空且不能超过64个字符");
             if (promoterId.Length is 0 or > 36)
                 throw new OrderBusinessException("团长ID不能为空且不能超过36个字符");
+            if (supplierId.Length is 0 or > 36)
+                throw new OrderBusinessException($"商品 {productId} 的供应商ID不能为空且不能超过36个字符");
             if (item.Quantity is <= 0 or > 9999)
                 throw new OrderBusinessException("商品数量必须在1到9999之间");
 
-            if (normalized.TryGetValue(productId, out var existing))
+            var key = (productId, supplierId);
+            if (normalized.TryGetValue(key, out var existing))
             {
                 if (!string.Equals(existing.PromoterId, promoterId, StringComparison.Ordinal))
                     throw new OrderBusinessException($"商品 {productId} 不能同时归属于多个团长");
@@ -1339,10 +1342,12 @@ public sealed class OrderService : IOrderService
                 continue;
             }
 
-            normalized[productId] = new BatchOrderItem
+            // 交易身份 = (商品, 供应商)：同一商品不同供应商作为两条独立条目参与结算
+            normalized[key] = new BatchOrderItem
             {
                 ProductId = productId,
                 PromoterId = promoterId,
+                SupplierId = supplierId,
                 Quantity = item.Quantity,
                 ClientUnitPrice = item.ClientUnitPrice
             };
@@ -1351,6 +1356,7 @@ public sealed class OrderService : IOrderService
         return normalized.Values
             .OrderBy(item => item.PromoterId, StringComparer.Ordinal)
             .ThenBy(item => item.ProductId, StringComparer.Ordinal)
+            .ThenBy(item => item.SupplierId, StringComparer.Ordinal)
             .ToList();
     }
 
@@ -1374,29 +1380,37 @@ public sealed class OrderService : IOrderService
         if (request.Items == null || request.Items.Count == 0)
             throw new OrderBusinessException("订单至少需要一件商品");
 
-        var quantities = new Dictionary<string, int>(StringComparer.Ordinal);
+        var quantities = new Dictionary<(string ProductId, string SupplierId), int>();
         foreach (var item in request.Items)
         {
-            var productId = item.ProductId?.Trim();
+            var productId = item.ProductId?.Trim() ?? string.Empty;
+            var supplierId = item.SupplierId?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(productId))
                 throw new OrderBusinessException("商品ID不能为空");
             if (productId.Length > 64)
                 throw new OrderBusinessException("商品ID不能超过64个字符");
+            if (string.IsNullOrWhiteSpace(supplierId))
+                throw new OrderBusinessException($"商品 {productId} 的供应商ID不能为空");
+            if (supplierId.Length > 36)
+                throw new OrderBusinessException("供应商ID不能超过36个字符");
             if (item.Quantity is <= 0 or > 9999)
                 throw new OrderBusinessException("商品数量必须在1到9999之间");
 
-            quantities.TryGetValue(productId, out var currentQuantity);
+            var key = (productId, supplierId);
+            quantities.TryGetValue(key, out var currentQuantity);
             var mergedQuantity = checked(currentQuantity + item.Quantity);
             if (mergedQuantity > 9999)
                 throw new OrderBusinessException($"商品 {productId} 的合计数量不能超过9999");
-            quantities[productId] = mergedQuantity;
+            quantities[key] = mergedQuantity;
         }
 
         return quantities
-            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .OrderBy(pair => pair.Key.ProductId, StringComparer.Ordinal)
+            .ThenBy(pair => pair.Key.SupplierId, StringComparer.Ordinal)
             .Select(pair => new InventoryAvailabilityItem
             {
-                ProductId = pair.Key,
+                ProductId = pair.Key.ProductId,
+                SupplierId = pair.Key.SupplierId,
                 Quantity = pair.Value
             })
             .ToList();
@@ -1412,9 +1426,8 @@ public sealed class OrderService : IOrderService
             throw new OrderBusinessException("团长商品目录服务未配置，暂时无法结算");
 
         var snapshotMap = snapshots.ToDictionary(
-            snapshot => snapshot.ProductId,
-            StringComparer.Ordinal);
-        var validated = new Dictionary<string, InventoryProductSnapshot>(StringComparer.Ordinal);
+            snapshot => (snapshot.ProductId, snapshot.SupplierId));
+        var validated = new Dictionary<(string ProductId, string SupplierId), InventoryProductSnapshot>();
 
         foreach (var promoterGroup in batchItems
                      .GroupBy(item => item.PromoterId, StringComparer.Ordinal)
@@ -1422,12 +1435,13 @@ public sealed class OrderService : IOrderService
         {
             var candidates = promoterGroup.Select(item =>
             {
-                if (!snapshotMap.TryGetValue(item.ProductId, out var snapshot))
-                    throw new OrderBusinessException($"库存服务未返回商品 {item.ProductId}");
+                if (!snapshotMap.TryGetValue((item.ProductId, item.SupplierId), out _))
+                    throw new OrderBusinessException(
+                        $"库存服务未返回商品 {item.ProductId}（供应商 {item.SupplierId}）");
                 return new GroupCPromoterProductCandidate
                 {
                     ProductId = item.ProductId,
-                    SupplierId = snapshot.SupplierId
+                    SupplierId = item.SupplierId
                 };
             }).ToList();
             var validations = await _promoterCatalogService.ValidatePromoterProductsAsync(
@@ -1435,23 +1449,22 @@ public sealed class OrderService : IOrderService
                 candidates,
                 cancellationToken);
             var validationMap = validations.ToDictionary(
-                validation => validation.ProductId,
-                StringComparer.Ordinal);
+                validation => (validation.ProductId, validation.SupplierId));
 
             foreach (var candidate in candidates)
             {
-                if (!validationMap.TryGetValue(candidate.ProductId, out var validation) ||
+                if (!validationMap.TryGetValue((candidate.ProductId, candidate.SupplierId), out var validation) ||
                     !validation.IsAllowed)
                 {
                     throw new OrderBusinessException(
-                        $"团长 {promoterGroup.Key} 无权销售商品 {candidate.ProductId}");
+                        $"团长 {promoterGroup.Key} 无权销售商品 {candidate.ProductId}（供应商 {candidate.SupplierId}）");
                 }
 
-                var source = snapshotMap[candidate.ProductId];
+                var source = snapshotMap[(candidate.ProductId, candidate.SupplierId)];
                 var salePrice = validation.SalePrice ?? source.UnitPrice;
                 if (salePrice <= 0 || salePrice > MaxOrderAmount)
                     throw new OrderBusinessException($"商品 {candidate.ProductId} 的团长售价无效");
-                validated[candidate.ProductId] = new InventoryProductSnapshot
+                validated[(candidate.ProductId, candidate.SupplierId)] = new InventoryProductSnapshot
                 {
                     ProductId = source.ProductId,
                     ProductName = source.ProductName,
@@ -1463,7 +1476,9 @@ public sealed class OrderService : IOrderService
 
         if (validated.Count != snapshots.Count)
             throw new OrderBusinessException("团长商品校验结果不完整");
-        return snapshots.Select(snapshot => validated[snapshot.ProductId]).ToList();
+        return snapshots
+            .Select(snapshot => validated[(snapshot.ProductId, snapshot.SupplierId)])
+            .ToList();
     }
 
     private async Task RegisterCompletedOrderCommissionAsync(
@@ -1497,18 +1512,18 @@ public sealed class OrderService : IOrderService
         if (productSnapshots.Count != reservationItems.Count)
             throw new OrderBusinessException("库存服务返回的商品数据不完整");
 
-        var snapshotsByProductId = new Dictionary<string, InventoryProductSnapshot>(
-            StringComparer.Ordinal);
+        var snapshotsByKey = new Dictionary<(string ProductId, string SupplierId), InventoryProductSnapshot>();
         foreach (var snapshot in productSnapshots)
         {
             if (string.IsNullOrWhiteSpace(snapshot.ProductId))
                 throw new OrderBusinessException("库存服务返回的商品ID为空");
-            if (!snapshotsByProductId.TryAdd(snapshot.ProductId, snapshot))
+            if (string.IsNullOrWhiteSpace(snapshot.SupplierId))
+                throw new OrderBusinessException("库存服务返回的商品缺少供应商");
+            // 交易身份 = (商品, 供应商)：同一商品不同供应商允许并存为独立明细
+            if (!snapshotsByKey.TryAdd((snapshot.ProductId, snapshot.SupplierId), snapshot))
                 throw new OrderBusinessException("库存服务返回了重复商品");
             if (string.IsNullOrWhiteSpace(snapshot.ProductName))
                 throw new OrderBusinessException($"商品 {snapshot.ProductId} 缺少名称");
-            if (string.IsNullOrWhiteSpace(snapshot.SupplierId))
-                throw new OrderBusinessException($"商品 {snapshot.ProductId} 缺少有效供应商");
             if (snapshot.UnitPrice <= 0 || snapshot.UnitPrice > MaxOrderAmount)
                 throw new OrderBusinessException($"商品 {snapshot.ProductId} 的价格无效");
         }
@@ -1516,8 +1531,10 @@ public sealed class OrderService : IOrderService
         var details = new List<BizOrderDetail>(reservationItems.Count);
         foreach (var item in reservationItems)
         {
-            if (!snapshotsByProductId.TryGetValue(item.ProductId, out var snapshot))
-                throw new OrderBusinessException($"库存服务未返回商品 {item.ProductId}");
+            if (string.IsNullOrWhiteSpace(item.SupplierId))
+                throw new OrderBusinessException($"商品 {item.ProductId} 缺少供应商ID");
+            if (!snapshotsByKey.TryGetValue((item.ProductId, item.SupplierId), out var snapshot))
+                throw new OrderBusinessException($"库存服务未返回商品 {item.ProductId}（供应商 {item.SupplierId}）");
 
             var subTotal = snapshot.UnitPrice * item.Quantity;
             EnsureAmountFitsDatabase(subTotal);
@@ -1872,6 +1889,7 @@ public sealed class OrderService : IOrderService
     {
         public string ProductId { get; init; } = string.Empty;
         public string PromoterId { get; init; } = string.Empty;
+        public string SupplierId { get; init; } = string.Empty;
         public int Quantity { get; set; }
         public decimal? ClientUnitPrice { get; init; }
     }

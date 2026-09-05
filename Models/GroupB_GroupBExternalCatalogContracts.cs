@@ -94,6 +94,10 @@ public sealed class GroupCPromoterProductCandidate
 public sealed class GroupCPromoterProductValidation
 {
     public string ProductId { get; init; } = string.Empty;
+
+    /// <summary>供货供应商 ID：同一商品不同供应商分别校验在团与报价。</summary>
+    public string SupplierId { get; init; } = string.Empty;
+
     public bool IsAllowed { get; init; }
     public decimal? SalePrice { get; init; }
     public string? Description { get; init; }

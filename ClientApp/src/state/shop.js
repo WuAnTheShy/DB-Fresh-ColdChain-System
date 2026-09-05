@@ -220,6 +220,8 @@ const cart = reactive(Array.isArray(rawCart)
   ? rawCart.map((item) => ({
       productId: String(item.productId ?? ''),
       leaderId: String(item.leaderId ?? ''),
+      // 供货供应商：同一商品不同供应商是两条可并存的购物车条目
+      supplierId: String(item.supplierId ?? ''),
       quantity: Math.max(1, Number(item.quantity || 1)),
       selected: item.selected !== false,
     })).filter((item) => item.productId)
@@ -256,6 +258,9 @@ function reconcileCart() {
     }
     item.productId = product.id
     item.leaderId = product.leaderId
+    // 以最新目录的供应商为准；目录数据缺少供应商（例如旧版本缓存）时
+    // 保留条目已保存的供应商值，避免把可下单的 (商品, 供应商) 组合退化成空供应商。
+    item.supplierId = product.supplierId || item.supplierId || ''
     item.quantity = Math.min(product.stock, Math.max(1, item.quantity))
   }
   persistCart()
@@ -305,25 +310,12 @@ async function setLeaderFollowed(customerId, leaderId, shouldFollow) {
   return shouldFollow
 }
 
-// 同一团长对同一商品只保留一个供应商货源：加入其它供应商的同商品条目时，
-// 先移除旧条目，避免结算时同商品多供应商被服务端合并/价格冲突。
-function replaceSameProductSource(cart, product) {
-  for (let index = cart.length - 1; index >= 0; index--) {
-    const entry = cart[index]
-    if (entry.productId === product.id) continue
-    const existingProduct = products.find((candidate) => candidate.id === entry.productId)
-    if (entry.leaderId === product.leaderId && existingProduct?.productId === product.productId) {
-      cart.splice(index, 1)
-    }
-  }
-}
-
 function addToCart(catalogItemId, quantity = 1) {
   const product = productById(catalogItemId)
   const leader = leaderById(product?.leaderId)
   if (!product || !leader || product.isFallback) return false
 
-  replaceSameProductSource(cart, product)
+  // 购物车条目 = (团长, 商品, 供应商)：同一商品不同供应商各自成条，不再互相顶替
   const existing = cart.find((item) => item.productId === product.id)
   if (existing) {
     existing.quantity = Math.min(product.stock, existing.quantity + Number(quantity || 1))
@@ -331,6 +323,7 @@ function addToCart(catalogItemId, quantity = 1) {
     cart.push({
       productId: product.id,
       leaderId: leader.id,
+      supplierId: product.supplierId ?? '',
       quantity: Math.min(product.stock, Math.max(1, Number(quantity || 1))),
       selected: true,
     })
@@ -348,7 +341,6 @@ function buyNowProduct(catalogItemId, quantity = 1) {
   const leader = leaderById(product?.leaderId)
   if (!product || !leader || product.isFallback) return false
 
-  replaceSameProductSource(cart, product)
   const existing = cart.find((item) => item.productId === product.id)
   const targetQuantity = Math.min(product.stock, Math.max(1, Number(quantity || 1)))
   if (existing) {
@@ -358,6 +350,7 @@ function buyNowProduct(catalogItemId, quantity = 1) {
     cart.push({
       productId: product.id,
       leaderId: leader.id,
+      supplierId: product.supplierId ?? '',
       quantity: targetQuantity,
       selected: true,
     })

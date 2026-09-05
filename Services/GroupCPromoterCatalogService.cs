@@ -128,6 +128,7 @@ public sealed class GroupCPromoterCatalogService(
             result.Add(new GroupCPromoterProductValidation
             {
                 ProductId = product.ProductId,
+                SupplierId = product.SupplierId,
                 IsAllowed = promoterEnabled &&
                     supplierIds.Contains(product.SupplierId) &&
                     hasEntry,

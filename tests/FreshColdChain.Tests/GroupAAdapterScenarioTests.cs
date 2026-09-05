@@ -65,26 +65,13 @@ internal static class GroupAAdapterScenarioTests
                 TotalQty = 3
             }
         };
-        var supplierService = new StubSupplierService
-        {
-            Suppliers =
-            [
-                new SupplierDto
-                {
-                    SupplierID = "SUP1",
-                    SupplierName = "测试供应商",
-                    Status = "Active"
-                }
-            ]
-        };
         var adapter = new GroupAInventoryServiceAdapter(
             unitOfWork,
-            productService,
-            supplierService);
+            productService);
         using var transaction = new FakeOrderTransaction();
 
         var snapshots = await adapter.CheckAvailabilityAsync(
-            [new InventoryAvailabilityItem { ProductId = "P1", Quantity = 2 }],
+            [new InventoryAvailabilityItem { ProductId = "P1", SupplierId = "SUP1", Quantity = 2 }],
             transaction);
 
         AssertEx.True(ReferenceEquals(transaction, unitOfWork.AttachedTransaction));
@@ -96,7 +83,7 @@ internal static class GroupAAdapterScenarioTests
         productService.Inventory.AvailableQty = 1;
         await AssertEx.ThrowsAsync<OrderBusinessException>(() =>
             adapter.CheckAvailabilityAsync(
-                [new InventoryAvailabilityItem { ProductId = "P1", Quantity = 2 }],
+                [new InventoryAvailabilityItem { ProductId = "P1", SupplierId = "SUP1", Quantity = 2 }],
                 transaction));
     }
 
@@ -404,6 +391,21 @@ internal sealed class StubProductInventoryService : IProductInventoryService
             ? ApiResponse<InventoryDto>.Success(Inventory)
             : ApiResponse<InventoryDto>.Fail("不存在", 404));
 
+    public Task<ApiResponse<SupplierGoodsInventoryDto>> GetSupplierGoodsInventoryAsync(
+        string productId,
+        string supplierId) =>
+        Task.FromResult(productId == Product.ProductID && supplierId == "SUP1"
+            ? ApiResponse<SupplierGoodsInventoryDto>.Success(new SupplierGoodsInventoryDto
+            {
+                ProductID = Product.ProductID,
+                ProductName = Product.ProductName,
+                SupplierID = supplierId,
+                SalePrice = Product.DefaultPrice,
+                Status = "ACTIVE",
+                AvailableQty = Inventory.AvailableQty
+            })
+            : ApiResponse<SupplierGoodsInventoryDto>.Fail("该供应商未对此商品建立货物", 404));
+
     public Task<ApiResponse<PagedResult<ProductDto>>> GetProductsAsync(int pageIndex, int pageSize, string? keyword = null) => throw new NotSupportedException();
     public Task<ApiResponse<ProductSupplierMediaDto>> GetSupplierProductMediaAsync(string productId, string? supplierId) => throw new NotSupportedException();
     public Task<ApiResponse<ProductDto>> CreateProductAsync(CreateProductDto dto) => throw new NotSupportedException();
@@ -419,34 +421,6 @@ internal sealed class StubProductInventoryService : IProductInventoryService
     public Task<ApiResponse<List<StockBatchDto>>> GetBatchesAsync(string productId) => throw new NotSupportedException();
     public Task<ApiResponse<StockBatchDto>> AddBatchAsync(CreateStockBatchDto dto) => throw new NotSupportedException();
     public Task MarkExpiredBatchesAsync() => throw new NotSupportedException();
-}
-
-internal sealed class StubSupplierService : ISupplierService
-{
-    public required List<SupplierDto> Suppliers { get; init; }
-
-    public Task<ApiResponse<List<SupplierDto>>> GetAllSuppliersAsync() =>
-        Task.FromResult(ApiResponse<List<SupplierDto>>.Success(Suppliers));
-
-    public Task<ApiResponse<PagedResult<SupplierDto>>> GetSuppliersAsync(int pageIndex, int pageSize) => throw new NotSupportedException();
-    public Task<ApiResponse<SupplierDto>> GetSupplierByIdAsync(string id) => throw new NotSupportedException();
-    public Task<ApiResponse<SupplierDto>> CreateSupplierAsync(CreateSupplierDto dto) => throw new NotSupportedException();
-    public Task<ApiResponse<SupplierDto>> UpdateSupplierAsync(string id, CreateSupplierDto dto) => throw new NotSupportedException();
-    public Task<ApiResponse> DeleteSupplierAsync(string id) => throw new NotSupportedException();
-    public Task<ApiResponse<List<SupplierProductQuoteDto>>> GetSupplierProductQuotesAsync(string supplierId) => throw new NotSupportedException();
-    public Task<ApiResponse> SetSupplyPriceAsync(string supplierId, string productId, decimal supplyPrice, int? shelfLifeHours = null) => throw new NotSupportedException();
-    public Task<ApiResponse<SupplierDto>> SupplierLoginAsync(string loginAccount, string password) => throw new NotSupportedException();
-    public Task<ApiResponse<List<SupplierProductQuoteDto>>> GetAllProductQuotesForSupplierAsync(string supplierId) => throw new NotSupportedException();
-    public Task<ApiResponse<SupplierProductQuoteDto>> GetProductInfoForSupplierAsync(string supplierId, string productId) => throw new NotSupportedException();
-    public Task<ApiResponse> UpdateProductDescriptionAsync(string supplierId, string productId, string? description) => throw new NotSupportedException();
-    public Task<ApiResponse> AddProductImageAsync(string supplierId, string productId, byte[] imageData, string imageType) => throw new NotSupportedException();
-    public Task<ApiResponse<ProductImageContentDto>> GetProductImageContentAsync(string imageId) => throw new NotSupportedException();
-    public Task<ApiResponse<string>> DeleteProductImageAsync(string supplierId, string imageId) => throw new NotSupportedException();
-    public Task<ApiResponse<List<SupplierAccountDto>>> FindSupplierAccountAsync(string? supplierId = null, string? supplierName = null, string? loginAccount = null, string? contactPhone = null) => throw new NotSupportedException();
-    public Task<ApiResponse<bool>> VerifySupplierPasswordAsync(string loginAccount, string password) => throw new NotSupportedException();
-    public Task<ApiResponse<List<SupplierProductEntryDto>>> SearchSupplierProductEntriesAsync(string? keyword) => throw new NotSupportedException();
-    public Task<ApiResponse<List<SupplierDto>>> GetSuppliersByStatusAsync(string status) => throw new NotSupportedException();
-    public Task<ApiResponse> SetSupplierStatusAsync(string supplierId, string targetStatus) => throw new NotSupportedException();
 }
 
 internal sealed class StubColdChainLogisticsService : IColdChainLogisticsService

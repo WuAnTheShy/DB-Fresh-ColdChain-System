@@ -188,6 +188,43 @@ public class ProductInventoryService : IProductInventoryService
             : ApiResponse<int>.Success(st.AvailableQty);
     }
 
+    public async Task<ApiResponse<SupplierGoodsInventoryDto>> GetSupplierGoodsInventoryAsync(
+        string productId,
+        string supplierId)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+            return ApiResponse<SupplierGoodsInventoryDto>.Fail("商品ID不能为空", 400);
+        if (string.IsNullOrWhiteSpace(supplierId))
+            return ApiResponse<SupplierGoodsInventoryDto>.Fail("供应商ID不能为空", 400);
+
+        try
+        {
+            var goods = await _goodsRepo.GetAsync(productId, supplierId);
+            if (goods == null)
+                return ApiResponse<SupplierGoodsInventoryDto>.Fail(
+                    "该供应商未对此商品建立货物，不可销售", 404);
+
+            var availableQty = await _batchRepo.GetActiveTotalByProductAndSupplierAsync(
+                productId,
+                supplierId);
+
+            return ApiResponse<SupplierGoodsInventoryDto>.Success(new SupplierGoodsInventoryDto
+            {
+                ProductID = productId,
+                ProductName = goods.Product?.ProductName ?? productId,
+                SupplierID = supplierId,
+                SupplierName = goods.Supplier?.SupplierName,
+                SalePrice = goods.SalePrice,
+                Status = goods.Status,
+                AvailableQty = availableQty
+            });
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<SupplierGoodsInventoryDto>.Fail($"查询供应商货物库存失败：{ex.Message}");
+        }
+    }
+
     // ========== 分类 ==========
 
     public async Task<ApiResponse<List<CategoryDto>>> GetAllCategoriesAsync()
@@ -355,11 +392,20 @@ public class ProductInventoryService : IProductInventoryService
             if (st == null) { await _uow.RollbackAsync(); return ApiResponse.Fail("库存记录不存在", 404); }
 
             // FEFO 扣减：先查批次实际可用量（双保险：汇总+批次都校验）
+            // 指定供应商时只扣该供应商批次，防止把其它供应商的库存扣走
+            var supplierFiltered = !string.IsNullOrWhiteSpace(dto.SupplierID);
             var remaining = dto.Quantity;
-            var batches = await _batchRepo.GetByProductIdForUpdateAsync(dto.ProductID);
+            var batches = supplierFiltered
+                ? await _batchRepo.GetByProductAndSupplierForUpdateAsync(dto.ProductID, dto.SupplierID!)
+                : await _batchRepo.GetByProductIdForUpdateAsync(dto.ProductID);
             var batchTotal = batches.Sum(b => b.CurrentQty);
             if (batchTotal < dto.Quantity)
             {
+                if (supplierFiltered)
+                {
+                    await _uow.RollbackAsync();
+                    return ApiResponse.Fail($"该供应商实际可用库存不足（批次:{batchTotal}），需要 {dto.Quantity}");
+                }
                 // 汇总数据不准时自动修正：修正必须提交（回滚会撤销修正），故此处提交修正后返回失败
                 st.TotalQty = batchTotal;
                 st.AvailableQty = st.TotalQty - st.LockedQty;

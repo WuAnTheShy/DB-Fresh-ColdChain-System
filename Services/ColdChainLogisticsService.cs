@@ -54,6 +54,20 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
     /// </summary>
     public async Task<ApiResponse<FreightQuoteDto>> QuoteFreightAsync(FreightQuoteRequest request)
     {
+        try
+        {
+            return await QuoteFreightCoreAsync(request);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "冷链运费报价异常 Province={Province} City={City} District={District}",
+                request.Province, request.City, request.District);
+            return ApiResponse<FreightQuoteDto>.Fail($"运费计算异常：{exception.Message}");
+        }
+    }
+
+    private async Task<ApiResponse<FreightQuoteDto>> QuoteFreightCoreAsync(FreightQuoteRequest request)
+    {
         if (request.Items.Count == 0)
             return ApiResponse<FreightQuoteDto>.Fail("至少需要一个商品");
 
@@ -191,8 +205,11 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                     throw new InvalidOperationException($"商品 {item.ProductID} 库存不足（可用 {stock.AvailableQty}，需要 {item.Quantity}）");
 
                 // 3b. FEFO 先进先出：按过期时间从早到晚扣减库存批次（SKIP LOCKED 防并发冲突）
+                //     一张发货单只属于一个供应商，只允许扣该供应商自己的批次，防止明细写 A 家、扣 B 家货
                 var remaining = item.Quantity;
-                var batches = await _batches.GetByProductIdForUpdateAsync(item.ProductID);
+                var batches = await _batches.GetByProductAndSupplierForUpdateAsync(
+                    item.ProductID,
+                    request.SupplierID);
 
                 foreach (var batch in batches)
                 {

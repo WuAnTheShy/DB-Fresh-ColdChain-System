@@ -42,7 +42,7 @@ async function request(path, options = {}) {
     const validationErrors = payload?.errors ?? {}
     const firstValidationMessage = Object.values(validationErrors).flat()[0]
     throw new ApiError(
-      payload?.message ?? payload?.title ?? firstValidationMessage ?? '请求失败，请稍后重试',
+      payload?.message ?? firstValidationMessage ?? payload?.title ?? '请求失败，请稍后重试',
       response.status,
       payload?.traceId,
       validationErrors,
