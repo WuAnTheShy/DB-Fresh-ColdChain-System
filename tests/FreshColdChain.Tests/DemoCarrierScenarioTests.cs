@@ -21,6 +21,7 @@ internal static class DemoCarrierScenarioTests
         var cases = new (string Name, Func<Task> Run)[] {
             ("物流商接口默认关闭、生产禁用及密钥校验", AuthorizationAsync),
             ("物流商列表区分真实订单与已交接运单", SearchIncludesPendingOrdersAsync),
+            ("物流商可将授权真实订单交接为运单", HandoffAsync),
             ("物流商只使用数据库中的订单供应商身份并提交同一事务", () => TransactionAsync("success")),
             ("物流商越权运单拒绝且回滚", () => TransactionAsync("missing")),
             ("物流事件业务失败回滚", () => TransactionAsync("failure"))
@@ -57,15 +58,52 @@ internal static class DemoCarrierScenarioTests
         });
         var service = new GroupADemoCarrierService(new FinancialUnitOfWork(), repository,
             FinancialProxy.Create<IGroupALogisticsExtensionProvider>(),
+            FinancialProxy.Create<ISupplierFulfillmentService>(),
             Options.Create(new DemoCarrierOptions { IncludeAllDatabaseShipments = true }));
 
         var result = await service.SearchAsync("ORD-REAL", CancellationToken.None);
 
         AssertEx.Equal(2, result.Count);
         AssertEx.True(!result[0].HasShipment);
+        AssertEx.True(result[0].CanHandoff);
         AssertEx.Equal("待供应商发货", result[0].StatusName);
         AssertEx.True(result[1].HasShipment);
         AssertEx.Equal("运输中", result[1].StatusName);
+    }
+
+    private static async Task HandoffAsync()
+    {
+        var calls = 0;
+        var fulfillment = FinancialProxy.Create<ISupplierFulfillmentService>((method, args) =>
+        {
+            AssertEx.Equal(nameof(ISupplierFulfillmentService.ShipAsync), method.Name);
+            calls++;
+            AssertEx.Equal("SUP-REAL", (string)args![0]!);
+            AssertEx.Equal("ORDER-REAL", (string)args[1]!);
+            var command = (SupplierShipmentCommand)args[2]!;
+            AssertEx.Equal("SUP-REAL", command.SupplierId);
+            AssertEx.Equal("FRESH_SIM", command.CarrierCode!);
+            AssertEx.Equal("鲜链模拟承运", command.CarrierName!);
+            AssertEx.Equal("CHILLED", command.PackageTemperature);
+            return Task.FromResult(new SupplierLogisticsSnapshot
+            {
+                DeliveryId = "DEL-REAL", OrderId = "ORDER-REAL", SupplierId = "SUP-REAL",
+                TrackingNo = "CC-REAL", StatusCode = LogisticsStatusCodes.Shipped
+            });
+        });
+        var service = new GroupADemoCarrierService(new FinancialUnitOfWork(),
+            FinancialProxy.Create<IGroupACarrierRepository>(),
+            FinancialProxy.Create<IGroupALogisticsExtensionProvider>(), fulfillment,
+            Options.Create(new DemoCarrierOptions { SupplierIds = ["SUP-REAL"] }));
+
+        var shipment = await service.HandoffAsync(new()
+            { OrderId = "ORDER-REAL", SupplierId = "SUP-REAL" }, CancellationToken.None);
+        var denied = await service.HandoffAsync(new()
+            { OrderId = "ORDER-REAL", SupplierId = "SUP-OTHER" }, CancellationToken.None);
+
+        AssertEx.Equal("DEL-REAL", shipment!.DeliveryId!);
+        AssertEx.True(denied == null);
+        AssertEx.Equal(1, calls);
     }
 
     private static async Task AuthorizationAsync()
@@ -111,6 +149,7 @@ internal static class DemoCarrierScenarioTests
             return Task.FromResult(new SupplierLogisticsSnapshot());
         });
         var service = new GroupADemoCarrierService(uow, repository, logistics,
+            FinancialProxy.Create<ISupplierFulfillmentService>(),
             Options.Create(new DemoCarrierOptions { IncludeAllDatabaseShipments = true }));
         var failed = false;
         try { var result = await service.AppendAsync("DEL-DEMO", new(), CancellationToken.None); AssertEx.True((result == null) == (scenario == "missing")); }

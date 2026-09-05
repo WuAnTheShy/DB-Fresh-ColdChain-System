@@ -12,6 +12,13 @@ public sealed class ShipmentSummary
     public string OrderStatusName { get; set; } = "";
     public string StatusName { get; set; } = "";
     public bool HasShipment { get; set; }
+    public bool CanHandoff { get; set; }
+}
+public sealed class HandoffInput
+{
+    [Required] public string OrderId { get; set; } = "";
+    [Required] public string SupplierId { get; set; } = "";
+    public string? Keyword { get; set; }
 }
 public sealed class ShipmentDetail
 {

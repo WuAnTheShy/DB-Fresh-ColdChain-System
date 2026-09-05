@@ -25,6 +25,10 @@ public sealed class DemoCarrierApiController(GroupADemoCarrierService carrier, I
     public Task<IActionResult> Get(string deliveryId, CancellationToken token) => ExecuteAsync(async () =>
         await carrier.GetAsync(deliveryId, token) is { } result ? Ok(result) : NotFound(new { message = "运单不存在或不在演示授权范围" }));
 
+    [HttpPost("handoffs")]
+    public Task<IActionResult> Handoff(CarrierHandoffCommand command, CancellationToken token) => ExecuteAsync(async () =>
+        await carrier.HandoffAsync(command, token) is { } result ? Ok(result) : NotFound(new { message = "订单不存在或不在演示授权范围" }));
+
     [HttpPost("{deliveryId}/events")]
     public Task<IActionResult> Append(string deliveryId, CarrierEventCommand command, CancellationToken token) => ExecuteAsync(async () =>
         await carrier.AppendAsync(deliveryId, command, token) is { } result ? Ok(result) : NotFound(new { message = "运单不存在或不在演示授权范围" }));

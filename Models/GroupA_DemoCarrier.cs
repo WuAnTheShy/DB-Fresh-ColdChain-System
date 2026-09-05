@@ -10,6 +10,16 @@ public sealed class DemoCarrierOptions
     public string ApiKey { get; set; } = "";
     public bool IncludeAllDatabaseShipments { get; set; }
     public string[] SupplierIds { get; set; } = [];
+    public string CarrierCode { get; set; } = "FRESH_SIM";
+    public string CarrierName { get; set; } = "鲜链模拟承运";
+    public string PackageTemperature { get; set; } = "CHILLED";
+    public int EstimatedTransitHours { get; set; } = 48;
+}
+
+public sealed class CarrierHandoffCommand
+{
+    [Required, StringLength(36)] public string OrderId { get; set; } = "";
+    [Required, StringLength(36)] public string SupplierId { get; set; } = "";
 }
 
 public sealed class CarrierEventCommand
@@ -44,6 +54,7 @@ public sealed class CarrierShipmentSummary
         _ => OrderStatusCode
     };
     public bool HasShipment => !string.IsNullOrWhiteSpace(DeliveryId);
+    public bool CanHandoff => !HasShipment && OrderStatusCode == OrderStatusCodes.Paid;
     public string StatusName => HasShipment
         ? LogisticsStatusCodes.GetName(StatusCode)
         : OrderStatusCode == OrderStatusCodes.Paid ? "待供应商发货" : "历史运单缺失";

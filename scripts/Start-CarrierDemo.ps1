@@ -42,6 +42,10 @@ try {
         GroupA__DemoCarrier__Enabled = 'true'
         GroupA__DemoCarrier__ApiKey = $demoKey
         GroupA__DemoCarrier__IncludeAllDatabaseShipments = 'true'
+        GroupA__DemoCarrier__CarrierCode = 'FRESH_SIM'
+        GroupA__DemoCarrier__CarrierName = '鲜链模拟承运'
+        GroupA__DemoCarrier__PackageTemperature = 'CHILLED'
+        GroupA__DemoCarrier__EstimatedTransitHours = '48'
     }
     $carrier = Start-DemoService "$repoPath/CarrierSimulator/bin/Release/net10.0/CarrierSimulator.dll" "$repoPath/CarrierSimulator" @{
         ASPNETCORE_URLS = "http://localhost:$CarrierPort"
