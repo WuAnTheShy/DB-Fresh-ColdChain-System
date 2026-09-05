@@ -48,7 +48,7 @@ function fallbackAvatar(name) {
 }
 
 function normalizeLeader(promoter) {
-  const name = String(promoter.promoterName ?? '').trim() || '未命名团长'
+  const name = String(promoter.promoterName ?? '').trim() || '未命名'
   return {
     id: String(promoter.promoterId ?? '').trim(),
     name,

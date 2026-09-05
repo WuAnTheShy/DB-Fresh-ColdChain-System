@@ -72,7 +72,7 @@ onMounted(loadOrder)
             <div class="consumer-section-title">
               <BadgeCheck :size="21" />
               <div>
-                <h2>{{ detail.promoterName ? `${detail.promoterName}团长带货` : '认证团长带货商品' }}</h2>
+                <h2>{{ detail.promoterName ? `${detail.promoterName}带货商品` : '认证团长带货商品' }}</h2>
               </div>
             </div>
             <article v-for="item in detail.details" :key="item.orderDetailId" class="order-product-row">
@@ -80,7 +80,7 @@ onMounted(loadOrder)
                 :class="{ 'fallback-photo-tint': productImage(item.productId) === '/images/homepic.png' }"
                 @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = '/images/homepic.png'" />
               <div><strong>{{ item.productName }}</strong><small v-if="fallbackLeader(item.productId)">
-                  <BadgeCheck :size="13" />{{ fallbackLeader(item.productId).name }}团长带货
+                  <BadgeCheck :size="13" />{{ fallbackLeader(item.productId).name }}带货
                 </small><small v-if="item.receiptStatus === 'RECEIVED'" class="receipt-done">
                   <CheckCircle2 :size="13" />已确认收货 · {{ date(item.receivedAt) }}
                 </small><button v-else-if="item.canConfirmReceipt" class="btn btn-sm btn-buy receipt-button"

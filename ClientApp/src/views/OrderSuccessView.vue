@@ -18,7 +18,7 @@ const { lastOrder } = useShop()
       <div><span>实付金额</span><strong>¥{{ Number(lastOrder?.finalAmount ?? 0).toFixed(2) }}</strong></div>
       <div><span>团长子订单</span><strong>{{ lastOrder?.orders?.length ?? 1 }} 个</strong></div>
     </div>
-    <div v-if="lastOrder?.leaderGroups?.length" class="success-leaders"><Store :size="18" /><span>带货团长：{{ lastOrder.leaderGroups.map((item) => `${item.leaderName}团长`).join('、') }}</span></div>
+    <div v-if="lastOrder?.leaderGroups?.length" class="success-leaders"><Store :size="18" /><span>带货团长：{{ lastOrder.leaderGroups.map((item) => item.leaderName).join('、') }}</span></div>
     <div class="success-actions"><RouterLink v-if="lastOrder?.checkoutBatchId" class="btn btn-buy" :to="`/payment/${lastOrder.checkoutBatchId}`"><CreditCard :size="17" />立即支付</RouterLink><RouterLink class="btn btn-outline-secondary" :to="`/orders/${id}`"><PackageSearch :size="17" />查看订单</RouterLink><RouterLink class="btn btn-outline-secondary" to="/">继续逛逛</RouterLink></div>
   </div>
 </template>

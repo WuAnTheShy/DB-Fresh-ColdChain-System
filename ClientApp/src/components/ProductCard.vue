@@ -52,8 +52,8 @@ function handleImageError(event, index) {
 <template>
   <article class="product-card social-product-card">
     <RouterLink v-if="activeLeader" class="product-card-leader" :to="`/leaders/${activeLeader.id}`"
-      :aria-label="`查看${activeLeader.name}团长详情`">
-      <img :src="activeLeader.avatar" :alt="`${activeLeader.name}团长头像`" />
+      :aria-label="`查看${activeLeader.name}详情`">
+      <img :src="activeLeader.avatar" :alt="`${activeLeader.name}头像`" />
       <span><strong>{{ activeLeader.name }}</strong></span>
     </RouterLink>
 

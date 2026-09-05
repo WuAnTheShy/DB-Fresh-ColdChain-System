@@ -119,7 +119,7 @@ const categoryVisualScale = {
       <div v-else-if="leaders.length" class="leader-grid" data-testid="leader-list">
         <RouterLink v-for="leader in leaders" :key="leader.id" class="leader-card" :to="`/leaders/${leader.id}`"
           :data-leader-id="leader.id">
-          <img :src="leader.avatar" :alt="`${leader.name}团长头像`" />
+          <img :src="leader.avatar" :alt="`${leader.name}头像`" />
           <span><strong>{{ leader.name }}</strong><small>
               <BadgeCheck :size="14" />平台认证团长
             </small></span>

@@ -70,7 +70,7 @@ onMounted(loadOrders)
         </header>
         <div class="order-card-body">
           <div class="order-leader-identity"><span class="leader-order-avatar">团</span>
-            <div><strong>{{ order.promoterName ? `${order.promoterName}团长` : '社区认证团长' }}</strong><small>
+            <div><strong>{{ order.promoterName || '社区认证团长' }}</strong><small>
                 <BadgeCheck :size="13" />团长带货订单
               </small></div>
           </div>

@@ -107,8 +107,8 @@ function buyNow() {
         <h1>{{ product.name }}</h1>
         <p class="detail-summary">{{ product.summary }}</p>
         <div class="detail-leader-panel">
-          <img :src="leader.avatar" :alt="`${leader.name}团长头像`" />
-          <div><span><strong>{{ leader.name }}团长</strong>
+          <img :src="leader.avatar" :alt="`${leader.name}头像`" />
+          <div><span><strong>{{ leader.name }}</strong>
               <BadgeCheck :size="16" />
             </span><small>{{ leader.title }} · {{ leader.area }}</small></div>
           <RouterLink :to="`/leaders/${leader.id}`">查看详情
@@ -189,7 +189,7 @@ function buyNow() {
     <section v-if="introVisible && productIntroRoute" class="promoter-intro-entry">
       <div class="promoter-intro-entry-icon"><PenLine :size="20" /></div>
       <div class="promoter-intro-entry-copy">
-        <strong>{{ leader.name }}团长 · 推荐语</strong>
+        <strong>{{ leader.name }} · 推荐语</strong>
         <span>团长为这款商品撰写了图文推文，去听听他的推荐理由</span>
       </div>
       <RouterLink :to="productIntroRoute" class="promoter-intro-entry-link">查看团长推文<ChevronRight :size="15" /></RouterLink>
