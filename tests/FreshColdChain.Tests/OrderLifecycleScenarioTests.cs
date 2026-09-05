@@ -12,6 +12,7 @@ internal static class OrderLifecycleScenarioTests
         {
             ("订单列表按状态和关键词分页查询", OrderListFiltersAndPagesAsync),
             ("订单详情按供应商形成拆单展示", OrderDetailGroupsBySupplierAsync),
+            ("消费者订单展示状态跟随物流变化", OrderDisplayStatusTracksLogisticsAsync),
             ("下单使用运费契约并保存地址快照", CreateOrderUsesFreightAndAddressSnapshotAsync),
             ("已支付订单发货时同步创建物流", PaidOrderShipsAsync),
             ("已发货订单完成时触发佣金登记", ShippedOrderCompletesAsync),
@@ -96,6 +97,34 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.True(!result.CanComplete);
     }
 
+    private static async Task OrderDisplayStatusTracksLogisticsAsync()
+    {
+        var context = TestContext.Create();
+        SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-LOGISTICS-001");
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP1"] = LogisticsStatusCodes.InTransit;
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP2"] = LogisticsStatusCodes.InTransit;
+
+        var list = await context.Service.GetOrdersAsync(new OrderQueryRequest());
+        var detail = await context.Service.GetOrderDetailAsync(TestIds.Order);
+
+        AssertEx.Equal(LogisticsStatusCodes.InTransit, list.Orders.Single().DisplayStatusCode);
+        AssertEx.Equal("运输中", list.Orders.Single().StatusName);
+        AssertEx.Equal(LogisticsStatusCodes.InTransit, detail!.DisplayStatusCode);
+        AssertEx.Equal("运输中", detail.StatusName);
+
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP1"] = LogisticsStatusCodes.Delivered;
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP2"] = LogisticsStatusCodes.Delivered;
+
+        list = await context.Service.GetOrdersAsync(new OrderQueryRequest());
+        detail = await context.Service.GetOrderDetailAsync(TestIds.Order);
+
+        AssertEx.Equal(LogisticsStatusCodes.Delivered, list.Orders.Single().DisplayStatusCode);
+        AssertEx.Equal("已签收", list.Orders.Single().StatusName);
+        AssertEx.Equal(LogisticsStatusCodes.Delivered, detail!.DisplayStatusCode);
+        AssertEx.Equal("已签收", detail.StatusName);
+        AssertEx.Equal(OrderStatusCodes.Shipped, detail.Order!.OrderStatus);
+    }
+
     private static async Task CreateOrderUsesFreightAndAddressSnapshotAsync()
     {
         var context = TestContext.Create();
@@ -105,7 +134,7 @@ internal static class OrderLifecycleScenarioTests
         {
             CustomerId = TestIds.Customer,
             AddressId = TestIds.Address1,
-            Items = [new() { ProductId = "P1", Quantity = 2 }]
+            Items = [new() { ProductId = "P1", SupplierId = "SUP1", Quantity = 2 }]
         });
 
         var order = context.OrderRepository.Orders.Single();

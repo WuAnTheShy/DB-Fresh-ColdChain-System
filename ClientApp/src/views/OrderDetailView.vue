@@ -58,7 +58,7 @@ onMounted(loadOrder)
             <p>下单时间 {{ date(detail.order.createdAt) }}</p>
           </span>
         </div>
-        <StatusBadge :status="detail.order.orderStatus" />
+        <StatusBadge :status="detail.displayStatusCode || detail.order.orderStatus" :label="detail.statusName" />
       </section>
       <section class="order-timeline">
         <div v-for="(step, index) in timeline" :key="step.label" :class="{ done: step.done }"><span>
