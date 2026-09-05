@@ -82,6 +82,7 @@ public sealed class GroupCPromoterCatalogService(
             {
                 ProductId = entry.ProductID,
                 SupplierId = entry.SupplierID,
+                SupplierName = entry.SupplierName,
                 SalePrice = entry.Price,
                 PublishedAt = entry.PublishedAt,
                 Description = description,

@@ -1,4 +1,4 @@
-param([int]$ShopPort = 5064, [int]$CarrierPort = 5077)
+param([int]$ShopPort = 5064, [int]$CarrierPort = 5077, [switch]$Seed)
 $ErrorActionPreference = 'Stop'
 $repoPath = Split-Path $PSScriptRoot -Parent
 Set-Location -LiteralPath $repoPath
@@ -10,6 +10,10 @@ dotnet build FreshColdChain.csproj -c Release --nologo
 if ($LASTEXITCODE -ne 0) { throw '商城编译失败' }
 dotnet build CarrierSimulator/CarrierSimulator.csproj -c Release --nologo
 if ($LASTEXITCODE -ne 0) { throw '模拟器编译失败' }
+if ($Seed) {
+    dotnet run --project tests/CarrierDemoFixture -c Release -- --seed
+    if ($LASTEXITCODE -ne 0) { throw '演示数据创建失败，未启动服务' }
+}
 $demoKey = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
 $logPath = Join-Path $repoPath 'tmp/carrier-demo'
 $null = New-Item -ItemType Directory -Path $logPath -Force
@@ -41,11 +45,7 @@ try {
         GroupA__Logistics__Provider = 'Oracle'
         GroupA__DemoCarrier__Enabled = 'true'
         GroupA__DemoCarrier__ApiKey = $demoKey
-        GroupA__DemoCarrier__IncludeAllDatabaseShipments = 'true'
-        GroupA__DemoCarrier__CarrierCode = 'FRESH_SIM'
-        GroupA__DemoCarrier__CarrierName = '鲜链模拟承运'
-        GroupA__DemoCarrier__PackageTemperature = 'CHILLED'
-        GroupA__DemoCarrier__EstimatedTransitHours = '48'
+        GroupA__DemoCarrier__SupplierIds__0 = 'SUP-CARRIER-DEMO'
     }
     $carrier = Start-DemoService "$repoPath/CarrierSimulator/bin/Release/net10.0/CarrierSimulator.dll" "$repoPath/CarrierSimulator" @{
         ASPNETCORE_URLS = "http://localhost:$CarrierPort"

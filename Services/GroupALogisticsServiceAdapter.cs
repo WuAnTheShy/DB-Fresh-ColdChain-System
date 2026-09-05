@@ -75,8 +75,8 @@ public sealed class GroupALogisticsServiceAdapter(
                     ProductName = quoted?.ProductName ?? item.ProductName,
                     SupplierId = item.SupplierId,
                     Quantity = item.Quantity,
-                    UnitPrice = item.UnitPrice,
-                    SubTotal = item.SubTotal
+                    UnitPrice = quoted?.UnitPrice ?? item.UnitPrice,
+                    SubTotal = quoted != null ? quoted.UnitPrice * item.Quantity : item.SubTotal
                 };
             }).ToList()
         };

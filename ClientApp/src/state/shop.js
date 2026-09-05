@@ -102,9 +102,13 @@ function normalizeProduct(item) {
   const storage = storageLabel(item.storageRequirement)
   const storageType = storageTypeOf(item.storageRequirement)
   const productName = String(item.productName ?? '').trim() || '未命名商品'
+  const supplierId = String(item.supplierId ?? '').trim()
+  const supplierName = String(item.supplierName ?? '').trim()
   return {
     id: String(item.catalogItemId ?? '').trim(),
     productId: String(item.productId ?? '').trim(),
+    supplierId,
+    supplierName,
     name: productName,
     shortName: productName,
     category: categoryName,
@@ -301,11 +305,25 @@ async function setLeaderFollowed(customerId, leaderId, shouldFollow) {
   return shouldFollow
 }
 
+// 同一团长对同一商品只保留一个供应商货源：加入其它供应商的同商品条目时，
+// 先移除旧条目，避免结算时同商品多供应商被服务端合并/价格冲突。
+function replaceSameProductSource(cart, product) {
+  for (let index = cart.length - 1; index >= 0; index--) {
+    const entry = cart[index]
+    if (entry.productId === product.id) continue
+    const existingProduct = products.find((candidate) => candidate.id === entry.productId)
+    if (entry.leaderId === product.leaderId && existingProduct?.productId === product.productId) {
+      cart.splice(index, 1)
+    }
+  }
+}
+
 function addToCart(catalogItemId, quantity = 1) {
   const product = productById(catalogItemId)
   const leader = leaderById(product?.leaderId)
   if (!product || !leader || product.isFallback) return false
 
+  replaceSameProductSource(cart, product)
   const existing = cart.find((item) => item.productId === product.id)
   if (existing) {
     existing.quantity = Math.min(product.stock, existing.quantity + Number(quantity || 1))
@@ -330,6 +348,7 @@ function buyNowProduct(catalogItemId, quantity = 1) {
   const leader = leaderById(product?.leaderId)
   if (!product || !leader || product.isFallback) return false
 
+  replaceSameProductSource(cart, product)
   const existing = cart.find((item) => item.productId === product.id)
   const targetQuantity = Math.min(product.stock, Math.max(1, Number(quantity || 1)))
   if (existing) {

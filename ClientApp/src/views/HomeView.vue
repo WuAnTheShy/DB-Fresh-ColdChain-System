@@ -1,21 +1,12 @@
 <script setup>
 import { BadgeCheck, Clock3, RefreshCw, ShieldCheck, Snowflake, Truck, UsersRound } from '@lucide/vue'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import ProductCard from '../components/ProductCard.vue'
 import { useShop } from '../state/shop'
 
 const { categories, products, catalogLoading, catalogError, catalogUsingFallback, leaders, leadersLoading, leadersError, loadCatalog, loadLeaders } = useShop()
 const promoProducts = computed(() => products.slice(0, 3))
 const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
-const selectedCategory = ref('')
-const categoryVisualScale = {
-  时令水果: { scale: 0.88 },
-  蔬菜豆品: { scale: 0.86 },
-  肉禽蛋品: { scale: 0.9 },
-  海鲜水产: { scale: 0.98 },
-  乳品烘焙: { scale: 1.13, shiftX: '-2.7%' },
-  其他: { scale: 1.15 },
-}
 </script>
 
 <template>
@@ -69,11 +60,7 @@ const categoryVisualScale = {
         </button></div>
       <div class="category-grid">
         <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`"
-          class="category-tile" :class="{ 'category-tile-selected': selectedCategory === category.slug }"
-          :style="{
-            '--category-scale': categoryVisualScale[category.slug]?.scale ?? 1,
-            '--category-shift-x': categoryVisualScale[category.slug]?.shiftX ?? '0%',
-          }" @pointerdown="selectedCategory = category.slug">
+          class="category-tile">
           <img :src="category.image" :alt="category.name" />
           <span><strong>{{ category.name }}</strong></span>
         </RouterLink>
@@ -381,11 +368,10 @@ const categoryVisualScale = {
   display: flex;
   height: auto;
   flex-direction: column;
-  border: 2px solid transparent;
+  border: 0;
   border-radius: 10px;
   background: #fff;
   color: var(--ink);
-  transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
 }
 
 .category-tile img {
@@ -394,25 +380,6 @@ const categoryVisualScale = {
   border-radius: 10px;
   object-fit: cover;
   opacity: 1;
-  transform: translateX(var(--category-shift-x, 0%)) scale(var(--category-scale, 1));
-  transform-origin: center;
-}
-
-.category-tile:hover img {
-  transform: translateX(var(--category-shift-x, 0%)) scale(var(--category-scale, 1));
-}
-
-.category-tile:hover {
-  background: #fff8ed;
-}
-
-.category-tile-selected,
-.category-tile:active,
-.category-tile:focus-visible {
-  border-color: #ff9900;
-  outline: 0;
-  background: #fff0d9;
-  box-shadow: 0 0 0 3px rgba(255, 153, 0, .22);
 }
 
 .category-tile>span {

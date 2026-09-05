@@ -25,10 +25,6 @@ public sealed class DemoCarrierApiController(GroupADemoCarrierService carrier, I
     public Task<IActionResult> Get(string deliveryId, CancellationToken token) => ExecuteAsync(async () =>
         await carrier.GetAsync(deliveryId, token) is { } result ? Ok(result) : NotFound(new { message = "运单不存在或不在演示授权范围" }));
 
-    [HttpPost("handoffs")]
-    public Task<IActionResult> Handoff(CarrierHandoffCommand command, CancellationToken token) => ExecuteAsync(async () =>
-        await carrier.HandoffAsync(command, token) is { } result ? Ok(result) : NotFound(new { message = "订单不存在或不在演示授权范围" }));
-
     [HttpPost("{deliveryId}/events")]
     public Task<IActionResult> Append(string deliveryId, CarrierEventCommand command, CancellationToken token) => ExecuteAsync(async () =>
         await carrier.AppendAsync(deliveryId, command, token) is { } result ? Ok(result) : NotFound(new { message = "运单不存在或不在演示授权范围" }));
@@ -54,7 +50,7 @@ public sealed class DemoCarrierAuthorizationFilter(IOptions<DemoCarrierOptions> 
         var settings = options.Value;
         if (!environment.IsDevelopment() || !settings.Enabled || logisticsOptions.Value.Provider != "Oracle")
             context.Result = new NotFoundResult();
-        else if (settings.ApiKey.Length < 32 || (!settings.IncludeAllDatabaseShipments && settings.SupplierIds.Length == 0) ||
+        else if (settings.ApiKey.Length < 32 || settings.SupplierIds.Length == 0 ||
             !context.HttpContext.Request.Headers.TryGetValue("X-Carrier-Key", out var header) || header.Count != 1 ||
             header.ToString().Length > 256 || !CryptographicOperations.FixedTimeEquals(
                 SHA256.HashData(Encoding.UTF8.GetBytes(header.ToString())), SHA256.HashData(Encoding.UTF8.GetBytes(settings.ApiKey))))

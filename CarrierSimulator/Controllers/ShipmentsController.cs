@@ -32,34 +32,13 @@ public sealed class ShipmentsController(CarrierClient client, IOptions<CarrierCl
         return View("Index", page);
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Handoff(HandoffInput input, CancellationToken token)
-    {
-        if (!ModelState.IsValid)
-        {
-            TempData["Error"] = "接单参数不完整，请刷新后重试";
-            return RedirectToAction(nameof(Index), new { keyword = input.Keyword });
-        }
-        try
-        {
-            var shipment = await client.HandoffAsync(input, token);
-            TempData["Success"] = $"已生成真实运单：{shipment.TrackingNo ?? shipment.DeliveryId}";
-            return RedirectToAction(nameof(Index), new { id = shipment.DeliveryId, keyword = input.Keyword });
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException || !token.IsCancellationRequested)
-        {
-            TempData["Error"] = Message(exception);
-            return RedirectToAction(nameof(Index), new { keyword = input.Keyword });
-        }
-    }
-
     private async Task<ShipmentsPage> LoadAsync(string? id, string? keyword, CancellationToken token)
     {
         var page = new ShipmentsPage { Keyword = keyword, ShopUrl = options.Value.BaseUrl.TrimEnd('/') + "/app/" };
         try
         {
             page.Shipments = await client.SearchAsync(keyword, token);
-            id ??= page.Shipments.FirstOrDefault(item => item.HasShipment)?.DeliveryId;
+            id ??= page.Shipments.FirstOrDefault()?.DeliveryId;
             if (id != null)
             {
                 page.Selected = await client.GetAsync(id, token);

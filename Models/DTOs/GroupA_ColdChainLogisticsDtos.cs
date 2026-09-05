@@ -4,7 +4,7 @@ namespace FreshColdChain.Models.DTOs;
 public class FreightItemDto
 {
     public string ProductID { get; set; } = string.Empty;
-    /// <summary>订单侧已校验的供应商快照；物品可由多个供应商供货，因此报价时必须传入。</summary>
+    /// <summary>订单侧已校验的供应商快照；旧调用未传时取商品当前供应商。</summary>
     public string? SupplierID { get; set; }
     public int Quantity { get; set; }
 }

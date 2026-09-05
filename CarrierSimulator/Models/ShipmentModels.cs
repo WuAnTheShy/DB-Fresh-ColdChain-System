@@ -4,21 +4,11 @@ namespace CarrierSimulator.Models;
 
 public sealed class ShipmentSummary
 {
-    public string? DeliveryId { get; set; }
+    public string DeliveryId { get; set; } = "";
     public string OrderId { get; set; } = "";
-    public string OrderNo { get; set; } = "";
     public string SupplierId { get; set; } = "";
     public string? TrackingNo { get; set; }
-    public string OrderStatusName { get; set; } = "";
     public string StatusName { get; set; } = "";
-    public bool HasShipment { get; set; }
-    public bool CanHandoff { get; set; }
-}
-public sealed class HandoffInput
-{
-    [Required] public string OrderId { get; set; } = "";
-    [Required] public string SupplierId { get; set; } = "";
-    public string? Keyword { get; set; }
 }
 public sealed class ShipmentDetail
 {
@@ -62,8 +52,6 @@ public sealed class ShipmentsPage
     public EventInput Input { get; set; } = new();
     public string? Error { get; set; }
     public string ShopUrl { get; set; } = "";
-    public int ShipmentCount => Shipments.Count(item => item.HasShipment);
-    public int WaitingCount => Shipments.Count - ShipmentCount;
     public static readonly Dictionary<string, string> StatusNames = new()
     {
         ["SHIPPED"] = "已发货", ["IN_TRANSIT"] = "运输中", ["OUT_FOR_DELIVERY"] = "派送中",
