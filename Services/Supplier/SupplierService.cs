@@ -407,38 +407,6 @@ public class SupplierService : ISupplierService
     private static string HashPassword(string password)
         => Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(password)));
 
-    public async Task<ApiResponse<SupplierDto>> SupplierLoginAsync(string loginAccount, string password)
-    {
-        if (string.IsNullOrWhiteSpace(loginAccount) || string.IsNullOrWhiteSpace(password))
-            return ApiResponse<SupplierDto>.Fail("请输入账号和密码");
-
-        try
-        {
-            var allSuppliers = await _repo.GetAllAsync();
-            var supplier = allSuppliers.FirstOrDefault(s => s.LoginAccount == loginAccount);
-            if (supplier == null)
-                return ApiResponse<SupplierDto>.Fail("账号不存在", 404);
-
-            var inputHash = HashPassword(password);
-            if (!string.Equals(supplier.LoginPassword, inputHash, StringComparison.OrdinalIgnoreCase))
-                return ApiResponse<SupplierDto>.Fail("密码错误");
-
-            // 状态拦截：待审核/已禁用/被驳回的供应商不允许登录
-            if (supplier.Status == "Pending")
-                return ApiResponse<SupplierDto>.Fail("入驻申请正在审核中，请耐心等待");
-            if (supplier.Status == "Rejected")
-                return ApiResponse<SupplierDto>.Fail("入驻申请已被驳回，请联系平台管理员");
-            if (supplier.Status != "Active")
-                return ApiResponse<SupplierDto>.Fail("账号已被禁用，请联系平台管理员");
-
-            return ApiResponse<SupplierDto>.Success(MapToDto(supplier), "登录成功");
-        }
-        catch (Exception ex)
-        {
-            return ApiResponse<SupplierDto>.Fail($"登录失败：{ex.Message}");
-        }
-    }
-
     // ========== 跨组接口（供 C 组调用）==========
 
     public async Task<ApiResponse<List<SupplierAccountDto>>> FindSupplierAccountAsync(

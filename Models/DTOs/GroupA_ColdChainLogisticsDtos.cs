@@ -13,6 +13,8 @@ public class FreightQuoteRequest
     public string Province { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
     public string District { get; set; } = string.Empty;
+    /// <summary>供应商 ID（货物级售价归属；普通供应商固定为自己，管理员可指定）</summary>
+    public string? SupplierID { get; set; }
     public decimal GoodsAmount { get; set; }
     public List<FreightItemDto> Items { get; set; } = new();
 }

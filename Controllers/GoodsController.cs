@@ -39,7 +39,7 @@ public class GoodsController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _goodsService.GetSupplierGoodsAsync(supplierId);
         return View(r.Data ?? new List<GoodsDto>());
@@ -51,7 +51,7 @@ public class GoodsController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var products = await _productService.GetProductsAsync(1, 1000);
         ViewBag.Products = products.Data?.Items ?? new List<ProductDto>();
@@ -64,7 +64,7 @@ public class GoodsController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _goodsService.AddGoodsAsync(supplierId, dto);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
@@ -78,7 +78,7 @@ public class GoodsController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _goodsService.UpdateGoodsAsync(supplierId, productId, dto);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
@@ -92,7 +92,7 @@ public class GoodsController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _goodsService.SetGoodsStatusAsync(supplierId, productId, status);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
@@ -106,7 +106,7 @@ public class GoodsController : Controller
     {
         var supplierId = SupplierSession.GetSupplierId(HttpContext.Session);
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         // 校验该货物属于当前供应商
         var goods = await _goodsRepo.GetAsync(productId, supplierId);
@@ -130,7 +130,7 @@ public class GoodsController : Controller
     {
         var supplierId = SupplierSession.GetSupplierId(HttpContext.Session);
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _productService.StockInAsync(
             new UpdateInventoryDto { ProductID = productId, Quantity = quantity },

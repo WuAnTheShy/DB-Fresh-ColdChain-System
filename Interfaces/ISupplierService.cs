@@ -21,9 +21,6 @@ public interface ISupplierService
     /// <summary>设置/更新某供应商对某产品的供货价（含供应商声明的保质期，小时）</summary>
     Task<ApiResponse> SetSupplyPriceAsync(string supplierId, string productId, decimal supplyPrice, int? shelfLifeHours = null);
 
-    /// <summary>供应商登录：账号密码校验，成功返回供应商信息</summary>
-    Task<ApiResponse<SupplierDto>> SupplierLoginAsync(string loginAccount, string password);
-
     /// <summary>供应商门户：全部上架产品的报价面板（含自己的当前报价，未报价为 null）</summary>
     Task<ApiResponse<List<SupplierProductQuoteDto>>> GetAllProductQuotesForSupplierAsync(string supplierId);
 

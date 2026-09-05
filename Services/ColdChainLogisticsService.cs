@@ -19,6 +19,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
     private readonly ILogFreightTemplateRepository _templates;
     private readonly ILogExpressDeliveryRepository _deliveries;
     private readonly ILogFulfillmentBatchItemRepository _allocations;
+    private readonly IGoodsRepository _goodsRepo;
     // 工作单元：一次请求共享同一连接和事务
     private readonly IUnitOfWork _uow;
     private readonly ILogger<ColdChainLogisticsService> _logger;
@@ -30,6 +31,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         ILogFreightTemplateRepository templates,
         ILogExpressDeliveryRepository deliveries,
         ILogFulfillmentBatchItemRepository allocations,
+        IGoodsRepository goodsRepo,
         IUnitOfWork uow,
         ILogger<ColdChainLogisticsService> logger)
     {
@@ -39,6 +41,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         _templates = templates;
         _deliveries = deliveries;
         _allocations = allocations;
+        _goodsRepo = goodsRepo;
         _uow = uow;
         _logger = logger;
     }
@@ -58,32 +61,43 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
 
         // 只加载启用的运费模板，在内存中按地区优先级匹配
         var rules = await _templates.GetEnabledAsync();
-        decimal total = 0;
-        var quoteItems = new List<FreightQuoteItemDto>();
 
+        // 先加载商品 + 货物售价，算出总货值（免运费阈值用）
+        var supplierId = request.SupplierID ?? "";
+        var loaded = new List<(FreightItemDto Item, InvProduct Product, decimal UnitPrice)>();
+        decimal goodsAmount = 0;
         foreach (var item in request.Items)
         {
-            // 1. 校验商品信息 + 计费重量
             var product = await _products.GetByIdAsync(item.ProductID);
             if (product == null || item.Quantity <= 0 || product.WeightKG is not > 0)
                 return ApiResponse<FreightQuoteDto>.Fail("商品、数量或计费重量无效");
 
+            var goods = await _goodsRepo.GetAsync(item.ProductID, supplierId);
+            var unitPrice = goods?.SalePrice ?? 0m;
+            goodsAmount += unitPrice * item.Quantity;
+            loaded.Add((item, product, unitPrice));
+        }
+
+        decimal total = 0;
+        var quoteItems = new List<FreightQuoteItemDto>();
+
+        foreach (var (item, product, unitPrice) in loaded)
+        {
             // 记录商品明细（无论是否免运费都展示）
             quoteItems.Add(new FreightQuoteItemDto
             {
                 ProductID = product.ProductID,
                 ProductName = product.ProductName,
                 Quantity = item.Quantity,
-                UnitPrice = 0m // 物品不再有单一售价（售价为货物级），展示价由下单侧传入
+                UnitPrice = unitPrice
             });
 
-            // 2. 确定温区：默认 CHILLED（冷藏），读取商品 StorageReq 字段
+            // 确定温区：默认 CHILLED（冷藏），读取商品 StorageReq 字段
             var zone = string.IsNullOrWhiteSpace(product.StorageReq)
                 ? "CHILLED"
                 : product.StorageReq.ToUpperInvariant();
 
-            // 3. 按地区优先级匹配运费规则（省 > 市 > 区 > 通配 *）
-            //    * / 空 / NULL 都视为通配，匹配所有温区
+            // 按地区优先级匹配运费规则（省 > 市 > 区 > 通配 *）
             var matchedRule = rules
                 .Where(r => r.IsEnabled == 1
                     && (IsWildcard(r.TemperatureZone) || r.TemperatureZone == zone)
@@ -99,12 +113,12 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
             if (matchedRule == null)
                 return ApiResponse<FreightQuoteDto>.Fail($"缺少 {zone} 温层运费规则");
 
-            // 4. 免运费阈值：货值达标则本商品不参与计费
+            // 免运费阈值：总货值达标则本商品不参与计费
             if (matchedRule.FreeShippingThreshold.HasValue
-                && request.GoodsAmount >= matchedRule.FreeShippingThreshold)
+                && goodsAmount >= matchedRule.FreeShippingThreshold)
                 continue;
 
-            // 5. 阶梯计费：首重费 + 续重费 × 续重阶梯数 + 包装费
+            // 阶梯计费：首重费 + 续重费 × 续重阶梯数 + 包装费
             var weight = product.WeightKG.Value * item.Quantity;
             var extraUnits = matchedRule.ExtraWeightUnit > 0
                 ? Math.Max(0, decimal.Ceiling((weight - matchedRule.BaseWeight) / matchedRule.ExtraWeightUnit))

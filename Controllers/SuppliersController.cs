@@ -35,33 +35,11 @@ public class SuppliersController : Controller
 
     // ========== 供应商门户（供应商登录后自己维护报价）==========
 
+    /// <summary>旧供应商登录页已合并到主入口（Account 角色选择登录），统一跳转过去。</summary>
     [HttpGet]
     public IActionResult Login()
     {
-        // 已登录则直接进入我的报价
-        if (!string.IsNullOrEmpty(HttpContext.Session.GetString("SupplierId")))
-            return RedirectToAction(nameof(MyQuotes));
-        return View();
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(string loginAccount, string password)
-    {
-        var r = await _service.SupplierLoginAsync(loginAccount ?? "", password ?? "");
-        if (!r.IsSuccess)
-        {
-            ModelState.AddModelError("", r.Message);
-            return View();
-        }
-        HttpContext.Session.SetString("SupplierId", r.Data!.SupplierID);
-        // 固定账号 admin = 供应商管理员，直接进入全部货物
-        if (string.Equals(loginAccount, SupplierSession.AdminAccount, StringComparison.OrdinalIgnoreCase))
-        {
-            HttpContext.Session.SetString(SupplierSession.IsAdminKey, "true");
-            return RedirectToAction("AdminIndex", "Goods");
-        }
-        return RedirectToAction(nameof(MyQuotes));
+        return RedirectToAction("Login", "Account", new { role = "供应商" });
     }
 
     /// <summary>供应商自己的报价页：只能看到并维护自己的产品报价</summary>
@@ -70,13 +48,13 @@ public class SuppliersController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction(nameof(Login));
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var supplier = await _service.GetSupplierByIdAsync(supplierId);
         if (!supplier.IsSuccess)
         {
             HttpContext.Session.Clear();
-            return RedirectToAction(nameof(Login));
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
         }
 
         var quotes = await _service.GetAllProductQuotesForSupplierAsync(supplierId);
@@ -91,7 +69,7 @@ public class SuppliersController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction(nameof(Login));
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _service.SetSupplyPriceAsync(supplierId, productId, supplyPrice, shelfLifeHours);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
@@ -104,7 +82,7 @@ public class SuppliersController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction(nameof(Login));
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _service.GetProductInfoForSupplierAsync(supplierId, productId);
         if (!r.IsSuccess)
@@ -124,7 +102,7 @@ public class SuppliersController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction(nameof(Login));
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _service.UpdateProductDescriptionAsync(supplierId, productId, description);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
@@ -143,7 +121,7 @@ public class SuppliersController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction(nameof(Login));
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         if (imageFile == null || imageFile.Length == 0)
         {
@@ -184,7 +162,7 @@ public class SuppliersController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction(nameof(Login));
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _service.DeleteProductImageAsync(supplierId, imageId);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
