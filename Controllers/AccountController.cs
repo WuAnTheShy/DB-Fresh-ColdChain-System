@@ -24,6 +24,13 @@ namespace FreshColdChain.Controllers
         {
             return View();
         }
+
+        [HttpGet("/Login/supplier")]
+        public IActionResult SupplierLogin()
+        {
+            return RedirectToAction(nameof(Login), new { role = "供应商" });
+        }
+
         public IActionResult Login(string? role = null)
         {
             if (role == "团长")
