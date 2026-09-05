@@ -71,6 +71,19 @@
             <form asp-action="StockOut" method="post">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="productId" value="@Model.ProductID" />
+                @if (supplierOptions.Count > 1)
+                {
+                    <div class="mb-2">
+                        <select name="supplierId" class="form-select form-select-sm">
+                            <option value="">-- 全部供应商（按商品 FEFO）--</option>
+                            @foreach (var o in supplierOptions)
+                            {
+                                <option value="@o.SupplierID">@o.SupplierName（报价 ¥@o.SupplyPrice.ToString("F2")）</option>
+                            }
+                        </select>
+                        <small class="text-muted">同一商品存在多个供应商供货时，建议指定供应商出库，避免扣错货。</small>
+                    </div>
+                }
                 <div class="mb-2"><input type="number" name="quantity" class="form-control" placeholder="数量" required /></div>
                 <button type="submit" class="btn btn-warning">确认出库</button>
             </form>

@@ -4,7 +4,9 @@ namespace FreshColdChain.Models;
 public sealed class InventoryAvailabilityItem
 {
     public string ProductId { get; init; } = string.Empty;
-    /// <summary>由 B 组根据团长在团商品服务端解析，不信任客户端传入。</summary>
-    public string? SupplierId { get; init; }
+
+    /// <summary>供货供应商ID：库存可用量按 (商品, 供应商) 维度校验。</summary>
+    public string SupplierId { get; init; } = string.Empty;
+
     public int Quantity { get; init; }
 }

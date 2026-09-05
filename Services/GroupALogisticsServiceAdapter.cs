@@ -140,6 +140,7 @@ public sealed class GroupALogisticsServiceAdapter(
                 .Select(group => new FreightItemDto
                 {
                     ProductID = group.Key,
+                    SupplierID = command.SupplierId,
                     Quantity = checked(group.Sum(item => item.Quantity))
                 })
                 .ToList()

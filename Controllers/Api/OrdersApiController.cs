@@ -221,12 +221,14 @@ public sealed class OrdersApiController(
             request.AddressId);
         if (address == null) return ApiNotFound("收货地址不存在或不属于当前消费者");
 
+        // 交易身份 = (团长, 商品, 供应商)：同一商品不同供应商作为独立条目计算运费
         var normalizedItems = request.Items
-            .GroupBy(item => new { item.PromoterId, item.ProductId })
+            .GroupBy(item => new { item.PromoterId, item.ProductId, item.SupplierId })
             .Select(group => new
             {
                 group.Key.PromoterId,
                 group.Key.ProductId,
+                group.Key.SupplierId,
                 Quantity = group.Sum(item => item.Quantity),
                 ClientUnitPrice = group.First().ClientUnitPrice
             })
@@ -234,6 +236,7 @@ public sealed class OrdersApiController(
         if (normalizedItems.Count == 0 || normalizedItems.Any(item =>
                 string.IsNullOrWhiteSpace(item.PromoterId) ||
                 string.IsNullOrWhiteSpace(item.ProductId) ||
+                string.IsNullOrWhiteSpace(item.SupplierId) ||
                 item.Quantity <= 0 ||
                 item.ClientUnitPrice is not > 0))
             return ApiBadRequest("运费计算商品信息无效");
@@ -255,6 +258,7 @@ public sealed class OrdersApiController(
                 Items = promoterGroup.Select(item => new FreightItemDto
                 {
                     ProductID = item.ProductId,
+                    SupplierID = item.SupplierId,
                     Quantity = item.Quantity
                 }).ToList()
             });

@@ -55,9 +55,17 @@ function checkoutItemsPayload() {
   return selectedCartItems.value.map(item => ({
     productId: item.product.productId,
     promoterId: item.leaderId,
+    supplierId: String(item.supplierId || item.product.supplierId || ''),
     quantity: item.quantity,
     clientUnitPrice: item.product.price,
   }))
+}
+
+// 供应商是交易身份的一部分：任一待结算商品缺失供应商信息时应就地拦截，
+// 给出明确中文提示，避免请求发到后端才被 "供应商ID不能为空" 拒绝。
+function missingSupplierItems() {
+  return selectedCartItems.value.filter(item =>
+    !String(item.supplierId || item.product.supplierId || '').trim())
 }
 
 async function loadFreightQuote() {
@@ -66,6 +74,13 @@ async function loadFreightQuote() {
   if (!form.addressId || !selectedCartItems.value.length) {
     freightAmount.value = 0
     freightLoading.value = false
+    return
+  }
+
+  const missingItems = missingSupplierItems()
+  if (missingItems.length) {
+    freightLoading.value = false
+    freightError.value = '部分商品缺少供应商信息，请返回商城重新加入购物车后重试'
     return
   }
 
@@ -107,19 +122,27 @@ async function loadAssets() {
 
 async function submit() {
   if (!selectedCartItems.value.length) return
+  const missingItems = missingSupplierItems()
+  if (missingItems.length) {
+    error.value = `「${missingItems[0].product.name}」缺少供应商信息，请返回商城重新加入购物车`
+    return
+  }
   saving.value = true
   error.value = ''
   try {
     const merged = new Map()
     selectedCartItems.value.forEach((item) => {
       const orderProductId = item.product.productId
-      const orderLineKey = `${item.leaderId}\u001f${orderProductId}`
+      const orderSupplierId = String(item.supplierId || item.product.supplierId || '')
+      // 交易身份 = (团长, 商品, 供应商)：同商品不同供应商保持两条独立订单明细
+      const orderLineKey = `${item.leaderId}\u001f${orderProductId}\u001f${orderSupplierId}`
       const existing = merged.get(orderLineKey)
       merged.set(orderLineKey, existing
         ? { ...existing, quantity: existing.quantity + item.quantity }
         : {
             productId: orderProductId,
             promoterId: item.leaderId,
+            supplierId: orderSupplierId,
             quantity: item.quantity,
             clientUnitPrice: item.product.price,
           })
@@ -149,7 +172,7 @@ onMounted(loadAssets)
 watch(
   () => [
     form.addressId,
-    ...selectedCartItems.value.map(item => `${item.leaderId}:${item.product.productId}:${item.quantity}:${item.product.price}`),
+    ...selectedCartItems.value.map(item => `${item.leaderId}:${item.product.productId}:${String(item.supplierId || item.product.supplierId || '')}:${item.quantity}:${item.product.price}`),
   ],
   loadFreightQuote,
 )
@@ -191,7 +214,7 @@ watch(
           <div class="checkout-section-title"><BadgeCheck :size="21" /><div><h2>团长带货商品</h2></div></div>
           <div v-for="group in groups" :key="group.leader.id" class="checkout-leader-group">
             <header><img :src="group.leader.avatar" alt="" /><strong>{{ group.leader.name }}团长</strong><BadgeCheck :size="15" /><span>{{ group.leader.area }}</span></header>
-            <div v-for="item in group.items" :key="`${item.productId}-${item.leaderId}`" class="checkout-item"><img :src="item.product.image" :alt="item.product.name" /><div class="checkout-item-info"><strong>{{ item.product.name }}</strong><span>{{ item.product.spec }} · {{ item.product.delivery }}</span></div><QuantityStepper :model-value="item.quantity" :max="item.product.stock" @update:model-value="updateQuantity(item.productId, $event)" /><strong>¥{{ (item.product.price * item.quantity).toFixed(2) }}</strong></div>
+            <div v-for="item in group.items" :key="`${item.productId}-${item.leaderId}-${item.supplierId || ''}`" class="checkout-item"><img :src="item.product.image" :alt="item.product.name" /><div class="checkout-item-info"><strong>{{ item.product.name }}</strong><span>{{ item.product.supplierName ? `${item.product.supplierName} · ` : '' }}{{ item.product.spec }} · {{ item.product.delivery }}</span></div><QuantityStepper :model-value="item.quantity" :max="item.product.stock" @update:model-value="updateQuantity(item.productId, $event)" /><strong>¥{{ (item.product.price * item.quantity).toFixed(2) }}</strong></div>
           </div>
         </section>
 

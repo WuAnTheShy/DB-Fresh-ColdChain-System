@@ -31,6 +31,12 @@ public interface IProductInventoryService
     /// </summary>
     Task<ApiResponse<int>> GetProductStockAsync(string productId);
 
+    /// <summary>
+    /// 查询某 (商品, 供应商) 的货物信息与供应商级可用量。
+    /// 同一商品可由多个供应商供货，各自拥有独立售价与库存批次。
+    /// </summary>
+    Task<ApiResponse<SupplierGoodsInventoryDto>> GetSupplierGoodsInventoryAsync(string productId, string supplierId);
+
     // 库存
     Task<ApiResponse<InventoryDto>> GetInventoryAsync(string productId);
     Task<ApiResponse<List<InventoryDto>>> GetLowStockProductsAsync(int threshold = 10);

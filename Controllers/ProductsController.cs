@@ -123,9 +123,14 @@ public class ProductsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> StockOut(string productId, int quantity)
+    public async Task<IActionResult> StockOut(string productId, int quantity, string? supplierId)
     {
-        var r = await _service.StockOutAsync(new UpdateInventoryDto { ProductID = productId, Quantity = quantity });
+        var r = await _service.StockOutAsync(new UpdateInventoryDto
+        {
+            ProductID = productId,
+            Quantity = quantity,
+            SupplierID = string.IsNullOrWhiteSpace(supplierId) ? null : supplierId
+        });
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(Inventory), new { productId });
     }
