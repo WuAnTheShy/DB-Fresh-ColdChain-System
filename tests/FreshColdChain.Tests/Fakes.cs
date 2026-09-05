@@ -1695,6 +1695,7 @@ internal sealed class FakePromoterCatalogService : IGroupCPromoterCatalogService
                 return new GroupCPromoterProductValidation
                 {
                     ProductId = product.ProductId,
+                    SupplierId = product.SupplierId,
                     IsAllowed = !DisallowedProductIds.Contains(product.ProductId),
                     SalePrice = hasPrice ? price : null
                 };

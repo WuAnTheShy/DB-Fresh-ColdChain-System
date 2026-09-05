@@ -71,8 +71,8 @@ internal static class OrderServiceScenarioTests
             PointsToUse = 100,
             Items =
             [
-                new() { ProductId = "P1", PromoterId = "promoter-1", Quantity = 2 },
-                new() { ProductId = "P2", PromoterId = "promoter-2", Quantity = 1 }
+                new() { ProductId = "P1", PromoterId = "promoter-1", SupplierId = "SUP1", Quantity = 2 },
+                new() { ProductId = "P2", PromoterId = "promoter-2", SupplierId = "SUP2", Quantity = 1 }
             ]
         });
 
@@ -118,8 +118,8 @@ internal static class OrderServiceScenarioTests
             AddressId = TestIds.Address1,
             Items =
             [
-                new() { ProductId = "P1", PromoterId = "promoter-1", Quantity = 2 },
-                new() { ProductId = "P2", PromoterId = "promoter-2", Quantity = 1 }
+                new() { ProductId = "P1", PromoterId = "promoter-1", SupplierId = "SUP1", Quantity = 2 },
+                new() { ProductId = "P2", PromoterId = "promoter-2", SupplierId = "SUP2", Quantity = 1 }
             ]
         });
 
@@ -204,8 +204,8 @@ internal static class OrderServiceScenarioTests
             AddressId = TestIds.Address1,
             Items =
             [
-                new() { ProductId = "P1", PromoterId = "promoter-1", Quantity = 2, ClientUnitPrice = 48m },
-                new() { ProductId = "P2", PromoterId = "promoter-2", Quantity = 1, ClientUnitPrice = 80m }
+                new() { ProductId = "P1", PromoterId = "promoter-1", SupplierId = "SUP1", Quantity = 2, ClientUnitPrice = 48m },
+                new() { ProductId = "P2", PromoterId = "promoter-2", SupplierId = "SUP2", Quantity = 1, ClientUnitPrice = 80m }
             ]
         });
 
@@ -244,6 +244,7 @@ internal static class OrderServiceScenarioTests
                 {
                     ProductId = "P1",
                     PromoterId = "promoter-1",
+                    SupplierId = "SUP1",
                     Quantity = 2,
                     ClientUnitPrice = 50m
                 }
@@ -272,6 +273,7 @@ internal static class OrderServiceScenarioTests
                     {
                         ProductId = "P1",
                         PromoterId = "promoter-1",
+                        SupplierId = "SUP1",
                         Quantity = 1
                     }
                 ]
@@ -292,8 +294,8 @@ internal static class OrderServiceScenarioTests
                 AddressId = TestIds.Address1,
                 Items =
                 [
-                    new() { ProductId = "P1", PromoterId = "promoter-1", Quantity = 1 },
-                    new() { ProductId = "P2", PromoterId = "promoter-2", Quantity = 1 }
+                    new() { ProductId = "P1", PromoterId = "promoter-1", SupplierId = "SUP1", Quantity = 1 },
+                    new() { ProductId = "P2", PromoterId = "promoter-2", SupplierId = "SUP2", Quantity = 1 }
                 ]
             }));
 
@@ -318,9 +320,9 @@ internal static class OrderServiceScenarioTests
             CouponRecordId = TestIds.Record,
             Items =
             [
-                new() { ProductId = "P1", Quantity = 1 },
-                new() { ProductId = "P1", Quantity = 1 },
-                new() { ProductId = "P2", Quantity = 1 }
+                new() { ProductId = "P1", SupplierId = "SUP1", Quantity = 1 },
+                new() { ProductId = "P1", SupplierId = "SUP1", Quantity = 1 },
+                new() { ProductId = "P2", SupplierId = "SUP2", Quantity = 1 }
             ]
         });
 
@@ -395,7 +397,7 @@ internal static class OrderServiceScenarioTests
         {
             CustomerId = TestIds.Customer,
             AddressId = TestIds.Address1,
-            Items = [new() { ProductId = "P1", Quantity = 2 }]
+            Items = [new() { ProductId = "P1", SupplierId = "SUP1", Quantity = 2 }]
         };
     }
 

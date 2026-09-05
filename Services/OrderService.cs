@@ -721,10 +721,34 @@ public sealed class OrderService : IOrderService
             request.Page = totalPages;
 
         var offset = checked((request.Page - 1) * request.PageSize);
+        var orders = await _orderRepo.GetOrdersAsync(request, offset);
+        foreach (var order in orders.Where(order => order.Status == OrderStatus.Shipped))
+        {
+            var details = await _orderRepo.GetDetailsAsync(order.OrderId);
+            var supplierIds = details
+                .Where(detail => !string.IsNullOrWhiteSpace(detail.SupplierId))
+                .Select(detail => detail.SupplierId!)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(supplierId => supplierId, StringComparer.Ordinal)
+                .ToList();
+            if (supplierIds.Count == 0)
+                continue;
+
+            var logisticsSnapshots = await _logisticsService.GetSupplierLogisticsAsync(
+                order.OrderId,
+                supplierIds);
+            order.DisplayStatusCode = OrderDisplayStatus.GetCode(
+                order.OrderStatus,
+                logisticsSnapshots);
+            order.DisplayStatusName = OrderDisplayStatus.GetName(
+                order.OrderStatus,
+                logisticsSnapshots);
+        }
+
         return new OrderListViewModel
         {
             Query = request,
-            Orders = await _orderRepo.GetOrdersAsync(request, offset),
+            Orders = orders,
             TotalCount = totalCount,
             TotalPages = totalPages
         };

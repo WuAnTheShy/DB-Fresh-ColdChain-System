@@ -15,9 +15,17 @@ public sealed class OrderDetailViewModel
     public bool CanComplete { get; init; }
     public bool CanCancel { get; init; }
 
+    public string DisplayStatusCode => Order == null
+        ? string.Empty
+        : OrderDisplayStatus.GetCode(
+            Order.OrderStatus,
+            SupplierGroups.Select(group => group.Logistics));
+
     public string StatusName => Order == null
         ? string.Empty
-        : OrderStatusNames.GetName(OrderStatusCodes.Parse(Order.OrderStatus));
+        : OrderDisplayStatus.GetName(
+            Order.OrderStatus,
+            SupplierGroups.Select(group => group.Logistics));
 }
 
 /// <summary>

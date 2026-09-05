@@ -35,6 +35,7 @@ public sealed class OrdersApiController(
                 order.OrderStatus,
                 order.ItemCount,
                 order.CreatedAt,
+                order.DisplayStatusCode,
                 order.StatusName
             }),
             result.TotalCount,
@@ -188,6 +189,7 @@ public sealed class OrdersApiController(
             },
             detail.CanComplete,
             detail.CanCancel,
+            detail.DisplayStatusCode,
             detail.StatusName
         });
     }

@@ -66,7 +66,7 @@ onMounted(loadOrders)
       <article v-for="order in result.orders" :key="order.orderId" class="consumer-order-card">
         <header>
           <div><span>{{ date(order.createdAt) }}</span><strong>订单号 {{ order.orderNo }}</strong></div>
-          <StatusBadge :status="order.orderStatus" />
+          <StatusBadge :status="order.displayStatusCode || order.orderStatus" :label="order.statusName" />
         </header>
         <div class="order-card-body">
           <div class="order-leader-identity"><span class="leader-order-avatar">团</span>

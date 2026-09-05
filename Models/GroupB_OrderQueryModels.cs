@@ -27,6 +27,8 @@ public sealed class OrderQueryRequest
 /// </summary>
 public sealed class OrderListItem
 {
+    private string? _displayStatusCode;
+
     public string OrderId { get; init; } = string.Empty;
     public string OrderNo { get; init; } = string.Empty;
     public string CustomerId { get; init; } = string.Empty;
@@ -40,8 +42,16 @@ public sealed class OrderListItem
     public DateTime CreatedAt { get; init; }
     public DateTime? PaymentExpiresAt { get; init; }
 
+    public string DisplayStatusCode
+    {
+        get => _displayStatusCode ?? OrderStatus;
+        set => _displayStatusCode = value;
+    }
+
+    public string? DisplayStatusName { get; set; }
+
     public OrderStatus Status => OrderStatusCodes.Parse(OrderStatus);
-    public string StatusName => OrderStatusNames.GetName(Status);
+    public string StatusName => DisplayStatusName ?? OrderStatusNames.GetName(Status);
 }
 
 /// <summary>

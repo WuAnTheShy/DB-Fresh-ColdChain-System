@@ -1,5 +1,8 @@
 <script setup>
-const props = defineProps({ status: { type: String, required: true } })
+const props = defineProps({
+  status: { type: String, required: true },
+  label: { type: String, default: '' },
+})
 
 const statusMap = {
   PENDING: ['待发货', 'text-bg-secondary'],
@@ -22,7 +25,7 @@ const statusMap = {
 
 <template>
   <span class="badge status-badge" :class="(statusMap[props.status] ?? ['未知', 'text-bg-light'])[1]">
-    {{ (statusMap[props.status] ?? ['未知'])[0] }}
+    {{ props.label || (statusMap[props.status] ?? ['未知'])[0] }}
   </span>
 </template>
 

@@ -115,7 +115,8 @@ namespace FreshColdChain.Services
 
                 var record = new CommissionRecord
                 {
-                    RecordId = "PROC_" + Guid.NewGuid().ToString("N"),
+                    // FIN_PROCOMRECORDS.RECORDID 为 VARCHAR2(36)：4 位前缀 + 32 位 GUID。
+                    RecordId = "PROC" + Guid.NewGuid().ToString("N"),
                     PromoterId = commissionOrderRequest.promoterID,
                     OrderId = commissionOrderRequest.orderID,  // 需要从请求中传入订单ID
                     FinalAmount = commissionOrderRequest.finalAmount,
