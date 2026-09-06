@@ -657,14 +657,14 @@ async function loadEvaluationSummary() {
 .description-grid p {
   margin: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.7;
 }
 
 .inline-promoter-intro h4 {
   margin: 0 0 10px;
   color: var(--ink);
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .inline-promoter-intro p + p,
