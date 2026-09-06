@@ -1,5 +1,5 @@
 <script setup>
-import { Apple, BadgeCheck, Beef, Check, ChevronRight, Clock3, Fish, Leaf, LockKeyhole, MapPin, Milk, PackageCheck, ShieldCheck, ShoppingBasket, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
+import { Apple, BadgeCheck, Beef, Check, ChevronRight, Clock3, Fish, Leaf, LockKeyhole, MapPin, Milk, PackageCheck, ShieldCheck, ShoppingBasket, ShoppingCart, Snowflake, Truck, X, ZoomIn } from '@lucide/vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
@@ -25,6 +25,18 @@ const productImages = computed(() => {
 const selectedImageIndex = ref(0)
 const selectedProductImage = computed(() =>
   productImages.value[selectedImageIndex.value] || product.value?.fallbackImage || '/images/homepic.png')
+const imagePreviewOpen = ref(false)
+const previewScale = ref(2)
+const previewOffsetX = ref(0)
+const previewOffsetY = ref(0)
+const previewMinScale = 0.5
+let previousBodyOverflow = ''
+let pinchStartDistance = 0
+let pinchStartScale = 2
+let panStartX = 0
+let panStartY = 0
+let panStartOffsetX = 0
+let panStartOffsetY = 0
 const quantity = ref(1)
 const added = ref(false)
 const related = computed(() => products.filter((item) => item.id !== String(props.id)).slice(0, 4))
@@ -104,9 +116,87 @@ watch([() => props.id, () => leader.value?.id],
 watch([() => props.id, () => leader.value?.id, () => product.value?.productId, () => product.value?.isFallback],
   () => loadGroupRecords(), { immediate: true, flush: 'sync' })
 // 切换商品或离开页面后，旧请求不能覆盖新页面的内容。
-onUnmounted(() => { introRequestId++; evaluationRequestId++; groupRecordsRequestId++ })
+onUnmounted(() => {
+  introRequestId++
+  evaluationRequestId++
+  groupRecordsRequestId++
+  window.removeEventListener('keydown', handlePreviewKeydown)
+  if (imagePreviewOpen.value) document.body.style.overflow = previousBodyOverflow
+})
 
-onMounted(() => loadCatalog().catch(() => { }))
+onMounted(() => {
+  loadCatalog().catch(() => { })
+  window.addEventListener('keydown', handlePreviewKeydown)
+})
+
+function openImagePreview() {
+  previousBodyOverflow = document.body.style.overflow
+  document.body.style.overflow = 'hidden'
+  previewScale.value = window.matchMedia('(max-width: 767.98px)').matches ? 1.1 : 2
+  previewOffsetX.value = 0
+  previewOffsetY.value = 0
+  imagePreviewOpen.value = true
+}
+
+function closeImagePreview() {
+  imagePreviewOpen.value = false
+  document.body.style.overflow = previousBodyOverflow
+}
+
+function handlePreviewKeydown(event) {
+  if (event.key === 'Escape' && imagePreviewOpen.value) closeImagePreview()
+}
+
+function setPreviewScale(scale) {
+  const maxScale = window.matchMedia('(max-width: 767.98px)').matches ? 5 : 4
+  previewScale.value = Math.min(maxScale, Math.max(previewMinScale, scale))
+}
+
+function handlePreviewWheel(event) {
+  setPreviewScale(previewScale.value + (event.deltaY < 0 ? 0.25 : -0.25))
+}
+
+function touchDistance(touches) {
+  const deltaX = touches[0].clientX - touches[1].clientX
+  const deltaY = touches[0].clientY - touches[1].clientY
+  return Math.hypot(deltaX, deltaY)
+}
+
+function handlePreviewTouchStart(event) {
+  if (event.touches.length === 2) {
+    pinchStartDistance = touchDistance(event.touches)
+    pinchStartScale = previewScale.value
+    return
+  }
+  if (event.touches.length === 1) {
+    panStartX = event.touches[0].clientX
+    panStartY = event.touches[0].clientY
+    panStartOffsetX = previewOffsetX.value
+    panStartOffsetY = previewOffsetY.value
+  }
+}
+
+function handlePreviewTouchMove(event) {
+  if (event.touches.length === 2 && pinchStartDistance) {
+    setPreviewScale(pinchStartScale * touchDistance(event.touches) / pinchStartDistance)
+    return
+  }
+  if (event.touches.length === 1) {
+    previewOffsetX.value = panStartOffsetX + event.touches[0].clientX - panStartX
+    previewOffsetY.value = panStartOffsetY + event.touches[0].clientY - panStartY
+  }
+}
+
+function handlePreviewTouchEnd(event) {
+  if (event.touches.length >= 2) return
+  pinchStartDistance = 0
+  if (event.touches.length === 1) {
+    panStartX = event.touches[0].clientX
+    panStartY = event.touches[0].clientY
+    panStartOffsetX = previewOffsetX.value
+    panStartOffsetY = previewOffsetY.value
+  }
+}
 
 function add() {
   if (!product.value || !leader.value) return
@@ -188,12 +278,12 @@ function avatarFallback(name) {
   <div v-if="product && leader" class="store-container page-space product-detail-page">
     <section class="product-detail-main">
       <div class="product-gallery">
-        <div class="product-main-image"><img :src="selectedProductImage" :alt="product.name"
+        <button class="product-main-image" type="button" aria-label="放大查看商品图片" @click="openImagePreview"><img :src="selectedProductImage" :alt="product.name"
             :class="{ 'fallback-photo-tint': selectedProductImage === product.fallbackImage }"
             @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" /><span
             :class="`storage-badge storage-badge-${product.storageType.toLowerCase()}`">
             {{ product.storage }}
-          </span></div>
+          </span><span class="product-image-zoom" aria-hidden="true"><ZoomIn :size="17" /></span></button>
         <div class="product-thumbs" aria-label="商品图片列表">
           <button v-for="(imageUrl, index) in productImages" :key="`${imageUrl}-${index}`" class="product-thumb"
             :class="{ active: selectedImageIndex === index }" type="button" :aria-label="`查看商品图片 ${index + 1}`"
@@ -270,6 +360,23 @@ function avatarFallback(name) {
         </small>
       </aside>
     </section>
+
+    <Teleport to="body">
+      <div v-if="imagePreviewOpen" class="product-image-preview" role="dialog" aria-modal="true"
+        :aria-label="`${product.name}大图预览`" @click.self="closeImagePreview"
+        @wheel.prevent="handlePreviewWheel">
+        <button class="product-image-preview-close" type="button" aria-label="关闭图片预览" @click="closeImagePreview">
+          <X :size="24" />
+        </button>
+        <img :src="selectedProductImage" :alt="product.name"
+          :style="{ transform: `translate(${previewOffsetX}px, ${previewOffsetY}px) scale(${previewScale})` }"
+          :class="{ 'fallback-photo-tint': selectedProductImage === product.fallbackImage }"
+          draggable="false"
+          @touchstart="handlePreviewTouchStart" @touchmove.prevent="handlePreviewTouchMove"
+          @touchend="handlePreviewTouchEnd" @touchcancel="handlePreviewTouchEnd"
+          @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" />
+      </div>
+    </Teleport>
 
     <section class="detail-info-band">
       <div>
@@ -391,17 +498,21 @@ function avatarFallback(name) {
   position: relative;
   grid-column: 2;
   aspect-ratio: 1 / 1;
+  padding: 0;
+  border: 0;
   overflow: hidden;
   background: #eef1ef;
+  cursor: zoom-in;
 }
 
 .product-main-image img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.product-main-image>span {
+.product-main-image>.storage-badge {
   position: absolute;
   left: 10px;
   bottom: 10px;
@@ -414,6 +525,25 @@ function avatarFallback(name) {
   color: #2463a7;
   font-size: 10px;
   font-weight: 700;
+}
+
+.product-main-image:focus-visible {
+  outline: 3px solid rgba(23, 107, 70, .35);
+  outline-offset: 2px;
+}
+
+.product-image-zoom {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .94);
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(23, 33, 29, .16);
 }
 
 .product-thumbs {
@@ -442,9 +572,60 @@ function avatarFallback(name) {
 }
 
 .product-thumb img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.product-image-preview {
+  position: fixed;
+  z-index: 2000;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 64px;
+  overflow: hidden;
+  background: rgba(10, 15, 13, .82);
+  cursor: zoom-out;
+  touch-action: none;
+}
+
+.product-image-preview>img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 12px 42px rgba(0, 0, 0, .35);
+  cursor: default;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.product-image-preview-close {
+  position: fixed;
+  z-index: 1;
+  top: 22px;
+  right: 24px;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .94);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.product-image-preview-close:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, .5);
+  outline-offset: 3px;
 }
 
 .product-info-column {
@@ -779,17 +960,19 @@ function avatarFallback(name) {
 }
 
 .inline-promoter-intro-images {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-start;
   gap: 12px;
   margin: 12px 0;
 }
 
 .inline-promoter-intro-images img {
-  width: 100%;
-  max-height: 420px;
+  display: block;
+  width: 30%;
+  height: auto;
   border-radius: 8px;
-  object-fit: cover;
 }
 
 .inline-intro-state {
@@ -977,6 +1160,15 @@ function avatarFallback(name) {
 }
 
 @media (max-width: 767.98px) {
+  .product-image-preview {
+    padding: 52px 16px 20px;
+  }
+
+  .product-image-preview-close {
+    top: 10px;
+    right: 12px;
+  }
+
   .product-detail-main {
     grid-template-columns: 1fr;
     gap: 18px;
@@ -999,6 +1191,10 @@ function avatarFallback(name) {
     max-height: none;
     overflow-x: auto;
     overflow-y: hidden;
+  }
+
+  .inline-promoter-intro-images img {
+    width: 100%;
   }
 
   .product-thumb {
