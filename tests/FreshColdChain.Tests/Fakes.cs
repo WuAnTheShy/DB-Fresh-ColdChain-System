@@ -249,10 +249,14 @@ internal sealed class FakeOrderRepository : IOrderRepository
                     OrderId = order.OrderId,
                     OrderNo = order.OrderNo,
                     CustomerId = order.CustomerId,
+                    PromoterId = order.PromoterId,
                     CustomerName = "测试消费者",
                     FinalAmount = order.FinalAmount,
                     OrderStatus = order.OrderStatus,
                     ItemCount = details.Count,
+                    FirstProductId = details.FirstOrDefault()?.ProductId,
+                    FirstProductName = details.FirstOrDefault()?.ProductName,
+                    FirstProductQuantity = details.FirstOrDefault()?.Quantity ?? 0,
                     SupplierCount = details
                         .Where(detail => !string.IsNullOrWhiteSpace(detail.SupplierId))
                         .Select(detail => detail.SupplierId)

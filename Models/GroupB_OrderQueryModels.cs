@@ -34,11 +34,16 @@ public sealed class OrderListItem
     public string CustomerId { get; init; } = string.Empty;
     public string? CheckoutBatchId { get; init; }
     public string? PromoterId { get; init; }
+    public string? PromoterName { get; init; }
     public string CustomerName { get; init; } = string.Empty;
     public decimal FinalAmount { get; init; }
     public string OrderStatus { get; init; } = OrderStatusCodes.PendingPayment;
     public int ItemCount { get; init; }
     public int SupplierCount { get; init; }
+    public string? FirstProductId { get; init; }
+    public string? FirstProductName { get; init; }
+    public string? FirstProductImageUrl { get; init; }
+    public int FirstProductQuantity { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime? PaymentExpiresAt { get; init; }
 

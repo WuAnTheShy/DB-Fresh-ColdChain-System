@@ -1,5 +1,5 @@
 <script setup>
-import { BadgeCheck, ChevronLeft, ChevronRight, PackageSearch, Search, ShoppingBag } from '@lucide/vue'
+import { BadgeCheck, ChevronLeft, ChevronRight, PackageSearch, Search, ShoppingBag, Store } from '@lucide/vue'
 import { onMounted, reactive, ref } from 'vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { api } from '../services/api'
@@ -21,6 +21,31 @@ const tabs = [
 
 function money(value) { return `¥${Number(value ?? 0).toFixed(2)}` }
 function date(value) { return value ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '-' }
+function shortDate(value) {
+  if (!value) return '--.--'
+  const dateValue = new Date(value)
+  return `${String(dateValue.getMonth() + 1).padStart(2, '0')}.${String(dateValue.getDate()).padStart(2, '0')}`
+}
+function productImage(order) { return order.firstProductImageUrl || '/images/homepic.png' }
+function productTitle(order) { return order.firstProductName || '订单商品' }
+function productSummary(order) {
+  const remaining = Math.max(0, Number(order.itemCount ?? 0) - 1)
+  return remaining > 0 ? `共 ${order.itemCount} 件商品，另有 ${remaining} 件` : '冷链配送商品'
+}
+function handleImageError(event) {
+  if (event.target.dataset.fallbackApplied) return
+  event.target.dataset.fallbackApplied = 'true'
+  event.target.src = '/images/homepic.png'
+  event.target.classList.add('fallback-photo-tint')
+}
+function primaryAction(order) {
+  if (order.orderStatus === 'PENDING_PAYMENT' && order.checkoutBatchId) {
+    return { label: '立即支付', to: `/payment/${order.checkoutBatchId}`, prominent: true }
+  }
+  if (order.orderStatus === 'SHIPPED') return { label: '查看物流', to: `/orders/${order.orderId}`, prominent: false }
+  if (order.orderStatus === 'COMPLETED') return { label: '评价', to: `/orders/${order.orderId}`, prominent: true }
+  return { label: '查看详情', to: `/orders/${order.orderId}`, prominent: false }
+}
 
 async function loadOrders() {
   loading.value = true
@@ -65,20 +90,37 @@ onMounted(loadOrders)
     <div v-else-if="result.orders.length" class="order-card-list">
       <article v-for="order in result.orders" :key="order.orderId" class="consumer-order-card">
         <header>
-          <div><span>{{ date(order.createdAt) }}</span><strong>订单号 {{ order.orderNo }}</strong></div>
+          <div class="order-card-leader">
+            <Store :size="19" />
+            <RouterLink v-if="order.promoterId" :to="`/leaders/${order.promoterId}`">
+              {{ order.promoterName || '社区认证团长' }}<ChevronRight :size="16" />
+            </RouterLink>
+            <strong v-else>{{ order.promoterName || '社区认证团长' }}</strong>
+            <BadgeCheck :size="15" class="leader-verified" />
+            <span>订单号 {{ order.orderNo }}</span>
+          </div>
           <StatusBadge :status="order.displayStatusCode || order.orderStatus" :label="order.statusName" />
         </header>
         <div class="order-card-body">
-          <div class="order-leader-identity"><span class="leader-order-avatar">团</span>
-            <div><strong>{{ order.promoterName || '社区认证团长' }}</strong><small>
-                <BadgeCheck :size="13" />团长带货订单
-              </small></div>
-          </div>
-          <div class="order-card-metric"><span>商品数量</span><strong>{{ order.itemCount }} 件</strong></div>
-          <div class="order-card-metric"><span>实付金额</span><strong>{{ money(order.finalAmount) }}</strong></div>
-          <div class="order-card-actions">
-            <RouterLink class="btn btn-sm btn-outline-secondary" :to="`/orders/${order.orderId}`">查看详情</RouterLink>
-            <RouterLink v-if="order.orderStatus === 'COMPLETED'" class="btn btn-sm btn-cart" to="/">再次购买</RouterLink>
+          <RouterLink class="order-product" :to="`/orders/${order.orderId}`">
+            <img :src="productImage(order)" :alt="productTitle(order)" @error="handleImageError" />
+            <span class="order-product-copy">
+              <strong>{{ productTitle(order) }}</strong>
+              <small>{{ productSummary(order) }}</small>
+              <em>团长带货 · 冷链履约</em>
+            </span>
+            <span class="order-product-quantity">×{{ order.firstProductQuantity || 1 }}</span>
+          </RouterLink>
+          <div class="order-card-footer">
+            <time :datetime="order.createdAt" :title="date(order.createdAt)">{{ shortDate(order.createdAt) }}</time>
+            <div class="order-paid"><span>实付款</span><strong>{{ money(order.finalAmount) }}</strong></div>
+            <div class="order-card-actions">
+              <RouterLink v-if="primaryAction(order).label !== '查看详情'" class="order-action-link"
+                :to="`/orders/${order.orderId}`">更多</RouterLink>
+              <RouterLink v-if="order.orderStatus === 'COMPLETED'" class="btn order-action-button" to="/">再买一单</RouterLink>
+              <RouterLink class="btn order-action-button" :class="{ prominent: primaryAction(order).prominent }"
+                :to="primaryAction(order).to">{{ primaryAction(order).label }}</RouterLink>
+            </div>
           </div>
         </div>
       </article>
@@ -161,88 +203,185 @@ onMounted(loadOrders)
 
 .consumer-order-card {
   border: 1px solid var(--line);
+  border-radius: 10px;
   background: #fff;
+  overflow: hidden;
 }
 
 .consumer-order-card>header {
   display: flex;
-  min-height: 46px;
+  min-height: 54px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 14px;
+  padding: 0 18px;
   border-bottom: 1px solid var(--line);
-  background: #f7f9f8;
+  background: #fff;
 }
 
-.consumer-order-card>header>div {
+.order-card-leader {
   display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  color: var(--muted);
-  font-size: 9px;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  color: #27312c;
 }
 
-.consumer-order-card>header strong {
-  color: #435049;
+.order-card-leader>a,
+.order-card-leader>strong {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.order-card-leader>a:hover {
+  color: var(--brand);
+}
+
+.order-card-leader>span {
+  margin-left: 9px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.leader-verified {
+  flex: 0 0 auto;
+  color: #1c9b68;
 }
 
 .order-card-body {
+  padding: 16px 18px 14px;
+}
+
+.order-product {
   display: grid;
-  grid-template-columns: minmax(210px, 1.2fr) repeat(2, minmax(90px, .5fr)) auto;
-  gap: 18px;
-  align-items: center;
-  padding: 17px;
+  grid-template-columns: 118px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  color: inherit;
+  text-decoration: none;
 }
 
-.order-leader-identity {
+.order-product>img {
+  width: 118px;
+  height: 118px;
+  border-radius: 9px;
+  background: #f3f5f4;
+  object-fit: cover;
+}
+
+.order-product-copy {
   display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.leader-order-avatar {
-  display: inline-flex;
-  width: 42px;
-  height: 42px;
-  flex: 0 0 42px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: #dfeee7;
-  color: var(--brand);
-  font-weight: 800;
-}
-
-.order-leader-identity>div,
-.order-card-metric {
-  display: flex;
+  min-width: 0;
   flex-direction: column;
 }
 
-.order-leader-identity small {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  margin-top: 3px;
-  color: var(--brand);
-  font-size: 9px;
+.order-product-copy>strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #161d19;
+  font-size: 17px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
-.order-card-metric span {
+.order-product-copy>small {
+  margin-top: 7px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 
-.order-card-metric strong {
-  margin-top: 4px;
+.order-product-copy>em {
+  margin-top: 9px;
+  color: #1c9b68;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.order-product-quantity {
+  padding-top: 3px;
+  color: #7a817d;
+  font-size: 13px;
+}
+
+.order-card-footer {
+  display: grid;
+  min-height: 58px;
+  grid-template-columns: 1fr auto auto;
+  gap: 20px;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 13px;
+  border-top: 1px solid #eef0ef;
+}
+
+.order-card-footer>time {
+  color: #7a817d;
+  font-size: 12px;
+}
+
+.order-paid {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.order-paid>span {
+  font-size: 13px;
+}
+
+.order-paid>strong {
+  color: #161d19;
+  font-size: 22px;
+  letter-spacing: -.5px;
 }
 
 .order-card-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 7px;
+  align-items: center;
+  gap: 9px;
+}
+
+.order-action-link {
+  padding: 7px 4px;
+  color: #4e5752;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.order-action-button {
+  min-width: 94px;
+  min-height: 38px;
+  padding: 7px 18px;
+  border: 1px solid #d9dedb;
+  border-radius: 8px;
+  background: #f7f8f8;
+  color: #222a26;
+  font-size: 13px;
+}
+
+.order-action-button:hover {
+  border-color: #bfc8c3;
+  background: #eef1ef;
+}
+
+.order-action-button.prominent {
+  border-color: #ffd9c9;
+  background: #fff1e9;
+  color: #e65d20;
+}
+
+.order-action-button.prominent:hover {
+  background: #ffe7da;
+  color: #cf4910;
 }
 
 .store-pagination {
@@ -270,8 +409,8 @@ onMounted(loadOrders)
 }
 
 @media (max-width: 991.98px) {
-  .order-card-body {
-    grid-template-columns: minmax(190px, 1fr) repeat(2, 90px);
+  .order-card-footer {
+    grid-template-columns: 1fr auto;
   }
 
   .order-card-actions {
@@ -284,16 +423,81 @@ onMounted(loadOrders)
     width: 100%;
   }
 
-  .order-card-body {
-    grid-template-columns: 1fr 1fr;
+  .consumer-order-card>header {
+    align-items: flex-start;
+    padding: 13px 14px;
   }
 
-  .order-leader-identity {
-    grid-column: 1 / -1;
+  .order-card-leader {
+    flex-wrap: wrap;
+  }
+
+  .order-card-leader>span {
+    width: 100%;
+    margin-left: 26px;
+  }
+
+  .order-card-body {
+    padding: 14px;
+  }
+
+  .order-product {
+    grid-template-columns: 92px minmax(0, 1fr) auto;
+    gap: 11px;
+  }
+
+  .order-product>img {
+    width: 92px;
+    height: 92px;
+  }
+
+  .order-product-copy>strong {
+    font-size: 14px;
+  }
+
+  .order-card-footer {
+    gap: 10px;
+  }
+
+  .order-paid>strong {
+    font-size: 19px;
   }
 
   .order-card-actions {
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: auto repeat(2, minmax(0, 1fr));
+  }
+
+  .order-action-button {
+    min-width: 0;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+}
+
+@media (max-width: 419.98px) {
+  .order-card-leader>span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .order-product {
+    grid-template-columns: 80px minmax(0, 1fr) auto;
+  }
+
+  .order-product>img {
+    width: 80px;
+    height: 80px;
+  }
+
+  .order-product-copy>small {
+    margin-top: 4px;
+  }
+
+  .order-product-copy>em {
+    margin-top: 5px;
+    font-size: 11px;
   }
 }
 </style>

@@ -169,22 +169,39 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                           o.CustomerId,
                           o.CheckoutBatchId,
                           o.PromoterId,
+                          p.PromoterName,
                           c.CustomerName,
                           o.FinalAmount,
                           o.OrderStatus,
-                          COUNT(d.OrderDetailId) AS ItemCount,
+                          COUNT(DISTINCT d.OrderDetailId) AS ItemCount,
                           COUNT(DISTINCT d.SupplierId) AS SupplierCount,
+                          MIN(d.ProductId) KEEP (DENSE_RANK FIRST ORDER BY d.OrderDetailId) AS FirstProductId,
+                          MIN(d.ProductName) KEEP (DENSE_RANK FIRST ORDER BY d.OrderDetailId) AS FirstProductName,
+                          MIN(productImage.ImageUrl) KEEP (
+                              DENSE_RANK FIRST ORDER BY
+                                  d.OrderDetailId,
+                                  CASE WHEN productImage.SupplierId = d.SupplierId THEN 0 ELSE 1 END,
+                                  productImage.SortOrder NULLS LAST,
+                                  productImage.CreateTime NULLS LAST,
+                                  productImage.ImageId NULLS LAST
+                          ) AS FirstProductImageUrl,
+                          MIN(d.Quantity) KEEP (DENSE_RANK FIRST ORDER BY d.OrderDetailId) AS FirstProductQuantity,
                           o.CreatedAt
                           ,o.PaymentExpiresAt
                    FROM Biz_Orders o
                    JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
+                   LEFT JOIN Crm_Promoters p ON p.PromoterId = o.PromoterId
                    LEFT JOIN Biz_OrderDetails d ON d.OrderId = o.OrderId
+                   LEFT JOIN Inv_ProductImages productImage
+                     ON productImage.ProductId = d.ProductId
+                    AND (productImage.SupplierId = d.SupplierId OR productImage.SupplierId IS NULL)
                    {CreateOrderFilterSql()}
                    GROUP BY o.OrderId,
                             o.OrderNo,
                             o.CustomerId,
                             o.CheckoutBatchId,
                             o.PromoterId,
+                            p.PromoterName,
                             c.CustomerName,
                             o.FinalAmount,
                             o.OrderStatus,
