@@ -24,6 +24,20 @@ public sealed class ProductEvaluationsApiController(
         return StatusCode(StatusCodes.Status201Created, new { message = "评价已提交" });
     }
 
+    [HttpPost("orders/{orderId}/evaluation")]
+    public async Task<IActionResult> SubmitOrder(
+        string orderId,
+        ProductEvaluationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var customerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(customerId)) return ApiUnauthorized();
+
+        await evaluationService.SubmitOrderAsync(
+            orderId, customerId, request, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created, new { message = "订单评价已提交" });
+    }
+
     [HttpGet("promoters/{promoterId}/evaluation-summary")]
     public async Task<IActionResult> GetSummary(string promoterId)
     {

@@ -12,11 +12,13 @@ internal static class ProductEvaluationScenarioTests
         try
         {
             await ReceivedItemCanBeEvaluatedOnceAsync();
+            await WholeOrderEvaluationIncludesEveryProductAsync();
             await UnreceivedItemCannotBeEvaluatedAsync();
             await SummaryIncludesAllProductsOfPromoterAsync();
             Console.WriteLine("PASS 已收货商品可提交一次多维度评价");
             Console.WriteLine("PASS 团长评价汇总包含其全部商品且隔离其他团长");
-            Console.WriteLine("评价场景总数: 3, 通过: 3, 失败: 0");
+            Console.WriteLine("PASS 整单评价一次覆盖全部商品");
+            Console.WriteLine("评价场景总数: 4, 通过: 4, 失败: 0");
             return 0;
         }
         catch (Exception exception)
@@ -62,6 +64,30 @@ internal static class ProductEvaluationScenarioTests
         await AssertEx.ThrowsAsync<GroupBBusinessException>(() => service.SubmitAsync(
             TestIds.Order, "detail-1", TestIds.Customer,
             new ProductEvaluationRequest { Dimensions = [ProductEvaluationDimensions.HighQuality] }));
+    }
+
+    private static async Task WholeOrderEvaluationIncludesEveryProductAsync()
+    {
+        var orders = new FakeOrderRepository();
+        orders.Orders.Add(Order());
+        orders.Details.Add(Detail("RECEIVED"));
+        orders.Details.Add(new BizOrderDetail
+        {
+            OrderDetailId = "detail-2",
+            OrderId = TestIds.Order,
+            ProductId = "product-2",
+            ProductName = "测试商品2",
+            ReceiptStatus = "RECEIVED"
+        });
+        var evaluations = new FakeEvaluationRepository();
+        var service = new ProductEvaluationService(orders, evaluations, new FakeTransactionManager());
+
+        await service.SubmitOrderAsync(TestIds.Order, TestIds.Customer,
+            new ProductEvaluationRequest { Dimensions = [ProductEvaluationDimensions.FastShipping] });
+
+        AssertEx.Equal(2, evaluations.Items.Count);
+        AssertEx.True(evaluations.Items.All(item => item.FastShipping == 1));
+        AssertEx.Equal(2, evaluations.Items.Select(item => item.OrderDetailId).Distinct().Count());
     }
 
     private static async Task SummaryIncludesAllProductsOfPromoterAsync()
@@ -122,6 +148,15 @@ internal static class ProductEvaluationScenarioTests
             var requested = orderDetailIds.ToHashSet(StringComparer.Ordinal);
             return Task.FromResult(Items.Where(item => requested.Contains(item.OrderDetailId))
                 .Select(item => item.OrderDetailId).ToHashSet(StringComparer.Ordinal));
+        }
+
+        public Task<IReadOnlyList<ProductEvaluation>> GetByOrderDetailIdsAsync(
+            IEnumerable<string> orderDetailIds,
+            IDbTransaction? transaction = null)
+        {
+            var requested = orderDetailIds.ToHashSet(StringComparer.Ordinal);
+            return Task.FromResult<IReadOnlyList<ProductEvaluation>>(
+                Items.Where(item => requested.Contains(item.OrderDetailId)).ToList());
         }
 
         public Task<ProductEvaluationAggregate> GetSummaryAsync(

@@ -39,6 +39,23 @@ public sealed class ProductEvaluationRepository(IConfiguration configuration)
                 new { OrderDetailIds = ids }, transaction)).ToHashSet(StringComparer.Ordinal));
     }
 
+    public async Task<IReadOnlyList<ProductEvaluation>> GetByOrderDetailIdsAsync(
+        IEnumerable<string> orderDetailIds,
+        IDbTransaction? transaction = null)
+    {
+        var ids = orderDetailIds.Where(GroupBIds.IsValid).Distinct(StringComparer.Ordinal).ToArray();
+        if (ids.Length == 0) return [];
+
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<ProductEvaluation>(
+                @"SELECT EvaluationId, OrderDetailId, OrderId, ProductId, PromoterId, CustomerId,
+                         HighQuality, FastShipping, GoodPackaging, CostEffective, Affordable,
+                         ReliablePromoter, CreatedAt
+                  FROM Biz_ProductEvaluations
+                  WHERE OrderDetailId IN :OrderDetailIds",
+                new { OrderDetailIds = ids }, transaction)).AsList());
+    }
+
     public async Task<ProductEvaluationAggregate> GetSummaryAsync(
         string promoterId,
         IDbTransaction? transaction = null)

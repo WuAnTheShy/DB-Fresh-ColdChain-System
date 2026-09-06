@@ -11,7 +11,15 @@ public interface IProductEvaluationService
         ProductEvaluationRequest request,
         CancellationToken cancellationToken = default);
 
+    Task SubmitOrderAsync(
+        string orderId,
+        string customerId,
+        ProductEvaluationRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<ProductEvaluationSummary> GetSummaryAsync(string promoterId);
 
     Task<HashSet<string>> GetEvaluatedOrderDetailIdsAsync(IEnumerable<string> orderDetailIds);
+
+    Task<IReadOnlyList<ProductEvaluation>> GetByOrderDetailIdsAsync(IEnumerable<string> orderDetailIds);
 }

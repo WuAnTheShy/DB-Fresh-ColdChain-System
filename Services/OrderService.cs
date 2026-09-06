@@ -1294,6 +1294,51 @@ public sealed class OrderService : IOrderService
         });
     }
 
+    public async Task ConfirmOrderReceiptAsync(
+        string orderId,
+        string customerId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!GroupBIds.IsValid(orderId) || !GroupBIds.IsValid(customerId))
+            throw new OrderBusinessException("订单或消费者ID格式不正确");
+
+        await _transactionManager.ExecuteAsync(async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var context = await GetLockedOrderContextAsync(orderId, transaction);
+            if (!string.Equals(context.Customer.CustomerId, customerId, StringComparison.Ordinal))
+                throw new OrderBusinessException("订单不属于当前消费者");
+
+            var unreceived = context.Details
+                .Where(item => !string.Equals(item.ReceiptStatus, "RECEIVED", StringComparison.Ordinal))
+                .ToList();
+            if (unreceived.Count == 0) return;
+            if (context.Order.OrderStatus != OrderStatusCodes.Shipped)
+                throw new OrderBusinessException("商品发货后才能确认收货");
+            if (!await ArePackagesDeliveredAsync(orderId, unreceived, cancellationToken))
+                throw new OrderBusinessException("订单尚有包裹未签收，暂时不能整单确认收货");
+
+            foreach (var detail in unreceived)
+            {
+                if (!await _orderRepo.TryConfirmDetailReceiptAsync(
+                    detail.OrderDetailId, orderId, transaction))
+                {
+                    throw new OrderBusinessException("商品收货状态已变化，请刷新后重试");
+                }
+            }
+
+            await RegisterCompletedOrderCommissionAsync(context, transaction, cancellationToken);
+            if (!await _orderRepo.TryUpdateStatusAsync(
+                orderId,
+                OrderStatus.Shipped,
+                OrderStatus.Completed,
+                transaction))
+            {
+                throw new OrderBusinessException("订单状态已变化，请刷新后重试");
+            }
+        });
+    }
+
     /// <summary>退款由 C 组发起时复用其事务，B 组不提交、回滚或释放调用方事务。</summary>
     private Task ExecuteRefundOperationAsync(
         IDbTransaction? externalTransaction,

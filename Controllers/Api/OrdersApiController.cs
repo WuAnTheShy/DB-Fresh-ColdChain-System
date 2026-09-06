@@ -102,8 +102,11 @@ public sealed class OrdersApiController(
             return ApiForbidden();
 
         var order = detail.Order;
-        var evaluatedDetailIds = await productEvaluationService.GetEvaluatedOrderDetailIdsAsync(
+        var evaluations = await productEvaluationService.GetByOrderDetailIdsAsync(
             detail.Details.Select(item => item.OrderDetailId));
+        var evaluationsByDetailId = evaluations.ToDictionary(
+            item => item.OrderDetailId,
+            StringComparer.Ordinal);
         var productImages = detail.ProductItems.ToDictionary(
             item => item.OrderDetailId,
             item => item.ImageUrl,
@@ -141,6 +144,7 @@ public sealed class OrdersApiController(
                 var package = detail.SupplierGroups.FirstOrDefault(group =>
                     group.Items.Any(groupItem =>
                         groupItem.OrderDetailId == item.OrderDetailId));
+                evaluationsByDetailId.TryGetValue(item.OrderDetailId, out var evaluation);
                 return new
                 {
                     item.OrderDetailId,
@@ -153,9 +157,11 @@ public sealed class OrdersApiController(
                     item.SubTotal,
                     item.ReceiptStatus,
                     item.ReceivedAt,
-                    isEvaluated = evaluatedDetailIds.Contains(item.OrderDetailId),
+                    isEvaluated = evaluation != null,
+                    evaluationDimensions = GetSelectedEvaluationDimensions(evaluation),
+                    evaluatedAt = evaluation?.CreatedAt,
                     canEvaluate = string.Equals(item.ReceiptStatus, "RECEIVED", StringComparison.Ordinal) &&
-                        !evaluatedDetailIds.Contains(item.OrderDetailId),
+                        evaluation == null,
                     canConfirmReceipt = order.OrderStatus == OrderStatusCodes.Shipped &&
                         package?.Logistics.StatusCode ==
                         LogisticsStatusCodes.Delivered &&
@@ -340,6 +346,33 @@ public sealed class OrdersApiController(
             customerId,
             cancellationToken);
         return NoContent();
+    }
+
+    [HttpPost("{orderId}/confirm-receipt")]
+    public async Task<IActionResult> ConfirmOrderReceipt(
+        string orderId,
+        CancellationToken cancellationToken)
+    {
+        var customerId = SignedInCustomerId;
+        if (string.IsNullOrWhiteSpace(customerId)) return ApiUnauthorized();
+        var authorizationError = await AuthorizeOrderAsync(orderId);
+        if (authorizationError != null) return authorizationError;
+
+        await orderService.ConfirmOrderReceiptAsync(orderId, customerId, cancellationToken);
+        return NoContent();
+    }
+
+    private static IReadOnlyList<string> GetSelectedEvaluationDimensions(ProductEvaluation? evaluation)
+    {
+        if (evaluation == null) return [];
+        var selected = new List<string>();
+        if (evaluation.HighQuality == 1) selected.Add(ProductEvaluationDimensions.HighQuality);
+        if (evaluation.FastShipping == 1) selected.Add(ProductEvaluationDimensions.FastShipping);
+        if (evaluation.GoodPackaging == 1) selected.Add(ProductEvaluationDimensions.GoodPackaging);
+        if (evaluation.CostEffective == 1) selected.Add(ProductEvaluationDimensions.CostEffective);
+        if (evaluation.Affordable == 1) selected.Add(ProductEvaluationDimensions.Affordable);
+        if (evaluation.ReliablePromoter == 1) selected.Add(ProductEvaluationDimensions.ReliablePromoter);
+        return selected;
     }
 
     private async Task<IActionResult?> AuthorizeOrderAsync(string orderId)

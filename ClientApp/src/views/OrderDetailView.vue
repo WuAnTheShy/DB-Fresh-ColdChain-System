@@ -11,8 +11,11 @@ const detail = ref(null)
 const error = ref('')
 const success = ref('')
 const cancelDialogOpen = ref(false)
+const receiptNoticeOpen = ref(false)
+const shipmentNoticeOpen = ref(false)
 const evaluationDialogOpen = ref(false)
-const evaluatingItem = ref(null)
+const evaluationDialogMode = ref('edit')
+const evaluatingItems = ref([])
 const selectedEvaluationDimensions = ref([])
 const evaluationError = ref('')
 const evaluationDimensions = [
@@ -27,6 +30,27 @@ const timeline = computed(() => {
   const status = detail.value?.order?.orderStatus
   const progress = { PENDING_PAYMENT: 0, PAID: 1, SHIPPED: 2, COMPLETED: 3 }[status] ?? 0
   return [{ label: '订单已提交', done: true }, { label: '商家备货', done: progress >= 1 }, { label: '冷链配送', done: progress >= 2 }, { label: '订单完成', done: progress === 3 }]
+})
+const receivableItems = computed(() => detail.value?.details?.filter((item) => item.canConfirmReceipt) ?? [])
+const evaluatableItems = computed(() => detail.value?.details?.filter((item) => item.canEvaluate) ?? [])
+const evaluatedItems = computed(() => detail.value?.details?.filter((item) => item.isEvaluated) ?? [])
+const canConfirmOrder = computed(() => {
+  const items = detail.value?.details ?? []
+  return receivableItems.value.length > 0 && items.every((item) => item.receiptStatus === 'RECEIVED' || item.canConfirmReceipt)
+})
+const showConfirmReceipt = computed(() => {
+  const status = detail.value?.order?.orderStatus
+  const items = detail.value?.details ?? []
+  return status === 'SHIPPED' && items.some((item) => item.receiptStatus !== 'RECEIVED')
+})
+const showUrgeShipment = computed(() => detail.value?.order?.orderStatus === 'PAID')
+const canEvaluateOrder = computed(() => {
+  const items = detail.value?.details ?? []
+  return evaluatableItems.value.length > 0 && items.every((item) => item.receiptStatus === 'RECEIVED')
+})
+const isOrderEvaluated = computed(() => {
+  const items = detail.value?.details ?? []
+  return items.length > 0 && items.every((item) => item.isEvaluated)
 })
 
 function money(value) { return `¥${Number(value ?? 0).toFixed(2)}` }
@@ -54,21 +78,31 @@ function confirmCancelOrder() {
   cancelDialogOpen.value = false
   runAction(() => api.cancelOrder(props.id), '订单已取消')
 }
-function openEvaluation(item) {
-  evaluatingItem.value = item
+function openEvaluation() {
+  evaluationDialogMode.value = 'edit'
+  evaluatingItems.value = [...evaluatableItems.value]
   selectedEvaluationDimensions.value = []
+  evaluationError.value = ''
+  evaluationDialogOpen.value = true
+}
+function urgeShipment() {
+  shipmentNoticeOpen.value = true
+}
+function openEvaluationDetails() {
+  evaluationDialogMode.value = 'view'
+  evaluatingItems.value = [...evaluatedItems.value]
   evaluationError.value = ''
   evaluationDialogOpen.value = true
 }
 function closeEvaluation() {
   if (acting.value) return
   evaluationDialogOpen.value = false
-  evaluatingItem.value = null
+  evaluatingItems.value = []
   selectedEvaluationDimensions.value = []
   evaluationError.value = ''
 }
 async function submitEvaluation() {
-  if (!evaluatingItem.value || selectedEvaluationDimensions.value.length === 0) {
+  if (evaluatingItems.value.length === 0 || selectedEvaluationDimensions.value.length === 0) {
     evaluationError.value = '请至少选择一项评价'
     return
   }
@@ -77,16 +111,42 @@ async function submitEvaluation() {
   error.value = ''
   success.value = ''
   try {
-    await api.submitProductEvaluation(props.id, evaluatingItem.value.orderDetailId, {
+    await api.submitOrderEvaluation(props.id, {
       dimensions: selectedEvaluationDimensions.value,
     })
-    success.value = `${evaluatingItem.value.productName}评价已提交`
+    success.value = '订单评价已提交'
     evaluationDialogOpen.value = false
-    evaluatingItem.value = null
+    evaluatingItems.value = []
     selectedEvaluationDimensions.value = []
     await loadOrder()
   } catch (requestError) {
     evaluationError.value = requestError.message
+    await loadOrder()
+    evaluatingItems.value = [...evaluatableItems.value]
+    if (evaluatingItems.value.length === 0) {
+      evaluationDialogOpen.value = false
+      selectedEvaluationDimensions.value = []
+      success.value = '订单评价已提交'
+    }
+  } finally {
+    acting.value = false
+  }
+}
+async function confirmOrderReceipt() {
+  if (!canConfirmOrder.value) {
+    receiptNoticeOpen.value = true
+    return
+  }
+  acting.value = true
+  error.value = ''
+  success.value = ''
+  try {
+    await api.confirmOrderReceipt(props.id)
+    success.value = '订单已确认收货'
+    await loadOrder()
+  } catch (requestError) {
+    error.value = requestError.message
+    await loadOrder()
   } finally {
     acting.value = false
   }
@@ -129,18 +189,7 @@ onMounted(loadOrder)
             <article v-for="item in detail.details" :key="item.orderDetailId" class="order-product-row">
               <img :src="item.imageUrl || '/images/homepic.png'" :alt="item.productName"
                 :class="{ 'fallback-photo-tint': !item.imageUrl }" @error="handleProductImageError" />
-              <div><strong>{{ item.productName }}</strong><small v-if="detail.promoterName" class="product-promoter">
-                  <BadgeCheck :size="13" />{{ detail.promoterName }}带货
-                </small><small v-if="item.receiptStatus === 'RECEIVED'" class="receipt-done">
-                  <CheckCircle2 :size="13" />已确认收货 · {{ date(item.receivedAt) }}
-                </small><button v-if="item.canEvaluate" class="btn btn-sm btn-buy evaluation-button" type="button"
-                  :disabled="acting" @click="openEvaluation(item)">评价</button>
-                <span v-else-if="item.isEvaluated" class="evaluated-label"><Check :size="13" />已评价</span>
-                <button v-if="item.canConfirmReceipt" class="btn btn-sm btn-buy receipt-button"
-                  type="button" :disabled="acting"
-                  @click="runAction(() => api.confirmOrderItemReceipt(id, item.orderDetailId), `${item.productName}已确认收货`)">
-                  <CheckCircle2 :size="14" />确认该商品收货
-                </button></div><span>{{ money(item.unitPrice) }} × {{ item.quantity }}</span><strong>{{
+              <div><strong>{{ item.productName }}</strong></div><span>{{ money(item.unitPrice) }} × {{ item.quantity }}</span><strong>{{
                   money(item.subTotal) }}</strong>
             </article>
           </section>
@@ -254,6 +303,22 @@ onMounted(loadOrder)
             </dl>
           </section>
           <div class="order-detail-actions">
+            <button v-if="showConfirmReceipt" class="btn order-lifecycle-action" type="button"
+              :disabled="acting" @click="confirmOrderReceipt">
+              <CheckCircle2 :size="17" />确认收货
+            </button>
+            <button v-else-if="showUrgeShipment" class="btn order-lifecycle-action" type="button"
+              :disabled="acting" @click="urgeShipment">
+              <Clock3 :size="17" />催发货
+            </button>
+            <button v-else-if="canEvaluateOrder" class="btn order-lifecycle-action" type="button"
+              :disabled="acting" @click="openEvaluation">
+              <BadgeCheck :size="17" />去评价
+            </button>
+            <button v-else-if="isOrderEvaluated" class="btn order-lifecycle-action" type="button"
+              :disabled="acting" @click="openEvaluationDetails">
+              <BadgeCheck :size="17" />查看评价
+            </button>
             <RouterLink v-if="detail.order.orderStatus === 'PENDING_PAYMENT' && detail.order.checkoutBatchId"
               class="btn btn-buy" :to="`/payment/${detail.order.checkoutBatchId}`">
               <CreditCard :size="17" />支付整个结算批次
@@ -283,11 +348,44 @@ onMounted(loadOrder)
       </section>
     </div>
 
+    <div v-if="receiptNoticeOpen" class="cancel-dialog-backdrop" role="presentation" @click.self="receiptNoticeOpen = false">
+      <section class="cancel-dialog" role="alertdialog" aria-modal="true" aria-labelledby="receipt-notice-title">
+        <button class="cancel-dialog-close" type="button" aria-label="关闭" @click="receiptNoticeOpen = false"><X :size="20" /></button>
+        <span class="cancel-dialog-icon receipt-notice-icon"><AlertTriangle :size="30" /></span>
+        <h2 id="receipt-notice-title">暂不能确认收货</h2>
+        <p>订单包裹尚未全部签收，请在物流显示全部已签收后再确认收货。</p>
+        <div><button class="btn btn-buy" type="button" @click="receiptNoticeOpen = false">我知道了</button></div>
+      </section>
+    </div>
+
+    <div v-if="shipmentNoticeOpen" class="cancel-dialog-backdrop" role="presentation" @click.self="shipmentNoticeOpen = false">
+      <section class="cancel-dialog" role="alertdialog" aria-modal="true" aria-labelledby="shipment-notice-title">
+        <button class="cancel-dialog-close" type="button" aria-label="关闭" @click="shipmentNoticeOpen = false"><X :size="20" /></button>
+        <span class="cancel-dialog-icon shipment-notice-icon"><Clock3 :size="30" /></span>
+        <h2 id="shipment-notice-title">已催促发货</h2>
+        <p>已为您催促尽快发货，请耐心等待物流更新。</p>
+        <div><button class="btn btn-buy" type="button" @click="shipmentNoticeOpen = false">我知道了</button></div>
+      </section>
+    </div>
+
     <div v-if="evaluationDialogOpen" class="cancel-dialog-backdrop" role="presentation" @click.self="closeEvaluation">
       <section class="cancel-dialog evaluation-dialog" role="dialog" aria-modal="true" aria-labelledby="evaluation-dialog-title">
         <button class="cancel-dialog-close" type="button" aria-label="关闭" :disabled="acting" @click="closeEvaluation"><X :size="20" /></button>
-        <h2 id="evaluation-dialog-title">评价商品</h2>
-        <p>{{ evaluatingItem?.productName }}</p>
+        <h2 id="evaluation-dialog-title">{{ evaluationDialogMode === 'view' ? '查看评价' : '评价订单' }}</h2>
+        <template v-if="evaluationDialogMode === 'view'">
+          <div class="evaluation-records">
+            <article v-for="item in evaluatingItems" :key="item.orderDetailId">
+              <strong>{{ item.productName }}</strong>
+              <time>{{ date(item.evaluatedAt) }}</time>
+              <div>
+                <span v-for="code in item.evaluationDimensions" :key="code">{{ evaluationDimensions.find((entry) => entry.code === code)?.name || code }}</span>
+              </div>
+            </article>
+          </div>
+          <div><button class="btn btn-buy" type="button" @click="closeEvaluation">关闭</button></div>
+        </template>
+        <template v-else>
+        <p>{{ evaluatingItems.map((item) => item.productName).join('、') }}</p>
         <fieldset class="evaluation-options">
           <legend>请选择符合本次体验的评价（可多选）</legend>
           <label v-for="dimension in evaluationDimensions" :key="dimension.code"
@@ -300,6 +398,7 @@ onMounted(loadOrder)
         <div><button class="btn btn-outline-secondary" type="button" :disabled="acting" @click="closeEvaluation">取消</button><button
             class="btn btn-buy" type="button" :disabled="acting || selectedEvaluationDimensions.length === 0"
             @click="submitEvaluation"><span v-if="acting" class="spinner-border spinner-border-sm"></span>提交评价</button></div>
+        </template>
       </section>
     </div>
   </div>
@@ -488,44 +587,6 @@ onMounted(loadOrder)
   display: flex;
   min-width: 0;
   flex-direction: column;
-}
-
-.order-product-row>div small {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  margin-top: 5px;
-  color: var(--brand);
-  font-size: 9px;
-}
-
-.order-product-row>div .receipt-done {
-  color: #247349;
-}
-
-.receipt-button {
-  align-self: flex-start;
-  margin-top: 8px;
-  padding: 5px 9px;
-  font-size: 9px;
-}
-
-.evaluation-button {
-  align-self: flex-start;
-  margin-top: 8px;
-  padding: 5px 12px;
-  font-size: 9px;
-}
-
-.evaluated-label {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
-  gap: 3px;
-  margin-top: 7px;
-  color: #247349;
-  font-size: 9px;
-  font-weight: 700;
 }
 
 .order-product-row>span {
@@ -777,6 +838,19 @@ onMounted(loadOrder)
   gap: 7px;
 }
 
+.order-detail-actions .order-lifecycle-action {
+  border: 1px solid var(--brand);
+  background: transparent;
+  color: var(--brand);
+}
+
+.order-detail-actions .order-lifecycle-action:hover,
+.order-detail-actions .order-lifecycle-action:focus-visible {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+}
+
 @media (max-width: 767.98px) {
   .order-timeline {
     padding: 13px 5px;
@@ -889,6 +963,52 @@ onMounted(loadOrder)
 .evaluation-dialog>h2,
 .evaluation-dialog>p {
   text-align: center;
+}
+
+.receipt-notice-icon,
+.shipment-notice-icon {
+  background: #e8f8f1;
+  color: var(--brand);
+}
+
+.evaluation-records {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.evaluation-records article {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+
+.evaluation-records article>strong,
+.evaluation-records article>time {
+  display: block;
+}
+
+.evaluation-records article>time {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.evaluation-records article>div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.evaluation-records article span {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #e8f8f1;
+  color: var(--brand);
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .evaluation-options {

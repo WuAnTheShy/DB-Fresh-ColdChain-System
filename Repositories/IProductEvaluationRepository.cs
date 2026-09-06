@@ -13,6 +13,10 @@ public interface IProductEvaluationRepository
         IEnumerable<string> orderDetailIds,
         IDbTransaction? transaction = null);
 
+    Task<IReadOnlyList<ProductEvaluation>> GetByOrderDetailIdsAsync(
+        IEnumerable<string> orderDetailIds,
+        IDbTransaction? transaction = null);
+
     Task<ProductEvaluationAggregate> GetSummaryAsync(
         string promoterId,
         IDbTransaction? transaction = null);
