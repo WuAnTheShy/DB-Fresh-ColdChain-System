@@ -15,6 +15,15 @@ const { products, catalogLoaded, catalogLoading, catalogError, productById, lead
 const { isAuthenticated, deliveryLocation } = useCustomerContext()
 const product = computed(() => productById(props.id))
 const leader = computed(() => leaderById(product.value?.leaderId))
+const productImages = computed(() => {
+  const images = Array.isArray(product.value?.images) ? product.value.images : []
+  const normalized = images.map((url) => String(url ?? '').trim()).filter(Boolean)
+  const primary = String(product.value?.image ?? '').trim()
+  return [...new Set(normalized.length ? normalized : [primary].filter(Boolean))]
+})
+const selectedImageIndex = ref(0)
+const selectedProductImage = computed(() =>
+  productImages.value[selectedImageIndex.value] || product.value?.fallbackImage || '/images/homepic.png')
 const quantity = ref(1)
 const added = ref(false)
 const related = computed(() => products.filter((item) => item.id !== String(props.id)).slice(0, 4))
@@ -74,6 +83,7 @@ const categoryStyle = computed(() => {
 watch([() => props.id, catalogLoaded], () => {
   if (catalogLoaded.value && !product.value) router.replace('/search')
 }, { immediate: true })
+watch([() => props.id, productImages], () => { selectedImageIndex.value = 0 }, { flush: 'sync' })
 
 // 目录就绪或切换商品后读取团长推文，直接展示在商品亮点中。
 watch([() => props.id, () => leader.value?.id, () => product.value?.productId, () => product.value?.isFallback],
@@ -127,15 +137,21 @@ async function loadEvaluationSummary() {
   <div v-if="product && leader" class="store-container page-space product-detail-page">
     <section class="product-detail-main">
       <div class="product-gallery">
-        <div class="product-main-image"><img :src="product.image" :alt="product.name"
-            :class="{ 'fallback-photo-tint': product.image === product.fallbackImage }"
+        <div class="product-main-image"><img :src="selectedProductImage" :alt="product.name"
+            :class="{ 'fallback-photo-tint': selectedProductImage === product.fallbackImage }"
             @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" /><span
             :class="`storage-badge storage-badge-${product.storageType.toLowerCase()}`">
             {{ product.storage }}
           </span></div>
-        <div class="product-thumb active"><img :src="product.image" alt="商品主图缩略图"
-            :class="{ 'fallback-photo-tint': product.image === product.fallbackImage }"
-            @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" /></div>
+        <div class="product-thumbs" aria-label="商品图片列表">
+          <button v-for="(imageUrl, index) in productImages" :key="`${imageUrl}-${index}`" class="product-thumb"
+            :class="{ active: selectedImageIndex === index }" type="button" :aria-label="`查看商品图片 ${index + 1}`"
+            :aria-pressed="selectedImageIndex === index" @click="selectedImageIndex = index">
+            <img :src="imageUrl" :alt="`${product.name}图片${index + 1}`"
+              :class="{ 'fallback-photo-tint': imageUrl === product.fallbackImage }"
+              @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" />
+          </button>
+        </div>
       </div>
 
       <div class="product-info-column">
@@ -293,7 +309,7 @@ async function loadEvaluationSummary() {
 .product-gallery {
   display: grid;
   grid-template-columns: 62px minmax(0, 1fr);
-  grid-template-rows: auto;
+  grid-template-rows: minmax(0, auto);
   gap: 10px;
   align-items: start;
 }
@@ -327,11 +343,28 @@ async function loadEvaluationSummary() {
   font-weight: 700;
 }
 
-.product-thumb {
+.product-thumbs {
   grid-column: 1;
   grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.product-thumb {
+  flex: 0 0 auto;
+  width: 100%;
   aspect-ratio: 1 / 1;
   padding: 2px;
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+}
+
+.product-thumb.active {
   border: 2px solid var(--brand);
 }
 
@@ -797,7 +830,25 @@ async function loadEvaluationSummary() {
   }
 
   .product-gallery {
-    grid-template-columns: 48px minmax(0, 1fr);
+    grid-template-columns: 1fr;
+  }
+
+  .product-main-image {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .product-thumbs {
+    grid-column: 1;
+    grid-row: 2;
+    flex-direction: row;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .product-thumb {
+    width: 58px;
   }
 
   .product-info-column h1 {
