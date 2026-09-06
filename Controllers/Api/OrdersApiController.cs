@@ -41,6 +41,16 @@ public sealed class OrdersApiController(
                 order.FirstProductName,
                 order.FirstProductImageUrl,
                 order.FirstProductQuantity,
+                productItems = order.ProductItems.Select(item => new
+                {
+                    item.OrderDetailId,
+                    item.ProductId,
+                    item.ProductName,
+                    imageUrl = item.ImageUrl,
+                    item.Quantity,
+                    item.UnitPrice,
+                    item.SubTotal
+                }),
                 order.CreatedAt,
                 order.DisplayStatusCode,
                 order.StatusName

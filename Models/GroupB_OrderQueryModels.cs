@@ -42,8 +42,9 @@ public sealed class OrderListItem
     public int SupplierCount { get; init; }
     public string? FirstProductId { get; init; }
     public string? FirstProductName { get; init; }
-    public string? FirstProductImageUrl { get; init; }
+    public string? FirstProductImageUrl { get; set; }
     public int FirstProductQuantity { get; init; }
+    public IReadOnlyList<OrderCardProductItem> ProductItems { get; set; } = [];
     public DateTime CreatedAt { get; init; }
     public DateTime? PaymentExpiresAt { get; init; }
 
@@ -57,6 +58,20 @@ public sealed class OrderListItem
 
     public OrderStatus Status => OrderStatusCodes.Parse(OrderStatus);
     public string StatusName => DisplayStatusName ?? OrderStatusNames.GetName(Status);
+}
+
+/// <summary>订单列表卡片中的商品行。</summary>
+public sealed class OrderCardProductItem
+{
+    public string OrderId { get; init; } = string.Empty;
+    public string OrderDetailId { get; init; } = string.Empty;
+    public string ProductId { get; init; } = string.Empty;
+    public string ProductName { get; init; } = string.Empty;
+    public string? SupplierId { get; init; }
+    public string? ImageUrl { get; init; }
+    public int Quantity { get; init; }
+    public decimal UnitPrice { get; init; }
+    public decimal SubTotal { get; init; }
 }
 
 /// <summary>

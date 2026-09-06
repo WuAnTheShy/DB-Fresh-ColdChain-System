@@ -269,6 +269,29 @@ internal sealed class FakeOrderRepository : IOrderRepository
         return Task.FromResult(orders);
     }
 
+    public Task<List<OrderCardProductItem>> GetOrderCardItemsAsync(
+        IReadOnlyCollection<string> orderIds,
+        IDbTransaction? transaction = null)
+    {
+        var ids = orderIds.ToHashSet(StringComparer.Ordinal);
+        return Task.FromResult(Details
+            .Where(detail => ids.Contains(detail.OrderId))
+            .OrderBy(detail => detail.OrderId, StringComparer.Ordinal)
+            .ThenBy(detail => detail.OrderDetailId, StringComparer.Ordinal)
+            .Select(detail => new OrderCardProductItem
+            {
+                OrderId = detail.OrderId,
+                OrderDetailId = detail.OrderDetailId,
+                ProductId = detail.ProductId,
+                ProductName = detail.ProductName,
+                SupplierId = detail.SupplierId,
+                Quantity = detail.Quantity,
+                UnitPrice = detail.UnitPrice,
+                SubTotal = detail.SubTotal
+            })
+            .ToList());
+    }
+
     public Task<int> CountSupplierFulfillmentOrdersAsync(
         string supplierId,
         SupplierFulfillmentQuery query,

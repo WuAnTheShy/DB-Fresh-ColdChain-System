@@ -1,5 +1,5 @@
 <script setup>
-import { BadgeCheck, ChevronLeft, ChevronRight, PackageSearch, Search, ShoppingBag, Store } from '@lucide/vue'
+import { BadgeCheck, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, PackageSearch, Search, ShoppingBag, Store } from '@lucide/vue'
 import { onMounted, reactive, ref } from 'vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { api } from '../services/api'
@@ -9,6 +9,7 @@ const { customerId } = useCustomerContext()
 const loading = ref(true)
 const error = ref('')
 const result = ref({ orders: [], totalCount: 0, totalPages: 0 })
+const expandedOrderIds = ref(new Set())
 const filters = reactive({ status: '', keyword: '', page: 1, pageSize: 8 })
 const tabs = [
   { value: '', label: '全部订单' },
@@ -26,11 +27,25 @@ function shortDate(value) {
   const dateValue = new Date(value)
   return `${String(dateValue.getMonth() + 1).padStart(2, '0')}.${String(dateValue.getDate()).padStart(2, '0')}`
 }
-function productImage(order) { return order.firstProductImageUrl || '/images/homepic.png' }
-function productTitle(order) { return order.firstProductName || '订单商品' }
-function productSummary(order) {
-  const remaining = Math.max(0, Number(order.itemCount ?? 0) - 1)
-  return remaining > 0 ? `共 ${order.itemCount} 件商品，另有 ${remaining} 件` : '冷链配送商品'
+function orderProducts(order) {
+  if (Array.isArray(order.productItems) && order.productItems.length) return order.productItems
+  return [{
+    orderDetailId: `${order.orderId}-first`,
+    productId: order.firstProductId,
+    productName: order.firstProductName || '订单商品',
+    imageUrl: order.firstProductImageUrl,
+    quantity: order.firstProductQuantity || 1,
+  }]
+}
+function visibleProducts(order) {
+  const products = orderProducts(order)
+  return expandedOrderIds.value.has(order.orderId) ? products : products.slice(0, 3)
+}
+function toggleProducts(orderId) {
+  const next = new Set(expandedOrderIds.value)
+  if (next.has(orderId)) next.delete(orderId)
+  else next.add(orderId)
+  expandedOrderIds.value = next
 }
 function handleImageError(event) {
   if (event.target.dataset.fallbackApplied) return
@@ -102,15 +117,25 @@ onMounted(loadOrders)
           <StatusBadge :status="order.displayStatusCode || order.orderStatus" :label="order.statusName" />
         </header>
         <div class="order-card-body">
-          <RouterLink class="order-product" :to="`/orders/${order.orderId}`">
-            <img :src="productImage(order)" :alt="productTitle(order)" @error="handleImageError" />
-            <span class="order-product-copy">
-              <strong>{{ productTitle(order) }}</strong>
-              <small>{{ productSummary(order) }}</small>
-              <em>团长带货 · 冷链履约</em>
-            </span>
-            <span class="order-product-quantity">×{{ order.firstProductQuantity || 1 }}</span>
-          </RouterLink>
+          <div class="order-products">
+            <RouterLink v-for="item in visibleProducts(order)" :key="item.orderDetailId" class="order-product"
+              :to="`/orders/${order.orderId}`">
+              <img :src="item.imageUrl || '/images/homepic.png'" :alt="item.productName" @error="handleImageError" />
+              <span class="order-product-copy">
+                <strong>{{ item.productName }}</strong>
+                <small>团长带货 · 冷链履约</small>
+              </span>
+              <span class="order-product-aside">
+                <strong v-if="item.unitPrice != null">{{ money(item.unitPrice) }}</strong>
+                <small>×{{ item.quantity || 1 }}</small>
+              </span>
+            </RouterLink>
+          </div>
+          <button v-if="orderProducts(order).length > 3" class="order-products-toggle" type="button"
+            :aria-expanded="expandedOrderIds.has(order.orderId)" @click="toggleProducts(order.orderId)">
+            <template v-if="expandedOrderIds.has(order.orderId)">收起商品<ChevronUp :size="17" /></template>
+            <template v-else>展开其余 {{ orderProducts(order).length - 3 }} 件商品<ChevronDown :size="17" /></template>
+          </button>
           <div class="order-card-footer">
             <time :datetime="order.createdAt" :title="date(order.createdAt)">{{ shortDate(order.createdAt) }}</time>
             <div class="order-paid"><span>实付款</span><strong>{{ money(order.finalAmount) }}</strong></div>
@@ -258,18 +283,36 @@ onMounted(loadOrders)
   padding: 16px 18px 14px;
 }
 
+.order-products {
+  display: flex;
+  flex-direction: column;
+}
+
 .order-product {
   display: grid;
-  grid-template-columns: 118px minmax(0, 1fr) auto;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
   gap: 16px;
   align-items: start;
+  padding: 12px 0;
   color: inherit;
   text-decoration: none;
 }
 
+.order-product:first-child {
+  padding-top: 0;
+}
+
+.order-product:last-child {
+  padding-bottom: 0;
+}
+
+.order-product+.order-product {
+  border-top: 1px solid #eef0ef;
+}
+
 .order-product>img {
-  width: 118px;
-  height: 118px;
+  width: 96px;
+  height: 96px;
   border-radius: 9px;
   background: #f3f5f4;
   object-fit: cover;
@@ -292,22 +335,47 @@ onMounted(loadOrders)
 }
 
 .order-product-copy>small {
-  margin-top: 7px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.order-product-copy>em {
-  margin-top: 9px;
+  margin-top: 8px;
   color: #1c9b68;
   font-size: 12px;
-  font-style: normal;
 }
 
-.order-product-quantity {
+.order-product-aside {
+  display: flex;
+  min-width: 82px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
   padding-top: 3px;
+}
+
+.order-product-aside>strong {
+  color: #161d19;
+  font-size: 15px;
+}
+
+.order-product-aside>small {
   color: #7a817d;
   font-size: 13px;
+}
+
+.order-products-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 12px;
+  padding: 9px;
+  border: 0;
+  border-top: 1px solid #eef0ef;
+  background: transparent;
+  color: #52605a;
+  font-size: 12px;
+}
+
+.order-products-toggle:hover {
+  color: var(--brand);
 }
 
 .order-card-footer {
@@ -442,13 +510,13 @@ onMounted(loadOrders)
   }
 
   .order-product {
-    grid-template-columns: 92px minmax(0, 1fr) auto;
+    grid-template-columns: 82px minmax(0, 1fr) auto;
     gap: 11px;
   }
 
   .order-product>img {
-    width: 92px;
-    height: 92px;
+    width: 82px;
+    height: 82px;
   }
 
   .order-product-copy>strong {
@@ -483,21 +551,29 @@ onMounted(loadOrders)
   }
 
   .order-product {
-    grid-template-columns: 80px minmax(0, 1fr) auto;
+    grid-template-columns: 72px minmax(0, 1fr) auto;
   }
 
   .order-product>img {
-    width: 80px;
-    height: 80px;
+    width: 72px;
+    height: 72px;
   }
 
   .order-product-copy>small {
     margin-top: 4px;
   }
 
-  .order-product-copy>em {
+  .order-product-copy>small {
     margin-top: 5px;
     font-size: 11px;
+  }
+
+  .order-product-aside {
+    min-width: 66px;
+  }
+
+  .order-product-aside>strong {
+    font-size: 13px;
   }
 }
 </style>

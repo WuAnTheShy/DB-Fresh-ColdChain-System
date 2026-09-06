@@ -722,12 +722,23 @@ public sealed class OrderService : IOrderService
 
         var offset = checked((request.Page - 1) * request.PageSize);
         var orders = await _orderRepo.GetOrdersAsync(request, offset);
+        var cardItems = await _orderRepo.GetOrderCardItemsAsync(
+            orders.Select(order => order.OrderId).ToArray());
+        var itemsByOrder = cardItems
+            .GroupBy(item => item.OrderId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<OrderCardProductItem>)group.ToList(), StringComparer.Ordinal);
+
+        foreach (var order in orders)
+        {
+            order.ProductItems = itemsByOrder.GetValueOrDefault(order.OrderId) ?? [];
+            order.FirstProductImageUrl = order.ProductItems.FirstOrDefault()?.ImageUrl;
+        }
+
         foreach (var order in orders.Where(order => order.Status == OrderStatus.Shipped))
         {
-            var details = await _orderRepo.GetDetailsAsync(order.OrderId);
-            var supplierIds = details
-                .Where(detail => !string.IsNullOrWhiteSpace(detail.SupplierId))
-                .Select(detail => detail.SupplierId!)
+            var supplierIds = order.ProductItems
+                .Where(item => !string.IsNullOrWhiteSpace(item.SupplierId))
+                .Select(item => item.SupplierId!)
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(supplierId => supplierId, StringComparer.Ordinal)
                 .ToList();

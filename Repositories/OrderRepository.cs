@@ -177,14 +177,6 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                           COUNT(DISTINCT d.SupplierId) AS SupplierCount,
                           MIN(d.ProductId) KEEP (DENSE_RANK FIRST ORDER BY d.OrderDetailId) AS FirstProductId,
                           MIN(d.ProductName) KEEP (DENSE_RANK FIRST ORDER BY d.OrderDetailId) AS FirstProductName,
-                          MIN(productImage.ImageUrl) KEEP (
-                              DENSE_RANK FIRST ORDER BY
-                                  d.OrderDetailId,
-                                  CASE WHEN productImage.SupplierId = d.SupplierId THEN 0 ELSE 1 END,
-                                  productImage.SortOrder NULLS LAST,
-                                  productImage.CreateTime NULLS LAST,
-                                  productImage.ImageId NULLS LAST
-                          ) AS FirstProductImageUrl,
                           MIN(d.Quantity) KEEP (DENSE_RANK FIRST ORDER BY d.OrderDetailId) AS FirstProductQuantity,
                           o.CreatedAt
                           ,o.PaymentExpiresAt
@@ -192,9 +184,6 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                    JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
                    LEFT JOIN Crm_Promoters p ON p.PromoterId = o.PromoterId
                    LEFT JOIN Biz_OrderDetails d ON d.OrderId = o.OrderId
-                   LEFT JOIN Inv_ProductImages productImage
-                     ON productImage.ProductId = d.ProductId
-                    AND (productImage.SupplierId = d.SupplierId OR productImage.SupplierId IS NULL)
                    {CreateOrderFilterSql()}
                    GROUP BY o.OrderId,
                             o.OrderNo,
@@ -210,6 +199,48 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                    ORDER BY o.CreatedAt DESC, o.OrderId DESC
                    OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY",
                 CreateOrderQueryParameters(request, offset),
+                transaction)).ToList());
+    }
+
+    public async Task<List<OrderCardProductItem>> GetOrderCardItemsAsync(
+        IReadOnlyCollection<string> orderIds,
+        IDbTransaction? transaction = null)
+    {
+        if (orderIds.Count == 0)
+            return [];
+
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<OrderCardProductItem>(
+                @"SELECT d.OrderId,
+                         d.OrderDetailId,
+                         d.ProductId,
+                         d.ProductName,
+                         d.SupplierId,
+                         d.Quantity,
+                         d.UnitPrice,
+                         d.SubTotal,
+                         MIN(productImage.ImageUrl) KEEP (
+                             DENSE_RANK FIRST ORDER BY
+                                 CASE WHEN productImage.SupplierId = d.SupplierId THEN 0 ELSE 1 END,
+                                 productImage.SortOrder NULLS LAST,
+                                 productImage.CreateTime NULLS LAST,
+                                 productImage.ImageId NULLS LAST
+                         ) AS ImageUrl
+                  FROM Biz_OrderDetails d
+                  LEFT JOIN Inv_ProductImages productImage
+                    ON productImage.ProductId = d.ProductId
+                   AND (productImage.SupplierId = d.SupplierId OR productImage.SupplierId IS NULL)
+                  WHERE d.OrderId IN :OrderIds
+                  GROUP BY d.OrderId,
+                           d.OrderDetailId,
+                           d.ProductId,
+                           d.ProductName,
+                           d.SupplierId,
+                           d.Quantity,
+                           d.UnitPrice,
+                           d.SubTotal
+                  ORDER BY d.OrderId, d.OrderDetailId",
+                new { OrderIds = orderIds },
                 transaction)).ToList());
     }
 

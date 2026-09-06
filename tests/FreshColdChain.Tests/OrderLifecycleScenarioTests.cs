@@ -71,6 +71,8 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal(TestIds.Order2, result.Orders[0].OrderId);
         AssertEx.Equal("已完成", result.Orders[0].StatusName);
         AssertEx.Equal(2, result.Orders[0].SupplierCount);
+        AssertEx.Equal(2, result.Orders[0].ProductItems.Count);
+        AssertEx.Equal("车厘子", result.Orders[0].ProductItems[0].ProductName);
     }
 
     private static async Task OrderDetailGroupsBySupplierAsync()
