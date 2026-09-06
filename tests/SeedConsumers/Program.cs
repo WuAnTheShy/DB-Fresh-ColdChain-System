@@ -33,14 +33,37 @@ const string testPassword = "TestUser2026!";
 const string baseLevelId = "00000000000000000000000000000001"; // 普通会员 (MinSpent = 0)
 string[] avatars = ["cat", "rabbit", "panda", "fox", "carrot", "broccoli", "tomato", "corn"];
 
+string[] realNames =
+[
+    "李思远", "王雨桐", "张雅静", "陈浩然", "刘欣怡",
+    "赵梦琪", "孙立杰", "周子涵", "吴佳琪", "郑晓东"
+];
 var accounts = new List<(string Name, string Phone, string Email, string Avatar)>();
 for (var i = 1; i <= 10; i++)
 {
     accounts.Add((
-        $"测试消费者{i:00}",
+        realNames[i - 1],
         $"139000010{i:00}",
         $"test-consumer{i:00}@example.com",
         avatars[(i - 1) % avatars.Length]));
+}
+
+// --rename mode: assign realistic display names to the 10 test consumers (跟团记录脱敏展示前缀来源)。
+if (args.Any(a => a == "--rename"))
+{
+    await using var rn = new OracleConnection(connectionString);
+    await rn.OpenAsync();
+    for (var i = 0; i < accounts.Count; i++)
+    {
+        using var upd = rn.CreateCommand();
+        upd.CommandText = "UPDATE Crm_Customers SET CustomerName = :Name, UpdatedAt = SYSDATE WHERE Phone = :Phone";
+        upd.Parameters.Add(new OracleParameter("Name", realNames[i]));
+        upd.Parameters.Add(new OracleParameter("Phone", accounts[i].Phone));
+        var affected = await upd.ExecuteNonQueryAsync();
+        Console.WriteLine($"RENAME {accounts[i].Phone} -> {realNames[i]} ({(affected == 1 ? "ok" : "not found")})");
+    }
+    Console.WriteLine("done renaming test consumers.");
+    return;
 }
 
 // --seed-purchases mode: create completed purchase records for the 10 test consumers

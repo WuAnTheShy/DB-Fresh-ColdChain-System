@@ -43,6 +43,12 @@ const groupRecordsLoading = ref(false)
 const groupRecordsError = ref('')
 const groupRecords = ref([])
 let groupRecordsRequestId = 0
+const GROUP_RECORDS_PREVIEW = 5
+const groupRecordsExpanded = ref(false)
+const visibleGroupRecords = computed(() => {
+  const records = groupRecords.value
+  return groupRecordsExpanded.value ? records : records.slice(0, GROUP_RECORDS_PREVIEW)
+})
 const authLink = computed(() => ({ name: 'auth', query: { redirect: route.fullPath } }))
 const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(product.value?.leaderId))
 const followLink = computed(() => canViewPrice.value ? null : `/leaders/${leader.value?.id ?? ''}`)
@@ -145,6 +151,7 @@ async function loadGroupRecords() {
   const l = leader.value
   groupRecords.value = []
   groupRecordsError.value = ''
+  groupRecordsExpanded.value = false
   if (!p || !l?.id || p.isFallback || !p.productId) return
   groupRecordsLoading.value = true
   try {
@@ -326,7 +333,7 @@ function avatarFallback(name) {
         <button class="btn btn-sm btn-outline-secondary" type="button" @click="loadGroupRecords">重新加载</button>
       </div>
       <div v-else-if="groupRecords.length" class="group-record-list">
-        <div v-for="record in groupRecords" :key="record.customerId" class="group-record-item">
+        <div v-for="record in visibleGroupRecords" :key="record.customerId" class="group-record-item">
           <img class="group-record-avatar" :src="avatarUrl(record.avatar) || avatarFallback(record.customerName)"
             :alt="`${record.customerName}头像`" loading="lazy"
             @error="$event.target.src = avatarFallback(record.customerName)" />
@@ -336,6 +343,10 @@ function avatarFallback(name) {
           </div>
           <time class="group-record-time" :datetime="record.purchasedAt">{{ formatDate(record.purchasedAt) }}</time>
         </div>
+        <button v-if="groupRecords.length > GROUP_RECORDS_PREVIEW" class="group-record-toggle" type="button"
+          @click="groupRecordsExpanded = !groupRecordsExpanded">
+          {{ groupRecordsExpanded ? '收起' : `展开更多（${groupRecords.length - GROUP_RECORDS_PREVIEW}）` }}
+        </button>
       </div>
       <div v-else class="group-record-list-empty">暂无跟团记录</div>
     </section>
@@ -901,6 +912,25 @@ function avatarFallback(name) {
   white-space: nowrap;
 }
 
+.group-record-toggle {
+  justify-self: center;
+  margin-top: 2px;
+  padding: 8px 18px;
+  border: 1px solid var(--brand);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+
+.group-record-toggle:hover {
+  background: var(--brand);
+  color: #fff;
+}
+
 @media (max-width: 1199.98px) {
   .product-detail-main {
     grid-template-columns: minmax(270px, .9fr) minmax(300px, 1fr);
@@ -1049,6 +1079,11 @@ function avatarFallback(name) {
 
   .group-record-info span {
     font-size: 11px;
+  }
+
+  .group-record-toggle {
+    padding: 7px 16px;
+    font-size: 12px;
   }
 }
 

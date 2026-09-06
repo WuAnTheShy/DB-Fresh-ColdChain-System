@@ -147,7 +147,7 @@ public sealed class PromotersApiController(
             records = records.Select(r => new
             {
                 r.CustomerId,
-                r.CustomerName,
+                customerName = MaskCustomerName(r.CustomerName),
                 r.Avatar,
                 avatarUrl = string.IsNullOrWhiteSpace(r.Avatar)
                     ? null
@@ -158,6 +158,16 @@ public sealed class PromotersApiController(
                 r.PurchasedAt,
                 r.OrderStatus
             })
+
         });
+    }
+
+    /// <summary>跟团记录只展示脱敏姓名（如 李**），不对外暴露消费者全名。</summary>
+    private static string MaskCustomerName(string? name)
+    {
+        var trimmed = (name ?? string.Empty).Trim();
+        if (trimmed.Length <= 1)
+            return trimmed;
+        return trimmed[0] + new string('*', trimmed.Length - 1);
     }
 }
