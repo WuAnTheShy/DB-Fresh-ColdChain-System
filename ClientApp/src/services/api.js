@@ -139,6 +139,11 @@ export const api = {
   confirmOrderItemReceipt: (orderId, orderDetailId) => request(`/api/orders/${orderId}/items/${orderDetailId}/confirm-receipt`, {
     method: 'POST',
   }),
+  submitProductEvaluation: (orderId, orderDetailId, payload) => request(`/api/orders/${orderId}/items/${orderDetailId}/evaluation`, {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
+  getPromoterEvaluationSummary: (promoterId) => request(`/api/promoters/${encodeURIComponent(promoterId)}/evaluation-summary`),
   getOrderRefunds: (orderId) => request(`/api/orders/${orderId}/refunds`),
   applyOrderRefund: (orderId, payload) => request(`/api/orders/${orderId}/refunds`, {
     method: 'POST',

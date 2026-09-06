@@ -13,6 +13,18 @@ const detail = ref(null)
 const error = ref('')
 const success = ref('')
 const cancelDialogOpen = ref(false)
+const evaluationDialogOpen = ref(false)
+const evaluatingItem = ref(null)
+const selectedEvaluationDimensions = ref([])
+const evaluationError = ref('')
+const evaluationDimensions = [
+  { code: 'HIGH_QUALITY', name: '高品质' },
+  { code: 'FAST_SHIPPING', name: '发货快' },
+  { code: 'GOOD_PACKAGING', name: '包装完好' },
+  { code: 'COST_EFFECTIVE', name: '性价比高' },
+  { code: 'AFFORDABLE', name: '价格实惠' },
+  { code: 'RELIABLE_PROMOTER', name: '团长靠谱' },
+]
 const timeline = computed(() => {
   const status = detail.value?.order?.orderStatus
   const progress = { PENDING_PAYMENT: 0, PAID: 1, SHIPPED: 2, COMPLETED: 3 }[status] ?? 0
@@ -39,6 +51,43 @@ function cancelPendingOrder() {
 function confirmCancelOrder() {
   cancelDialogOpen.value = false
   runAction(() => api.cancelOrder(props.id), '订单已取消')
+}
+function openEvaluation(item) {
+  evaluatingItem.value = item
+  selectedEvaluationDimensions.value = []
+  evaluationError.value = ''
+  evaluationDialogOpen.value = true
+}
+function closeEvaluation() {
+  if (acting.value) return
+  evaluationDialogOpen.value = false
+  evaluatingItem.value = null
+  selectedEvaluationDimensions.value = []
+  evaluationError.value = ''
+}
+async function submitEvaluation() {
+  if (!evaluatingItem.value || selectedEvaluationDimensions.value.length === 0) {
+    evaluationError.value = '请至少选择一项评价'
+    return
+  }
+  acting.value = true
+  evaluationError.value = ''
+  error.value = ''
+  success.value = ''
+  try {
+    await api.submitProductEvaluation(props.id, evaluatingItem.value.orderDetailId, {
+      dimensions: selectedEvaluationDimensions.value,
+    })
+    success.value = `${evaluatingItem.value.productName}评价已提交`
+    evaluationDialogOpen.value = false
+    evaluatingItem.value = null
+    selectedEvaluationDimensions.value = []
+    await loadOrder()
+  } catch (requestError) {
+    evaluationError.value = requestError.message
+  } finally {
+    acting.value = false
+  }
 }
 onMounted(loadOrder)
 </script>
@@ -83,7 +132,10 @@ onMounted(loadOrder)
                   <BadgeCheck :size="13" />{{ fallbackLeader(item.productId).name }}带货
                 </small><small v-if="item.receiptStatus === 'RECEIVED'" class="receipt-done">
                   <CheckCircle2 :size="13" />已确认收货 · {{ date(item.receivedAt) }}
-                </small><button v-else-if="item.canConfirmReceipt" class="btn btn-sm btn-buy receipt-button"
+                </small><button v-if="item.canEvaluate" class="btn btn-sm btn-buy evaluation-button" type="button"
+                  :disabled="acting" @click="openEvaluation(item)">评价</button>
+                <span v-else-if="item.isEvaluated" class="evaluated-label"><Check :size="13" />已评价</span>
+                <button v-if="item.canConfirmReceipt" class="btn btn-sm btn-buy receipt-button"
                   type="button" :disabled="acting"
                   @click="runAction(() => api.confirmOrderItemReceipt(id, item.orderDetailId), `${item.productName}已确认收货`)">
                   <CheckCircle2 :size="14" />确认该商品收货
@@ -227,6 +279,26 @@ onMounted(loadOrder)
         <p v-if="detail?.order?.checkoutBatchId">将同时关闭同批次的其他子订单，并归还已使用的优惠券与积分。</p>
         <p v-else>取消后将归还已使用的优惠券与积分。</p>
         <div><button class="btn btn-outline-secondary" type="button" :disabled="acting" @click="cancelDialogOpen = false">再想想</button><button class="btn btn-outline-danger" type="button" :disabled="acting" @click="confirmCancelOrder"><span v-if="acting" class="spinner-border spinner-border-sm"></span>确认取消</button></div>
+      </section>
+    </div>
+
+    <div v-if="evaluationDialogOpen" class="cancel-dialog-backdrop" role="presentation" @click.self="closeEvaluation">
+      <section class="cancel-dialog evaluation-dialog" role="dialog" aria-modal="true" aria-labelledby="evaluation-dialog-title">
+        <button class="cancel-dialog-close" type="button" aria-label="关闭" :disabled="acting" @click="closeEvaluation"><X :size="20" /></button>
+        <h2 id="evaluation-dialog-title">评价商品</h2>
+        <p>{{ evaluatingItem?.productName }}</p>
+        <fieldset class="evaluation-options">
+          <legend>请选择符合本次体验的评价（可多选）</legend>
+          <label v-for="dimension in evaluationDimensions" :key="dimension.code"
+            :class="{ selected: selectedEvaluationDimensions.includes(dimension.code) }">
+            <input v-model="selectedEvaluationDimensions" type="checkbox" :value="dimension.code" />
+            <Check :size="15" />{{ dimension.name }}
+          </label>
+        </fieldset>
+        <div v-if="evaluationError" class="evaluation-dialog-error" role="alert">{{ evaluationError }}</div>
+        <div><button class="btn btn-outline-secondary" type="button" :disabled="acting" @click="closeEvaluation">取消</button><button
+            class="btn btn-buy" type="button" :disabled="acting || selectedEvaluationDimensions.length === 0"
+            @click="submitEvaluation"><span v-if="acting" class="spinner-border spinner-border-sm"></span>提交评价</button></div>
       </section>
     </div>
   </div>
@@ -435,6 +507,24 @@ onMounted(loadOrder)
   margin-top: 8px;
   padding: 5px 9px;
   font-size: 9px;
+}
+
+.evaluation-button {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 5px 12px;
+  font-size: 9px;
+}
+
+.evaluated-label {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 3px;
+  margin-top: 7px;
+  color: #247349;
+  font-size: 9px;
+  font-weight: 700;
 }
 
 .order-product-row>span {
@@ -788,5 +878,80 @@ onMounted(loadOrder)
   justify-content: center;
   gap: 8px;
   margin-top: 20px;
+}
+
+.evaluation-dialog {
+  width: min(520px, 100%);
+  text-align: left;
+}
+
+.evaluation-dialog>h2,
+.evaluation-dialog>p {
+  text-align: center;
+}
+
+.evaluation-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+  padding: 0;
+  border: 0;
+}
+
+.evaluation-options legend {
+  grid-column: 1 / -1;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.evaluation-options label {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.evaluation-options label.selected {
+  border-color: #13b86c;
+  background: #e8f8f1;
+  color: #087a49;
+}
+
+.evaluation-options input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.evaluation-options label svg {
+  opacity: 0;
+}
+
+.evaluation-options label.selected svg {
+  opacity: 1;
+}
+
+.evaluation-dialog-error {
+  justify-content: flex-start !important;
+  margin-top: 12px !important;
+  color: var(--danger);
+  font-size: 10px;
+}
+
+@media (max-width: 479.98px) {
+  .evaluation-options {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

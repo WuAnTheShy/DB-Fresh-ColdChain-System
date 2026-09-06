@@ -11,7 +11,8 @@ namespace FreshColdChain.Controllers.Api;
 public sealed class OrdersApiController(
     IOrderService orderService,
     ICustomerService customerService,
-    IColdChainLogisticsService coldChainLogisticsService) : GroupBApiController
+    IColdChainLogisticsService coldChainLogisticsService,
+    IProductEvaluationService productEvaluationService) : GroupBApiController
 {
     [HttpGet]
     public async Task<IActionResult> GetOrders([FromQuery] OrderQueryRequest request)
@@ -85,6 +86,8 @@ public sealed class OrdersApiController(
             return ApiForbidden();
 
         var order = detail.Order;
+        var evaluatedDetailIds = await productEvaluationService.GetEvaluatedOrderDetailIdsAsync(
+            detail.Details.Select(item => item.OrderDetailId));
         return Ok(new
         {
             detail.OrderId,
@@ -128,6 +131,9 @@ public sealed class OrdersApiController(
                     item.SubTotal,
                     item.ReceiptStatus,
                     item.ReceivedAt,
+                    isEvaluated = evaluatedDetailIds.Contains(item.OrderDetailId),
+                    canEvaluate = string.Equals(item.ReceiptStatus, "RECEIVED", StringComparison.Ordinal) &&
+                        !evaluatedDetailIds.Contains(item.OrderDetailId),
                     canConfirmReceipt = order.OrderStatus == OrderStatusCodes.Shipped &&
                         package?.Logistics.StatusCode ==
                         LogisticsStatusCodes.Delivered &&

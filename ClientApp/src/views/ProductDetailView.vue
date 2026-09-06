@@ -18,6 +18,17 @@ const leader = computed(() => leaderById(product.value?.leaderId))
 const quantity = ref(1)
 const added = ref(false)
 const related = computed(() => products.filter((item) => item.id !== String(props.id)).slice(0, 4))
+const defaultEvaluationDimensions = [
+  { code: 'HIGH_QUALITY', name: '高品质', count: 0 },
+  { code: 'FAST_SHIPPING', name: '发货快', count: 0 },
+  { code: 'GOOD_PACKAGING', name: '包装完好', count: 0 },
+  { code: 'COST_EFFECTIVE', name: '性价比高', count: 0 },
+  { code: 'AFFORDABLE', name: '价格实惠', count: 0 },
+  { code: 'RELIABLE_PROMOTER', name: '团长靠谱', count: 0 },
+]
+const evaluationSummary = ref({ totalCount: 0, dimensions: defaultEvaluationDimensions })
+const evaluationLoading = ref(false)
+let evaluationRequestId = 0
 const authLink = computed(() => ({ name: 'auth', query: { redirect: route.fullPath } }))
 const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(product.value?.leaderId))
 const followLink = computed(() => canViewPrice.value ? null : `/leaders/${leader.value?.id ?? ''}`)
@@ -67,8 +78,10 @@ watch([() => props.id, catalogLoaded], () => {
 // 目录就绪或切换商品后读取团长推文，直接展示在商品亮点中。
 watch([() => props.id, () => leader.value?.id, () => product.value?.productId, () => product.value?.isFallback],
   () => checkIntro(), { immediate: true, flush: 'sync' })
+watch([() => props.id, () => leader.value?.id],
+  () => loadEvaluationSummary(), { immediate: true, flush: 'sync' })
 // 切换商品或离开页面后，旧请求不能覆盖新页面的推文内容。
-onUnmounted(() => { introRequestId++ })
+onUnmounted(() => { introRequestId++; evaluationRequestId++ })
 
 onMounted(() => loadCatalog().catch(() => { }))
 
@@ -83,6 +96,30 @@ function buyNow() {
   if (!product.value || !leader.value) return
   buyNowProduct(product.value.id, quantity.value)
   router.push('/checkout')
+}
+
+async function loadEvaluationSummary() {
+  const requestId = ++evaluationRequestId
+  const p = product.value
+  const l = leader.value
+  evaluationSummary.value = { totalCount: 0, dimensions: defaultEvaluationDimensions }
+  if (!p || !l?.id) return
+  evaluationLoading.value = true
+  try {
+    const result = await api.getPromoterEvaluationSummary(l.id)
+    if (requestId !== evaluationRequestId) return
+    evaluationSummary.value = {
+      totalCount: Number(result?.totalCount ?? 0),
+      dimensions: Array.isArray(result?.dimensions) && result.dimensions.length
+        ? result.dimensions
+        : defaultEvaluationDimensions,
+    }
+  } catch {
+    if (requestId === evaluationRequestId)
+      evaluationSummary.value = { totalCount: 0, dimensions: defaultEvaluationDimensions }
+  } finally {
+    if (requestId === evaluationRequestId) evaluationLoading.value = false
+  }
 }
 </script>
 
@@ -208,6 +245,23 @@ function buyNow() {
           <p v-else>{{ product.summary }}</p>
         </div>
       </div>
+    </section>
+
+    <section class="product-community-module product-showcase-module" aria-labelledby="showcase-title">
+      <header>
+        <h2 id="showcase-title">该团购所属团长主页评价</h2>
+        <span>{{ evaluationLoading ? '读取中…' : `全部商品共 ${evaluationSummary.totalCount} 条评价` }}</span>
+      </header>
+      <div class="showcase-tag-list" aria-label="商品评价标签">
+        <span v-for="dimension in evaluationSummary.dimensions" :key="dimension.code">{{ dimension.name }} ({{ dimension.count }})</span>
+      </div>
+    </section>
+
+    <section class="product-community-module product-group-records-module" aria-labelledby="group-records-title">
+      <header>
+        <h2 id="group-records-title">跟团记录</h2>
+      </header>
+      <div class="group-record-list-empty">暂无跟团记录</div>
     </section>
 
     <section class="home-section px-0">
@@ -646,6 +700,58 @@ function buyNow() {
   gap: 10px;
 }
 
+.product-community-module {
+  margin-top: 16px;
+  background: #fff;
+}
+
+.product-community-module>header {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 26px;
+  border-bottom: 1px solid #edf0ee;
+}
+
+.product-community-module h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 21px;
+  font-weight: 500;
+}
+
+.product-community-module>header>span {
+  display: inline-flex;
+  align-items: center;
+  color: #9a9f9c;
+  font-size: 15px;
+}
+
+.showcase-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 11px 13px;
+  padding: 20px 26px 28px;
+}
+
+.showcase-tag-list span {
+  padding: 7px 13px;
+  border-radius: 5px;
+  background: #e8f8f1;
+  color: #13b86c;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.group-record-list-empty {
+  min-height: 96px;
+  padding: 30px 26px;
+  color: #9a9f9c;
+  font-size: 14px;
+}
+
 @media (max-width: 1199.98px) {
   .product-detail-main {
     grid-template-columns: minmax(270px, .9fr) minmax(300px, 1fr);
@@ -717,6 +823,33 @@ function buyNow() {
   .detail-info-band>div {
     min-height: 68px;
     padding: 7px;
+  }
+
+  .product-community-module>header {
+    min-height: 64px;
+    padding: 0 16px;
+  }
+
+  .product-community-module h2 {
+    font-size: 16px;
+  }
+
+  .product-community-module>header>span {
+    font-size: 13px;
+  }
+
+  .showcase-tag-list {
+    gap: 9px;
+    padding: 16px 16px 22px;
+  }
+
+  .showcase-tag-list span {
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+
+  .group-record-list-empty {
+    padding: 26px 16px;
   }
 }
 
