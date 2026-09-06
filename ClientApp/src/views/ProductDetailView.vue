@@ -155,10 +155,6 @@ async function loadEvaluationSummary() {
           </RouterLink>
         </div>
         <dl class="product-facts">
-          <div v-if="product.supplierName">
-            <dt>供应商</dt>
-            <dd>{{ product.supplierName }}</dd>
-          </div>
           <div>
             <dt>规格</dt>
             <dd>{{ product.spec }}</dd>
