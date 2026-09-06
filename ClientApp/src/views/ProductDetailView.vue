@@ -219,8 +219,10 @@ async function loadEvaluationSummary() {
       </div>
     </section>
 
-    <section class="product-description-section">
-      <h2>商品详情</h2>
+    <section class="product-community-module product-description-section">
+      <header>
+        <h2>商品详情</h2>
+      </header>
       <div class="description-grid">
         <div class="product-highlights">
           <div v-if="intro" class="inline-promoter-intro">
@@ -636,21 +638,15 @@ async function loadEvaluationSummary() {
 }
 
 .product-description-section {
-  margin-top: 16px;
-  padding: 22px;
-  border: 1px solid var(--line);
-  background: #fff;
-}
-
-.product-description-section>h2 {
-  margin: 0 0 16px;
-  font-size: 18px;
+  overflow: hidden;
 }
 
 .description-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 20px;
+  min-height: 96px;
+  padding: 30px 26px;
 }
 
 .description-grid h3 {
@@ -714,8 +710,8 @@ async function loadEvaluationSummary() {
 .product-community-module h2 {
   margin: 0;
   color: var(--ink);
-  font-size: 21px;
-  font-weight: 500;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .product-community-module>header>span {
@@ -837,6 +833,10 @@ async function loadEvaluationSummary() {
   .showcase-tag-list {
     gap: 9px;
     padding: 16px 16px 22px;
+  }
+
+  .description-grid {
+    padding: 26px 16px;
   }
 
   .showcase-tag-list span {
