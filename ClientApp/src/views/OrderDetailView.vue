@@ -3,10 +3,8 @@ import { AlertTriangle, BadgeCheck, Ban, Check, CheckCircle2, ChevronLeft, Clock
 import { computed, onMounted, ref } from 'vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { api } from '../services/api'
-import { useShop } from '../state/shop'
 
 const props = defineProps({ id: { type: String, required: true } })
-const { productById, leaderById } = useShop()
 const loading = ref(true)
 const acting = ref(false)
 const detail = ref(null)
@@ -33,8 +31,12 @@ const timeline = computed(() => {
 
 function money(value) { return `¥${Number(value ?? 0).toFixed(2)}` }
 function date(value) { return value ? new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '-' }
-function productImage(id) { return productById(id)?.image }
-function fallbackLeader(id) { const product = productById(id); return product ? leaderById(product.leaderId) : null }
+function handleProductImageError(event) {
+  if (event.target.dataset.fallbackApplied) return
+  event.target.dataset.fallbackApplied = 'true'
+  event.target.src = '/images/homepic.png'
+  event.target.classList.add('fallback-photo-tint')
+}
 function temperatureName(value) { return ({ CHILLED: '冷藏', FROZEN: '冷冻', AMBIENT: '常温' })[value] ?? value ?? '未标注' }
 
 async function loadOrder() {
@@ -121,15 +123,14 @@ onMounted(loadOrder)
             <div class="consumer-section-title">
               <BadgeCheck :size="21" />
               <div>
-                <h2>{{ detail.promoterName ? `${detail.promoterName}带货商品` : '认证团长带货商品' }}</h2>
+                <h2>{{ detail.promoterName ? `${detail.promoterName}` : '认证团长' }}</h2>
               </div>
             </div>
             <article v-for="item in detail.details" :key="item.orderDetailId" class="order-product-row">
-              <img :src="productImage(item.productId) || '/images/homepic.png'" :alt="item.productName"
-                :class="{ 'fallback-photo-tint': productImage(item.productId) === '/images/homepic.png' }"
-                @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = '/images/homepic.png'" />
-              <div><strong>{{ item.productName }}</strong><small v-if="fallbackLeader(item.productId)">
-                  <BadgeCheck :size="13" />{{ fallbackLeader(item.productId).name }}带货
+              <img :src="item.imageUrl || '/images/homepic.png'" :alt="item.productName"
+                :class="{ 'fallback-photo-tint': !item.imageUrl }" @error="handleProductImageError" />
+              <div><strong>{{ item.productName }}</strong><small v-if="detail.promoterName" class="product-promoter">
+                  <BadgeCheck :size="13" />{{ detail.promoterName }}带货
                 </small><small v-if="item.receiptStatus === 'RECEIVED'" class="receipt-done">
                   <CheckCircle2 :size="13" />已确认收货 · {{ date(item.receivedAt) }}
                 </small><button v-if="item.canEvaluate" class="btn btn-sm btn-buy evaluation-button" type="button"

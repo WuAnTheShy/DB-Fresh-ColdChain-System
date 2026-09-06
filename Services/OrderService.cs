@@ -775,6 +775,7 @@ public sealed class OrderService : IOrderService
             return null;
 
         var details = await _orderRepo.GetDetailsAsync(orderId);
+        var productItems = await _orderRepo.GetOrderCardItemsAsync([orderId]);
         var supplierIds = details
             .Where(detail => !string.IsNullOrWhiteSpace(detail.SupplierId))
             .Select(detail => detail.SupplierId!)
@@ -791,7 +792,9 @@ public sealed class OrderService : IOrderService
             OrderId = orderId,
             Order = header.ToOrder(),
             CustomerName = header.CustomerName,
+            PromoterName = header.PromoterName,
             Details = details,
+            ProductItems = productItems,
             SupplierGroups = CreateSupplierGroupViewModels(
                 details,
                 logisticsSnapshots),

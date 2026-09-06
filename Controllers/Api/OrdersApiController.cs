@@ -104,9 +104,14 @@ public sealed class OrdersApiController(
         var order = detail.Order;
         var evaluatedDetailIds = await productEvaluationService.GetEvaluatedOrderDetailIdsAsync(
             detail.Details.Select(item => item.OrderDetailId));
+        var productImages = detail.ProductItems.ToDictionary(
+            item => item.OrderDetailId,
+            item => item.ImageUrl,
+            StringComparer.Ordinal);
         return Ok(new
         {
             detail.OrderId,
+            detail.PromoterName,
             order = new
             {
                 order.OrderId,
@@ -142,6 +147,7 @@ public sealed class OrdersApiController(
                     item.OrderId,
                     item.ProductId,
                     item.ProductName,
+                    imageUrl = productImages.GetValueOrDefault(item.OrderDetailId),
                     item.Quantity,
                     item.UnitPrice,
                     item.SubTotal,

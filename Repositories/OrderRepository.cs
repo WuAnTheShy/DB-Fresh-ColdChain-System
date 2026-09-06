@@ -319,6 +319,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                          o.CustomerId,
                          o.CheckoutBatchId,
                          o.PromoterId,
+                         p.PromoterName,
                          o.AddressId,
                          c.CustomerName,
                          o.ReceiverName,
@@ -338,6 +339,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                          o.UpdatedAt
                   FROM Biz_Orders o
                   JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
+                  LEFT JOIN Crm_Promoters p ON p.PromoterId = o.PromoterId
                   WHERE o.OrderId = :OrderId",
                 new { OrderId = orderId },
                 transaction));
