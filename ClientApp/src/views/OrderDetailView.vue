@@ -1,5 +1,5 @@
 <script setup>
-import { AlertTriangle, BadgeCheck, Ban, Check, CheckCircle2, ChevronLeft, Clock3, CreditCard, MapPin, PackageCheck, RefreshCw, RotateCcw, Snowflake, Truck, X } from '@lucide/vue'
+import { AlertTriangle, BadgeCheck, Ban, Check, CheckCircle2, ChevronLeft, Clock3, CreditCard, MapPin, RefreshCw, RotateCcw, Snowflake, Truck, X } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { api } from '../services/api'
@@ -76,10 +76,9 @@ onMounted(loadOrder)
               </div>
             </div>
             <article v-for="item in detail.details" :key="item.orderDetailId" class="order-product-row">
-              <img v-if="productImage(item.productId)" :src="productImage(item.productId)" :alt="item.productName" />
-              <span v-else class="order-product-placeholder">
-                <PackageCheck :size="24" />
-              </span>
+              <img :src="productImage(item.productId) || '/images/homepic.png'" :alt="item.productName"
+                :class="{ 'fallback-photo-tint': productImage(item.productId) === '/images/homepic.png' }"
+                @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = '/images/homepic.png'" />
               <div><strong>{{ item.productName }}</strong><small v-if="fallbackLeader(item.productId)">
                   <BadgeCheck :size="13" />{{ fallbackLeader(item.productId).name }}团长带货
                 </small><small v-if="item.receiptStatus === 'RECEIVED'" class="receipt-done">
@@ -406,19 +405,10 @@ onMounted(loadOrder)
   border-top: 1px solid var(--line);
 }
 
-.order-product-row>img,
-.order-product-placeholder {
+.order-product-row>img {
   width: 72px;
   height: 72px;
   object-fit: cover;
-}
-
-.order-product-placeholder {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #eef1ef;
-  color: var(--muted);
 }
 
 .order-product-row>div {
@@ -720,8 +710,7 @@ onMounted(loadOrder)
     grid-template-columns: 60px minmax(0, 1fr) 76px;
   }
 
-  .order-product-row>img,
-  .order-product-placeholder {
+  .order-product-row>img {
     width: 60px;
     height: 60px;
   }

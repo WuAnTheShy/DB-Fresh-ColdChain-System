@@ -8,10 +8,13 @@ const props = defineProps({
   product: { type: Object, required: true },
 })
 
-const { categories, leaderById, isLeaderFollowed } = useShop()
+const { leaderById, isLeaderFollowed } = useShop()
 const { isAuthenticated } = useCustomerContext()
 const activeLeader = computed(() => leaderById(props.product.leaderId))
-const category = computed(() => categories.find((item) => item.slug === props.product.category))
+const cardImages = computed(() => {
+  const images = Array.isArray(props.product.images) ? props.product.images.filter(Boolean) : []
+  return [...new Set(images.length ? images : [props.product.image].filter(Boolean))].slice(0, 2)
+})
 
 // 品类标识：不同图标 + 颜色 + 背景填充圆角
 const categoryStyles = [
@@ -32,6 +35,17 @@ const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(pr
 
 function displayPrice(value) {
   return Number(value).toFixed(2).replace(/\.00$/, '')
+}
+
+function handleImageError(event, index) {
+  const image = event.target
+  if (index === 0 && props.product.fallbackImage && image.dataset.fallbackApplied !== 'true') {
+    image.dataset.fallbackApplied = 'true'
+    image.classList.add('fallback-photo-tint')
+    image.src = props.product.fallbackImage
+    return
+  }
+  image.style.display = 'none'
 }
 </script>
 
@@ -70,8 +84,10 @@ function displayPrice(value) {
         <div v-else class="social-product-price-gated">关注团长后查看专属价格</div>
 
         <div class="product-card-media">
-          <img :src="product.image" :alt="product.name" loading="lazy" @error="$event.target.src = product.fallbackImage" />
-          <img :src="category?.image || product.image" :alt="`${product.shortName}货架陈列`" loading="lazy" />
+          <img v-for="(image, index) in cardImages" :key="image" :src="image"
+            :class="{ 'fallback-photo-tint': image === product.fallbackImage }"
+            :alt="index === 0 ? product.name : `${product.name}商品图${index + 1}`" loading="lazy"
+            @error="handleImageError($event, index)" />
         </div>
 
         <div class="product-card-group-status">
@@ -293,7 +309,8 @@ function displayPrice(value) {
   display: grid;
   overflow: hidden;
   aspect-ratio: 16 / 7.2;
-  grid-template-columns: 1.45fr 1fr;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
   gap: 6px;
   border-radius: 7px;
   background: #f1f2f2;

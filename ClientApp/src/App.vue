@@ -18,6 +18,18 @@ watch(customerId, (id) => {
 </script>
 
 <template>
+  <svg class="app-filter-definitions" aria-hidden="true">
+    <defs>
+      <filter id="fallback-photo-blue-overlay" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+        <feFlood flood-color="#d6ecf8" flood-opacity="0.2" result="blueOverlay" />
+        <feComposite in="blueOverlay" in2="SourceAlpha" operator="in" result="clippedOverlay" />
+        <feMerge>
+          <feMergeNode in="SourceGraphic" />
+          <feMergeNode in="clippedOverlay" />
+        </feMerge>
+      </filter>
+    </defs>
+  </svg>
   <div class="store-shell">
     <AppHeader />
     <main class="store-main">

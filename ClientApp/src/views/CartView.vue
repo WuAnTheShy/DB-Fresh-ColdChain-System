@@ -62,6 +62,8 @@ const groups = computed(() => {
                 :checked="item.selected" @change="setCartItemSelected(item.productId, $event.target.checked)" /><span
                 class="visually-hidden">选择{{ item.product.name }}</span></label>
             <RouterLink :to="`/products/${item.product.id}`" @click.stop><img :src="item.product.image"
+                :class="{ 'fallback-photo-tint': item.product.image === item.product.fallbackImage }"
+                @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = item.product.fallbackImage"
                 :alt="item.product.name" /></RouterLink>
             <div class="cart-item-main">
               <RouterLink :to="`/products/${item.product.id}`" @click.stop>{{ item.product.name }}</RouterLink>

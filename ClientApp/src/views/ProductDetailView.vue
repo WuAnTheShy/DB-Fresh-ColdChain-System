@@ -89,12 +89,14 @@ function buyNow() {
     <section class="product-detail-main">
       <div class="product-gallery">
         <div class="product-main-image"><img :src="product.image" :alt="product.name"
-            @error="$event.target.src = product.fallbackImage" /><span
+            :class="{ 'fallback-photo-tint': product.image === product.fallbackImage }"
+            @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" /><span
             :class="`storage-badge storage-badge-${product.storageType.toLowerCase()}`">
             {{ product.storage }}
           </span></div>
         <div class="product-thumb active"><img :src="product.image" alt="商品主图缩略图"
-            @error="$event.target.src = product.fallbackImage" /></div>
+            :class="{ 'fallback-photo-tint': product.image === product.fallbackImage }"
+            @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" /></div>
       </div>
 
       <div class="product-info-column">
