@@ -43,6 +43,120 @@ for (var i = 1; i <= 10; i++)
         avatars[(i - 1) % avatars.Length]));
 }
 
+// --seed-purchases mode: create completed purchase records for the 10 test consumers
+// buying the given product from the given promoter, so the 跟团记录 has data to show.
+// Usage: --seed-purchases <promoterId> <productId> <supplierId> <unitPrice>
+if (args.Any(a => a == "--seed-purchases"))
+{
+    var idx = Array.IndexOf(args, "--seed-purchases");
+    var promoterId = args.ElementAtOrDefault(idx + 1) ?? string.Empty;
+    var productId = args.ElementAtOrDefault(idx + 2) ?? string.Empty;
+    var supplierId = args.ElementAtOrDefault(idx + 3) ?? string.Empty;
+    var unitPrice = args.ElementAtOrDefault(idx + 4) is { } p && decimal.TryParse(p, out var up) ? up : 0m;
+    if (string.IsNullOrWhiteSpace(promoterId) || string.IsNullOrWhiteSpace(productId) || unitPrice <= 0)
+    {
+        Console.WriteLine("usage: --seed-purchases <promoterId> <productId> <supplierId> <unitPrice>");
+        return;
+    }
+
+    var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    var orders = new[] { 1, 1, 2, 1, 3, 2, 1, 4, 2, 1 }; // per-consumer purchase quantity
+    await using var sp = new OracleConnection(connectionString);
+    await sp.OpenAsync();
+    for (var i = 0; i < accounts.Count; i++)
+    {
+        var acc = accounts[i];
+        var quantity = orders[i];
+        var total = unitPrice * quantity;
+
+        // 1) resolve customer id by phone
+        string customerId;
+        using (var find = sp.CreateCommand())
+        {
+            find.CommandText = "SELECT CustomerId FROM Crm_Customers WHERE Phone = :Phone";
+            find.Parameters.Add(new OracleParameter("Phone", acc.Phone));
+            customerId = (string?)await find.ExecuteScalarAsync() ?? throw new InvalidOperationException($"找不到消费者 {acc.Phone}");
+        }
+
+        // 2) ensure at least one address (Biz_Orders.AddressId is NOT NULL with FK)
+        string addressId;
+        using (var addrCheck = sp.CreateCommand())
+        {
+            addrCheck.CommandText = "SELECT AddressId FROM Crm_UserAddresses WHERE CustomerId = :CustomerId AND ROWNUM = 1";
+            addrCheck.Parameters.Add(new OracleParameter("CustomerId", customerId));
+            addressId = (string?)await addrCheck.ExecuteScalarAsync() ?? string.Empty;
+        }
+        if (string.IsNullOrWhiteSpace(addressId))
+        {
+            addressId = Guid.NewGuid().ToString("N");
+            using var addr = sp.CreateCommand();
+            addr.CommandText = @"INSERT INTO Crm_UserAddresses (
+                    AddressId, CustomerId, ReceiverName, Phone, Province, City, District,
+                    DetailAddress, IsDefault, CreatedAt)
+                VALUES (:AddressId, :CustomerId, :ReceiverName, :Phone, '浙江省', '杭州市', '西湖区',
+                    '测试收件地址' || :Seq, 1, SYSDATE)";
+            addr.Parameters.Add(new OracleParameter("AddressId", addressId));
+            addr.Parameters.Add(new OracleParameter("CustomerId", customerId));
+            addr.Parameters.Add(new OracleParameter("ReceiverName", "测试收件人" + (i + 1)));
+            addr.Parameters.Add(new OracleParameter("Phone", acc.Phone));
+            addr.Parameters.Add(new OracleParameter("Seq", i + 1));
+            await addr.ExecuteNonQueryAsync();
+        }
+
+        // 3) create a completed order with one detail line for the product
+        var orderId = Guid.NewGuid().ToString("N");
+        var orderDetailId = Guid.NewGuid().ToString("N");
+        var orderNo = $"TEST-GRP-{used.Count + 1:000}";
+        if (!used.Add(orderNo)) orderNo = $"TEST-GRP-{Guid.NewGuid():N}"[..18];
+
+        using var orderCmd = sp.CreateCommand();
+        orderCmd.CommandText = @"INSERT INTO Biz_Orders (
+                OrderId, OrderNo, CustomerId, CheckoutBatchId, PromoterId, AddressId,
+                ReceiverName, ReceiverPhone, ShippingAddress, TotalAmount, DiscountAmount,
+                FreightAmount, FinalAmount, PointsEarned, PointsUsed, PointsDiscountAmount,
+                OrderStatus, PaymentExpiresAt, CreatedAt)
+            VALUES (
+                :OrderId, :OrderNo, :CustomerId, NULL, :PromoterId, :AddressId,
+                :ReceiverName, :ReceiverPhone, :ShippingAddress, :TotalAmount, 0,
+                0, :FinalAmount, 0, 0, 0,
+                'COMPLETED', NULL, :CreatedAt)";
+        orderCmd.Parameters.Add(new OracleParameter("OrderId", orderId));
+        orderCmd.Parameters.Add(new OracleParameter("OrderNo", orderNo));
+        orderCmd.Parameters.Add(new OracleParameter("CustomerId", customerId));
+        orderCmd.Parameters.Add(new OracleParameter("PromoterId", promoterId));
+        orderCmd.Parameters.Add(new OracleParameter("AddressId", addressId));
+        orderCmd.Parameters.Add(new OracleParameter("ReceiverName", "测试收件人" + (i + 1)));
+        orderCmd.Parameters.Add(new OracleParameter("ReceiverPhone", acc.Phone));
+        orderCmd.Parameters.Add(new OracleParameter("ShippingAddress", "浙江省 杭州市 西湖区 测试收件地址" + (i + 1)));
+        orderCmd.Parameters.Add(new OracleParameter("TotalAmount", total));
+        orderCmd.Parameters.Add(new OracleParameter("FinalAmount", total));
+        orderCmd.Parameters.Add(new OracleParameter("CreatedAt", DateTime.Now.AddDays(-(i % 5 + 1))));
+        await orderCmd.ExecuteNonQueryAsync();
+
+        using var detailCmd = sp.CreateCommand();
+        detailCmd.CommandText = @"INSERT INTO Biz_OrderDetails (
+                OrderDetailId, OrderId, ProductId, ProductName, Quantity,
+                UnitPrice, SubTotal, SupplierId, ReceiptStatus)
+            VALUES (
+                :OrderDetailId, :OrderId, :ProductId, :ProductName, :Quantity,
+                :UnitPrice, :SubTotal, :SupplierId, 'RECEIVED')";
+        detailCmd.Parameters.Add(new OracleParameter("OrderDetailId", orderDetailId));
+        detailCmd.Parameters.Add(new OracleParameter("OrderId", orderId));
+        detailCmd.Parameters.Add(new OracleParameter("ProductId", productId));
+        detailCmd.Parameters.Add(new OracleParameter("ProductName", "精选羊肉卷 500g"));
+        detailCmd.Parameters.Add(new OracleParameter("Quantity", quantity));
+        detailCmd.Parameters.Add(new OracleParameter("UnitPrice", unitPrice));
+        detailCmd.Parameters.Add(new OracleParameter("SubTotal", total));
+        detailCmd.Parameters.Add(new OracleParameter("SupplierId", supplierId));
+        await detailCmd.ExecuteNonQueryAsync();
+
+        Console.WriteLine($"SEEDED PURCHASE: {acc.Phone} {acc.Name} qty={quantity} total={total} order={orderNo}");
+    }
+
+    Console.WriteLine("done seeding test purchases.");
+    return;
+}
+
 var hasher = new PasswordHasher<CrmCustomer>();
 
 // --list mode: print existing customers and exit.

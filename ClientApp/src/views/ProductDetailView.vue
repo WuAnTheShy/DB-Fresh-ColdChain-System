@@ -7,6 +7,7 @@ import QuantityStepper from '../components/QuantityStepper.vue'
 import { api } from '../services/api'
 import { useShop } from '../state/shop'
 import { useCustomerContext } from '../state/customer'
+import { avatarUrl } from '../assets/avatars'
 
 const props = defineProps({ id: { type: String, required: true } })
 const route = useRoute()
@@ -29,6 +30,10 @@ const defaultEvaluationDimensions = [
 const evaluationSummary = ref({ totalCount: 0, dimensions: defaultEvaluationDimensions })
 const evaluationLoading = ref(false)
 let evaluationRequestId = 0
+const groupRecordsLoading = ref(false)
+const groupRecordsError = ref('')
+const groupRecords = ref([])
+let groupRecordsRequestId = 0
 const authLink = computed(() => ({ name: 'auth', query: { redirect: route.fullPath } }))
 const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(product.value?.leaderId))
 const followLink = computed(() => canViewPrice.value ? null : `/leaders/${leader.value?.id ?? ''}`)
@@ -80,8 +85,10 @@ watch([() => props.id, () => leader.value?.id, () => product.value?.productId, (
   () => checkIntro(), { immediate: true, flush: 'sync' })
 watch([() => props.id, () => leader.value?.id],
   () => loadEvaluationSummary(), { immediate: true, flush: 'sync' })
-// 切换商品或离开页面后，旧请求不能覆盖新页面的推文内容。
-onUnmounted(() => { introRequestId++; evaluationRequestId++ })
+watch([() => props.id, () => leader.value?.id, () => product.value?.productId, () => product.value?.isFallback],
+  () => loadGroupRecords(), { immediate: true, flush: 'sync' })
+// 切换商品或离开页面后，旧请求不能覆盖新页面的内容。
+onUnmounted(() => { introRequestId++; evaluationRequestId++; groupRecordsRequestId++ })
 
 onMounted(() => loadCatalog().catch(() => { }))
 
@@ -120,6 +127,43 @@ async function loadEvaluationSummary() {
   } finally {
     if (requestId === evaluationRequestId) evaluationLoading.value = false
   }
+}
+
+async function loadGroupRecords() {
+  const requestId = ++groupRecordsRequestId
+  const p = product.value
+  const l = leader.value
+  groupRecords.value = []
+  groupRecordsError.value = ''
+  if (!p || !l?.id || p.isFallback || !p.productId) return
+  groupRecordsLoading.value = true
+  try {
+    const result = await api.getProductGroupRecords(l.id, p.productId)
+    if (requestId !== groupRecordsRequestId) return
+    groupRecords.value = Array.isArray(result?.records) ? result.records : []
+  } catch {
+    if (requestId !== groupRecordsRequestId) return
+    groupRecordsError.value = '跟团记录暂时读取失败，请重试'
+  } finally {
+    if (requestId === groupRecordsRequestId) groupRecordsLoading.value = false
+  }
+}
+
+function formatDate(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const now = new Date()
+  const sameYear = now.getFullYear() === date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return sameYear ? `${month}-${day}` : `${date.getFullYear()}-${month}-${day}`
+}
+
+function avatarFallback(name) {
+  const initial = (String(name ?? '客').trim().slice(0, 1) || '客').replace(/[<>&"']/g, '') || '客'
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" rx="20" fill="#e8f3ed"/><text x="48" y="59" text-anchor="middle" font-family="sans-serif" font-size="38" font-weight="700" fill="#176b46">${initial}</text></svg>`
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
 }
 </script>
 
@@ -258,8 +302,26 @@ async function loadEvaluationSummary() {
     <section class="product-community-module product-group-records-module" aria-labelledby="group-records-title">
       <header>
         <h2 id="group-records-title">跟团记录</h2>
+        <span>{{ groupRecordsLoading ? '读取中…' : `已有 ${groupRecords.length} 位消费者跟团` }}</span>
       </header>
-      <div class="group-record-list-empty">暂无跟团记录</div>
+      <div v-if="groupRecordsLoading" class="group-record-list-state">正在读取跟团记录…</div>
+      <div v-else-if="groupRecordsError" class="group-record-list-state" role="alert">
+        <span>{{ groupRecordsError }}</span>
+        <button class="btn btn-sm btn-outline-secondary" type="button" @click="loadGroupRecords">重新加载</button>
+      </div>
+      <div v-else-if="groupRecords.length" class="group-record-list">
+        <div v-for="record in groupRecords" :key="record.customerId" class="group-record-item">
+          <img class="group-record-avatar" :src="avatarUrl(record.avatar) || avatarFallback(record.customerName)"
+            :alt="`${record.customerName}头像`" loading="lazy"
+            @error="$event.target.src = avatarFallback(record.customerName)" />
+          <div class="group-record-info">
+            <strong>{{ record.customerName }}</strong>
+            <span>购买 {{ record.totalQuantity }} 件 · 实付 ¥{{ Number(record.totalSpent).toFixed(2) }}</span>
+          </div>
+          <time class="group-record-time" :datetime="record.purchasedAt">{{ formatDate(record.purchasedAt) }}</time>
+        </div>
+      </div>
+      <div v-else class="group-record-list-empty">暂无跟团记录</div>
     </section>
 
     <section class="home-section px-0">
@@ -744,6 +806,68 @@ async function loadEvaluationSummary() {
   font-size: 14px;
 }
 
+.group-record-list-state {
+  display: flex;
+  min-height: 96px;
+  align-items: center;
+  gap: 10px;
+  padding: 30px 26px;
+  color: #9a9f9c;
+  font-size: 14px;
+}
+
+.group-record-list {
+  display: grid;
+  gap: 10px;
+  padding: 20px 26px 28px;
+}
+
+.group-record-item {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 12px;
+  border: 1px solid #edf0ee;
+  border-radius: 6px;
+  background: #fafbfa;
+}
+
+.group-record-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #eef1ef;
+}
+
+.group-record-info {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.group-record-info strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-record-info span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.group-record-time {
+  color: #9a9f9c;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 @media (max-width: 1199.98px) {
   .product-detail-main {
     grid-template-columns: minmax(270px, .9fr) minmax(300px, 1fr);
@@ -846,6 +970,34 @@ async function loadEvaluationSummary() {
 
   .group-record-list-empty {
     padding: 26px 16px;
+  }
+
+  .group-record-list {
+    gap: 8px;
+    padding: 16px 16px 22px;
+  }
+
+  .group-record-list-state {
+    padding: 26px 16px;
+  }
+
+  .group-record-item {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .group-record-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .group-record-info strong {
+    font-size: 13px;
+  }
+
+  .group-record-info span {
+    font-size: 11px;
   }
 }
 

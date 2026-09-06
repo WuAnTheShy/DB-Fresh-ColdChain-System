@@ -475,6 +475,40 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 transaction) == 1);
     }
 
+    /// <summary>
+    /// 查询某团长在团商品的「跟团记录」：购买过该商品的消费者（按消费者聚合，最近购买优先）。
+    /// 仅统计已支付/已发货/已完成的真实成交订单，剔除待支付与已取消/退款。
+    /// </summary>
+    public async Task<List<ProductGroupRecord>> GetProductGroupRecordsAsync(
+        string promoterId,
+        string productId,
+        int take,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<ProductGroupRecord>(
+                @"SELECT
+                    c.CustomerId,
+                    c.CustomerName,
+                    c.Avatar,
+                    MIN(d.SupplierId) AS SupplierId,
+                    SUM(d.Quantity) AS TotalQuantity,
+                    SUM(d.SubTotal) AS TotalSpent,
+                    MAX(o.CreatedAt) AS PurchasedAt,
+                    MIN(o.OrderStatus) AS OrderStatus
+                  FROM Biz_OrderDetails d
+                  JOIN Biz_Orders o ON o.OrderId = d.OrderId
+                  JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
+                  WHERE d.ProductId = :ProductId
+                    AND o.PromoterId = :PromoterId
+                    AND o.OrderStatus IN ('PAID', 'SHIPPED', 'COMPLETED')
+                  GROUP BY c.CustomerId, c.CustomerName, c.Avatar
+                  ORDER BY MAX(o.CreatedAt) DESC
+                  OFFSET 0 ROWS FETCH NEXT :Take ROWS ONLY",
+                new { ProductId = productId, PromoterId = promoterId, Take = take },
+                transaction)).ToList());
+    }
+
     private static string CreateOrderFilterSql()
     {
         return @"WHERE (:CustomerId IS NULL OR o.CustomerId = :CustomerId)

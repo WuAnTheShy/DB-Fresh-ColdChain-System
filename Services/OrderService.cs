@@ -1207,6 +1207,20 @@ public sealed class OrderService : IOrderService
         return await _pointRepo.GetLevelForSpentAsync(customer.TotalSpent);
     }
 
+    public async Task<List<ProductGroupRecord>> GetProductGroupRecordsAsync(
+        string promoterId,
+        string productId,
+        int take)
+    {
+        if (string.IsNullOrWhiteSpace(promoterId) || string.IsNullOrWhiteSpace(productId))
+            return [];
+        take = Math.Clamp(take, 1, 50);
+        return await _orderRepo.GetProductGroupRecordsAsync(
+            promoterId,
+            productId,
+            take);
+    }
+
     private async Task UpdateCustomerSpentAndLevelAsync(
         CrmCustomer customer,
         decimal changeAmount,

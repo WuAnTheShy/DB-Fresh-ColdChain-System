@@ -73,6 +73,14 @@ public interface IOrderService
         IDbTransaction? externalTransaction = null);
 
     Task<CrmMemberLevel?> GetCustomerLevelAsync(string customerId);
+
+    /// <summary>
+    /// 查询某团长在团商品的「跟团记录」：购买过该商品的消费者（按消费者聚合，最近购买优先）。
+    /// </summary>
+    Task<List<ProductGroupRecord>> GetProductGroupRecordsAsync(
+        string promoterId,
+        string productId,
+        int take);
 }
 
 public interface ICustomerService
