@@ -151,6 +151,7 @@ export const api = {
     body: jsonBody(payload),
   }),
   getPromoterEvaluationSummary: (promoterId) => request(`/api/promoters/${encodeURIComponent(promoterId)}/evaluation-summary`),
+  getProductGroupRecords: (promoterId, productId) => request(`/api/promoters/${encodeURIComponent(promoterId)}/products/${encodeURIComponent(productId)}/group-records`),
   getOrderRefunds: (orderId) => request(`/api/orders/${orderId}/refunds`),
   applyOrderRefund: (orderId, payload) => request(`/api/orders/${orderId}/refunds`, {
     method: 'POST',
