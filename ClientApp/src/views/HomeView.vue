@@ -7,6 +7,14 @@ import { useShop } from '../state/shop'
 const { categories, products, catalogLoading, catalogError, catalogUsingFallback, leaders, leadersLoading, leadersError, loadCatalog, loadLeaders } = useShop()
 const promoProducts = computed(() => products.slice(0, 3))
 const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
+const categoryVisualScale = {
+  时令水果: { scale: 0.8 },
+  蔬菜豆品: { scale: 0.8 },
+  肉禽蛋品: { scale: 0.8 },
+  海鲜水产: { scale: 0.85 },
+  乳品烘焙: { scale: 0.93 },
+  其他: { scale: 1.03 },
+}
 </script>
 
 <template>
@@ -17,7 +25,9 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
         <div class="promo-copy">
           <h2>{{ product.shortName }}<br />{{ product.storage }}配送</h2>
         </div>
-        <img :src="product.image" :alt="product.name" @error="$event.target.src = product.fallbackImage" />
+        <img :src="product.image" :alt="product.name"
+          :class="{ 'fallback-photo-tint': product.image === product.fallbackImage }"
+          @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" />
         <strong>点击选购</strong>
       </RouterLink>
       <RouterLink class="amazon-promo-card promo-delivery" to="/search">
@@ -60,7 +70,10 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
         </button></div>
       <div class="category-grid">
         <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`"
-          class="category-tile">
+          class="category-tile" :style="{
+            '--category-scale': categoryVisualScale[category.slug]?.scale ?? 1,
+            '--category-shift-x': categoryVisualScale[category.slug]?.shiftX ?? '0%',
+          }">
           <img :src="category.image" :alt="category.name" />
           <span><strong>{{ category.name }}</strong></span>
         </RouterLink>
@@ -106,7 +119,7 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
       <div v-else-if="leaders.length" class="leader-grid" data-testid="leader-list">
         <RouterLink v-for="leader in leaders" :key="leader.id" class="leader-card" :to="`/leaders/${leader.id}`"
           :data-leader-id="leader.id">
-          <img :src="leader.avatar" :alt="`${leader.name}团长头像`" />
+          <img :src="leader.avatar" :alt="`${leader.name}头像`" />
           <span><strong>{{ leader.name }}</strong><small>
               <BadgeCheck :size="14" />平台认证团长
             </small></span>
@@ -321,10 +334,6 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
   transition: transform .18s ease;
 }
 
-.category-tile:hover img {
-  transform: scale(1.025);
-}
-
 .category-tile>span {
   position: absolute;
   inset: auto 0 0;
@@ -368,18 +377,63 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
   display: flex;
   height: auto;
   flex-direction: column;
-  border: 0;
+  overflow: visible;
+  border: 2px solid transparent;
   border-radius: 10px;
   background: #fff;
   color: var(--ink);
+  transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.category-tile:hover,
+.category-tile:focus-visible,
+.category-tile:active,
+.category-tile.router-link-active {
+  z-index: 2;
 }
 
 .category-tile img {
+  position: relative;
+  z-index: 1;
   height: auto;
   aspect-ratio: 1;
   border-radius: 10px;
   object-fit: cover;
   opacity: 1;
+  transform: translateX(var(--category-shift-x, 0%)) scale(var(--category-scale, 1));
+  transform-origin: center;
+}
+
+.category-tile:hover img,
+.category-tile:focus-visible img,
+.category-tile:active img,
+.category-tile.router-link-active img {
+  transform: translateX(var(--category-shift-x, 0%)) scale(calc(var(--category-scale, 1) * 1.2));
+}
+
+/* 仅图片部分高亮：橙色背衬在图片下方，固定大小（与第一张图片一致），自左向右绘制 */
+.category-tile::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  background: rgba(254, 189, 105, .5);
+  transform: scale(0.8);
+  transform-origin: center;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path .2s cubic-bezier(.4, 0, .2, 1);
+  pointer-events: none;
+}
+
+.category-tile:hover::before,
+.category-tile:focus-visible::before,
+.category-tile:active::before,
+.category-tile.router-link-active::before {
+  clip-path: inset(0 0 0 0);
 }
 
 .category-tile>span {
@@ -391,8 +445,19 @@ const promoClasses = ['promo-cherry', 'promo-seafood', 'promo-vegetable']
 }
 
 .category-tile strong {
+  display: inline-block;
   color: var(--ink);
   font-size: 16px;
+  transform-origin: center;
+  transition: color .16s ease, transform .16s ease;
+}
+
+.category-tile:hover strong,
+.category-tile:focus-visible strong,
+.category-tile:active strong,
+.category-tile.router-link-active strong {
+  color: #c7511f;
+  transform: scale(1.1);
 }
 
 .section-title-row>span {

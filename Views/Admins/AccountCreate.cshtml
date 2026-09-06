@@ -1,0 +1,100 @@
+@{
+    ViewData["Title"] = "账号新增";
+}
+<partial name="_Alerts" />
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/><path d="M19 5v6M16 8h6"/></svg> 账号新增</h5>
+        <span class="text-muted small">管理员创建的账号免审核，直接生效</span>
+    </div>
+    <div class="content-card-body p-0">
+        <ul class="nav nav-tabs px-3 pt-2" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabCreatePromoter" type="button" role="tab">新增团长</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabCreateSupplier" type="button" role="tab">新增供应商</button>
+            </li>
+        </ul>
+        <div class="tab-content p-0">
+            <!-- 新增团长 -->
+            <div class="tab-pane fade show active" id="tabCreatePromoter" role="tabpanel">
+                <div class="p-3" style="max-width: 640px;">
+                    <form asp-action="AddPromoter" method="post">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-3">
+                            <label class="form-label">团长姓名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="PromoterName" required />
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">登录账号 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="LoginAccount" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">登录密码 <span class="text-danger">*</span></label>
+                                <input type="password" class="form-control" name="LoginPassword" required />
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label">联系电话</label>
+                                <input type="text" class="form-control" name="Phone" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">基础佣金率（小数，如 0.03 表示 3%）</label>
+                                <input type="number" class="form-control" name="BaseCommissionRate" value="0.03" step="0.001" min="0" max="1" />
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">创建团长</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 新增供应商 -->
+            <div class="tab-pane fade" id="tabCreateSupplier" role="tabpanel">
+                <div class="p-3" style="max-width: 640px;">
+                    <form asp-action="AddSupplier" method="post">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-3">
+                            <label class="form-label">供应商名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="SupplierName" required />
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">资质编号</label>
+                                <input type="text" class="form-control" name="LicenseNo" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">资质到期时间</label>
+                                <input type="date" class="form-control" name="ExpiryDate" />
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">信用等级</label>
+                                <input type="number" class="form-control" name="CreditLevel" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">联系电话</label>
+                                <input type="text" class="form-control" name="ContactPhone" />
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label">登录账号</label>
+                                <input type="text" class="form-control" name="LoginAccount" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">登录密码</label>
+                                <input type="password" class="form-control" name="LoginPassword" />
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">创建供应商</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

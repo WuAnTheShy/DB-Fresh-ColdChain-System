@@ -2,6 +2,8 @@
 @{
     ViewData["Title"] = "履约详情";
     var logistics = Model.Logistics;
+    var nextStatuses = (ViewData["NextStatuses"] as List<(string Code, string Name)>)
+        ?? new List<(string Code, string Name)>();
 }
 
 <div class="d-flex justify-content-between align-items-start mb-3">
@@ -152,13 +154,19 @@
                         <div class="mb-3">
                             <label class="form-label">新状态</label>
                             <select class="form-select" name="StatusCode" required>
-                                <option value="IN_TRANSIT">运输中</option>
-                                <option value="OUT_FOR_DELIVERY">派送中</option>
-                                <option value="DELIVERED">已签收</option>
-                                <option value="EXCEPTION">物流异常</option>
-                                <option value="RETURNING">退回中</option>
-                                <option value="RETURNED">已退回</option>
+                                @if (nextStatuses.Count == 0)
+                                {
+                                    <option value="">当前状态无下一步可选</option>
+                                }
+                                @foreach (var option in nextStatuses)
+                                {
+                                    <option value="@option.Code">@option.Name</option>
+                                }
                             </select>
+                            <small class="text-muted">
+                                当前：@LogisticsStatusCodes.GetName(logistics.StatusCode)，仅可推进到上方所列状态。
+                                正常顺序：已发货 → 运输中 → 派送中 → 已签收（已签收/已退回为终态）。
+                            </small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">发生地点</label>

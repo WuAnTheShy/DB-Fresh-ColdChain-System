@@ -25,7 +25,7 @@
 <!-- 查询条件 -->
 <div class="content-card mb-3">
     <div class="content-card-header">
-        <h5>🔍 查询条件</h5>
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> 查询条件</h5>
         <span class="text-muted small">结束日期含当天；最多显示最近 500 条</span>
     </div>
     <div class="content-card-body">
@@ -76,14 +76,14 @@
 <!-- 日志列表 -->
 <div class="content-card">
     <div class="content-card-header">
-        <h5>📋 操作日志（LOG_AUDITTRAILS）</h5>
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 12h6M9 16h6"/></svg> 操作日志</h5>
         <span class="text-muted small">共 @Model.Logs.Count 条</span>
     </div>
     <div class="content-card-body p-0">
         @if (!Model.Logs.Any())
         {
             <div class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m2 7 10 7L22 7"/></svg></div>
                 <p>没有符合条件的操作日志</p>
             </div>
         }

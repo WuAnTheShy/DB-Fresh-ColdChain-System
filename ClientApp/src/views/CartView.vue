@@ -50,7 +50,7 @@ const groups = computed(() => {
           <header @click="setLeaderCartSelected(group.leader.id, !group.selected)">
             <label class="cart-group-check" @click.stop><input class="form-check-input" type="checkbox"
                 :checked="group.selected" @change="setLeaderCartSelected(group.leader.id, $event.target.checked)" /><span
-                class="visually-hidden">选择{{ group.leader.name }}团长全部商品</span></label>
+                class="visually-hidden">选择{{ group.leader.name }}的全部商品</span></label>
             <div class="cart-leader-identity"><img :src="group.leader.avatar" alt="" /><strong>{{ group.leader.name }}</strong>
               <BadgeCheck :size="16" />
             </div>
@@ -62,6 +62,8 @@ const groups = computed(() => {
                 :checked="item.selected" @change="setCartItemSelected(item.productId, $event.target.checked)" /><span
                 class="visually-hidden">选择{{ item.product.name }}</span></label>
             <RouterLink :to="`/products/${item.product.id}`" @click.stop><img :src="item.product.image"
+                :class="{ 'fallback-photo-tint': item.product.image === item.product.fallbackImage }"
+                @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = item.product.fallbackImage"
                 :alt="item.product.name" /></RouterLink>
             <div class="cart-item-main">
               <RouterLink :to="`/products/${item.product.id}`" @click.stop>{{ item.product.name }}</RouterLink>

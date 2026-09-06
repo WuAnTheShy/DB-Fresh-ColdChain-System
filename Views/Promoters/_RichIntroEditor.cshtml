@@ -25,8 +25,7 @@
     <h2>商品介绍（图文）</h2>
     <p class="desc-hint">
         编写标题与多个内容段落；每个段落<b>可只含文字、只含图片，或图文并存</b>，顺序即消费者端的展示顺序。
-        段落图片可从<b>供应商商品图库</b>选择（一次展示该商品的全部图片），也可以<b>上传本地图片</b>后插入。
-        保存后图文内容以文件存储于服务器，数据库仅保存内容文件的相对路径。
+        段落图片可从<b>供应商商品图库</b>选择，也可以<b>上传本地图片</b>后插入。
     </p>
 
     <form asp-action="UpdateEntryDescription" method="post" id="descForm">
@@ -47,26 +46,25 @@
                 <button type="button" class="btn btn-sm btn-outline-primary" id="addSectionBtn">＋ 添加段落</button>
                 @if (!string.IsNullOrWhiteSpace(supplierText))
                 {
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="copySupplierBtn">📋 加入供应商原版介绍</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="copySupplierBtn"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 12h6M9 16h6"/></svg> 加入供应商原版介绍</button>
                 }
                 <button type="button" class="btn btn-sm btn-outline-danger" id="clearIntroBtn">清空介绍</button>
             </div>
             <div class="desc-save-row">
                 <button type="submit" class="btn btn-primary" id="saveIntroBtn">保存图文介绍</button>
-                <span class="text-muted small">清空标题与所有段落并保存 = 移除该商品的图文介绍</span>
             </div>
         </div>
     </form>
 
     <!-- 供应商原版介绍（只读参考） -->
     <div class="supplier-origin">
-        <h3>供应商原版介绍（仅作撰写参考，可直接加入上方段落）</h3>
+        <h3>供应商介绍</h3>
         <p class="origin-text" id="supplierOriginText">@(string.IsNullOrEmpty(supplierText) ? "供应商暂未提供商品文字介绍，您可以直接在上方撰写图文介绍。" : supplierText)</p>
     </div>
 
     <!-- 消费者端实时预览 -->
     <div class="intro-preview">
-        <b>实时预览 · 消费者端图文展示效果</b>
+        <b>推文实时展示效果</b>
         <div id="previewBox" class="preview-render"></div>
     </div>
 </section>
@@ -150,7 +148,7 @@
                 '<span class="ms-auto">' +
                 (idx > 0 ? '<button type="button" class="icon-btn" data-act="up" data-idx="' + idx + '" title="上移">↑</button>' : '') +
                 (idx < state.sections.length - 1 ? '<button type="button" class="icon-btn" data-act="down" data-idx="' + idx + '" title="下移">↓</button>' : '') +
-                '<button type="button" class="icon-btn danger" data-act="del" data-idx="' + idx + '" title="删除本段">🗑</button>' +
+                '<button type="button" class="icon-btn danger" data-act="del" data-idx="' + idx + '" title="删除本段"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>' +
                 '</span></div>' +
                 '<textarea class="form-control sec-text" data-idx="' + idx + '" rows="2" placeholder="填写本段文字（可留空，本段将只展示图片）">' + esc(s.text) + '</textarea>' +
                 (imgs ? '<div class="sec-images">' + imgs + '</div>' : '') +

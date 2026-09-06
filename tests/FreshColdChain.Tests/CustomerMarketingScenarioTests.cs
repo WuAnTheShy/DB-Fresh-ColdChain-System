@@ -239,7 +239,7 @@ internal static class CustomerMarketingScenarioTests
         {
             CustomerId = TestIds.Customer,
             AddressId = TestIds.Address1,
-            Items = [new() { ProductId = "P1", Quantity = 1 }]
+            Items = [new() { ProductId = "P1", SupplierId = "SUP1", Quantity = 1 }]
         });
 
         AssertEx.Equal(50m, result.FinalAmount);

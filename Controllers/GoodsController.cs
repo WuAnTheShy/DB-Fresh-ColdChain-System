@@ -18,17 +18,20 @@ public class GoodsController : Controller
     private readonly IGoodsService _goodsService;
     private readonly IProductInventoryService _productService;
     private readonly IGoodsRepository _goodsRepo;
+    private readonly IProductRepository _productRepo;
     private readonly IStockBatchRepository _batchRepo;
 
     public GoodsController(
         IGoodsService goodsService,
         IProductInventoryService productService,
         IGoodsRepository goodsRepo,
+        IProductRepository productRepo,
         IStockBatchRepository batchRepo)
     {
         _goodsService = goodsService;
         _productService = productService;
         _goodsRepo = goodsRepo;
+        _productRepo = productRepo;
         _batchRepo = batchRepo;
     }
 
@@ -39,7 +42,7 @@ public class GoodsController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _goodsService.GetSupplierGoodsAsync(supplierId);
         return View(r.Data ?? new List<GoodsDto>());
@@ -51,7 +54,7 @@ public class GoodsController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var products = await _productService.GetProductsAsync(1, 1000);
         ViewBag.Products = products.Data?.Items ?? new List<ProductDto>();
@@ -64,11 +67,54 @@ public class GoodsController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _goodsService.AddGoodsAsync(supplierId, dto);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(MyGoods));
+    }
+
+    /// <summary>供应商维护自己货物：编辑页（售价/温区/保质期/上下架 + 商品图文：文字介绍与图片）</summary>
+    [HttpGet]
+    public async Task<IActionResult> Edit(string productId)
+    {
+        var supplierId = HttpContext.Session.GetString("SupplierId");
+        if (string.IsNullOrEmpty(supplierId))
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
+
+        var goods = await _goodsRepo.GetAsync(productId, supplierId);
+        if (goods == null)
+        {
+            TempData["Error"] = "未找到该货物或不属于你";
+            return RedirectToAction(nameof(MyGoods));
+        }
+
+        // 商品图片：该商品全部图片，自己上传的排前、平台通用图在后（编辑页用于展示/删除/上传）
+        var images = (await _productRepo.GetProductImagesAsync(productId))
+            .OrderBy(i => i.SupplierID != supplierId)
+            .ThenBy(i => i.SortOrder)
+            .ThenBy(i => i.CreateTime)
+            .Select(i => new SupplierProductImageDto
+            {
+                ImageID = i.ImageID,
+                ImageUrl = i.ImageUrl,
+                HasImageData = i.HasData,
+                IsOwned = i.SupplierID == supplierId
+            })
+            .ToList();
+
+        ViewBag.ProductId = productId;
+        ViewBag.ProductName = goods.Product?.ProductName ?? productId;
+        ViewBag.SupplierName = goods.Supplier?.SupplierName ?? supplierId;
+        ViewBag.Images = images;
+        return View(new UpdateGoodsDto
+        {
+            SalePrice = goods.SalePrice,
+            StorageReq = goods.StorageReq,
+            ShelfLifeHours = goods.ShelfLifeHours,
+            Description = goods.Description,
+            Status = goods.Status
+        });
     }
 
     /// <summary>供应商维护自己货物：改售价/温区/保质期/描述</summary>
@@ -78,7 +124,7 @@ public class GoodsController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _goodsService.UpdateGoodsAsync(supplierId, productId, dto);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
@@ -92,7 +138,7 @@ public class GoodsController : Controller
     {
         var supplierId = HttpContext.Session.GetString("SupplierId");
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _goodsService.SetGoodsStatusAsync(supplierId, productId, status);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
@@ -106,7 +152,7 @@ public class GoodsController : Controller
     {
         var supplierId = SupplierSession.GetSupplierId(HttpContext.Session);
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         // 校验该货物属于当前供应商
         var goods = await _goodsRepo.GetAsync(productId, supplierId);
@@ -130,7 +176,7 @@ public class GoodsController : Controller
     {
         var supplierId = SupplierSession.GetSupplierId(HttpContext.Session);
         if (string.IsNullOrEmpty(supplierId))
-            return RedirectToAction("Login", "Suppliers");
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
 
         var r = await _productService.StockInAsync(
             new UpdateInventoryDto { ProductID = productId, Quantity = quantity },
@@ -159,5 +205,19 @@ public class GoodsController : Controller
         var r = await _goodsService.SetGoodsStatusAsync(supplierId, productId, status);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(AdminIndex));
+    }
+
+    /// <summary>
+    /// 商品管理员按“商品（物品）”整体下架/上架：连带该物品所有供应商的货物一并处理，
+    /// 保证数据一致（下架后不存在任何供应商仍在售该商品）。
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [RequireAdmin]
+    public async Task<IActionResult> AdminSetProductGoodsStatus(string productId, string status)
+    {
+        var r = await _goodsService.AdminSetProductGoodsStatusAsync(productId, status);
+        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
+        return RedirectToAction("Index", "Products");
     }
 }

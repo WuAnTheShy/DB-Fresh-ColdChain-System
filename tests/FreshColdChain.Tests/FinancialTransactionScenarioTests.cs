@@ -20,6 +20,7 @@ internal static class FinancialTransactionScenarioTests
             ("外部支付审计失败不接管调用方事务", PaymentExternalFailureAsync),
             ("C组审核末步失败时B组积分订单同时回滚", RefundAuditTransactionAsync),
             ("C组直接退款与审计共同提交回滚", DirectRefundTransactionAsync),
+            ("佣金记录编号符合数据库36位长度", CommissionRecordIdFitsDatabaseColumnAsync),
             ("退款佣金撤销失败不能继续批准退款", RefundCommissionFailureAsync),
             ("佣金仓储返回更新失败时拒绝批准退款", RefundCommissionRecordFailureAsync)
         };
@@ -159,6 +160,57 @@ internal static class FinancialTransactionScenarioTests
             AssertEx.Equal(failAudit ? 100 : 80, context.CustomerRepository.Customer.Points);
             AssertEx.Equal(failAudit ? OrderStatusCodes.Paid : OrderStatusCodes.Refunded, context.OrderRepository.Orders.Single().OrderStatus);
         }
+    }
+
+    private static async Task CommissionRecordIdFitsDatabaseColumnAsync()
+    {
+        var uow = new FinancialUnitOfWork();
+        var promoter = new GroupC_CrmPromoter
+        {
+            PromoterId = "PROM-TX",
+            BaseCommissionRate = GroupC_LevelCommissionPolicy.BronzeRate,
+            TotalSales = 0m,
+            PendingBalance = 0m
+        };
+        var promoters = FinancialProxy.Create<IPromoterRepository>((method, _) => method.Name switch
+        {
+            nameof(IPromoterRepository.GroupC_FindPromoterRecordAsync) =>
+                Task.FromResult<GroupC_CrmPromoter?>(promoter),
+            nameof(IPromoterRepository.GroupC_UpdatePromoterTotalSalesAsync) => Task.CompletedTask,
+            nameof(IPromoterRepository.GroupC_FindPromoterPendingBalanceAsync) =>
+                Task.FromResult<decimal?>(promoter.PendingBalance),
+            nameof(IPromoterRepository.GroupC_UpdatePromoterPendingBalanceAsync) => Task.CompletedTask,
+            _ => throw new NotSupportedException(method.Name)
+        });
+        CommissionRecord? insertedRecord = null;
+        var commissions = FinancialProxy.Create<ICommissionRepository>((method, args) => method.Name switch
+        {
+            nameof(ICommissionRepository.InsertAsync) => CaptureRecord(args!),
+            _ => throw new NotSupportedException(method.Name)
+        });
+        Task<string> CaptureRecord(object?[] args)
+        {
+            insertedRecord = (CommissionRecord)args[0]!;
+            return Task.FromResult(insertedRecord.RecordId);
+        }
+
+        var service = new CommissionService(
+            uow,
+            promoters,
+            new TableLogService(new FinancialLogRepository()),
+            commissions);
+        var result = await service.RegisterCompletedOrderAsync(new CommissionOrderRequest
+        {
+            orderID = TestIds.Order,
+            promoterID = promoter.PromoterId,
+            finalAmount = 100m,
+            goodsAmount = 100m
+        });
+
+        AssertEx.True(result.IsSuccess);
+        AssertEx.True(insertedRecord != null);
+        AssertEx.Equal(36, insertedRecord!.RecordId.Length);
+        AssertEx.True(insertedRecord.RecordId.StartsWith("PROC", StringComparison.Ordinal));
     }
 
     private static async Task RefundCommissionFailureAsync()

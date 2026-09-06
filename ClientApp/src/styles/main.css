@@ -163,3 +163,14 @@ a:hover { color: #c7511f; }
 @media (max-width: 374.98px) {
   .store-container, .header-inner { width: calc(100% - 16px); }
 }
+
+.app-filter-definitions {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.fallback-photo-tint {
+  filter: url('#fallback-photo-blue-overlay');
+}

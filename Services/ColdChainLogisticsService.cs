@@ -19,6 +19,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
     private readonly ILogFreightTemplateRepository _templates;
     private readonly ILogExpressDeliveryRepository _deliveries;
     private readonly ILogFulfillmentBatchItemRepository _allocations;
+    private readonly IGoodsRepository _goodsRepo;
     // 工作单元：一次请求共享同一连接和事务
     private readonly IUnitOfWork _uow;
     private readonly ILogger<ColdChainLogisticsService> _logger;
@@ -30,6 +31,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         ILogFreightTemplateRepository templates,
         ILogExpressDeliveryRepository deliveries,
         ILogFulfillmentBatchItemRepository allocations,
+        IGoodsRepository goodsRepo,
         IUnitOfWork uow,
         ILogger<ColdChainLogisticsService> logger)
     {
@@ -39,6 +41,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         _templates = templates;
         _deliveries = deliveries;
         _allocations = allocations;
+        _goodsRepo = goodsRepo;
         _uow = uow;
         _logger = logger;
     }
@@ -78,18 +81,21 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         var packages = new Dictionary<(string SupplierId, string Zone, string TemplateId),
             (LogFreightTemplate Rule, decimal Weight)>();
 
+        // 先加载商品 + 货物售价，算出总货值（免运费阈值用）
         foreach (var item in request.Items)
         {
-            // 1. 校验商品信息 + 计费重量
             var product = await _products.GetByIdAsync(item.ProductID);
             if (product == null || item.Quantity <= 0 || product.WeightKG is not > 0)
                 return ApiResponse<FreightQuoteDto>.Fail("商品、数量或计费重量无效");
 
-            var supplierId = item.SupplierID;
+            var supplierId = string.IsNullOrWhiteSpace(item.SupplierID) ? request.SupplierID : item.SupplierID;
             if (string.IsNullOrWhiteSpace(supplierId))
                 return ApiResponse<FreightQuoteDto>.Fail($"商品 {product.ProductName} 缺少供应商，无法分包计费");
             supplierId = supplierId.Trim();
 
+            var goods = await _goodsRepo.GetAsync(item.ProductID, supplierId);
+            var unitPrice = goods?.SalePrice ?? 0m;
+            var itemGoodsAmount = unitPrice * item.Quantity;
             // 记录商品明细（无论是否免运费都展示）
             var itemKey = (product.ProductID, supplierId);
             if (quoteItems.TryGetValue(itemKey, out var existingItem))
@@ -104,11 +110,11 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                     SupplierID = supplierId,
                     ProductName = product.ProductName,
                     Quantity = item.Quantity,
-                    UnitPrice = 0m
+                    UnitPrice = unitPrice
                 });
             }
 
-            // 2. 确定温区：默认 CHILLED（冷藏），读取商品 StorageReq 字段
+            // 确定温区：默认 CHILLED（冷藏），读取商品 StorageReq 字段
             var zone = string.IsNullOrWhiteSpace(product.StorageReq)
                 ? "CHILLED"
                 : product.StorageReq.Trim().ToUpperInvariant();
@@ -139,7 +145,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
 
             // 4. 免运费阈值：货值达标则本商品不参与计费
             if (matchedRule.FreeShippingThreshold.HasValue
-                && request.GoodsAmount >= matchedRule.FreeShippingThreshold)
+                && (request.GoodsAmount > 0 ? request.GoodsAmount : itemGoodsAmount) >= matchedRule.FreeShippingThreshold)
                 continue;
 
             var packageKey = (supplierId, zone, matchedRule.TemplateID);

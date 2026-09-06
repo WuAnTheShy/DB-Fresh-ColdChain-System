@@ -54,7 +54,8 @@
 .section-card { border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; padding: 12px 14px; box-shadow: 0 1px 3px rgba(0, 0, 0, .04); }
 .section-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .section-no { font-size: 12px; font-weight: 700; color: #2B96C9; background: #e8f4fb; padding: 2px 8px; border-radius: 10px; }
-.section-tools .icon-btn { border: 0; background: transparent; color: #718096; font-size: 14px; padding: 2px 6px; border-radius: 4px; }
+.section-tools .icon-btn { border: 0; background: transparent; color: #718096; font-size: 14px; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; }
+.section-tools .icon-btn svg { width: 15px; height: 15px; display: block; }
 .section-tools .icon-btn:hover { background: #edf2f7; color: #2d3748; }
 .section-tools .icon-btn.danger:hover { background: #fee2e2; color: #dc2626; }
 .section-card textarea { font-size: 13.5px; line-height: 1.7; }

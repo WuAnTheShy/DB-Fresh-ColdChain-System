@@ -1,5 +1,5 @@
 <script setup>
-import { Apple, BadgeCheck, Beef, Check, ChevronRight, Clock3, Fish, Leaf, LockKeyhole, MapPin, Milk, PackageCheck, PenLine, ShieldCheck, ShoppingBasket, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
+import { Apple, BadgeCheck, Beef, Check, ChevronRight, Clock3, Fish, Leaf, LockKeyhole, MapPin, Milk, PackageCheck, ShieldCheck, ShoppingBasket, ShoppingCart, Snowflake, Truck } from '@lucide/vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
@@ -18,29 +18,42 @@ const leader = computed(() => leaderById(product.value?.leaderId))
 const quantity = ref(1)
 const added = ref(false)
 const related = computed(() => products.filter((item) => item.id !== String(props.id)).slice(0, 4))
+const defaultEvaluationDimensions = [
+  { code: 'HIGH_QUALITY', name: '高品质', count: 0 },
+  { code: 'FAST_SHIPPING', name: '发货快', count: 0 },
+  { code: 'GOOD_PACKAGING', name: '包装完好', count: 0 },
+  { code: 'COST_EFFECTIVE', name: '性价比高', count: 0 },
+  { code: 'AFFORDABLE', name: '价格实惠', count: 0 },
+  { code: 'RELIABLE_PROMOTER', name: '团长靠谱', count: 0 },
+]
+const evaluationSummary = ref({ totalCount: 0, dimensions: defaultEvaluationDimensions })
+const evaluationLoading = ref(false)
+let evaluationRequestId = 0
 const authLink = computed(() => ({ name: 'auth', query: { redirect: route.fullPath } }))
 const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(product.value?.leaderId))
 const followLink = computed(() => canViewPrice.value ? null : `/leaders/${leader.value?.id ?? ''}`)
-const productIntroRoute = computed(() => leader.value && product.value?.productId
-  ? `/leaders/${leader.value.id}/products/${product.value.productId}/intro`
-  : null)
-const introVisible = ref(false)
+const intro = ref(null)
+const introLoading = ref(false)
 const introError = ref('')
 let introRequestId = 0
 async function checkIntro() {
   const requestId = ++introRequestId
-  introVisible.value = false
+  intro.value = null
+  introLoading.value = false
   introError.value = ''
   const p = product.value
   const l = leader.value
   if (!p || !l || p.isFallback || !p.productId) return
+  introLoading.value = true
   try {
     const result = await api.getPromoterProductIntro(l.id, p.productId)
     if (requestId !== introRequestId) return
-    introVisible.value = Boolean(result?.hasIntro)
+    intro.value = result?.hasIntro ? result : null
   } catch (error) {
     if (requestId !== introRequestId) return
     if (error?.status !== 404) introError.value = '团长推荐信息暂时读取失败，请重试'
+  } finally {
+    if (requestId === introRequestId) introLoading.value = false
   }
 }
 
@@ -62,11 +75,13 @@ watch([() => props.id, catalogLoaded], () => {
   if (catalogLoaded.value && !product.value) router.replace('/search')
 }, { immediate: true })
 
-// 目录就绪或切换商品后检查该商品是否有团长推文（决定是否显示推文入口）
+// 目录就绪或切换商品后读取团长推文，直接展示在商品亮点中。
 watch([() => props.id, () => leader.value?.id, () => product.value?.productId, () => product.value?.isFallback],
   () => checkIntro(), { immediate: true, flush: 'sync' })
-// 切换商品或离开页面后，旧请求不能覆盖新页面的推文入口。
-onUnmounted(() => { introRequestId++ })
+watch([() => props.id, () => leader.value?.id],
+  () => loadEvaluationSummary(), { immediate: true, flush: 'sync' })
+// 切换商品或离开页面后，旧请求不能覆盖新页面的推文内容。
+onUnmounted(() => { introRequestId++; evaluationRequestId++ })
 
 onMounted(() => loadCatalog().catch(() => { }))
 
@@ -82,6 +97,30 @@ function buyNow() {
   buyNowProduct(product.value.id, quantity.value)
   router.push('/checkout')
 }
+
+async function loadEvaluationSummary() {
+  const requestId = ++evaluationRequestId
+  const p = product.value
+  const l = leader.value
+  evaluationSummary.value = { totalCount: 0, dimensions: defaultEvaluationDimensions }
+  if (!p || !l?.id) return
+  evaluationLoading.value = true
+  try {
+    const result = await api.getPromoterEvaluationSummary(l.id)
+    if (requestId !== evaluationRequestId) return
+    evaluationSummary.value = {
+      totalCount: Number(result?.totalCount ?? 0),
+      dimensions: Array.isArray(result?.dimensions) && result.dimensions.length
+        ? result.dimensions
+        : defaultEvaluationDimensions,
+    }
+  } catch {
+    if (requestId === evaluationRequestId)
+      evaluationSummary.value = { totalCount: 0, dimensions: defaultEvaluationDimensions }
+  } finally {
+    if (requestId === evaluationRequestId) evaluationLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -89,12 +128,14 @@ function buyNow() {
     <section class="product-detail-main">
       <div class="product-gallery">
         <div class="product-main-image"><img :src="product.image" :alt="product.name"
-            @error="$event.target.src = product.fallbackImage" /><span
+            :class="{ 'fallback-photo-tint': product.image === product.fallbackImage }"
+            @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" /><span
             :class="`storage-badge storage-badge-${product.storageType.toLowerCase()}`">
             {{ product.storage }}
           </span></div>
         <div class="product-thumb active"><img :src="product.image" alt="商品主图缩略图"
-            @error="$event.target.src = product.fallbackImage" /></div>
+            :class="{ 'fallback-photo-tint': product.image === product.fallbackImage }"
+            @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" /></div>
       </div>
 
       <div class="product-info-column">
@@ -105,8 +146,8 @@ function buyNow() {
         <h1>{{ product.name }}</h1>
         <p class="detail-summary">{{ product.summary }}</p>
         <div class="detail-leader-panel">
-          <img :src="leader.avatar" :alt="`${leader.name}团长头像`" />
-          <div><span><strong>{{ leader.name }}团长</strong>
+          <img :src="leader.avatar" :alt="`${leader.name}头像`" />
+          <div><span><strong>{{ leader.name }}</strong>
               <BadgeCheck :size="16" />
             </span><small>{{ leader.title }} · {{ leader.area }}</small></div>
           <RouterLink :to="`/leaders/${leader.id}`">查看详情
@@ -114,10 +155,6 @@ function buyNow() {
           </RouterLink>
         </div>
         <dl class="product-facts">
-          <div v-if="product.supplierName">
-            <dt>供应商</dt>
-            <dd>{{ product.supplierName }}</dd>
-          </div>
           <div>
             <dt>规格</dt>
             <dd>{{ product.spec }}</dd>
@@ -147,7 +184,7 @@ function buyNow() {
         </div>
         <template v-if="canViewPrice">
           <div class="stock-status">
-            <Check :size="17" />有货，冷链备货中
+            <Check :size="17" />有货
           </div>
           <label class="buy-quantity">数量
             <QuantityStepper v-model="quantity" :max="product.stock" />
@@ -162,58 +199,67 @@ function buyNow() {
         <RouterLink v-else class="btn btn-buy w-100 gated-login-button" :to="isAuthenticated ? followLink : authLink">{{
           isAuthenticated ? '前往关注团长' : '登录并关注团长' }}</RouterLink>
         <small class="buy-box-guarantee">
-          <ShieldCheck :size="15" />平台交易保障 · 团长身份已认证
+          <ShieldCheck :size="15" />平台交易保障 · 认证团长
         </small>
       </aside>
     </section>
 
     <section class="detail-info-band">
       <div>
-        <PackageCheck :size="23" /><span><strong>下单即备货</strong><small>支付成功后立即进入履约流程</small></span>
+        <MapPin :size="24" /><span><strong>精选货源</strong></span>
       </div>
       <div>
-        <Clock3 :size="23" /><span><strong>配送安排</strong><small>{{ product.delivery }}</small></span>
+        <PackageCheck :size="24" /><span><strong>便捷下单</strong></span>
       </div>
       <div>
-        <MapPin :size="23" /><span><strong>社区履约</strong><small>{{ leader.area }}</small></span>
+        <Clock3 :size="24" /><span><strong>准时发货</strong></span>
       </div>
       <div>
-        <Snowflake :size="23" /><span><strong>冷链到家</strong><small>温控方式：<em
-              :class="`storage-text storage-text-${product.storageType.toLowerCase()}`">{{ product.storage
-              }}</em></small></span>
+        <Snowflake :size="24" /><span><strong>冷链到家</strong></span>
       </div>
     </section>
 
-    <section v-if="introVisible && productIntroRoute" class="promoter-intro-entry">
-      <div class="promoter-intro-entry-icon"><PenLine :size="20" /></div>
-      <div class="promoter-intro-entry-copy">
-        <strong>{{ leader.name }}团长 · 推荐语</strong>
-        <span>团长为这款商品撰写了图文推文，去听听他的推荐理由</span>
-      </div>
-      <RouterLink :to="productIntroRoute" class="promoter-intro-entry-link">查看团长推文<ChevronRight :size="15" /></RouterLink>
-    </section>
-    <section v-else-if="introError" class="promoter-intro-entry" role="alert">
-      <div class="promoter-intro-entry-icon"><PenLine :size="20" /></div>
-      <div class="promoter-intro-entry-copy"><strong>{{ introError }}</strong></div>
-      <button class="btn btn-outline-secondary" type="button" @click="checkIntro">重新加载</button>
-    </section>
-
-    <section class="product-description-section">
-      <h2>商品详情</h2>
+    <section class="product-community-module product-description-section">
+      <header>
+        <h2>商品详情</h2>
+      </header>
       <div class="description-grid">
-        <div>
-          <h3>商品亮点</h3>
-          <p>{{ product.summary }}</p>
-        </div>
-        <div>
-          <h3>收货提示</h3>
-          <p>收到商品后请及时检查外包装及温度状态，并按照商品标注方式冷藏保存。</p>
-        </div>
-        <div>
-          <h3>配送说明</h3>
-          <p>订单支付成功后立即进入常规备货与冷链配送流程。</p>
+        <div class="product-highlights">
+          <div v-if="intro" class="inline-promoter-intro">
+            <h4 v-if="intro.title">{{ intro.title }}</h4>
+            <template v-for="(section, sectionIndex) in intro.sections" :key="sectionIndex">
+              <p v-if="section.text">{{ section.text }}</p>
+              <div v-if="section.images?.length" class="inline-promoter-intro-images">
+                <img v-for="(url, imageIndex) in section.images" :key="`${sectionIndex}-${imageIndex}`" :src="url"
+                  alt="团长推文配图" loading="lazy" @error="$event.target.style.display = 'none'" />
+              </div>
+            </template>
+          </div>
+          <p v-else-if="introLoading" class="inline-intro-state">正在读取团长推文…</p>
+          <div v-else-if="introError" class="inline-intro-state" role="alert">
+            <span>{{ introError }}</span>
+            <button class="btn btn-sm btn-outline-secondary" type="button" @click="checkIntro">重新加载</button>
+          </div>
+          <p v-else>{{ product.summary }}</p>
         </div>
       </div>
+    </section>
+
+    <section class="product-community-module product-showcase-module" aria-labelledby="showcase-title">
+      <header>
+        <h2 id="showcase-title">该团购所属团长主页评价</h2>
+        <span>{{ evaluationLoading ? '读取中…' : `全部商品共 ${evaluationSummary.totalCount} 条评价` }}</span>
+      </header>
+      <div class="showcase-tag-list" aria-label="商品评价标签">
+        <span v-for="dimension in evaluationSummary.dimensions" :key="dimension.code">{{ dimension.name }} ({{ dimension.count }})</span>
+      </div>
+    </section>
+
+    <section class="product-community-module product-group-records-module" aria-labelledby="group-records-title">
+      <header>
+        <h2 id="group-records-title">跟团记录</h2>
+      </header>
+      <div class="group-record-list-empty">暂无跟团记录</div>
     </section>
 
     <section class="home-section px-0">
@@ -578,8 +624,12 @@ function buyNow() {
 }
 
 .detail-info-band strong {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
   color: var(--ink);
-  font-size: 12px;
+  font-size: 14px;
+  line-height: 30px;
 }
 
 .detail-info-band small {
@@ -588,21 +638,15 @@ function buyNow() {
 }
 
 .product-description-section {
-  margin-top: 16px;
-  padding: 22px;
-  border: 1px solid var(--line);
-  background: #fff;
-}
-
-.product-description-section>h2 {
-  margin: 0 0 16px;
-  font-size: 18px;
+  overflow: hidden;
 }
 
 .description-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr;
   gap: 20px;
+  min-height: 96px;
+  padding: 30px 26px;
 }
 
 .description-grid h3 {
@@ -613,8 +657,91 @@ function buyNow() {
 .description-grid p {
   margin: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.7;
+}
+
+.inline-promoter-intro h4 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.inline-promoter-intro p + p,
+.inline-promoter-intro-images + p {
+  margin-top: 10px;
+}
+
+.inline-promoter-intro-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.inline-promoter-intro-images img {
+  width: 100%;
+  max-height: 420px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.inline-intro-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.product-community-module {
+  margin-top: 16px;
+  background: #fff;
+}
+
+.product-community-module>header {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 26px;
+  border-bottom: 1px solid #edf0ee;
+}
+
+.product-community-module h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.product-community-module>header>span {
+  display: inline-flex;
+  align-items: center;
+  color: #9a9f9c;
+  font-size: 15px;
+}
+
+.showcase-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 11px 13px;
+  padding: 20px 26px 28px;
+}
+
+.showcase-tag-list span {
+  padding: 7px 13px;
+  border-radius: 5px;
+  background: #e8f8f1;
+  color: #13b86c;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.group-record-list-empty {
+  min-height: 96px;
+  padding: 30px 26px;
+  color: #9a9f9c;
+  font-size: 14px;
 }
 
 @media (max-width: 1199.98px) {
@@ -689,74 +816,37 @@ function buyNow() {
     min-height: 68px;
     padding: 7px;
   }
-}
 
-.promoter-intro-entry {
-  display: grid;
-  grid-template-columns: 46px minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  margin-top: 16px;
-  padding: 13px 16px;
-  border: 1px solid #f0d3a0;
-  border-left: 4px solid #e8a33d;
-  border-radius: 10px;
-  background: linear-gradient(90deg, #fff9ee, #fff);
-}
-
-.promoter-intro-entry-icon {
-  display: grid;
-  width: 46px;
-  height: 46px;
-  place-items: center;
-  border-radius: 12px;
-  background: #fdeed3;
-  color: #c77d1e;
-}
-
-.promoter-intro-entry-copy {
-  min-width: 0;
-}
-
-.promoter-intro-entry-copy strong {
-  display: block;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.promoter-intro-entry-copy span {
-  display: block;
-  margin-top: 2px;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.promoter-intro-entry-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  color: var(--brand);
-  font-size: 12px;
-  font-weight: 750;
-  white-space: nowrap;
-  text-decoration: none;
-}
-
-.promoter-intro-entry-link:hover {
-  text-decoration: underline;
-}
-
-@media (max-width: 767.98px) {
-  .promoter-intro-entry {
-    grid-template-columns: 40px minmax(0, 1fr) auto;
+  .product-community-module>header {
+    min-height: 64px;
+    padding: 0 16px;
   }
 
-  .promoter-intro-entry-icon {
-    width: 40px;
-    height: 40px;
+  .product-community-module h2 {
+    font-size: 16px;
+  }
+
+  .product-community-module>header>span {
+    font-size: 13px;
+  }
+
+  .showcase-tag-list {
+    gap: 9px;
+    padding: 16px 16px 22px;
+  }
+
+  .description-grid {
+    padding: 26px 16px;
+  }
+
+  .showcase-tag-list span {
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+
+  .group-record-list-empty {
+    padding: 26px 16px;
   }
 }
+
 </style>

@@ -4,6 +4,7 @@ public class ProductDto
 {
     public string ProductID { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
+    public string? CategoryID { get; set; }
     public string? CategoryName { get; set; }
     public string? Unit { get; set; }
     public decimal? WeightKG { get; set; }
@@ -68,4 +69,17 @@ public class UpdateProductDto
     public int? ExpiryHours { get; set; }
     public string? StorageReq { get; set; }
     public string? Description { get; set; }
+}
+
+/// <summary>
+/// 商品图片上传内容（新增/编辑商品时随表单提交，服务层将二进制写入
+/// Inv_ProductImages.ImageData，对外地址统一为 /images/product/{ImageID}，
+/// 供供应商门户 / 团长商品上架 / 消费者前端展示）。
+/// </summary>
+public class ProductImageUploadDto
+{
+    public byte[] Data { get; set; } = Array.Empty<byte>();
+
+    /// <summary>MIME 类型（如 image/jpeg）</summary>
+    public string ContentType { get; set; } = "image/jpeg";
 }

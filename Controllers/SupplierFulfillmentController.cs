@@ -14,6 +14,17 @@ public sealed class SupplierFulfillmentController(
     private string SupplierId =>
         HttpContext.Session.GetString("SupplierId")!;
 
+    /// <summary>下拉展示顺序：正常运输链路优先，异常/退回排在后面；最终是否可选由状态机裁决。</summary>
+    private static readonly string[] NextStatusCandidateCodes =
+    [
+        LogisticsStatusCodes.InTransit,
+        LogisticsStatusCodes.OutForDelivery,
+        LogisticsStatusCodes.Delivered,
+        LogisticsStatusCodes.Exception,
+        LogisticsStatusCodes.Returning,
+        LogisticsStatusCodes.Returned
+    ];
+
     [HttpGet]
     [GroupBPermission(GroupBPermissions.FulfillmentRead)]
     public async Task<IActionResult> Index(
@@ -50,7 +61,16 @@ public sealed class SupplierFulfillmentController(
                 SupplierId,
                 id,
                 cancellationToken);
-            return model == null ? NotFound() : View(model);
+            if (model == null) return NotFound();
+
+            // 追加轨迹下拉只暴露当前物流状态的合法下一步，避免供应商误选被状态机拒绝
+            ViewData["NextStatuses"] = NextStatusCandidateCodes
+                .Where(code => LogisticsStateMachine.CanTransition(
+                    model.Logistics.StatusCode,
+                    code))
+                .Select(code => (Code: code, Name: LogisticsStatusCodes.GetName(code)))
+                .ToList();
+            return View(model);
         }
         catch (OrderBusinessException exception)
         {

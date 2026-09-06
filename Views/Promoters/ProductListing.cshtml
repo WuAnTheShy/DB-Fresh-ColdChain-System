@@ -22,7 +22,7 @@
 <!-- 已上架商品一览 -->
 <div class="content-card mb-4">
     <div class="content-card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">✅ 已上架商品</h5>
+        <h5 class="mb-0"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 已上架商品</h5>
         <span class="badge bg-success">@activeProducts.Count</span>
     </div>
     <div class="content-card-body p-0">
@@ -67,16 +67,16 @@
                                             {
                                                 if (IsIntroFileValue(p.PromoterDesc))
                                                 {
-                                                    <div class="text-muted small" style="max-width:340px;">🖼 已配置图文介绍（点右侧「详情」编辑 / 预览）</div>
+                                                    <div class="text-muted small d-flex align-items-center gap-1" style="max-width:340px;"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>已配置图文介绍（点右侧「详情」编辑 / 预览）</div>
                                                 }
                                                 else
                                                 {
-                                                    <div class="text-muted small text-truncate" style="max-width:340px;" title="@p.PromoterDesc">📝 @TrimText(p.PromoterDesc, 60)</div>
+                                                    <div class="text-muted small text-truncate d-flex align-items-center gap-1" style="max-width:340px;" title="@p.PromoterDesc"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7l-6-4z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>@TrimText(p.PromoterDesc, 60)</div>
                                                 }
                                             }
                                             else if (!string.IsNullOrWhiteSpace(p.Description))
                                             {
-                                                <div class="text-muted small text-truncate" style="max-width:340px;" title="@p.Description">📝 @TrimText(p.Description, 60)</div>
+                                                <div class="text-muted small text-truncate d-flex align-items-center gap-1" style="max-width:340px;" title="@p.Description"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7l-6-4z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>@TrimText(p.Description, 60)</div>
                                             }
                                         </div>
                                     </div>
@@ -130,7 +130,7 @@
 {
     <div class="content-card mb-4">
         <div class="content-card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 text-secondary">🛑 已下架商品</h5>
+            <h5 class="mb-0 text-secondary"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 12l9 9 9-9-9-9z"/><path d="M12 8v4M12 16h.01"/></svg> 已下架商品</h5>
             <span class="badge bg-secondary">@inactiveProducts.Count</span>
         </div>
         <div class="content-card-body p-0">
@@ -166,7 +166,7 @@
                                             </div>
                                             @if (!string.IsNullOrWhiteSpace(p.Description))
                                             {
-                                                <div class="text-muted small text-truncate" style="max-width:340px;" title="@p.Description">📝 @TrimText(p.Description, 60)</div>
+                                                <div class="text-muted small text-truncate d-flex align-items-center gap-1" style="max-width:340px;" title="@p.Description"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7l-6-4z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>@TrimText(p.Description, 60)</div>
                                             }
                                         </div>
                                     </div>
@@ -202,16 +202,15 @@
 
 <div class="content-card">
     <div class="content-card-header">
-        <h5>📦 商品上架</h5>
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> 商品上架</h5>
     </div>
     <div class="content-card-body">
         <p class="text-muted small">
-            输入<b>供应商名称 / 供应商ID</b>，查看该供应商提供的全部商品；输入<b>商品名称</b>，查看所有供货该商品的供应商。
-            可将某个“（供应商 × 商品）”组合加入您的上架商品，一个团长可上架多个商品，同一商品也可选择不同供应商供货。
+            支持供应商名称/ID、商品名称搜索，您也可以选择不同供应商的相同商品一并上架。
         </p>
         <p class="text-muted small mb-3">
-            每个（供应商 × 商品）有<b>报价</b>（供应商供货价）与<b>推荐价</b>（商品默认售价）。
-            点击「入团」上架后，通过上架记录中的「详情」进入独立商品页面设置团长定价，规则：<b>|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2</b>；不填写则默认为推荐价。
+            请点击「入团」上架后，通过上架记录中的「详情」进入独立商品页面设置团长定价，默认为供应商推荐价。
+
             当前已上架商品数：<span class="badge bg-success">@Model.ListedKeys.Count</span>
         </p>
 
@@ -249,10 +248,11 @@
                             var key = $"{item.ProductID}|{item.SupplierID}";
                             var isListed = Model.ListedKeys.Contains(key);
                             Model.ListedPrices.TryGetValue(key, out var listedPrice);
+                            var isDown = !item.IsProductActive;
                             var priceDiff = Math.Abs(item.DefaultPrice - item.SupplyPrice) / 2m;
                             var priceMin = item.DefaultPrice - priceDiff;
                             var priceMax = item.DefaultPrice + priceDiff;
-                            <tr>
+                            <tr class="@(isDown ? "table-secondary" : "")">
                                 <td>
                                     <div><code class="small">@item.SupplierID</code></div>
                                     <div class="small">@item.SupplierName</div>
@@ -268,7 +268,7 @@
                                             <div class="text-muted small">@item.ProductID</div>
                                             @if (!string.IsNullOrEmpty(item.Description))
                                             {
-                                                <div class="text-muted small text-truncate" style="max-width:340px;" title="@item.Description">📝 @item.Description</div>
+                                                <div class="text-muted small text-truncate d-flex align-items-center gap-1" style="max-width:340px;" title="@item.Description"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7l-6-4z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>@item.Description</div>
                                             }
                                         </div>
                                     </div>
@@ -279,7 +279,12 @@
                                     ￥@priceMin.ToString("F2") ~ ￥@priceMax.ToString("F2")
                                 </td>
                                 <td class="text-center">
-                                    @if (isListed)
+                                    @if (isDown)
+                                    {
+                                        <!-- 已下架：不再维护团长定价 -->
+                                        <span class="text-muted small">已下架</span>
+                                    }
+                                    else if (isListed)
                                     {
                                         <!-- 已上架：团长定价在详情页中调整，此处仅展示当前价 -->
                                         <div>
@@ -294,7 +299,11 @@
                                     }
                                 </td>
                                 <td class="text-center">
-                                    @if (isListed)
+                                    @if (isDown)
+                                    {
+                                        <span class="badge bg-danger">已下架</span>
+                                    }
+                                    else if (isListed)
                                     {
                                         <span class="badge bg-success">已上架</span>
                                     }
@@ -304,7 +313,26 @@
                                     }
                                 </td>
                                 <td class="text-center">
-                                    @if (isListed)
+                                    @if (isDown)
+                                    {
+                                        if (isListed)
+                                        {
+                                            <!-- 已入团但商品被下架：不允许重新上架，仅可移除 -->
+                                            <form asp-action="ToggleProductEntry" method="post" style="display:inline;">
+                                                <input type="hidden" name="productId" value="@item.ProductID" />
+                                                <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                                                <input type="hidden" name="keyword" value="@Model.Keyword" />
+                                                <input type="hidden" name="action" value="unbind" />
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">移除</button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <!-- 商品已下架，不允许入团 -->
+                                            <span class="text-muted small">已下架，不可入团</span>
+                                        }
+                                    }
+                                    else if (isListed)
                                     {
                                         <div class="d-inline-flex gap-1">
                                             <a asp-action="EntryDetail"

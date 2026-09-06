@@ -12,10 +12,12 @@ internal static class OrderLifecycleScenarioTests
         {
             ("订单列表按状态和关键词分页查询", OrderListFiltersAndPagesAsync),
             ("订单详情按供应商形成拆单展示", OrderDetailGroupsBySupplierAsync),
+            ("消费者订单展示状态跟随物流变化", OrderDisplayStatusTracksLogisticsAsync),
             ("下单使用运费契约并保存地址快照", CreateOrderUsesFreightAndAddressSnapshotAsync),
             ("已支付订单发货时同步创建物流", PaidOrderShipsAsync),
             ("已发货订单完成时触发佣金登记", ShippedOrderCompletesAsync),
             ("已发货商品逐项确认且最后一项自动完成子订单", ItemReceiptCompletesAfterLastItemAsync),
+            ("整单确认收货一次更新全部商品", OrderReceiptConfirmsEveryItemAsync),
             ("未签收包裹不能通过后端直接确认收货", ReceiptRejectsUndeliveredPackageAsync),
             ("自动收货必须等待全部包裹签收", AutoReceiptRequiresDeliveredPackagesAsync),
             ("管理端不能完成未签收订单", AdminCompletionRequiresDeliveredPackagesAsync),
@@ -70,6 +72,8 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal(TestIds.Order2, result.Orders[0].OrderId);
         AssertEx.Equal("已完成", result.Orders[0].StatusName);
         AssertEx.Equal(2, result.Orders[0].SupplierCount);
+        AssertEx.Equal(2, result.Orders[0].ProductItems.Count);
+        AssertEx.Equal("车厘子", result.Orders[0].ProductItems[0].ProductName);
     }
 
     private static async Task OrderDetailGroupsBySupplierAsync()
@@ -96,6 +100,34 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.True(!result.CanComplete);
     }
 
+    private static async Task OrderDisplayStatusTracksLogisticsAsync()
+    {
+        var context = TestContext.Create();
+        SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-LOGISTICS-001");
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP1"] = LogisticsStatusCodes.InTransit;
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP2"] = LogisticsStatusCodes.InTransit;
+
+        var list = await context.Service.GetOrdersAsync(new OrderQueryRequest());
+        var detail = await context.Service.GetOrderDetailAsync(TestIds.Order);
+
+        AssertEx.Equal(LogisticsStatusCodes.InTransit, list.Orders.Single().DisplayStatusCode);
+        AssertEx.Equal("运输中", list.Orders.Single().StatusName);
+        AssertEx.Equal(LogisticsStatusCodes.InTransit, detail!.DisplayStatusCode);
+        AssertEx.Equal("运输中", detail.StatusName);
+
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP1"] = LogisticsStatusCodes.Delivered;
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP2"] = LogisticsStatusCodes.Delivered;
+
+        list = await context.Service.GetOrdersAsync(new OrderQueryRequest());
+        detail = await context.Service.GetOrderDetailAsync(TestIds.Order);
+
+        AssertEx.Equal(LogisticsStatusCodes.Delivered, list.Orders.Single().DisplayStatusCode);
+        AssertEx.Equal("已签收", list.Orders.Single().StatusName);
+        AssertEx.Equal(LogisticsStatusCodes.Delivered, detail!.DisplayStatusCode);
+        AssertEx.Equal("已签收", detail.StatusName);
+        AssertEx.Equal(OrderStatusCodes.Shipped, detail.Order!.OrderStatus);
+    }
+
     private static async Task CreateOrderUsesFreightAndAddressSnapshotAsync()
     {
         var context = TestContext.Create();
@@ -105,7 +137,7 @@ internal static class OrderLifecycleScenarioTests
         {
             CustomerId = TestIds.Customer,
             AddressId = TestIds.Address1,
-            Items = [new() { ProductId = "P1", Quantity = 2 }]
+            Items = [new() { ProductId = "P1", SupplierId = "SUP1", Quantity = 2 }]
         });
 
         var order = context.OrderRepository.Orders.Single();
@@ -189,6 +221,21 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal(OrderStatusCodes.Completed, context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(1, context.CommissionService.CompletedOrders.Count);
         AssertEx.Equal("order-promoter", context.CommissionService.CompletedOrders[0].promoterID);
+    }
+
+    private static async Task OrderReceiptConfirmsEveryItemAsync()
+    {
+        var context = TestContext.Create();
+        SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-ORDER-RECEIPT");
+        context.OrderRepository.Orders[0].PromoterId = "order-promoter";
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP1"] = LogisticsStatusCodes.Delivered;
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP2"] = LogisticsStatusCodes.Delivered;
+
+        await context.Service.ConfirmOrderReceiptAsync(TestIds.Order, TestIds.Customer);
+
+        AssertEx.True(context.OrderRepository.Details.All(detail => detail.ReceiptStatus == "RECEIVED"));
+        AssertEx.Equal(OrderStatusCodes.Completed, context.OrderRepository.Orders[0].OrderStatus);
+        AssertEx.Equal(1, context.CommissionService.CompletedOrders.Count);
     }
 
     private static async Task ReceiptRejectsUndeliveredPackageAsync()

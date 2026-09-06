@@ -51,10 +51,10 @@ async function handleFollow() {
 <template>
   <div v-if="leader" class="leader-detail-page">
     <section class="leader-profile-band">
-      <img class="leader-cover" :src="leader.cover" alt="" />
+      <img class="leader-cover fallback-photo-tint" :src="leader.cover" alt="" />
       <div class="leader-cover-shade"></div>
       <div class="store-container leader-profile-content">
-        <img class="leader-profile-avatar" :src="leader.avatar" :alt="`${leader.name}团长头像`" />
+        <img class="leader-profile-avatar" :src="leader.avatar" :alt="`${leader.name}头像`" />
         <div class="leader-profile-copy">
           <span class="verified-label">
             <BadgeCheck :size="16" />平台认证团长
@@ -91,7 +91,7 @@ async function handleFollow() {
     <div class="store-container home-section">
       <div class="section-title-row">
         <div>
-          <h2>{{ leader.name }}团长正在带货</h2>
+          <h2>{{ leader.name }}正在带货</h2>
         </div>
       </div>
       <div v-if="leaderProducts.length" class="product-grid">

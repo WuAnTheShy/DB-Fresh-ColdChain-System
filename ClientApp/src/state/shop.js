@@ -1,12 +1,12 @@
 import { computed, reactive, ref } from 'vue'
 import { api } from '../services/api'
 import { avatarUrl } from '../assets/avatars'
-import seasonalFruitImage from '../assets/categories/seasonal-fruit.jpg'
-import vegetableTofuImage from '../assets/categories/vegetable-tofu.jpg'
-import meatEggsImage from '../assets/categories/meat-eggs.jpg'
-import seafoodImage from '../assets/categories/seafood.jpg'
-import dairyBakeryImage from '../assets/categories/dairy-bakery.jpg'
-import otherGroceryImage from '../assets/categories/other-grocery.jpg'
+import seasonalFruitImage from '../assets/categories/seasonal-fruit.png'
+import vegetableTofuImage from '../assets/categories/vegetable-tofu.png'
+import meatEggsImage from '../assets/categories/meat-eggs.png'
+import seafoodImage from '../assets/categories/seafood.png'
+import dairyBakeryImage from '../assets/categories/dairy-bakery.png'
+import otherGroceryImage from '../assets/categories/other-grocery.png'
 
 // 首页与分类导航始终保留完整的六个常用品类；商品目录只负责填充各品类商品，
 // 避免某个品类暂时没有在团商品时，对应入口也随接口结果一起消失。
@@ -29,7 +29,7 @@ const categoryVisuals = [
   { pattern: /乳|奶|烘焙|dairy|bakery/i, name: '乳品烘焙', icon: '乳品', image: dairyBakeryImage },
 ]
 const defaultCategoryVisual = { name: '其他', icon: '杂货', image: otherGroceryImage }
-const leaderCovers = [seasonalFruitImage, vegetableTofuImage, seafoodImage]
+const fallbackPhoto = '/images/homepic.png'
 const leadersLoading = ref(false)
 const leadersLoaded = ref(false)
 const leadersError = ref('')
@@ -47,15 +47,15 @@ function fallbackAvatar(name) {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
 }
 
-function normalizeLeader(promoter, index) {
-  const name = String(promoter.promoterName ?? '').trim() || '未命名团长'
+function normalizeLeader(promoter) {
+  const name = String(promoter.promoterName ?? '').trim() || '未命名'
   return {
     id: String(promoter.promoterId ?? '').trim(),
     name,
     title: '平台认证团长',
     area: '服务范围以结算地址为准',
     avatar: avatarUrl(promoter.avatar) || fallbackAvatar(name),
-    cover: leaderCovers[index % leaderCovers.length],
+    cover: fallbackPhoto,
     description: '该团长账号当前处于启用状态，可查看其正在带货的真实商品。',
     tags: ['平台认证'],
   }
@@ -114,9 +114,9 @@ function normalizeProduct(item) {
     category: categoryName,
     spec: unit ? `计量单位：${unit}` : '规格以商品实际标注为准',
     price: Number(item.salePrice ?? 0),
-    image: images[0] || visual.image,
-    fallbackImage: visual.image,
-    images: images.length ? images : [visual.image],
+    image: images[0] || fallbackPhoto,
+    fallbackImage: fallbackPhoto,
+    images: images.length ? images : [fallbackPhoto],
     storage,
     storageType,
     publishedAt: item.publishedAt ? String(item.publishedAt) : null,

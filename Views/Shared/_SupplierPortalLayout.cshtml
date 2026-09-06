@@ -56,6 +56,10 @@
                    class="nav-link @(currentController == "ColdChainLogistics" && currentAction == "Traceability" ? "active" : "")">
                     <span class="nav-icon">🔍</span> 精准溯源
                 </a>
+                <a asp-controller="SupplierFulfillment" asp-action="Index"
+                   class="nav-link @(currentController == "SupplierFulfillment" ? "active" : "")">
+                    <span class="nav-icon">📋</span> 订单履约
+                </a>
                 @if (isAdmin)
                 {
                     <a asp-controller="Products" asp-action="Index"

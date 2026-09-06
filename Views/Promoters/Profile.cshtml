@@ -27,14 +27,14 @@
         {
             <span>@p.PromoterName.FirstOrDefault('团')</span>
         }
-        <button type="button" class="avatar-change-btn" data-bs-toggle="modal" data-bs-target="#avatarModal" title="更换头像">✎</button>
+        <button type="button" class="avatar-change-btn" data-bs-toggle="modal" data-bs-target="#avatarModal" title="更换头像"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 0 1 4 4L8 20l-5 1 1-5L17 3z"/></svg></button>
     </div>
     <div class="profile-header-info">
         <div class="profile-name">@p.PromoterName</div>
         <div class="profile-meta">
             <span class="level-badge-lg">@Model.LevelName</span>
             <span class="badge bg-@Model.StatusBadgeClass">@Model.StatusLabel</span>
-            <span class="text-muted small">ID: @p.PromoterId</span>
+            <span class="small text-white">ID: @p.PromoterId</span>
         </div>
     </div>
     <div class="profile-header-balance">
@@ -46,28 +46,28 @@
 <div class="stat-grid">
     <div class="stat-card">
         <div class="stat-card-top">
-            <span class="stat-icon bg-success-subtle text-success">¥</span>
+            <span class="stat-icon bg-success-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span>
             <span class="stat-label">可提现</span>
         </div>
         <div class="stat-value text-success">@p.CurrentBalance.ToString("N2")</div>
     </div>
     <div class="stat-card pending">
         <div class="stat-card-top">
-            <span class="stat-icon bg-warning-subtle text-warning">⏳</span>
+            <span class="stat-icon bg-warning-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
             <span class="stat-label">待结算</span>
         </div>
         <div class="stat-value text-warning">@p.PendingBalance.ToString("N2")</div>
     </div>
     <div class="stat-card frozen">
         <div class="stat-card-top">
-            <span class="stat-icon bg-info-subtle text-info">🔒</span>
+            <span class="stat-icon bg-info-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
             <span class="stat-label">冻结中</span>
         </div>
         <div class="stat-value text-info">@p.FrozenAmount.ToString("N2")</div>
     </div>
     <div class="stat-card sales">
         <div class="stat-card-top">
-            <span class="stat-icon bg-purple-subtle text-purple">📈</span>
+            <span class="stat-icon bg-purple-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V10"/><path d="M9 20V4"/><path d="M15 20v-8"/><path d="M21 20V7"/></svg></span>
             <span class="stat-label">累计销售额</span>
         </div>
         <div class="stat-value">@p.TotalSales.ToString("N2")</div>

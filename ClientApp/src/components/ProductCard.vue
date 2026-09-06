@@ -8,10 +8,13 @@ const props = defineProps({
   product: { type: Object, required: true },
 })
 
-const { categories, leaderById, isLeaderFollowed } = useShop()
+const { leaderById, isLeaderFollowed } = useShop()
 const { isAuthenticated } = useCustomerContext()
 const activeLeader = computed(() => leaderById(props.product.leaderId))
-const category = computed(() => categories.find((item) => item.slug === props.product.category))
+const cardImages = computed(() => {
+  const images = Array.isArray(props.product.images) ? props.product.images.filter(Boolean) : []
+  return [...new Set(images.length ? images : [props.product.image].filter(Boolean))].slice(0, 2)
+})
 
 // 品类标识：不同图标 + 颜色 + 背景填充圆角
 const categoryStyles = [
@@ -33,13 +36,24 @@ const canViewPrice = computed(() => isAuthenticated.value && isLeaderFollowed(pr
 function displayPrice(value) {
   return Number(value).toFixed(2).replace(/\.00$/, '')
 }
+
+function handleImageError(event, index) {
+  const image = event.target
+  if (index === 0 && props.product.fallbackImage && image.dataset.fallbackApplied !== 'true') {
+    image.dataset.fallbackApplied = 'true'
+    image.classList.add('fallback-photo-tint')
+    image.src = props.product.fallbackImage
+    return
+  }
+  image.style.display = 'none'
+}
 </script>
 
 <template>
   <article class="product-card social-product-card">
     <RouterLink v-if="activeLeader" class="product-card-leader" :to="`/leaders/${activeLeader.id}`"
-      :aria-label="`查看${activeLeader.name}团长详情`">
-      <img :src="activeLeader.avatar" :alt="`${activeLeader.name}团长头像`" />
+      :aria-label="`查看${activeLeader.name}详情`">
+      <img :src="activeLeader.avatar" :alt="`${activeLeader.name}头像`" />
       <span><strong>{{ activeLeader.name }}</strong></span>
     </RouterLink>
 
@@ -60,18 +74,16 @@ function displayPrice(value) {
           <span :class="`product-storage storage-type-${(product.storageType || 'CHILLED').toLowerCase()}`">{{ product.storage }}</span>
         </div>
 
-        <div v-if="product.supplierName" class="product-card-supplier" title="该商品由该供应商供货">
-          供应商：{{ product.supplierName }}
-        </div>
-
         <div v-if="canViewPrice" class="social-product-price">
           <span>¥</span><strong>{{ displayPrice(product.price) }}</strong>
         </div>
         <div v-else class="social-product-price-gated">关注团长后查看专属价格</div>
 
         <div class="product-card-media">
-          <img :src="product.image" :alt="product.name" loading="lazy" @error="$event.target.src = product.fallbackImage" />
-          <img :src="category?.image || product.image" :alt="`${product.shortName}货架陈列`" loading="lazy" />
+          <img v-for="(image, index) in cardImages" :key="image" :src="image"
+            :class="{ 'fallback-photo-tint': image === product.fallbackImage }"
+            :alt="index === 0 ? product.name : `${product.name}商品图${index + 1}`" loading="lazy"
+            @error="handleImageError($event, index)" />
         </div>
 
         <div class="product-card-group-status">
@@ -199,16 +211,6 @@ function displayPrice(value) {
   margin-top: 10px;
 }
 
-.product-card-supplier {
-  margin-top: 6px;
-  overflow: hidden;
-  color: #8a6d1d;
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .product-category-badge {
   display: inline-flex;
   align-items: center;
@@ -293,7 +295,8 @@ function displayPrice(value) {
   display: grid;
   overflow: hidden;
   aspect-ratio: 16 / 7.2;
-  grid-template-columns: 1.45fr 1fr;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
   gap: 6px;
   border-radius: 7px;
   background: #f1f2f2;

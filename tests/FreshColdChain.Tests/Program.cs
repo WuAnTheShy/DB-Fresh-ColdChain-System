@@ -22,6 +22,7 @@ var authorizationExitCode =
 var logisticsPersistenceExitCode =
     await LogisticsPersistenceScenarioTests.RunAllAsync();
 var demoCarrierExitCode = await DemoCarrierScenarioTests.RunAllAsync();
+var productEvaluationExitCode = await ProductEvaluationScenarioTests.RunAllAsync();
 
 Environment.ExitCode =
     orderExitCode == 0 &&
@@ -34,6 +35,7 @@ Environment.ExitCode =
     financialTransactionExitCode == 0 &&
     freightAggregationExitCode == 0 &&
     authorizationExitCode == 0 &&
-    logisticsPersistenceExitCode == 0 && demoCarrierExitCode == 0
+    logisticsPersistenceExitCode == 0 && demoCarrierExitCode == 0 &&
+    productEvaluationExitCode == 0
     ? 0
     : 1;

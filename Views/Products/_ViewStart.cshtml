@@ -1,3 +1,7 @@
 @{
-    Layout = "_SupplierPortalLayout";
+    // C 组「商品管理员」在管理后台外壳中使用本页；A 组供应商/供应商管理员沿用供应商门户外壳
+    Layout = (FreshColdChain.Filters.AdminSession.IsProductAdmin(Context.Session)
+              && !FreshColdChain.Filters.SupplierSession.IsSupplierAdmin(Context.Session))
+        ? "_AdminLayout"
+        : "_SupplierPortalLayout";
 }

@@ -297,7 +297,9 @@ async function submit() {
   align-items: center;
   overflow: hidden;
   padding: 48px;
-  background: linear-gradient(145deg, rgba(10, 39, 31, .9), rgba(0, 95, 115, .86)), url('../assets/categories/vegetable-tofu.jpg') center / cover;
+  background: linear-gradient(145deg, rgba(10, 39, 31, .9), rgba(0, 95, 115, .86)),
+    linear-gradient(rgba(214, 236, 248, .2), rgba(214, 236, 248, .2)),
+    url('/images/homepic.png') center / cover;
   color: #fff;
 }
 

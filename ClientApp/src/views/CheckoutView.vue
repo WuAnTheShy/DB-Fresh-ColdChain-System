@@ -213,8 +213,8 @@ watch(
         <section class="checkout-section">
           <div class="checkout-section-title"><BadgeCheck :size="21" /><div><h2>团长带货商品</h2></div></div>
           <div v-for="group in groups" :key="group.leader.id" class="checkout-leader-group">
-            <header><img :src="group.leader.avatar" alt="" /><strong>{{ group.leader.name }}团长</strong><BadgeCheck :size="15" /><span>{{ group.leader.area }}</span></header>
-            <div v-for="item in group.items" :key="`${item.productId}-${item.leaderId}-${item.supplierId || ''}`" class="checkout-item"><img :src="item.product.image" :alt="item.product.name" /><div class="checkout-item-info"><strong>{{ item.product.name }}</strong><span>{{ item.product.supplierName ? `${item.product.supplierName} · ` : '' }}{{ item.product.spec }} · {{ item.product.delivery }}</span></div><QuantityStepper :model-value="item.quantity" :max="item.product.stock" @update:model-value="updateQuantity(item.productId, $event)" /><strong>¥{{ (item.product.price * item.quantity).toFixed(2) }}</strong></div>
+            <header><img :src="group.leader.avatar" alt="" /><strong>{{ group.leader.name }}</strong><BadgeCheck :size="15" /><span>{{ group.leader.area }}</span></header>
+            <div v-for="item in group.items" :key="`${item.productId}-${item.leaderId}-${item.supplierId || ''}`" class="checkout-item"><img :src="item.product.image" :alt="item.product.name" :class="{ 'fallback-photo-tint': item.product.image === item.product.fallbackImage }" @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = item.product.fallbackImage" /><div class="checkout-item-info"><strong>{{ item.product.name }}</strong><span>{{ item.product.spec }} · {{ item.product.delivery }}</span></div><QuantityStepper :model-value="item.quantity" :max="item.product.stock" @update:model-value="updateQuantity(item.productId, $event)" /><strong>¥{{ (item.product.price * item.quantity).toFixed(2) }}</strong></div>
           </div>
         </section>
 

@@ -21,7 +21,7 @@
 <div class="stat-grid">
     <div class="stat-card">
         <div class="stat-card-top">
-            <span class="stat-icon bg-primary-subtle text-primary">💳</span>
+            <span class="stat-icon bg-primary-subtle text-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></span>
             <span class="stat-label">支付流水</span>
         </div>
         <div class="stat-value text-primary">@Model.Payments.Count 笔</div>
@@ -29,7 +29,7 @@
     </div>
     <div class="stat-card sales">
         <div class="stat-card-top">
-            <span class="stat-icon bg-purple-subtle text-purple">↩</span>
+            <span class="stat-icon bg-purple-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 2.6-6.4L3 9"/></svg></span>
             <span class="stat-label">退款记录</span>
         </div>
         <div class="stat-value text-dark">@Model.Refunds.Count 笔</div>
@@ -40,7 +40,7 @@
 <!-- 查询条件 -->
 <div class="content-card mb-3">
     <div class="content-card-header">
-        <h5>🔍 查询条件</h5>
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> 查询条件</h5>
         <span class="text-muted small">时间按申请/支付日期筛选，结束日期含当天；每类结果最多显示 500 条</span>
     </div>
     <div class="content-card-body">
@@ -88,14 +88,14 @@
 <!-- 支付流水 -->
 <div class="content-card mb-3">
     <div class="content-card-header">
-        <h5>💳 支付流水（FIN_PAYMENTRECORDS）</h5>
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg> 支付流水</h5>
         <span class="text-muted small">共 @Model.Payments.Count 条</span>
     </div>
     <div class="content-card-body p-0">
         @if (!Model.Payments.Any())
         {
             <div class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m2 7 10 7L22 7"/></svg></div>
                 <p>没有符合条件的支付流水</p>
             </div>
         }
@@ -145,14 +145,14 @@
 <!-- 退款记录 -->
 <div class="content-card">
     <div class="content-card-header">
-        <h5>↩ 退款记录（FIN_REFUND）</h5>
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 2.6-6.4L3 9"/></svg> 退款记录</h5>
         <span class="text-muted small">共 @Model.Refunds.Count 条</span>
     </div>
     <div class="content-card-body p-0">
         @if (!Model.Refunds.Any())
         {
             <div class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m2 7 10 7L22 7"/></svg></div>
                 <p>没有符合条件的退款记录</p>
             </div>
         }

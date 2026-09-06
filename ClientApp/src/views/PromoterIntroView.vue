@@ -73,18 +73,20 @@ async function fetchIntro(forceBase = false) {
     <template v-if="product && leader && !baseError">
       <header class="pi-head">
         <div class="pi-head-product">
-          <img :src="product.image" :alt="product.name" @error="$event.target.style.opacity = 0" />
+          <img :src="product.image" :alt="product.name"
+            :class="{ 'fallback-photo-tint': product.image === product.fallbackImage }"
+            @error="$event.target.classList.add('fallback-photo-tint'); $event.target.src = product.fallbackImage" />
           <div class="pi-head-product-copy">
             <span class="pi-eyebrow">团长正在带货 · {{ product.category }}</span>
             <h1>{{ product.name }}</h1>
-            <p>{{ product.spec }} · {{ leader.name }}团长为你推荐</p>
+            <p>{{ product.spec }} · {{ leader.name }}为你推荐</p>
           </div>
         </div>
         <div class="pi-head-leader">
-          <img :src="leader.avatar" :alt="`${leader.name}团长头像`" />
+          <img :src="leader.avatar" :alt="`${leader.name}头像`" />
           <div>
             <span class="pi-verified"><BadgeCheck :size="14" /> 平台认证</span>
-            <strong>{{ leader.name }}团长</strong>
+            <strong>{{ leader.name }}</strong>
             <small>看看他怎么说这款商品</small>
           </div>
         </div>
@@ -107,7 +109,7 @@ async function fetchIntro(forceBase = false) {
               </div>
             </template>
           </article>
-          <p class="pi-tail">—— {{ leader.name }}团长 · 新鲜冷链直达 ——</p>
+          <p class="pi-tail">—— {{ leader.name }} · 新鲜冷链直达 ——</p>
         </template>
 
         <div v-else-if="introError" class="pi-state" role="alert">
@@ -120,7 +122,7 @@ async function fetchIntro(forceBase = false) {
         <div v-else-if="notFound" class="pi-state">
           <FileText :size="34" />
           <strong>暂无法查看该推文</strong>
-          <span>该商品已不在 {{ leader.name }}团长的在售列表中，可能已被下架或移除。</span>
+          <span>该商品已不在 {{ leader.name }} 的在售列表中，可能已被下架或移除。</span>
           <RouterLink class="btn btn-buy" :to="`/leaders/${leader.id}`">逛逛团长在售商品</RouterLink>
         </div>
 
