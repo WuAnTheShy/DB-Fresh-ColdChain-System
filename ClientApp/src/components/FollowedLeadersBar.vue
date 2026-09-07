@@ -33,11 +33,11 @@ function onSaleCount(leaderId) {
         :key="leader.id"
         class="followed-leader-item"
         :to="`/leaders/${leader.id}`"
-        :aria-label="`查看${leader.name}团长详情`"
+        :aria-label="`查看${leader.name}详情`"
       >
-        <img class="followed-leader-avatar" :src="leader.avatar" :alt="`${leader.name}团长头像`" loading="lazy" />
+        <img class="followed-leader-avatar" :src="leader.avatar" :alt="`${leader.name}头像`" loading="lazy" />
         <span class="followed-leader-copy">
-          <strong>{{ leader.name }}团长</strong>
+          <strong>{{ leader.name }}</strong>
           <small><BadgeCheck :size="12" />在团 {{ onSaleCount(leader.id) }} 件</small>
         </span>
       </RouterLink>

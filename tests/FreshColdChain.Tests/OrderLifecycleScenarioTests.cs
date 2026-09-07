@@ -17,6 +17,7 @@ internal static class OrderLifecycleScenarioTests
             ("已支付订单发货时同步创建物流", PaidOrderShipsAsync),
             ("已发货订单完成时触发佣金登记", ShippedOrderCompletesAsync),
             ("已发货商品逐项确认且最后一项自动完成子订单", ItemReceiptCompletesAfterLastItemAsync),
+            ("整单确认收货一次更新全部商品", OrderReceiptConfirmsEveryItemAsync),
             ("未签收包裹不能通过后端直接确认收货", ReceiptRejectsUndeliveredPackageAsync),
             ("自动收货必须等待全部包裹签收", AutoReceiptRequiresDeliveredPackagesAsync),
             ("管理端不能完成未签收订单", AdminCompletionRequiresDeliveredPackagesAsync),
@@ -71,6 +72,8 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal(TestIds.Order2, result.Orders[0].OrderId);
         AssertEx.Equal("已完成", result.Orders[0].StatusName);
         AssertEx.Equal(2, result.Orders[0].SupplierCount);
+        AssertEx.Equal(2, result.Orders[0].ProductItems.Count);
+        AssertEx.Equal("车厘子", result.Orders[0].ProductItems[0].ProductName);
     }
 
     private static async Task OrderDetailGroupsBySupplierAsync()
@@ -218,6 +221,21 @@ internal static class OrderLifecycleScenarioTests
         AssertEx.Equal(OrderStatusCodes.Completed, context.OrderRepository.Orders[0].OrderStatus);
         AssertEx.Equal(1, context.CommissionService.CompletedOrders.Count);
         AssertEx.Equal("order-promoter", context.CommissionService.CompletedOrders[0].promoterID);
+    }
+
+    private static async Task OrderReceiptConfirmsEveryItemAsync()
+    {
+        var context = TestContext.Create();
+        SeedOrder(context, TestIds.Order, OrderStatus.Shipped, "ORD-ORDER-RECEIPT");
+        context.OrderRepository.Orders[0].PromoterId = "order-promoter";
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP1"] = LogisticsStatusCodes.Delivered;
+        context.LogisticsService.SupplierStatuses[$"{TestIds.Order}|SUP2"] = LogisticsStatusCodes.Delivered;
+
+        await context.Service.ConfirmOrderReceiptAsync(TestIds.Order, TestIds.Customer);
+
+        AssertEx.True(context.OrderRepository.Details.All(detail => detail.ReceiptStatus == "RECEIVED"));
+        AssertEx.Equal(OrderStatusCodes.Completed, context.OrderRepository.Orders[0].OrderStatus);
+        AssertEx.Equal(1, context.CommissionService.CompletedOrders.Count);
     }
 
     private static async Task ReceiptRejectsUndeliveredPackageAsync()

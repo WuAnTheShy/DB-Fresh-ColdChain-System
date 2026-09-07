@@ -609,7 +609,7 @@ namespace FreshColdChain.Services
 
         /// <summary>
         /// 为已入团商品详情批量附加商品图片：按（供应商×商品）过滤——
-        /// 该供应商自己上传的图在前，平台通用图在后，取前 3 张。
+        /// 该供应商自己上传的图在前，平台通用图在后，完整返回供商品详情查看。
         /// </summary>
         private async Task AttachProductImagesAsync(IEnumerable<PromoterProductEntryDetailDto> items)
         {
@@ -625,8 +625,9 @@ namespace FreshColdChain.Services
                     .OrderBy(img => img.SupplierID != item.SupplierID)
                     .ThenBy(img => img.SortOrder)
                     .ThenBy(img => img.CreateTime)
-                    .Take(3)
                     .Select(img => img.ImageUrl)
+                    .Where(url => !string.IsNullOrWhiteSpace(url))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
         }

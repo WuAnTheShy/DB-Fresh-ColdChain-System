@@ -46,6 +46,10 @@ public interface IOrderRepository
         int offset,
         IDbTransaction? transaction = null);
 
+    Task<List<OrderCardProductItem>> GetOrderCardItemsAsync(
+        IReadOnlyCollection<string> orderIds,
+        IDbTransaction? transaction = null);
+
     Task<int> CountSupplierFulfillmentOrdersAsync(
         string supplierId,
         SupplierFulfillmentQuery query,
@@ -98,4 +102,13 @@ public interface IOrderRepository
         string orderId,
         int pointsEarned,
         IDbTransaction transaction);
+
+    /// <summary>
+    /// 查询某团长在团商品的「跟团记录」：购买过该商品的消费者（按消费者聚合，最近购买优先）。
+    /// </summary>
+    Task<List<ProductGroupRecord>> GetProductGroupRecordsAsync(
+        string promoterId,
+        string productId,
+        int take,
+        IDbTransaction? transaction = null);
 }

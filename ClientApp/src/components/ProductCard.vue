@@ -52,8 +52,8 @@ function handleImageError(event, index) {
 <template>
   <article class="product-card social-product-card">
     <RouterLink v-if="activeLeader" class="product-card-leader" :to="`/leaders/${activeLeader.id}`"
-      :aria-label="`查看${activeLeader.name}团长详情`">
-      <img :src="activeLeader.avatar" :alt="`${activeLeader.name}团长头像`" />
+      :aria-label="`查看${activeLeader.name}详情`">
+      <img :src="activeLeader.avatar" :alt="`${activeLeader.name}头像`" />
       <span><strong>{{ activeLeader.name }}</strong></span>
     </RouterLink>
 
@@ -72,10 +72,6 @@ function handleImageError(event, index) {
             {{ product.category }}
           </span>
           <span :class="`product-storage storage-type-${(product.storageType || 'CHILLED').toLowerCase()}`">{{ product.storage }}</span>
-        </div>
-
-        <div v-if="product.supplierName" class="product-card-supplier" title="该商品由该供应商供货">
-          供应商：{{ product.supplierName }}
         </div>
 
         <div v-if="canViewPrice" class="social-product-price">
@@ -213,16 +209,6 @@ function handleImageError(event, index) {
   justify-content: space-between;
   gap: 10px;
   margin-top: 10px;
-}
-
-.product-card-supplier {
-  margin-top: 6px;
-  overflow: hidden;
-  color: #8a6d1d;
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .product-category-badge {

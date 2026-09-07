@@ -249,10 +249,14 @@ internal sealed class FakeOrderRepository : IOrderRepository
                     OrderId = order.OrderId,
                     OrderNo = order.OrderNo,
                     CustomerId = order.CustomerId,
+                    PromoterId = order.PromoterId,
                     CustomerName = "测试消费者",
                     FinalAmount = order.FinalAmount,
                     OrderStatus = order.OrderStatus,
                     ItemCount = details.Count,
+                    FirstProductId = details.FirstOrDefault()?.ProductId,
+                    FirstProductName = details.FirstOrDefault()?.ProductName,
+                    FirstProductQuantity = details.FirstOrDefault()?.Quantity ?? 0,
                     SupplierCount = details
                         .Where(detail => !string.IsNullOrWhiteSpace(detail.SupplierId))
                         .Select(detail => detail.SupplierId)
@@ -263,6 +267,29 @@ internal sealed class FakeOrderRepository : IOrderRepository
             })
             .ToList();
         return Task.FromResult(orders);
+    }
+
+    public Task<List<OrderCardProductItem>> GetOrderCardItemsAsync(
+        IReadOnlyCollection<string> orderIds,
+        IDbTransaction? transaction = null)
+    {
+        var ids = orderIds.ToHashSet(StringComparer.Ordinal);
+        return Task.FromResult(Details
+            .Where(detail => ids.Contains(detail.OrderId))
+            .OrderBy(detail => detail.OrderId, StringComparer.Ordinal)
+            .ThenBy(detail => detail.OrderDetailId, StringComparer.Ordinal)
+            .Select(detail => new OrderCardProductItem
+            {
+                OrderId = detail.OrderId,
+                OrderDetailId = detail.OrderDetailId,
+                ProductId = detail.ProductId,
+                ProductName = detail.ProductName,
+                SupplierId = detail.SupplierId,
+                Quantity = detail.Quantity,
+                UnitPrice = detail.UnitPrice,
+                SubTotal = detail.SubTotal
+            })
+            .ToList());
     }
 
     public Task<int> CountSupplierFulfillmentOrdersAsync(

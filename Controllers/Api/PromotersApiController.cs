@@ -1,3 +1,4 @@
+using FreshColdChain.Interfaces;
 using FreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,7 +10,8 @@ namespace FreshColdChain.Controllers.Api;
 [ApiController]
 [Route("api/promoters")]
 public sealed class PromotersApiController(
-    PromoterService promoterService) : ControllerBase
+    PromoterService promoterService,
+    IOrderService orderService) : ControllerBase
 {
     /// <summary>
     /// 团长列表（仅启用状态），供消费者端浏览/选择团长。
@@ -118,5 +120,54 @@ public sealed class PromotersApiController(
             title = intro.Title,
             sections = intro.Sections.Select(s => new { s.Text, s.Images })
         });
+    }
+
+    /// <summary>
+    /// 某团长在团商品的「跟团记录」：购买过该商品的消费者（按消费者聚合，最近购买优先）。
+    /// 公开浏览，无需登录。
+    /// </summary>
+    [HttpGet("{promoterId}/products/{productId}/group-records")]
+    public async Task<IActionResult> GetProductGroupRecords(
+        string promoterId,
+        string productId,
+        [FromQuery] int take = 20,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+            return BadRequest(new { message = "缺少商品编号" });
+
+        var records = await orderService.GetProductGroupRecordsAsync(
+            promoterId,
+            productId,
+            take);
+
+        return Ok(new
+        {
+            total = records.Count,
+            records = records.Select(r => new
+            {
+                r.CustomerId,
+                customerName = MaskCustomerName(r.CustomerName),
+                r.Avatar,
+                avatarUrl = string.IsNullOrWhiteSpace(r.Avatar)
+                    ? null
+                    : $"/images/avatars/{r.Avatar}.png",
+                r.SupplierId,
+                r.TotalQuantity,
+                r.TotalSpent,
+                r.PurchasedAt,
+                r.OrderStatus
+            })
+
+        });
+    }
+
+    /// <summary>跟团记录只展示脱敏姓名（如 李**），不对外暴露消费者全名。</summary>
+    private static string MaskCustomerName(string? name)
+    {
+        var trimmed = (name ?? string.Empty).Trim();
+        if (trimmed.Length <= 1)
+            return trimmed;
+        return trimmed[0] + new string('*', trimmed.Length - 1);
     }
 }

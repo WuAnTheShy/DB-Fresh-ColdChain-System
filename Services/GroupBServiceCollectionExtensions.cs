@@ -21,6 +21,7 @@ public static class GroupBServiceCollectionExtensions
         services.AddScoped<ICouponRepository, CouponRepository>();
         services.AddScoped<IConsumerMessageRepository, ConsumerMessageRepository>();
         services.AddScoped<IPointRepository, PointRepository>();
+        services.AddScoped<IProductEvaluationRepository, ProductEvaluationRepository>();
 
         services.AddScoped<IOrderTransactionManager, OracleOrderTransactionManager>();
         services.AddScoped<IPasswordHasher<CrmCustomer>, PasswordHasher<CrmCustomer>>();
@@ -29,6 +30,7 @@ public static class GroupBServiceCollectionExtensions
         services.AddGroupALogisticsPersistence(configuration);
         services.AddScoped<ILogisticsService, GroupALogisticsServiceAdapter>();
         services.AddScoped<IOrderService, OrderService>();
+        services.AddScoped<IProductEvaluationService, ProductEvaluationService>();
         services.AddScoped<ISupplierFulfillmentService, SupplierFulfillmentService>();
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddSingleton<CustomerAuthenticationStateService>();
