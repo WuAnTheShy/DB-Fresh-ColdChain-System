@@ -461,6 +461,10 @@ function avatarFallback(name) {
     <section class="home-section px-0">
       <div class="section-title-row">
         <div>
+          <h2>你可能还喜欢</h2>
+        </div>
+      </div>
+      <div class="product-grid">
         <ProductCard v-for="item in related" :key="item.id" :product="item" />
       </div>
     </section>

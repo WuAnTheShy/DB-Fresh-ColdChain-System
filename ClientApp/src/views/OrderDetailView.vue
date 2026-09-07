@@ -455,7 +455,7 @@ onMounted(loadOrder)
   padding: 18px;
   border: 1px solid var(--line);
   background: #fff;
-  -- timeline-green: #3ba35e;
+  --timeline-green: #3ba35e;
 }
 
 .order-timeline>div {
