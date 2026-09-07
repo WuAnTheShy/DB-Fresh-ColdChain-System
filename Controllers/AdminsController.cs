@@ -229,7 +229,7 @@ namespace FreshColdChain.Controllers
             return View(model);
         }
 
-        // ========== 角色管理（团长/供应商）==========
+        // 角色管理（团长/供应商）
 
         // 角色管理主页：原 hub 已被账号管理员的「注册审核/账号新增/账号管理」三个页面取代
         public IActionResult RoleManagement()
@@ -358,7 +358,7 @@ namespace FreshColdChain.Controllers
             return RedirectToAction(redirectAction);
         }
 
-        // ========== 账号管理员的三个工作页面 ==========
+        // 账号管理员的三个工作页面
 
         // 注册审核：团长 + 供应商 + 管理员 三类待审账号
         public async Task<IActionResult> AccountReview()
@@ -443,7 +443,7 @@ namespace FreshColdChain.Controllers
             return RedirectToAction(nameof(AccountManage));
         }
 
-        // ========== 财务管理 ==========
+        // 财务管理
 
         // 财务管理主页（hub：提现审核 / 退款管理 / 支付流水入口 + 待办统计）
         public IActionResult FinanceManagement()

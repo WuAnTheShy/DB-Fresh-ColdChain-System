@@ -29,7 +29,7 @@ namespace FreshColdChain.Services
             _ipromoterRepository = ipromoterRepositor;
             _logManager = logManager;
         }
-        //管理员注册
+        // 管理员注册
         public async Task<Result> RegisterAdmin(GroupC_AdminRegisterInfo registerInfo,
             IDbTransaction? transaction = null, CancellationToken cancellationToken = default)
         {
@@ -112,7 +112,7 @@ namespace FreshColdChain.Services
                 return result;
             }
         }
-        //管理员启用/禁用团长账号（仅 Enable <-> Disable 互转；Pending 需走注册审核流程）
+        // 管理员启用/禁用团长账号（仅 Enable <-> Disable 互转；Pending 需走注册审核流程）
         public async Task<Result> SetPromoterStatus(string adminId, string promoterId, string targetStatus,
             IDbTransaction? transaction = null, CancellationToken cancellationToken = default)
         {
@@ -173,7 +173,7 @@ namespace FreshColdChain.Services
             }
         }
 
-        //管理员登录（登录时须指明管理员种类，与账号注册时选择的种类一致才放行）
+        // 管理员登录（登录时须指明管理员种类，与账号注册时选择的种类一致才放行）
         public GroupC_AdminLoginResult LoginAdmin(string loginAccount, string password, string? adminKind = null)
         {
             if (string.IsNullOrWhiteSpace(loginAccount) || string.IsNullOrWhiteSpace(password))
@@ -221,7 +221,7 @@ namespace FreshColdChain.Services
             var hash = sha256.ComputeHash(bytes);
             return Convert.ToBase64String(hash);
         }
-        //管理员功能：审核团长注册信息
+        // 管理员功能：审核团长注册信息
         /// 审核通过团长申请
         public async Task<Result> ApprovePromoterAsync(string promoterId, string adminId)
         {
@@ -231,7 +231,7 @@ namespace FreshColdChain.Services
             {
                 if (string.IsNullOrWhiteSpace(promoterId))
                     throw new Exception("团长ID不能为空");
-                //检查团长是否存在且状态为待审核状态
+                // 检查团长是否存在且状态为待审核状态
                 var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, _uow.Transaction);
                 if (promoter == null)
                 {
@@ -242,14 +242,14 @@ namespace FreshColdChain.Services
                     throw new Exception("该团长账号无需审核或已审核");
                 }
 
-                //更新状态为Enable
+                // 更新状态为Enable
                 bool updated = await _ipromoterRepository.GroupC_UpdatePromoterStatusAsync(promoterId, "Enable", _uow.Transaction);
                 if (!updated)
                 {
                     throw new Exception("更新状态失败");
                 }
 
-                //记录日志
+                // 记录日志
                 var log = new GroupC_LogAuditrails
                 {
                     TableName = "CRM_PROMOTERS",
@@ -326,7 +326,7 @@ namespace FreshColdChain.Services
             }
         }
 
-        // ========== 管理员种类与管理员账号审核 ==========
+        // 管理员种类与管理员账号审核
 
         /// <summary>把未填/填错的类型规范化为账号管理员。</summary>
         private static string NormalizeAdminKind(string? kind)

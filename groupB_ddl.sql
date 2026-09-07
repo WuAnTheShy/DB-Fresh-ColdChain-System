@@ -1,8 +1,6 @@
--- ============================================================
 -- Group B (C端交易与营销组) 建表脚本
 -- 数据库: Oracle 18c
 -- 注意: 请先执行项目设计文档中完整的建表脚本后再按需创建
--- ============================================================
 
 -- 1. Crm_MemberLevels - 会员等级定义
 CREATE TABLE Crm_MemberLevels (
@@ -245,10 +243,8 @@ ALTER TABLE Mkt_CouponRecords ADD CONSTRAINT FK_CouponRec_Order
 ALTER TABLE Crm_PointLogs ADD CONSTRAINT FK_PointLog_Order
     FOREIGN KEY (OrderId) REFERENCES Biz_Orders(OrderId);
 
--- ============================================================
 -- B 组最小可联调演示数据（覆盖 8 张核心表和 1 张定级历史扩展表）
 -- 演示消费者：13800138000 / FreshB2026!
--- ============================================================
 
 INSERT INTO Crm_MemberLevels (
     MemberLevelId, LevelName, MinSpent, DiscountRate, PointsMultiplier)

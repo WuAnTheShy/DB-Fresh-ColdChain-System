@@ -96,7 +96,7 @@ public class SupplierService : ISupplierService
         }
     }
 
-    // ========== 供货价（进价由供应商决定，统一以「我的货物」售价为准）==========
+    // 供货价（进价由供应商决定，统一以「我的货物」售价为准）
 
     /// <summary>供应商详情页用：该供应商已建立货物的所有商品（多供应商模式下，货物即供货关系）</summary>
     public async Task<ApiResponse<List<SupplierProductQuoteDto>>> GetSupplierProductQuotesAsync(string supplierId)
@@ -157,7 +157,7 @@ public class SupplierService : ISupplierService
                       .ToList());
     }
 
-    // ========== 供应商维护商品图文（文字介绍 + 图片，前提是已对该物品建立货物）==========
+    // 供应商维护商品图文（文字介绍 + 图片，前提是已对该物品建立货物）
 
     /// <summary>供应商对该物品是否已建立货物；未建立返回 null（货物即供货关系）</summary>
     private async Task<InvGoods?> ResolveSuppliedProductAsync(string supplierId, string productId)
@@ -245,13 +245,13 @@ public class SupplierService : ISupplierService
         }
     }
 
-    // ========== 供应商登录（供应商门户用）==========
+    // 供应商登录（供应商门户用）
 
     /// <summary>密码 MD5 哈希（库中已有供应商密码即为此格式）</summary>
     private static string HashPassword(string password)
         => Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(password)));
 
-    // ========== 跨组接口（供 C 组调用）==========
+    // 跨组接口（供 C 组调用）
 
     public async Task<ApiResponse<List<SupplierAccountDto>>> FindSupplierAccountAsync(
         string? supplierId = null,
@@ -299,7 +299,7 @@ public class SupplierService : ISupplierService
         return ApiResponse<bool>.Success(valid, valid ? "验证通过" : "密码错误");
     }
 
-    // ========== 商品上架搜索（C 组团长“商品上架”模块用）==========
+    // 商品上架搜索（C 组团长“商品上架”模块用）
 
     /// <summary>
     /// 搜索供应商提供的商品：按供应商（名称/ID）或商品名称（两种命中合并去重）。
@@ -409,7 +409,7 @@ public class SupplierService : ISupplierService
         }
     }
 
-    // ========== 管理端（管理员角色管理用）==========
+    // 管理端（管理员角色管理用）
 
     /// <summary>全部供应商列表（含状态），供管理员启禁用管理</summary>
     public async Task<ApiResponse<List<SupplierDto>>> GetAllSuppliersAsync()

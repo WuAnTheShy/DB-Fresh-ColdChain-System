@@ -30,7 +30,7 @@ public class ProductInventoryService : IProductInventoryService
         _uow = uow;
     }
 
-    // ========== 产品 ==========
+    // 产品
 
     public async Task<ApiResponse<PagedResult<ProductDto>>> GetProductsAsync(int pageIndex, int pageSize, string? keyword = null)
     {
@@ -221,7 +221,7 @@ public class ProductInventoryService : IProductInventoryService
         }
     }
 
-    // ========== 跨组接口（供 C 组调用）==========
+    // 跨组接口（供 C 组调用）
 
     public async Task<ApiResponse<int>> GetProductStockAsync(string productId)
     {
@@ -268,7 +268,7 @@ public class ProductInventoryService : IProductInventoryService
         }
     }
 
-    // ========== 分类 ==========
+    // 分类
 
     public async Task<ApiResponse<List<CategoryDto>>> GetAllCategoriesAsync()
     {
@@ -289,7 +289,7 @@ public class ProductInventoryService : IProductInventoryService
         }, "分类创建成功");
     }
 
-    // ========== 库存 ==========
+    // 库存
 
     public async Task<ApiResponse<InventoryDto>> GetInventoryAsync(string productId)
     {
@@ -495,7 +495,7 @@ public class ProductInventoryService : IProductInventoryService
         }
     }
 
-    // ========== 批次 ==========
+    // 批次
 
     public async Task<ApiResponse<List<StockBatchDto>>> GetBatchesAsync(string productId)
     {
@@ -580,7 +580,7 @@ public class ProductInventoryService : IProductInventoryService
         }
     }
 
-    // ========== 映射 ==========
+    // 映射
 
     private async Task<ProductDto> MapToDtoAsync(InvProduct p)
     {

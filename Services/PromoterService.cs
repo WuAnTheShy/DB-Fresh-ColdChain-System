@@ -123,10 +123,10 @@ namespace FreshColdChain.Services
 
 
 
-        // ========== 新增功能：团长注册、登录、管理员直接添加 ==========
+        // 新增功能：团长注册、登录、管理员直接添加
 
         // 团长注册（首次注册，待管理员审核激活）
-        //团长注册
+        // 团长注册
         public async Task<GroupC_PromoterRegisterResult> RegisterPromoter(GroupC_PromoterRegisterInfo registerInfo,
             IDbTransaction? transaction = null, CancellationToken cancellationToken = default)
         {
@@ -524,7 +524,7 @@ namespace FreshColdChain.Services
             }
         }
 
-        //============================团长-供应商合作服务===================================
+        // 团长-供应商合作服务
         public async Task<List<string>> GetActiveSupplierIdsAsync(string promoterId)
         {
             return await _ipsRepository.GetActiveSupplierIdsByPromoterAsync(promoterId, _uow.Transaction);
@@ -569,7 +569,7 @@ namespace FreshColdChain.Services
             }
         }
 
-        //============================团长-商品入团服务（商品入团表 CRM_PRODUCT_ENTRIES）===================================
+        // 团长-商品入团服务（商品入团表 CRM_PRODUCT_ENTRIES）
         // 说明：入团商品 =（团长，商品，供应商）三元组。团长与商品为多对多，
         //       同一商品可由不同供应商供货，故以“商品+供应商”组合为绑定单位。
 
@@ -778,7 +778,7 @@ namespace FreshColdChain.Services
                 throw;
             }
         }
-//============================团长-消费者绑定服务===================================
+// 团长-消费者绑定服务
         public async Task<Result> BindCustomerToPromoterAsync(
             string customerId,
             string promoterId,
@@ -891,7 +891,7 @@ namespace FreshColdChain.Services
             return await _pcrRepository.GetRelationsByPromoterAsync(promoterId.Trim(), _uow.Transaction);
         }
 
-        // ========== 私有辅助方法 ==========
+        // 私有辅助方法
         private string GenerateInviteCode()
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";

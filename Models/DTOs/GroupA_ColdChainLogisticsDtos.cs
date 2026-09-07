@@ -48,7 +48,7 @@ public class FreightQuoteItemDto
     public decimal SubTotal => UnitPrice * Quantity;
 }
 
-// ========== 精准溯源 DTO ==========
+// 精准溯源 DTO
 
 /// <summary>溯源明细：单条批次扣减记录（含商品名、批次号、发货单等可读信息）</summary>
 public class BatchAllocationDto
@@ -101,7 +101,7 @@ public class ShipmentSummaryDto
     public int ItemCount { get; set; }
 }
 
-// ========== 页面下拉选项 ==========
+// 页面下拉选项
 
 /// <summary>下拉选项通用项（Value=提交值，Text=显示文本）</summary>
 public class OptionItemDto

@@ -1,4 +1,4 @@
-//操作InvStockBatch表
+// 操作InvStockBatch表
 
 using FreshColdChain.Models;
 

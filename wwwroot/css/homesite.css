@@ -29,7 +29,7 @@
 
 /* 服务承诺条：位于欢迎横幅正下方（与 hero 同宽、四组聚拢居中、青色图标） */
 .promise-strip {
-    --strip-gap: 13rem; /* 组间距（竖线自动定位在两组正中，与 --strip-gap 联动） */
+    -- strip-gap: 13rem; /* 组间距（竖线自动定位在两组正中，与 --strip-gap 联动） */
     display: flex;
     justify-content: center; /* 四组承诺聚拢，不贴两侧 */
     align-items: center;
@@ -80,7 +80,7 @@
 @media (max-width: 767.98px) {
     .promise-strip {
         flex-wrap: wrap; /* 超窄屏（移动端）才允许换行 */
-        --strip-gap: 2rem;
+        -- strip-gap: 2rem;
     }
 }
 

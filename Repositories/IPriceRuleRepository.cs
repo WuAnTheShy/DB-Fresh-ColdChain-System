@@ -1,4 +1,4 @@
-//操作BizPriceRule表
+// 操作BizPriceRule表
 
 using FreshColdChain.Models;
 

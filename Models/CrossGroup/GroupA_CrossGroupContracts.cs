@@ -1,6 +1,6 @@
 namespace FreshColdChain.Models.CrossGroup;
 
-// ========== A 组库存模块契约模型 ==========
+// A 组库存模块契约模型
 
 /// <summary>B 组向 A 组提交的库存预留请求项</summary>
 public class InventoryReservationItem
@@ -18,7 +18,7 @@ public class InventoryProductSnapshot
     public decimal UnitPrice { get; init; }
 }
 
-// ========== A 组物流模块契约模型 ==========
+// A 组物流模块契约模型
 
 /// <summary>运费计算请求</summary>
 public class FreightCalculationRequest

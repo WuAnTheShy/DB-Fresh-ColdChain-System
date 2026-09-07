@@ -355,7 +355,7 @@ function onMobileNavClick(event) {
 
 
 .mobile-menu {
-  --bs-offcanvas-width: 290px;
+  -- bs-offcanvas-width: 290px;
   background: var(--brand);
   color: #fff;
 }

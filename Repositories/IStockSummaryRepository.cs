@@ -1,4 +1,4 @@
-//操作InvStockSummary表
+// 操作InvStockSummary表
 
 using FreshColdChain.Models;
 

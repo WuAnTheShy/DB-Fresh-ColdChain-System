@@ -45,7 +45,7 @@ namespace FreshColdChain.Services
 			_deliveryRepository = deliveryRepository;
 		}
 
-		//退款上下文：一次退款所需的全部订单侧信息与计算结果
+		// 退款上下文：一次退款所需的全部订单侧信息与计算结果
         private sealed class RefundContext
         {
             public BizOrder Order { get; set; } = new();
@@ -76,13 +76,13 @@ namespace FreshColdChain.Services
                     return _result;
                 }
                 var ctx = await BuildContextFromRequestAsync(refundRequest, _uow.Transaction);
-                //添加退款记录（免审流程直接置为已通过）
+                // 添加退款记录（免审流程直接置为已通过）
                 var recordResult = await RefundRecord(ctx.Order.OrderId, ctx.DetailId, ctx.SupplierId, ctx.RefundQty, ctx.RefundAmount,
                     refundRequest.LiabilityType, refundRequest.Remark, "Approved", _uow.Transaction);
                 if (!recordResult.IsSuccess)
                     throw new Exception(recordResult.ErrorMessage ?? "退款记录写入失败");
                 await ExecuteRefundCoreAsync(ctx, _uow.Transaction);
-                //支付流水是否需要回滚？默认不回滚支付流水好了
+                // 支付流水是否需要回滚？默认不回滚支付流水好了
                 await _uow.CommitAsync();
                 _result.IsSuccess = true;
                 return _result;
@@ -434,7 +434,7 @@ namespace FreshColdChain.Services
 
                 if (!approved)
                 {
-                    //驳回：仅更新申请单状态（乐观锁防并发重复审核），不涉及任何资金与订单状态变动
+                    // 驳回：仅更新申请单状态（乐观锁防并发重复审核），不涉及任何资金与订单状态变动
                     if (!await _irefundRepository.TryUpdateStatusAsync(refundId, "Pending", "Rejected", auditorId, auditRemark, _uow.Transaction))
                     {
                         throw new Exception("申请状态已变化，审核失败请重试");
@@ -444,11 +444,11 @@ namespace FreshColdChain.Services
                     return _result;
                 }
 
-                //通过：按申请单重建退款上下文并重新校验订单当前状态（申请后可能已变化，如过退款期/已退款）
+                // 通过：按申请单重建退款上下文并重新校验订单当前状态（申请后可能已变化，如过退款期/已退款）
                 var ctx = await BuildContextFromApplicationAsync(application, _uow.Transaction);
-                //执行退款资金操作（佣金/销售额回滚、佣金记录更新、B组积分扣减与订单状态变更）
+                // 执行退款资金操作（佣金/销售额回滚、佣金记录更新、B组积分扣减与订单状态变更）
                 await ExecuteRefundCoreAsync(ctx, _uow.Transaction);
-                //全部成功后置为已通过（乐观锁）
+                // 全部成功后置为已通过（乐观锁）
                 if (!await _irefundRepository.TryUpdateStatusAsync(refundId, "Pending", "Approved", auditorId, auditRemark, _uow.Transaction))
                 {
                     throw new Exception("申请状态已变化，审核失败请重试");
@@ -483,10 +483,10 @@ namespace FreshColdChain.Services
             return await _irefundRepository.SearchAsync(startTime, endTime, orderId, status);
         }
 
-        //加载订单与佣金记录，并做退款准入校验（状态机 + 已结算拦截 + 14天退款期）
+        // 加载订单与佣金记录，并做退款准入校验（状态机 + 已结算拦截 + 14天退款期）
         private async Task<RefundContext> LoadOrderContextAsync(string orderId, IDbTransaction? transaction)
         {
-            //【串联B组】通过B组真实接口获取订单及明细
+            // 【串联B组】通过B组真实接口获取订单及明细
             var orderDetail = await _orderService.GetOrderDetailAsync(orderId);
             if (orderDetail?.Order == null)
             {
@@ -503,12 +503,12 @@ namespace FreshColdChain.Services
                 throw new Exception("订单已退款，请勿重复操作！");
             }
 
-            //查询C组自己的佣金记录（FIN_PROCOMRECORDS），用于退款期校验与佣金回滚
+            // 查询C组自己的佣金记录（FIN_PROCOMRECORDS），用于退款期校验与佣金回滚
             var record = await _icommissionRepository.GetByOrderIdAsync(orderId, transaction);
 
-            //退款准入校验（仅已签收订单）：
-            //防线一：佣金已过退款期并完成二段结算（Settled），佣金已转入可提现余额，禁止退款
-            //防线二：超过可退款期14天，拒绝退款（优先取佣金记录签收时间；无佣金记录的订单用订单最后状态变更时间兜底）
+            // 退款准入校验（仅已签收订单）：
+            // 防线一：佣金已过退款期并完成二段结算（Settled），佣金已转入可提现余额，禁止退款
+            // 防线二：超过可退款期14天，拒绝退款（优先取佣金记录签收时间；无佣金记录的订单用订单最后状态变更时间兜底）
             if (orderStatus == OrderStatus.Completed)
             {
                 if (record?.Status == "Settled")
@@ -536,7 +536,7 @@ namespace FreshColdChain.Services
             };
         }
 
-        //按消费者退款请求构建退款上下文（计算退款金额/数量/明细）
+        // 按消费者退款请求构建退款上下文（计算退款金额/数量/明细）
         private async Task<RefundContext> BuildContextFromRequestAsync(GroupC_RefundRequest refundRequest, IDbTransaction? transaction)
         {
             var ctx = await LoadOrderContextAsync(refundRequest.OrderId!, transaction);
@@ -552,7 +552,7 @@ namespace FreshColdChain.Services
             }
             else
             {
-                //【串联B组】从B组订单明细快照中匹配退款商品
+                // 【串联B组】从B组订单明细快照中匹配退款商品
                 var detail = ctx.Details.FirstOrDefault(d => d.ProductId == refundRequest.ProductID);
                 if (detail == null)
                 {
@@ -590,7 +590,7 @@ namespace FreshColdChain.Services
             return ctx;
         }
 
-        //按已存在的退款申请单重建退款上下文（审核通过时调用，信任申请单中的金额并重新校验订单状态）
+        // 按已存在的退款申请单重建退款上下文（审核通过时调用，信任申请单中的金额并重新校验订单状态）
         private async Task<RefundContext> BuildContextFromApplicationAsync(FinRefund application, IDbTransaction? transaction)
         {
             var ctx = await LoadOrderContextAsync(application.OrderId!, transaction);
@@ -769,7 +769,7 @@ namespace FreshColdChain.Services
                 MidpointRounding.AwayFromZero);
         }
 
-        //执行退款的资金操作：佣金/销售额回滚、佣金记录更新、B组积分扣减与订单状态变更（不含申请单写入）
+        // 执行退款的资金操作：佣金/销售额回滚、佣金记录更新、B组积分扣减与订单状态变更（不含申请单写入）
         private async Task ExecuteRefundCoreAsync(RefundContext ctx, IDbTransaction? transaction)
         {
             if (transaction?.Connection?.State != ConnectionState.Open)
@@ -779,7 +779,7 @@ namespace FreshColdChain.Services
             {
                 // 基础佣金按退款比例回滚；阶梯奖励佣金在 RefundRollbackMoney 内按累计销售额跌破的档位撤销
                 var baseRollback = ctx.Record.CommBaseAmount * ctx.Ratio;
-                //如果团长和消费者解绑了，那么团长佣金不会扣（平台在解绑触发时自动清空团长的待结算余额，防止团长反复解绑/绑定刷回退佣金差）
+                // 如果团长和消费者解绑了，那么团长佣金不会扣（平台在解绑触发时自动清空团长的待结算余额，防止团长反复解绑/绑定刷回退佣金差）
                 var _promoterInfo = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(ctx.Record.PromoterId, transaction);
                 if (_promoterInfo != null)    //团长存在,则回滚（销售额同样按退款比例回滚）
                 {
@@ -788,7 +788,7 @@ namespace FreshColdChain.Services
                     if (!rollbackResult.IsSuccess)
                         throw new InvalidOperationException(rollbackResult.ErrorMessage ?? "退款佣金撤销失败");
                 }
-                //更改佣金记录：整单退整体置为已退款；部分退仅累加已退金额
+                // 更改佣金记录：整单退整体置为已退款；部分退仅累加已退金额
                 if (ctx.IsFullRefund)
                 {
                     if (!await _icommissionRepository.UpdateStatusAsync(ctx.Record.RecordId, "Refunded", transaction))
@@ -797,11 +797,11 @@ namespace FreshColdChain.Services
                 if (!await _icommissionRepository.UpdateRefundedAmountAsync(ctx.Record.RecordId, ctx.RefundAmount, transaction))
                     throw new InvalidOperationException("佣金已退金额更新失败");
             }
-            //未签收订单退款：无需回滚佣金。
+            // 未签收订单退款：无需回滚佣金。
             // B 组下单时不锁库存，因此未发货退款不需要释放库存。
-            //已发货订单的物流拦截/通知供应商接口需AB组之间另行约定，待补充
+            // 已发货订单的物流拦截/通知供应商接口需AB组之间另行约定，待补充
 
-            //【串联B组】积分回滚 + 订单状态变更
+            // 【串联B组】积分回滚 + 订单状态变更
             var pointsToDeduct = (int)Math.Floor(ctx.Order.PointsEarned * ctx.Ratio);
             if (ctx.IsFullRefund)
             {
@@ -811,7 +811,7 @@ namespace FreshColdChain.Services
             }
             else
             {
-                //部分退款：B组按比例扣回积分并将订单置为"退款中"
+                // 部分退款：B组按比例扣回积分并将订单置为"退款中"
                 await _orderService.DeductPointsForPartialRefundAsync(ctx.Order.CustomerId, ctx.Order.OrderId,
                     pointsToDeduct, externalTransaction: transaction);
             }
@@ -843,21 +843,21 @@ namespace FreshColdChain.Services
                     throw new Exception("该团长信息不存在");
 
                 }
-                //回滚佣金与销售额
-                //记录旧的累计销售额，待结算余额
+                // 回滚佣金与销售额
+                // 记录旧的累计销售额，待结算余额
                 var _oldPromoterTotalSales = _promoterInfo.TotalSales;
                 var _oldPromoterPendingBalance = _promoterInfo.PendingBalance;
-                //计算新的累计销售额：退款使累计销售额向下跌破阶梯档位时，对应奖励佣金全部撤销（与一段结算的发放逻辑对称）
+                // 计算新的累计销售额：退款使累计销售额向下跌破阶梯档位时，对应奖励佣金全部撤销（与一段结算的发放逻辑对称）
                 var _newPromoterTotalSales = _oldPromoterTotalSales - goodsAmount;
                 var _bonusRollback = GroupC_CommissionBonusPolicy.CalculateRollbackBonus(_oldPromoterTotalSales, _newPromoterTotalSales);
                 var _totalCommissionRollback = baseCommission + _bonusRollback;
-                //回滚销售额与佣金
+                // 回滚销售额与佣金
                 await _ipromoterRepository.GroupC_UpdatePromoterTotalSalesAsync(promoterID, -goodsAmount, transaction);
                 await _ipromoterRepository.GroupC_UpdatePromoterPendingBalanceAsync(promoterID, -_totalCommissionRollback, transaction);
-                //记录新的佣金与销售额
+                // 记录新的佣金与销售额
                 var _newPromoterPendingBalance = _oldPromoterPendingBalance - _totalCommissionRollback;
-                //产生日志信息（两条）
-                //Pendingbalance的扣减
+                // 产生日志信息（两条）
+                // Pendingbalance的扣减
                 var _tableLog = new GroupC_LogAuditrails();
                 _tableLog.ActionType = "Update";
                 _tableLog.TableName = "CRM_PROMOTERS";
@@ -867,7 +867,7 @@ namespace FreshColdChain.Services
                 _tableLog.NewValue = JsonConvert.SerializeObject(new { PendingBalance = _newPromoterPendingBalance });
                 if (!await _logManager.WriteTableChangeLog(_tableLog, transaction, cancellationToken))
                     throw new InvalidOperationException("退款审计日志写入失败");
-                //TotalSales的扣减
+                // TotalSales的扣减
                 _tableLog = new GroupC_LogAuditrails();
                 _tableLog.ActionType = "Update";
                 _tableLog.TableName = "CRM_PROMOTERS";
@@ -878,7 +878,7 @@ namespace FreshColdChain.Services
                 if (!await _logManager.WriteTableChangeLog(_tableLog, transaction, cancellationToken))
                     throw new InvalidOperationException("退款审计日志写入失败");
 
-                //等级挂钩回滚：退款使累计销售额跌破档位导致等级下降时，佣金比例同步回退到对应档位（与结算跨档升级逻辑对称）
+                // 等级挂钩回滚：退款使累计销售额跌破档位导致等级下降时，佣金比例同步回退到对应档位（与结算跨档升级逻辑对称）
                 var _levelRate = GroupC_LevelCommissionPolicy.ResolveRate(_newPromoterTotalSales);
                 if (_promoterInfo.BaseCommissionRate != _levelRate)
                 {
@@ -941,7 +941,7 @@ namespace FreshColdChain.Services
                 _finRefund.Status = status;
                 await _irefundRepository.InsertRefundAsync(_finRefund, transaction);
 
-                //产生日志信息
+                // 产生日志信息
                 var _tableLog = new GroupC_LogAuditrails();
                 _tableLog.ActionType = "Create";
                 _tableLog.TableName = "FIN_REFUND";

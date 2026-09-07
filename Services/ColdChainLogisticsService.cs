@@ -266,7 +266,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         }
     }
 
-    // ========== 精准溯源查询 ==========
+    // 精准溯源查询
 
     /// <summary>
     /// 按订单 ID 查询溯源链路：该订单 → 所有发货单 → 每单用了哪些批次
@@ -349,7 +349,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         });
     }
 
-    // ========== 溯源辅助方法 ==========
+    // 溯源辅助方法
 
     /// <summary>判断地区字段是否为通配符（* 或空或 NULL）</summary>
     private static bool IsWildcard(string? val)

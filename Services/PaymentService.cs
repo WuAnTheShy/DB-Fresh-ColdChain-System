@@ -42,7 +42,7 @@ namespace FreshColdChain.Services
                 if (transaction?.Connection?.State != ConnectionState.Open)
                     throw new InvalidOperationException("支付事务未初始化或已失效");
                 
-                //throw new Exception("团长信息不存在");
+                // throw new Exception("团长信息不存在");
                 if (paymentRequest.orderID == null || paymentRequest.orderID == string.Empty
                 || paymentRequest.payMethod == null || paymentRequest.payMethod == string.Empty
                 || paymentRequest.status == null || paymentRequest.status == string.Empty) //不完整的订单信息或支付渠道信息或订单状态
@@ -66,7 +66,7 @@ namespace FreshColdChain.Services
                     }
                     _updatePaymentRequest.ErrorMessage = paymentRequest.errorMessage;
 
-                    //设置数据库处理的支付流水类
+                    // 设置数据库处理的支付流水类
                     _finPaymentRecord.PayId = _createPaymentRequest.PayId;
                     _finPaymentRecord.PayMethod = _createPaymentRequest.PayMethod;
                     _finPaymentRecord.Status = "Failed";
@@ -79,7 +79,7 @@ namespace FreshColdChain.Services
                 else if (paymentRequest.status == "Success")   //支付成功
                 {
                     _updatePaymentRequest.IsSuccess = true;
-                    //设置数据库处理的支付流水类
+                    // 设置数据库处理的支付流水类
                     _finPaymentRecord.PayId = _createPaymentRequest.PayId;
                     _finPaymentRecord.PayMethod = _createPaymentRequest.PayMethod;
                     _finPaymentRecord.Status = "Success";
@@ -90,9 +90,9 @@ namespace FreshColdChain.Services
                     _finPaymentRecord.TransactionNo = _createPaymentRequest.TransactionNo;
 
                 }
-                //调用Repository层函数添加数据记录
+                // 调用Repository层函数添加数据记录
                 await _ipaymentRepository.GroupC_AddPaymentRecordAsync(_finPaymentRecord,transaction);
-                //记录表修改日志
+                // 记录表修改日志
                 var _tableLog = new GroupC_LogAuditrails();
                 _tableLog.ActionType = "Create";
                 _tableLog.TableName = "FIN_PAYMENTRECORDS";
@@ -129,7 +129,7 @@ namespace FreshColdChain.Services
 
         }
 
-        //组合查询支付流水（管理端查询页用）
+        // 组合查询支付流水（管理端查询页用）
         public async Task<List<GroupC_FinPaymentRecord>> SearchPaymentsAsync(DateTime? startTime, DateTime? endTime,
             string? orderId, string? status)
         {

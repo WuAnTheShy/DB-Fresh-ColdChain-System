@@ -1,4 +1,4 @@
-//操作InvProduct表
+// 操作InvProduct表
 
 using FreshColdChain.Models;
 

@@ -36,7 +36,7 @@ public class ColdChainLogisticsController : Controller
         _batches = batches;
     }
 
-    // ========== 运费模板管理 ==========
+    // 运费模板管理
 
     [HttpGet]
     [RequireAdmin]
@@ -129,7 +129,7 @@ public class ColdChainLogisticsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // ========== 运费报价 ==========
+    // 运费报价
 
     [HttpGet]
     public async Task<IActionResult> Quote()
@@ -169,7 +169,7 @@ public class ColdChainLogisticsController : Controller
         return View(request);
     }
 
-    // ========== 报价页下拉数据 ==========
+    // 报价页下拉数据
 
     /// <summary>加载报价表单的下拉选项：商品（自有置顶）、供应商（仅管理员）、目的省份（来自启用模板）</summary>
     private async Task LoadQuoteOptionsAsync(FreightQuoteRequest model, bool isAdmin)
@@ -213,7 +213,7 @@ public class ColdChainLogisticsController : Controller
             string.IsNullOrWhiteSpace(t.DestinationProvince) || t.DestinationProvince == "*");
     }
 
-    // ========== 发货管理 ==========
+    // 发货管理
 
     [HttpGet]
     public async Task<IActionResult> Shipments()
@@ -239,7 +239,7 @@ public class ColdChainLogisticsController : Controller
         return RedirectToAction(nameof(Shipments));
     }
 
-    // ========== 精准溯源查询 ==========
+    // 精准溯源查询
 
     /// <summary>溯源查询入口页</summary>
     [HttpGet]
@@ -249,7 +249,7 @@ public class ColdChainLogisticsController : Controller
         return View();
     }
 
-    // ========== 溯源页下拉数据 ==========
+    // 溯源页下拉数据
 
     /// <summary>加载溯源查询的下拉选项：订单（有发货记录）、发货单（全部）、批次（全部）</summary>
     private async Task LoadTraceOptionsAsync()

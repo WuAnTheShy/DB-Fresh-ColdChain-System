@@ -1,4 +1,4 @@
-//负责管理与供应商（合作商）相关的交互请求
+// 负责管理与供应商（合作商）相关的交互请求
 
 using Microsoft.AspNetCore.Mvc;
 using FreshColdChain.Filters;
@@ -33,7 +33,7 @@ public class SuppliersController : Controller
         return View(r.Data);
     }
 
-    // ========== 供应商门户（供货价与商品图文入口已收敛到「我的货物」→ 货物行「编辑」）==========
+    // 供应商门户（供货价与商品图文入口已收敛到「我的货物」→ 货物行「编辑」）
 
     /// <summary>旧供应商登录页已合并到主入口（Account 角色选择登录），统一跳转过去。</summary>
     [HttpGet]

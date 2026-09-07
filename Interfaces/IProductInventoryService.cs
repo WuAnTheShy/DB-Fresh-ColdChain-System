@@ -1,4 +1,4 @@
-//产品与库存服务接口
+// 产品与库存服务接口
 
 using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
@@ -30,7 +30,7 @@ public interface IProductInventoryService
     Task<ApiResponse<List<CategoryDto>>> GetAllCategoriesAsync();
     Task<ApiResponse<CategoryDto>> CreateCategoryAsync(CreateCategoryDto dto);
 
-    // ========== 跨组接口（供 C 组调用）==========
+    // 跨组接口（供 C 组调用）
 
     /// <summary>
     /// 查询商品库存总量

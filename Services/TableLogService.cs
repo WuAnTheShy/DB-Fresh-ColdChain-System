@@ -35,14 +35,14 @@ namespace FreshColdChain.Services
             return true;
         }
 
-        //组合查询操作日志（管理端查询页用）
+        // 组合查询操作日志（管理端查询页用）
         public async Task<List<GroupC_LogAuditrails>> SearchLogsAsync(DateTime? startTime, DateTime? endTime,
             string? tableName, string? actionType, string? operatorId)
         {
             return await _itableLogRepository.SearchAsync(startTime, endTime, tableName, actionType, operatorId);
         }
 
-        //查询日志中出现过的全部表名（筛选下拉用）
+        // 查询日志中出现过的全部表名（筛选下拉用）
         public async Task<List<string>> GetLoggedTableNamesAsync()
         {
             return await _itableLogRepository.GetDistinctTableNamesAsync();

@@ -15,7 +15,7 @@ public class PricesController : Controller
 
     public PricesController(IPricingService pricing) => _pricing = pricing;
 
-    // ========== 规则列表 ==========
+    // 规则列表
 
     [HttpGet]
     public async Task<IActionResult> Index(int pageIndex = 1, int pageSize = 15)
@@ -24,7 +24,7 @@ public class PricesController : Controller
         return View(r.Data);
     }
 
-    // ========== 创建规则 ==========
+    // 创建规则
 
     [HttpGet]
     public IActionResult Create() => View(new SavePriceRuleDto());
@@ -46,7 +46,7 @@ public class PricesController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // ========== 编辑规则 ==========
+    // 编辑规则
 
     [HttpGet]
     public async Task<IActionResult> Edit(string id)
@@ -91,7 +91,7 @@ public class PricesController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // ========== 删除规则 ==========
+    // 删除规则
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -102,7 +102,7 @@ public class PricesController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // ========== 实时价格计算 ==========
+    // 实时价格计算
 
     [HttpGet]
     public IActionResult Calculate() => View(new PriceCalculationRequest());

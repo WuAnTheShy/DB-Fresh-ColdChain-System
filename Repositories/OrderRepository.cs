@@ -11,7 +11,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
 {
     public OrderRepository(IConfiguration configuration) : base(configuration) { }
 
-    // ========== Biz_Orders ==========
+    // Biz_Orders
 
     /// <summary>创建订单</summary>
     public async Task<string> CreateOrderAsync(BizOrder order, IDbTransaction? transaction = null)
@@ -410,7 +410,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
         });
     }
 
-    // ========== Biz_OrderDetails ==========
+    // Biz_OrderDetails
 
     /// <summary>批量插入订单明细</summary>
     public async Task InsertDetailsAsync(IEnumerable<BizOrderDetail> details, IDbTransaction? transaction = null)

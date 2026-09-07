@@ -86,7 +86,7 @@ public class GroupC_AvailablePromoterQuery
     public int PageSize { get; set; } = 20;
 }
 
-//团长查找列表类
+// 团长查找列表类
 public class GroupC_PromoterListResult
 {
     public IEnumerable<GroupC_AvailablePromoterDto> Items { get; set; } = Enumerable.Empty<GroupC_AvailablePromoterDto>();

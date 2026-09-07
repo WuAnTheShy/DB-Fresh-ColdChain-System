@@ -1,4 +1,4 @@
-//负责处理与生鲜产品和商品库存相关的页面跳转与请求交互
+// 负责处理与生鲜产品和商品库存相关的页面跳转与请求交互
 
 using Microsoft.AspNetCore.Mvc;
 using FreshColdChain.Filters;
@@ -23,7 +23,7 @@ public class ProductsController : Controller
         _productRepo = productRepo;
     }
 
-    // ========== 产品 ==========
+    // 产品
 
     [HttpGet]
     public async Task<IActionResult> Index(int pageIndex = 1, int pageSize = 10, string? keyword = null)
@@ -186,7 +186,7 @@ public class ProductsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // ========== 库存 ==========
+    // 库存
 
     [HttpGet]
     public async Task<IActionResult> Inventory(string productId)
@@ -244,7 +244,7 @@ public class ProductsController : Controller
         return RedirectToAction(nameof(Inventory), new { productId = dto.ProductID });
     }
 
-    // ========== 表单辅助 ==========
+    // 表单辅助
 
     /// <summary>填充分类下拉选项（按名称排序，供新增/编辑商品选择，避免手输分类 ID）</summary>
     private async Task LoadCategoriesAsync()

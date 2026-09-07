@@ -10,15 +10,15 @@
   background: #e3e6e6;
   font-synthesis: none;
   letter-spacing: 0;
-  --brand: #002F36;
-  --amber: #febd69;
-  --amber-hover: #f3a847;
-  --ink: #0f1111;
-  --muted: #565959;
-  --line: #d5d9d9;
-  --surface: #ffffff;
-  --canvas: #e3e6e6;
-  --danger: #b12704;
+  -- brand: #002F36;
+  -- amber: #febd69;
+  -- amber-hover: #f3a847;
+  -- ink: #0f1111;
+  -- muted: #565959;
+  -- line: #d5d9d9;
+  -- surface: #ffffff;
+  -- canvas: #e3e6e6;
+  -- danger: #b12704;
 }
 
 /* ---------- 基础重置 ---------- */

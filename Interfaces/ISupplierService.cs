@@ -1,4 +1,4 @@
-//供应商服务接口
+// 供应商服务接口
 
 using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
@@ -13,7 +13,7 @@ public interface ISupplierService
     Task<ApiResponse<SupplierDto>> UpdateSupplierAsync(string id, CreateSupplierDto dto);
     Task<ApiResponse> DeleteSupplierAsync(string id);
 
-    // ========== 供货价（进价由供应商决定，统一以「我的货物」售价为准）==========
+    // 供货价（进价由供应商决定，统一以「我的货物」售价为准）
 
     /// <summary>查询某供应商已建立货物的商品列表（含售价/保质期，供应商详情页用）</summary>
     Task<ApiResponse<List<SupplierProductQuoteDto>>> GetSupplierProductQuotesAsync(string supplierId);
@@ -37,7 +37,7 @@ public interface ISupplierService
     /// </summary>
     Task<ApiResponse<string>> DeleteProductImageAsync(string supplierId, string imageId);
 
-    // ========== 跨组接口（供 C 组调用）==========
+    // 跨组接口（供 C 组调用）
 
     /// <summary>
     /// 按条件查询供应商账户信息（不含密码）
@@ -63,7 +63,7 @@ public interface ISupplierService
     /// </summary>
     Task<ApiResponse<List<SupplierProductEntryDto>>> SearchSupplierProductEntriesAsync(string? keyword);
 
-    // ========== 管理端（管理员角色管理用）==========
+    // 管理端（管理员角色管理用）
 
     /// <summary>全部供应商列表（含状态），供管理员启禁用管理</summary>
     Task<ApiResponse<List<SupplierDto>>> GetAllSuppliersAsync();

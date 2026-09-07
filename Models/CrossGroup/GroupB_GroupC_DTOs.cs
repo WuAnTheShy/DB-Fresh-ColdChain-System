@@ -1,8 +1,8 @@
 ﻿namespace FreshColdChain.Models.CrossGroup_C
 {
-    //存放所有BC之间的DTO
+    // 存放所有BC之间的DTO
 
-    //Result类
+    // Result类
     public class Result
     {
         public bool IsSuccess { get; set; } = false;                //是否成功
@@ -20,7 +20,7 @@
         public decimal CommBonusAmount { get; set; } = 0;           //奖励佣金
         public DateTime? CommSettlementDate { get; set; }           //结算时间
     }
-    //Request类
+    // Request类
     /// <summary>
     /// C 组在订单完成时计算预计佣金所需的可信快照。
     /// </summary>

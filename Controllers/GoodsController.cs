@@ -35,7 +35,7 @@ public class GoodsController : Controller
         _batchRepo = batchRepo;
     }
 
-    // ========== 供应商：我的货物 ==========
+    // 供应商：我的货物
 
     [HttpGet]
     public async Task<IActionResult> MyGoods()
@@ -145,7 +145,7 @@ public class GoodsController : Controller
         return RedirectToAction(nameof(MyGoods));
     }
 
-    // ========== 供应商：进货/库存（只看自己批次，供应商固定为自己）==========
+    // 供应商：进货/库存（只看自己批次，供应商固定为自己）
 
     [HttpGet]
     public async Task<IActionResult> StockIn(string productId)
@@ -185,7 +185,7 @@ public class GoodsController : Controller
         return RedirectToAction(nameof(StockIn), new { productId });
     }
 
-    // ========== 管理员：全部货物 ==========
+    // 管理员：全部货物
 
     [HttpGet]
     [RequireAdmin]
