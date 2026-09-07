@@ -115,9 +115,9 @@ dotnet run --project FreshColdChain.csproj --profile http
 | 项目 | 说明 |
 | --- | --- |
 | 登录入口 | 角色选择页 → 「供应商登入」→ 或直达 `http://localhost:5064/Account/Login?role=供应商` |
-| 登录后首页 | `http://localhost:5064/SuppliersHome` |
-| 主要页面 | 履约工作台（`/SupplierFulfillment`）、产品与库存管理（`/Products`）、供应商报价管理（`/Suppliers/MyQuotes`，设置供货价与保质期） |
-| 说明 | 供应商账号由后台/数据初始化，供应商登录后维护自己产品的供货价 |
+| 登录后首页 | `http://localhost:5064/Goods/MyGoods`（我的货物，供应商门户工作台） |
+| 主要页面 | 我的货物（`/Goods/MyGoods`：售价=团长进价、上下架、保质期、商品图文、进货/库存）、定价规则（`/Prices`）、计算运费/发货记录/精准溯源（`/ColdChainLogistics`）、订单履约（`/SupplierFulfillment`） |
+| 说明 | 供货价唯一入口为「我的货物」，报价管理已下线；平台级物品与库存管理由「商品管理员」在后台 `/Products` 承担，商品整体下架会连带该物品所有供应商的货物一并下架 |
 
 ### 4. 管理员界面（后台管理，MVC Razor）
 

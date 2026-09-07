@@ -411,6 +411,7 @@ internal sealed class StubProductInventoryService : IProductInventoryService
     public Task<ApiResponse<ProductDto>> CreateProductAsync(CreateProductDto dto) => throw new NotSupportedException();
     public Task<ApiResponse<ProductDto>> UpdateProductAsync(string id, UpdateProductDto dto) => throw new NotSupportedException();
     public Task<ApiResponse> DeleteProductAsync(string id) => throw new NotSupportedException();
+    public Task<ApiResponse> AddProductImagesAsync(string productId, IReadOnlyList<ProductImageUploadDto> images) => throw new NotSupportedException();
     public Task<ApiResponse<List<CategoryDto>>> GetAllCategoriesAsync() => throw new NotSupportedException();
     public Task<ApiResponse<CategoryDto>> CreateCategoryAsync(CreateCategoryDto dto) => throw new NotSupportedException();
     public Task<ApiResponse<int>> GetProductStockAsync(string productId) => throw new NotSupportedException();

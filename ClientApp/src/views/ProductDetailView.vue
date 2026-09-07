@@ -461,10 +461,6 @@ function avatarFallback(name) {
     <section class="home-section px-0">
       <div class="section-title-row">
         <div>
-          <h2>你可能还喜欢</h2>
-        </div>
-      </div>
-      <div class="product-grid">
         <ProductCard v-for="item in related" :key="item.id" :product="item" />
       </div>
     </section>
@@ -1113,7 +1109,6 @@ function avatarFallback(name) {
   background: var(--brand);
   color: #fff;
 }
-
 @media (max-width: 1199.98px) {
   .product-detail-main {
     grid-template-columns: minmax(270px, .9fr) minmax(300px, 1fr);

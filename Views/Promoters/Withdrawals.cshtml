@@ -19,7 +19,7 @@
 <div class="stat-grid">
     <div class="stat-card">
         <div class="stat-card-top">
-            <span class="stat-icon bg-success-subtle text-success">¥</span>
+            <span class="stat-icon bg-success-subtle text-success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span>
             <span class="stat-label">可提现余额</span>
         </div>
         <div class="stat-value text-success">@Model.CurrentBalance.ToString("N2")</div>
@@ -27,7 +27,7 @@
     </div>
     <div class="stat-card frozen">
         <div class="stat-card-top">
-            <span class="stat-icon bg-info-subtle text-info">🔒</span>
+            <span class="stat-icon bg-info-subtle text-info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
             <span class="stat-label">冻结中</span>
         </div>
         <div class="stat-value text-info">@Model.FrozenAmount.ToString("N2")</div>
@@ -35,7 +35,7 @@
     </div>
     <div class="stat-card sales">
         <div class="stat-card-top">
-            <span class="stat-icon bg-purple-subtle text-purple">↓</span>
+            <span class="stat-icon bg-purple-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="M6 11l6 6 6-6"/><path d="M4 21h16"/></svg></span>
             <span class="stat-label">累计已提现</span>
         </div>
         <div class="stat-value">@Model.TotalWithdrawn.ToString("N2")</div>
@@ -51,7 +51,7 @@
                 @if (!Model.CanApply)
                 {
                     <div class="alert alert-warning mb-0 d-flex gap-2 align-items-start">
-                        <span>⚠</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
                         <span>@Model.BlockReason</span>
                     </div>
                 }
@@ -127,7 +127,7 @@
                 @if (!Model.Records.Any())
                 {
                     <div class="empty-state">
-                        <div class="empty-icon">💳</div>
+                        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></div>
                         <p>暂无提现记录</p>
                     </div>
                 }

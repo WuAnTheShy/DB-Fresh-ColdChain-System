@@ -25,4 +25,7 @@ public interface IGoodsRepository
 
     /// <summary>删除货物</summary>
     Task DeleteAsync(string productId, string supplierId);
+
+    /// <summary>按“物品”批量设置状态：该物品下所有供应商的货物统一置为目标状态（商品下架联动用），返回受影响行数</summary>
+    Task<int> UpdateStatusByProductAsync(string productId, string status, DateTime updateTime);
 }

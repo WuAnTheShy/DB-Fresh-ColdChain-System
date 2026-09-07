@@ -8,7 +8,7 @@
     <tr><th>到期时间</th><td>@Model.ExpiryDate?.ToString("yyyy-MM-dd")</td></tr>
     <tr><th>信用等级</th><td>@Model.CreditLevel</td></tr>
     <tr><th>电话</th><td>@Model.ContactPhone</td></tr>
-    <tr><th>已报价产品数</th><td>@Model.ProductCount</td></tr>
+    <tr><th>供货商品数</th><td>@Model.ProductCount</td></tr>
 </table>
 <a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model.SupplierID">编辑</a>
 <a class="btn btn-outline-secondary" asp-action="Index">返回</a>
@@ -16,8 +16,8 @@
 @{
     var quotes = ViewBag.Quotes as List<SupplierProductQuoteDto> ?? new();
 }
-<h4 class="mt-4">供货产品与报价</h4>
-<p class="text-muted small mb-2">供货价由供应商自行维护（供应商入口登录），平台只读；入库时自动带出该报价作为进价。</p>
+<h4 class="mt-4">供货商品（售价 = 团长进价）</h4>
+<p class="text-muted small mb-2">供货价由供应商在「我的货物」统一维护，平台只读；供应商对物品建立货物即代表供货该商品。入库时进价自动取该供应商的货物售价。</p>
 @if (quotes.Any())
 {
     <table class="table table-sm table-striped w-75">
@@ -28,7 +28,7 @@
             var effectiveShelf = q.ShelfLifeHours ?? q.ProductExpiryHours;
             <tr>
                 <td>@q.ProductName</td>
-                <td>@(q.SupplyPrice.HasValue ? $"¥{q.SupplyPrice:F2}" : "未报价")</td>
+                <td>@(q.SupplyPrice > 0 ? $"¥{q.SupplyPrice:F2}" : "无售价")</td>
                 <td>@(effectiveShelf.HasValue ? $"{effectiveShelf} 小时（{effectiveShelf / 24.0:0.#} 天）" : "未设置")</td>
                 <td>@(q.UpdateTime?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
             </tr>

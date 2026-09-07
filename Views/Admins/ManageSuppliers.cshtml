@@ -6,7 +6,7 @@
 
 <div class="content-card">
     <div class="content-card-header">
-        <h5>🏭 供应商列表</h5>
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l5 4V9l5 4V9l8-5v17H3z"/><path d="M3 21h18"/></svg> 供应商列表</h5>
         <a asp-controller="Suppliers" asp-action="Create" class="btn btn-sm btn-primary">+ 新增供应商</a>
     </div>
     @{
@@ -39,7 +39,7 @@
         @if (!Model.Any())
         {
             <div class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m2 7 10 7L22 7"/></svg></div>
                 <p>暂无供应商</p>
             </div>
         }

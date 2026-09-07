@@ -10,7 +10,7 @@
 <div class="stat-grid">
     <div class="stat-card">
         <div class="stat-card-top">
-            <span class="stat-icon bg-warning-subtle text-warning">⏳</span>
+            <span class="stat-icon bg-warning-subtle text-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
             <span class="stat-label">待审核退款</span>
         </div>
         <div class="stat-value text-warning">@totalPending 笔</div>
@@ -18,7 +18,7 @@
     </div>
     <div class="stat-card sales">
         <div class="stat-card-top">
-            <span class="stat-icon bg-purple-subtle text-purple">¥</span>
+            <span class="stat-icon bg-purple-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span>
             <span class="stat-label">待审核总金额</span>
         </div>
         <div class="stat-value text-dark">@totalAmount.ToString("N2")</div>
@@ -28,14 +28,14 @@
 
 <div class="content-card">
     <div class="content-card-header">
-        <h5>📋 退款申请列表</h5>
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 12h6M9 16h6"/></svg> 退款申请列表</h5>
         <span class="text-muted small">通过后立即执行佣金/积分回滚，驳回需填写原因</span>
     </div>
     <div class="content-card-body p-0">
         @if (!Model.Any())
         {
             <div class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m2 7 10 7L22 7"/></svg></div>
                 <p>暂无待审核的退款申请</p>
             </div>
         }

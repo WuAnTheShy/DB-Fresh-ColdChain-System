@@ -45,6 +45,7 @@ namespace FreshColdChain.Controllers
             else if (role == "管理员")
             {
                 ViewBag.Role = "管理员";
+                ViewBag.AdminKinds = AdminSession.Kinds;
             }
             else if (role == "供应商")
             {
@@ -58,9 +59,13 @@ namespace FreshColdChain.Controllers
             return View();
         }
         [HttpPost]
-        public async Task<IActionResult> Login(string username, string password,string? role = null)
+        public async Task<IActionResult> Login(string username, string password,string? role = null, string? adminKind = null)
         {
             ViewBag.Role = role;
+            if (role == "管理员")
+            {
+                ViewBag.AdminKinds = AdminSession.Kinds;
+            }
             if (role == "团长")
             {
                 var loginResult = _promoterService.LoginPromoter(username, password);
@@ -75,11 +80,14 @@ namespace FreshColdChain.Controllers
             }
             else if (role == "管理员")
             {
-                var loginResult = _systemAdminService.LoginAdmin(username, password);
+                var loginResult = _systemAdminService.LoginAdmin(username, password, adminKind);
                 if (loginResult.IsSuccess == true && !string.IsNullOrWhiteSpace(loginResult.UserId))
                 {
                     HttpContext.Session.SetString("AdminId", loginResult.UserId);
                     HttpContext.Session.SetString("AdminName", username);
+                    // 记录管理员种类，登录后按种类进入各自的首页/导航
+                    HttpContext.Session.SetString(FreshColdChain.Filters.AdminSession.KindKey,
+                        string.IsNullOrEmpty(adminKind) ? FreshColdChain.Filters.AdminSession.AccountKind : adminKind);
                     return RedirectToAction("Dashboard", "Admins");
                 }
                 ModelState.AddModelError("", loginResult.Message);
@@ -95,19 +103,22 @@ namespace FreshColdChain.Controllers
                     // 避免进入供应商首页后还需二次登录
                     if (!string.IsNullOrEmpty(loginResult.SuppierId))
                         HttpContext.Session.SetString("SupplierId", loginResult.SuppierId);
-                    // 固定账号 admin = 供应商管理员，直接进入全部货物
-                    if (string.Equals(username, SupplierSession.AdminAccount, StringComparison.OrdinalIgnoreCase))
-                    {
-                        HttpContext.Session.SetString(SupplierSession.IsAdminKey, "true");
-                        return RedirectToAction("AdminIndex", "Goods");
-                    }
-                    return RedirectToAction("Index", "SuppliersHome");
+                    // 供应商登录后直接进入「我的货物」工作台（供货价/上下架/入库的唯一入口；
+                    // 商品管理员负责平台级物品与库存管理）
+                    return RedirectToAction("MyGoods", "Goods");
                 }
                 ModelState.AddModelError("", loginResult.Message);
                 return View();
             }
             return View();
         }
+        // 管理员退出：清理管理员相关会话后回到管理员登录页
+        public IActionResult Logout()
+        {
+            FreshColdChain.Filters.AdminSession.SignOut(HttpContext.Session);
+            return RedirectToAction(nameof(Login), "Account", new { role = "管理员" });
+        }
+
         [HttpGet]
         public IActionResult Register(string? role = null)
         {
@@ -134,6 +145,7 @@ namespace FreshColdChain.Controllers
         public IActionResult AdminRegister()
         {
             ViewBag.Role = "管理员";
+            ViewBag.AdminKinds = AdminSession.Kinds;
             return View("AdminRegister");
         }
         public IActionResult SupplierRegister()
@@ -165,8 +177,10 @@ namespace FreshColdChain.Controllers
             return View("PromoterRegister");
         }
         [HttpPost]
-        public async Task<IActionResult> AdminRegister(string realname, string username, string password, string phonenumber, string password_again)
+        public async Task<IActionResult> AdminRegister(string realname, string username, string password, string phonenumber, string password_again, string? adminKind = null)
         {
+            ViewBag.Role = "管理员";
+            ViewBag.AdminKinds = AdminSession.Kinds;
             if (password != password_again)
             {
                 ModelState.AddModelError("", "两次输入密码不同");
@@ -177,6 +191,7 @@ namespace FreshColdChain.Controllers
             registerInfo.Phone = phonenumber;
             registerInfo.LoginPassword = password;
             registerInfo.LoginAccount = username;
+            registerInfo.AdminKind = adminKind ?? AdminSession.AccountKind;
             var registerResult = new Result();
             registerResult = await _systemAdminService.RegisterAdmin(registerInfo);
             if (registerResult.IsSuccess == true)

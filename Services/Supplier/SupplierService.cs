@@ -10,15 +10,12 @@ namespace FreshColdChain.Services.Supplier;
 public class SupplierService : ISupplierService
 {
     private readonly ISupplierRepository _repo;
-    private readonly ISupplierPriceRepository _priceRepo;
     private readonly IProductRepository _productRepo;
     private readonly IGoodsRepository _goodsRepo;
 
-    public SupplierService(ISupplierRepository repo, ISupplierPriceRepository priceRepo, IProductRepository productRepo,
-        IGoodsRepository goodsRepo)
+    public SupplierService(ISupplierRepository repo, IProductRepository productRepo, IGoodsRepository goodsRepo)
     {
         _repo = repo;
-        _priceRepo = priceRepo;
         _productRepo = productRepo;
         _goodsRepo = goodsRepo;
     }
@@ -99,98 +96,39 @@ public class SupplierService : ISupplierService
         }
     }
 
-    // ========== 供货价（进价由供应商决定）==========
+    // ========== 供货价（进价由供应商决定，统一以「我的货物」售价为准）==========
 
-    /// <summary>供应商详情页用：该供应商已报价的所有产品（多供应商模式下，报价即供货关系）</summary>
+    /// <summary>供应商详情页用：该供应商已建立货物的所有商品（多供应商模式下，货物即供货关系）</summary>
     public async Task<ApiResponse<List<SupplierProductQuoteDto>>> GetSupplierProductQuotesAsync(string supplierId)
     {
         try
         {
-            var quotes = await _priceRepo.GetQuotesBySupplierAsync(supplierId);
             var products = await _productRepo.GetAllAsync();
             var productMap = products.ToDictionary(p => p.ProductID);
+            var goods = await _goodsRepo.GetBySupplierAsync(supplierId);
             var imageMap = await LoadProductImageMapAsync(supplierId);
 
-            var list = quotes.Select(q =>
+            var list = goods.Select(g =>
             {
-                productMap.TryGetValue(q.ProductID, out var p);
-                return BuildQuoteDto(q.ProductID, p?.ProductName ?? q.ProductID, q.SupplyPrice, q.UpdateTime,
-                    p?.ExpiryHours, q.ShelfLifeHours, q.Description ?? p?.Description, imageMap);
+                productMap.TryGetValue(g.ProductID, out var p);
+                return new SupplierProductQuoteDto
+                {
+                    ProductID = g.ProductID,
+                    ProductName = p?.ProductName ?? g.ProductID,
+                    SupplyPrice = g.SalePrice,
+                    UpdateTime = g.UpdateTime,
+                    ProductExpiryHours = p?.ExpiryHours,
+                    ShelfLifeHours = g.ShelfLifeHours,
+                    Description = !string.IsNullOrWhiteSpace(g.Description) ? g.Description : p?.Description,
+                    Images = imageMap.TryGetValue(g.ProductID, out var urls) ? urls : new List<SupplierProductImageDto>()
+                };
             }).ToList();
 
             return ApiResponse<List<SupplierProductQuoteDto>>.Success(list);
         }
         catch (Exception ex)
         {
-            return ApiResponse<List<SupplierProductQuoteDto>>.Fail($"查询供货价失败：{ex.Message}");
-        }
-    }
-
-    /// <summary>供应商门户：全部上架产品的报价面板，任何供应商可对任何产品报价</summary>
-    public async Task<ApiResponse<List<SupplierProductQuoteDto>>> GetAllProductQuotesForSupplierAsync(string supplierId)
-    {
-        try
-        {
-            var products = await _productRepo.GetAllAsync();
-            var quotes = await _priceRepo.GetQuotesBySupplierAsync(supplierId);
-            var quoteMap = quotes.ToDictionary(q => q.ProductID);
-            var imageMap = await LoadProductImageMapAsync(supplierId);
-
-            var list = products
-                .Select(p =>
-                {
-                    quoteMap.TryGetValue(p.ProductID, out var q);
-                    return BuildQuoteDto(p.ProductID, p.ProductName, q?.SupplyPrice, q?.UpdateTime,
-                        p.ExpiryHours, q?.ShelfLifeHours, q?.Description ?? p.Description, imageMap);
-                }).ToList();
-
-            return ApiResponse<List<SupplierProductQuoteDto>>.Success(list);
-        }
-        catch (Exception ex)
-        {
-            return ApiResponse<List<SupplierProductQuoteDto>>.Fail($"查询报价面板失败：{ex.Message}");
-        }
-    }
-
-    public async Task<ApiResponse<SupplierProductQuoteDto>> GetProductInfoForSupplierAsync(string supplierId, string productId)
-    {
-        try
-        {
-            var product = await _productRepo.GetByIdAsync(productId);
-            if (product == null) return ApiResponse<SupplierProductQuoteDto>.Fail("产品不存在", 404);
-
-            var quote = await _priceRepo.GetQuoteAsync(supplierId, productId);
-            if (quote == null) return ApiResponse<SupplierProductQuoteDto>.Fail("请先对该商品报价，报价后即可维护商品图文");
-
-            // 该商品的图片：自己上传的在前，平台通用图在后（编辑页展示全部，含无数据旧记录供清理）
-            var images = (await _productRepo.GetProductImagesAsync(productId))
-                .OrderBy(i => i.SupplierID != supplierId) // 自己上传的排前面
-                .ThenBy(i => i.SortOrder)
-                .ThenBy(i => i.CreateTime)
-                .Select(i => new SupplierProductImageDto
-                {
-                    ImageID = i.ImageID,
-                    ImageUrl = i.ImageUrl,
-                    HasImageData = i.HasData,
-                    IsOwned = i.SupplierID == supplierId
-                })
-                .ToList();
-
-            return ApiResponse<SupplierProductQuoteDto>.Success(new SupplierProductQuoteDto
-            {
-                ProductID = product.ProductID,
-                ProductName = product.ProductName,
-                SupplyPrice = quote.SupplyPrice,
-                UpdateTime = quote.UpdateTime,
-                ProductExpiryHours = product.ExpiryHours,
-                ShelfLifeHours = quote.ShelfLifeHours,
-                Description = quote.Description ?? product.Description,
-                Images = images
-            });
-        }
-        catch (Exception ex)
-        {
-            return ApiResponse<SupplierProductQuoteDto>.Fail($"查询商品信息失败：{ex.Message}");
+            return ApiResponse<List<SupplierProductQuoteDto>>.Fail($"查询供货商品失败：{ex.Message}");
         }
     }
 
@@ -219,107 +157,12 @@ public class SupplierService : ISupplierService
                       .ToList());
     }
 
-    private static SupplierProductQuoteDto BuildQuoteDto(
-        string productId, string productName, decimal? supplyPrice, DateTime? updateTime,
-        int? productExpiryHours, int? shelfLifeHours, string? description,
-        Dictionary<string, List<SupplierProductImageDto>> imageMap)
+    // ========== 供应商维护商品图文（文字介绍 + 图片，前提是已对该物品建立货物）==========
+
+    /// <summary>供应商对该物品是否已建立货物；未建立返回 null（货物即供货关系）</summary>
+    private async Task<InvGoods?> ResolveSuppliedProductAsync(string supplierId, string productId)
     {
-        return new SupplierProductQuoteDto
-        {
-            ProductID = productId,
-            ProductName = productName,
-            SupplyPrice = supplyPrice,
-            UpdateTime = updateTime,
-            ProductExpiryHours = productExpiryHours,
-            ShelfLifeHours = shelfLifeHours,
-            Description = description,
-            Images = imageMap.TryGetValue(productId, out var urls) ? urls : new List<SupplierProductImageDto>()
-        };
-    }
-
-    /// <summary>设置/更新某供应商对某产品的供货价（已有报价则更新）</summary>
-    public async Task<ApiResponse> SetSupplyPriceAsync(string supplierId, string productId, decimal supplyPrice, int? shelfLifeHours = null)
-    {
-        if (supplyPrice <= 0)
-            return ApiResponse.Fail("供货价必须大于 0");
-        if (shelfLifeHours.HasValue && shelfLifeHours.Value <= 0)
-            return ApiResponse.Fail("保质期必须大于 0 小时");
-
-        try
-        {
-            var supplier = await _repo.GetByIdAsync(supplierId);
-            if (supplier == null) return ApiResponse.Fail("供应商不存在", 404);
-
-            var product = await _productRepo.GetByIdAsync(productId);
-            if (product == null) return ApiResponse.Fail("产品不存在", 404);
-            // 任何供应商都可对任何产品报价：报价关系即代表“该供应商供应该产品”
-
-            var quote = await _priceRepo.GetQuoteAsync(supplierId, productId);
-            if (quote == null)
-            {
-                await _priceRepo.AddAsync(new InvSupplierPrice
-                {
-                    SupplierID = supplierId,
-                    ProductID = productId,
-                    SupplyPrice = supplyPrice,
-                    ShelfLifeHours = shelfLifeHours,
-                    UpdateTime = DateTime.Now
-                });
-            }
-            else
-            {
-                quote.SupplyPrice = supplyPrice;
-                quote.ShelfLifeHours = shelfLifeHours;
-                quote.UpdateTime = DateTime.Now;
-                _priceRepo.Update(quote);
-            }
-
-            var shelfDays = (shelfLifeHours ?? product.ExpiryHours) is int h ? $"{h} 小时（{h / 24.0:0.#} 天）" : "未设置";
-            return ApiResponse.Success($"已设置 {product.ProductName} 的供货价：¥{supplyPrice:F2}，保质期：{shelfDays}");
-        }
-        catch (Exception ex)
-        {
-            return ApiResponse.Fail($"设置供货价失败：{ex.Message}");
-        }
-    }
-
-    // ========== 供应商维护商品图文（文字介绍 + 图片，报价即供货关系）==========
-
-    /// <summary>校验供应商存在且已对该商品报价（报价即供货关系），返回商品；不满足返回 null</summary>
-    private async Task<(InvSupplier? Supplier, InvProduct? Product, InvSupplierPrice? Quote)> ResolveSuppliedProductAsync(string supplierId, string productId)
-    {
-        var supplier = await _repo.GetByIdAsync(supplierId);
-        if (supplier == null) return (null, null, null);
-
-        var product = await _productRepo.GetByIdAsync(productId);
-        if (product == null) return (supplier, null, null);
-
-        var quote = await _priceRepo.GetQuoteAsync(supplierId, productId);
-        return (supplier, product, quote);
-    }
-
-    public async Task<ApiResponse> UpdateProductDescriptionAsync(string supplierId, string productId, string? description)
-    {
-        var (supplier, product, quote) = await ResolveSuppliedProductAsync(supplierId, productId);
-        if (supplier == null) return ApiResponse.Fail("供应商不存在", 404);
-        if (product == null) return ApiResponse.Fail("产品不存在", 404);
-        if (quote == null) return ApiResponse.Fail("请先对该商品报价，报价后即可维护商品图文");
-
-        description = description?.Trim();
-        if (!string.IsNullOrEmpty(description) && description.Length > 2000)
-            return ApiResponse.Fail("商品介绍不能超过 2000 字");
-
-        try
-        {
-            // 简介归属（供应商×商品）组合：写在报价记录上，各家供应商互不影响
-            quote.Description = string.IsNullOrEmpty(description) ? null : description;
-            _priceRepo.Update(quote);
-            return ApiResponse.Success("商品文字介绍已保存");
-        }
-        catch (Exception ex)
-        {
-            return ApiResponse.Fail($"保存商品介绍失败：{ex.Message}");
-        }
+        return await _goodsRepo.GetAsync(productId, supplierId);
     }
 
     public async Task<ApiResponse> AddProductImageAsync(string supplierId, string productId, byte[] imageData, string imageType)
@@ -327,10 +170,8 @@ public class SupplierService : ISupplierService
         if (imageData == null || imageData.Length == 0)
             return ApiResponse.Fail("图片数据不能为空");
 
-        var (supplier, product, quote) = await ResolveSuppliedProductAsync(supplierId, productId);
-        if (supplier == null) return ApiResponse.Fail("供应商不存在", 404);
-        if (product == null) return ApiResponse.Fail("产品不存在", 404);
-        if (quote == null) return ApiResponse.Fail("请先对该商品报价，报价后即可维护商品图文");
+        var goods = await ResolveSuppliedProductAsync(supplierId, productId);
+        if (goods == null) return ApiResponse.Fail("请先在「我的货物」对该物品建立货物，之后即可维护商品图文");
 
         try
         {
@@ -462,7 +303,8 @@ public class SupplierService : ISupplierService
 
     /// <summary>
     /// 搜索供应商提供的商品：按供应商（名称/ID）或商品名称（两种命中合并去重）。
-    /// 供应商的“可提供商品”由其报价记录（Inv_SupplierPrices）决定：报价即供货关系。
+    /// 供应商的“可提供商品”由其货物记录（Inv_Goods）决定：货物即该供应商的上架供货，
+    /// 售价、保质期与上下架状态均以“我的货物”中维护的数据为准。
     /// </summary>
     public async Task<ApiResponse<List<SupplierProductEntryDto>>> SearchSupplierProductEntriesAsync(string? keyword)
     {
@@ -475,12 +317,16 @@ public class SupplierService : ISupplierService
             // 全量数据源（演示/中小规模可直接内存过滤，避免多次连库）
             var products = (await _productRepo.GetAllAsync())
                 .ToList();
-            var productMap = products.ToDictionary(p => p.ProductID);
+            var productMap = products.ToDictionary(p => p.ProductID, StringComparer.OrdinalIgnoreCase);
 
+            // 供应商：仅正常（Active）状态可被搜索到
             var suppliers = (await _repo.GetAllAsync())
-                .Where(s => s.Status == "Active")
+                .Where(s => string.Equals(s.Status, "Active", StringComparison.OrdinalIgnoreCase))
                 .ToList();
-            var supplierMap = suppliers.ToDictionary(s => s.SupplierID);
+            var supplierMap = suppliers.ToDictionary(s => s.SupplierID, StringComparer.OrdinalIgnoreCase);
+
+            // 货物 = 供应商上架供货（唯一数据源）
+            var allGoods = (await _goodsRepo.GetAllAsync()).ToList();
 
             // 全部商品图片（仅取真正有二进制数据的）；每条（供应商×商品）组合：
             // 该供应商自己上传的图在前，平台通用图（SupplierID 为空）在后，最多 3 张
@@ -499,15 +345,15 @@ public class SupplierService : ISupplierService
                     .ToList();
 
             var entries = new List<SupplierProductEntryDto>();
-            var seen = new HashSet<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            void CollectQuote(InvSupplierPrice q)
+            void CollectEntry(InvProduct p, InvSupplier s, InvGoods goods)
             {
-                if (!productMap.TryGetValue(q.ProductID, out var p)) return;
-                if (!supplierMap.TryGetValue(q.SupplierID, out var s)) return;
-
-                var key = $"{q.SupplierID}|{q.ProductID}";
+                var key = $"{s.SupplierID}|{p.ProductID}";
                 if (!seen.Add(key)) return; // 去重：同一（供应商，商品）只保留一次
+
+                var salePrice = goods.SalePrice;
+                var description = !string.IsNullOrWhiteSpace(goods.Description) ? goods.Description : p.Description;
 
                 entries.Add(new SupplierProductEntryDto
                 {
@@ -516,11 +362,15 @@ public class SupplierService : ISupplierService
                     ProductID = p.ProductID,
                     ProductName = p.ProductName,
                     Unit = p.Unit,
-                    SupplyPrice = q.SupplyPrice,
-                    DefaultPrice = q.SupplyPrice,
-                    ExpiryHours = q.ShelfLifeHours ?? p.ExpiryHours,
-                    Description = q.Description ?? p.Description, // 该供应商的简介，未写时兜底商品通用介绍
-                    Images = GetDisplayImages(p.ProductID, q.SupplierID)
+                    SupplyPrice = salePrice,
+                    // 商品推荐价(建议零售)=供货价×1.2：供货价为团长进价，推荐价为参考售价，保证两价区分、留有定价浮动空间
+                    DefaultPrice = Math.Round(salePrice * 1.2m, 2),
+                    ExpiryHours = goods.ShelfLifeHours ?? p.ExpiryHours,
+                    // 供应商上架（货物）时填写的文字介绍，团长可参考/复制/改写；未写时兜底商品通用介绍
+                    Description = description,
+                    Images = GetDisplayImages(p.ProductID, s.SupplierID),
+                    // 上架状态取该供应商的货物状态（ACTIVE=上架，其它=下架）
+                    ProductStatus = goods.Status
                 });
             }
 
@@ -531,18 +381,24 @@ public class SupplierService : ISupplierService
                 .ToList();
             foreach (var s in matchedSuppliers)
             {
-                var quotes = await _priceRepo.GetQuotesBySupplierAsync(s.SupplierID);
-                foreach (var q in quotes) CollectQuote(q);
+                foreach (var g in allGoods.Where(g => g.SupplierID == s.SupplierID))
+                {
+                    if (!productMap.TryGetValue(g.ProductID, out var p)) continue;
+                    CollectEntry(p, s, g);
+                }
             }
 
-            // ② 按商品命中：商品名称包含关键词 → 所有供货该商品的供应商
+            // ② 按商品命中：商品名称包含关键词 → 所有供货该商品的（供应商×商品）
             var matchedProducts = products
                 .Where(p => p.ProductName.Contains(kw, StringComparison.OrdinalIgnoreCase))
                 .ToList();
             foreach (var p in matchedProducts)
             {
-                var quotes = await _priceRepo.GetQuotesByProductWithSupplierAsync(p.ProductID);
-                foreach (var q in quotes) CollectQuote(q);
+                foreach (var g in allGoods.Where(g => g.ProductID == p.ProductID))
+                {
+                    if (!supplierMap.TryGetValue(g.SupplierID, out var s)) continue;
+                    CollectEntry(p, s, g);
+                }
             }
 
             return ApiResponse<List<SupplierProductEntryDto>>.Success(entries);

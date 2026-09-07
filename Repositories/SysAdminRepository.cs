@@ -73,7 +73,7 @@ namespace FreshColdChain.Repositories
             IDbTransaction? transaction = null,
             CancellationToken cancellationToken = default)
         {
-            string sql = "SELECT * FROM SYS_USERS WHERE USERID = :UserId";
+            string sql = "SELECT USERID, USERNAME, PASSWORDHASH, ROLEID, REALNAME, PHONE, ADMIN_KIND AS AdminKind, STATUS, CREATETIME FROM SYS_USERS WHERE USERID = :UserId";
             return await _uow.Connection.QueryFirstOrDefaultAsync<GroupC_SysUser>(
                 sql,
                 new { UserId = userId },
@@ -82,7 +82,7 @@ namespace FreshColdChain.Repositories
         public GroupC_SysUser? GetUserByName(
             string username)
         {
-            string sql = "SELECT * FROM SYS_USERS WHERE USERNAME = :Username";
+            string sql = "SELECT USERID, USERNAME, PASSWORDHASH, ROLEID, REALNAME, PHONE, ADMIN_KIND AS AdminKind, STATUS, CREATETIME FROM SYS_USERS WHERE USERNAME = :Username";
             return _uow.Connection.QueryFirstOrDefault<GroupC_SysUser>(
                 sql,
                 new { Username = username });
@@ -101,6 +101,39 @@ namespace FreshColdChain.Repositories
             return count > 0;
         }
 
+        public async Task<List<GroupC_SysUser>> GetAllUsersAsync(
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
+        {
+            string sql = "SELECT USERID, USERNAME, PASSWORDHASH, ROLEID, REALNAME, PHONE, ADMIN_KIND AS AdminKind, STATUS, CREATETIME FROM SYS_USERS ORDER BY CREATETIME DESC, USERID DESC";
+            return (await _uow.Connection.QueryAsync<GroupC_SysUser>(sql, null, transaction)).ToList();
+        }
+
+        public async Task<List<GroupC_SysUser>> GetUsersByStatusAsync(
+            string status,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
+        {
+            string sql = "SELECT USERID, USERNAME, PASSWORDHASH, ROLEID, REALNAME, PHONE, ADMIN_KIND AS AdminKind, STATUS, CREATETIME FROM SYS_USERS WHERE STATUS = :Status ORDER BY CREATETIME DESC";
+            return (await _uow.Connection.QueryAsync<GroupC_SysUser>(
+                sql,
+                new { Status = status },
+                transaction)).ToList();
+        }
+
+        public async Task<bool> UpdateUserStatusAsync(
+            string userId,
+            string status,
+            IDbTransaction? transaction = null,
+            CancellationToken cancellationToken = default)
+        {
+            string sql = "UPDATE SYS_USERS SET STATUS = :Status WHERE USERID = :UserId";
+            return await _uow.Connection.ExecuteAsync(
+                sql,
+                new { Status = status, UserId = userId },
+                transaction) > 0;
+        }
+
         public async Task<bool> SaveUserAsync(
             GroupC_SysUser user,
             bool isNew,
@@ -108,10 +141,10 @@ namespace FreshColdChain.Repositories
             CancellationToken cancellationToken = default)
         {
             string sql = isNew
-                ? @"INSERT INTO SYS_USERS (USERID, USERNAME, PASSWORDHASH, ROLEID, REALNAME, PHONE, STATUS, CREATETIME)
-                   VALUES (:UserId, :Username, :PasswordHash, :RoleId, :RealName, :Phone, :Status, :CreateTime)"
+                ? @"INSERT INTO SYS_USERS (USERID, USERNAME, PASSWORDHASH, ROLEID, REALNAME, PHONE, ADMIN_KIND, STATUS, CREATETIME)
+                   VALUES (:UserId, :Username, :PasswordHash, :RoleId, :RealName, :Phone, :AdminKind, :Status, :CreateTime)"
                 : @"UPDATE SYS_USERS 
-                   SET USERNAME = :Username, PASSWORDHASH = :PasswordHash, ROLEID = :RoleId, REALNAME = :RealName, PHONE = :Phone, STATUS = :Status 
+                   SET USERNAME = :Username, PASSWORDHASH = :PasswordHash, ROLEID = :RoleId, REALNAME = :RealName, PHONE = :Phone, ADMIN_KIND = :AdminKind, STATUS = :Status 
                    WHERE USERID = :UserId";
 
             return await _uow.Connection.ExecuteAsync(sql, user, transaction) > 0;

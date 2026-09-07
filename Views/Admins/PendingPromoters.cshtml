@@ -7,14 +7,14 @@
 
     <div class="content-card">
         <div class="content-card-header">
-            <h5>👤 待激活团长账号</h5>
+            <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg> 待激活团长账号</h5>
             <span class="text-muted small">共 @Model.Count 条待审核</span>
         </div>
         <div class="content-card-body p-0">
             @if (!Model.Any())
             {
                 <div class="empty-state">
-                    <div class="empty-icon">🎉</div>
+                    <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.1 4.6 5 .6-3.7 3.4.9 5L12 14.6 7.7 16.6l.9-5L4.9 8.2l5-.6z"/></svg></div>
                     <p>暂无待审核的团长，一切正常！</p>
                     <a asp-controller="Admins" asp-action="DashBoard" class="btn btn-sm btn-outline-primary">返回工作台</a>
                 </div>

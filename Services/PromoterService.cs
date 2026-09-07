@@ -32,11 +32,13 @@ namespace FreshColdChain.Services
 		private readonly IPCRRepository _pcrRepository;
 		// 商品仓库（用于商品图片）
 		private readonly IProductRepository _productRepository;
+		// 货物仓库（Inv_Goods，校验供应商上架状态）
+		private readonly IGoodsRepository _goodsRepository;
 		// 团长图文介绍（文件存储：数据库存相对路径，实际内容为 wwwroot 下 JSON 文件）
 		private readonly PromoterIntroStore _introStore;
 
         // 构造函数
-        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPromoterProductRepository iproductRepository,IPCRRepository pcrRepository, IProductRepository productRepository, PromoterIntroStore introStore)
+        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPromoterProductRepository iproductRepository,IPCRRepository pcrRepository, IProductRepository productRepository, IGoodsRepository goodsRepository, PromoterIntroStore introStore)
         {
             _uow = uow;
             _ipromoterRepository = ipromoterRepository;
@@ -45,6 +47,7 @@ namespace FreshColdChain.Services
             _iproductRepository = iproductRepository;
 			_pcrRepository = pcrRepository;
 			_productRepository = productRepository;
+			_goodsRepository = goodsRepository;
 			_introStore = introStore;
         }
 
@@ -657,6 +660,13 @@ namespace FreshColdChain.Services
         public async Task<bool> AddProductEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, decimal supplyPrice, decimal defaultPrice, string? description = null)
         {
             var price = promoterPrice ?? defaultPrice;
+
+            // 该供应商已下架该货物（Inv_Goods.Status != 'ACTIVE'）或未建立货物时不允许入团
+            var goods = await _goodsRepository.GetAsync(productId, supplierId);
+            if (goods == null || !string.Equals(goods.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("该供应商已下架该商品，暂不可入团，请等待供应商恢复上架后再操作。");
+            }
 
             // 定价规则：|团长价 - 推荐价| < |推荐价 - 报价| / 2
             var allowedDiff = Math.Abs(defaultPrice - supplyPrice) / 2m;

@@ -111,9 +111,15 @@ public class GoodsService : IGoodsService
                 if (dto.SalePrice.Value < 0) return ApiResponse.Fail("售价不能为负数");
                 goods.SalePrice = dto.SalePrice.Value;
             }
-            if (dto.StorageReq != null) goods.StorageReq = dto.StorageReq;
-            if (dto.ShelfLifeHours.HasValue) goods.ShelfLifeHours = dto.ShelfLifeHours;
-            if (dto.Description != null) goods.Description = dto.Description;
+            if (dto.StorageReq != null)
+                goods.StorageReq = string.IsNullOrWhiteSpace(dto.StorageReq) ? null : dto.StorageReq.Trim();
+            if (dto.ShelfLifeHours.HasValue)
+            {
+                if (dto.ShelfLifeHours.Value <= 0) return ApiResponse.Fail("保质期必须大于 0 小时");
+                goods.ShelfLifeHours = dto.ShelfLifeHours.Value;
+            }
+            if (dto.Description != null)
+                goods.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim();
             if (dto.Status != null) goods.Status = dto.Status;
 
             goods.UpdateTime = DateTime.Now;
@@ -130,6 +136,34 @@ public class GoodsService : IGoodsService
     public async Task<ApiResponse> SetGoodsStatusAsync(string supplierId, string productId, string status)
     {
         return await UpdateGoodsAsync(supplierId, productId, new UpdateGoodsDto { Status = status });
+    }
+
+    /// <summary>
+    /// 商品管理员对“商品（物品）”整体下架/上架：连带该物品所有供应商的货物统一置为目标状态，
+    /// 保证商品下架时不会残留个别供应商仍在上架的货物，数据始终一致。
+    /// </summary>
+    public async Task<ApiResponse<int>> AdminSetProductGoodsStatusAsync(string productId, string status)
+    {
+        var st = status?.Trim().ToUpperInvariant();
+        if (st != "ACTIVE" && st != "INACTIVE")
+            return ApiResponse<int>.Fail("无效的状态值（仅支持 ACTIVE / INACTIVE）");
+
+        try
+        {
+            var product = await _productRepo.GetByIdAsync(productId);
+            if (product == null) return ApiResponse<int>.Fail("物品不存在", 404);
+
+            var affected = await _goodsRepo.UpdateStatusByProductAsync(productId, st, DateTime.Now);
+            var action = st == "ACTIVE" ? "上架" : "下架";
+            if (affected == 0)
+                return ApiResponse<int>.Fail($"该物品暂无供应商建立货物，无需{action}");
+
+            return ApiResponse<int>.Success(affected, $"已{action}该物品下全部 {affected} 个供应商的货物");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<int>.Fail($"按商品{(st == "ACTIVE" ? "上架" : "下架")}失败：{ex.Message}");
+        }
     }
 
     private static GoodsDto MapToDto(InvGoods g) => new()

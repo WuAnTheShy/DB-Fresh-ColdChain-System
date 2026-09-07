@@ -3,6 +3,7 @@ using FreshColdChain.Models.CrossGroup_C;
 using FreshColdChain.Models.DTOs;
 using FreshColdChain.Models;
 using FreshColdChain.Repositories;
+using FreshColdChain.Filters;
 using Newtonsoft.Json;
 using System.Data;
 using System.Security.Cryptography;
@@ -48,6 +49,8 @@ namespace FreshColdChain.Services
                     throw new Exception("输入注册信息不能为空");
                 }
 
+                string adminKind = NormalizeAdminKind(registerInfo.AdminKind);
+
                 bool exists = await _iSysAdminRepository.ExistsUsernameAsync(registerInfo.LoginAccount, transaction);
                 if (exists)
                 {
@@ -64,6 +67,7 @@ namespace FreshColdChain.Services
                     PasswordHash = hashedPassword,
                     Phone = registerInfo.Phone,
                     RoleId = "r_admin",
+                    AdminKind = adminKind,
                     Status = "Pending",
                     CreateTime = DateTime.Now
                 };
@@ -88,6 +92,7 @@ namespace FreshColdChain.Services
                         PasswordHash = admin.PasswordHash,
                         Phone = admin.Phone,
                         RoleId = admin.RoleId,
+                        AdminKind = admin.AdminKind,
                         Status = admin.Status,
                         CreateTime = admin.CreateTime})
                 };
@@ -168,11 +173,14 @@ namespace FreshColdChain.Services
             }
         }
 
-        //管理员登录
-        public GroupC_AdminLoginResult LoginAdmin(string loginAccount, string password)
+        //管理员登录（登录时须指明管理员种类，与账号注册时选择的种类一致才放行）
+        public GroupC_AdminLoginResult LoginAdmin(string loginAccount, string password, string? adminKind = null)
         {
             if (string.IsNullOrWhiteSpace(loginAccount) || string.IsNullOrWhiteSpace(password))
                 return new GroupC_AdminLoginResult { IsSuccess = false, Message = "账号或密码不能为空" };
+
+            if (!AdminSession.IsValidKind(adminKind))
+                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "请选择正确的管理员类型" };
 
             // 这里用了同步查询，因为登录不需要事务且快速
             var admin = _iSysAdminRepository.GetUserByName(loginAccount);
@@ -184,10 +192,19 @@ namespace FreshColdChain.Services
                 return new GroupC_AdminLoginResult { IsSuccess = false, Message = "密码错误" };
 
             if (admin.Status == "Pending")
-                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "账号尚未审核通过" };
+                return new GroupC_AdminLoginResult { IsSuccess = false, Message = "账号尚未审核通过，请联系账号管理员审核" };
             if (!string.Equals(admin.Status, "Enable", StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(admin.Status, "Enabled", StringComparison.OrdinalIgnoreCase))
                 return new GroupC_AdminLoginResult { IsSuccess = false, Message = "账号未启用或已被锁定" };
+
+            // 种类校验：存量账号缺省按账号管理员处理
+            string actualKind = string.IsNullOrEmpty(admin.AdminKind) ? AdminSession.AccountKind : admin.AdminKind;
+            if (!string.Equals(actualKind, adminKind, StringComparison.OrdinalIgnoreCase))
+                return new GroupC_AdminLoginResult
+                {
+                    IsSuccess = false,
+                    Message = $"该账号是「{AdminSession.KindName(actualKind)}」，与您选择的类型不符，请重新选择"
+                };
 
             return new GroupC_AdminLoginResult
             {
@@ -294,6 +311,163 @@ namespace FreshColdChain.Services
                     NewValue = JsonConvert.SerializeObject(new { Status = "Disable" })
                 };
                 await _logManager.WriteTableChangeLog(log);
+
+                await _uow.CommitAsync();
+                result.IsSuccess = true;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                result.IsSuccess = false;
+                result.ErrorMessage = $"系统错误：{ex.Message}";
+                return result;
+            }
+        }
+
+        // ========== 管理员种类与管理员账号审核 ==========
+
+        /// <summary>把未填/填错的类型规范化为账号管理员。</summary>
+        private static string NormalizeAdminKind(string? kind)
+            => AdminSession.IsValidKind(kind) ? kind! : AdminSession.AccountKind;
+
+        /// <summary>待审核管理员列表（注册后状态 Pending，需账号管理员审核）。</summary>
+        public async Task<List<GroupC_SysUser>> GetPendingAdminsAsync()
+        {
+            return await _iSysAdminRepository.GetUsersByStatusAsync("Pending");
+        }
+
+        /// <summary>全部管理员（用于账号管理）。</summary>
+        public async Task<List<GroupC_SysUser>> GetAllAdminsAsync()
+        {
+            return await _iSysAdminRepository.GetAllUsersAsync();
+        }
+
+        /// <summary>管理员注册审核通过：Pending -&gt; Enabled。</summary>
+        public async Task<Result> ApproveAdminAsync(string userId, string operatorId)
+        {
+            var result = new Result();
+            await _uow.BeginAsync();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(userId))
+                    throw new Exception("管理员ID不能为空");
+
+                var user = await _iSysAdminRepository.GetUserByIdAsync(userId, _uow.Transaction);
+                if (user == null)
+                    throw new Exception("该管理员账号不存在");
+                if (user.Status != "Pending")
+                    throw new Exception("该账号无需审核或已审核");
+
+                bool updated = await _iSysAdminRepository.UpdateUserStatusAsync(userId, "Enabled", _uow.Transaction);
+                if (!updated)
+                    throw new Exception("更新状态失败");
+
+                await _logManager.WriteTableChangeLog(new GroupC_LogAuditrails
+                {
+                    TableName = "SYS_USERS",
+                    ActionType = "Update",
+                    OperatorType = "Admin",
+                    OperatorId = operatorId,
+                    OldValue = JsonConvert.SerializeObject(new { UserId = userId, Status = "Pending" }),
+                    NewValue = JsonConvert.SerializeObject(new { UserId = userId, Status = "Enabled" })
+                });
+
+                await _uow.CommitAsync();
+                result.IsSuccess = true;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                result.IsSuccess = false;
+                result.ErrorMessage = $"系统错误：{ex.Message}";
+                return result;
+            }
+        }
+
+        /// <summary>管理员注册审核拒绝：Pending -&gt; Disabled（保留记录可追溯）。</summary>
+        public async Task<Result> RejectAdminAsync(string userId, string operatorId, string? reason = null)
+        {
+            var result = new Result();
+            await _uow.BeginAsync();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(userId))
+                    throw new Exception("管理员ID不能为空");
+
+                var user = await _iSysAdminRepository.GetUserByIdAsync(userId, _uow.Transaction);
+                if (user == null)
+                    throw new Exception("该管理员账号不存在");
+                if (user.Status != "Pending")
+                    throw new Exception("该账号无需审核或已审核");
+
+                bool updated = await _iSysAdminRepository.UpdateUserStatusAsync(userId, "Disabled", _uow.Transaction);
+                if (!updated)
+                    throw new Exception("更新状态失败");
+
+                await _logManager.WriteTableChangeLog(new GroupC_LogAuditrails
+                {
+                    TableName = "SYS_USERS",
+                    ActionType = "Update",
+                    OperatorType = "Admin",
+                    OperatorId = operatorId,
+                    OldValue = JsonConvert.SerializeObject(new { UserId = userId, Status = "Pending" }),
+                    NewValue = JsonConvert.SerializeObject(new { UserId = userId, Status = "Disabled", Reason = reason })
+                });
+
+                await _uow.CommitAsync();
+                result.IsSuccess = true;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                result.IsSuccess = false;
+                result.ErrorMessage = $"系统错误：{ex.Message}";
+                return result;
+            }
+        }
+
+        /// <summary>管理员启用/禁用（仅 Enabled &lt;-&gt; Disabled 互转；Pending 需走注册审核）。</summary>
+        public async Task<Result> SetAdminStatus(string operatorId, string userId, string targetStatus)
+        {
+            var result = new Result();
+            if (targetStatus is not ("Enabled" or "Disabled"))
+            {
+                result.IsSuccess = false;
+                result.ErrorMessage = "非法的目标状态";
+                return result;
+            }
+            await _uow.BeginAsync();
+            try
+            {
+                var user = await _iSysAdminRepository.GetUserByIdAsync(userId, _uow.Transaction);
+                if (user == null)
+                    throw new Exception("该管理员账号不存在");
+                if (user.Status == "Pending")
+                    throw new Exception("待审核的管理员请先到注册审核中处理");
+                if (user.Status == targetStatus)
+                    throw new Exception("该账号已处于目标状态，无需变更");
+                if (operatorId == userId)
+                    throw new Exception("不能操作自己的账号状态");
+
+                bool updated = await _iSysAdminRepository.UpdateUserStatusAsync(userId, targetStatus, _uow.Transaction);
+                if (!updated)
+                    throw new Exception("更新状态失败");
+
+                await _logManager.WriteTableChangeLog(new GroupC_LogAuditrails
+                {
+                    TableName = "SYS_USERS",
+                    ActionType = "Update",
+                    OperatorType = "Admin",
+                    OperatorId = operatorId,
+                    OldValue = JsonConvert.SerializeObject(new { UserId = userId, Status = user.Status }),
+                    NewValue = JsonConvert.SerializeObject(new { UserId = userId, Status = targetStatus })
+                });
 
                 await _uow.CommitAsync();
                 result.IsSuccess = true;

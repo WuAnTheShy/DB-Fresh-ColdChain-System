@@ -135,8 +135,8 @@ public class ColdChainLogisticsController : Controller
     public async Task<IActionResult> Quote()
     {
         var model = new FreightQuoteRequest();
-        var isAdmin = SupplierSession.IsSupplierAdmin(HttpContext.Session);
-        // 普通供应商的货值按自己货物售价计算，供应商固定为自己
+        var isAdmin = SupplierSession.IsPlatformAdmin(HttpContext.Session);
+        // 普通供应商的货值按自己货物售价计算，供应商固定为自己；平台管理员可在表单指定供应商
         if (!isAdmin)
             model.SupplierID = SupplierSession.GetSupplierId(HttpContext.Session);
         await LoadQuoteOptionsAsync(model, isAdmin);
@@ -147,8 +147,8 @@ public class ColdChainLogisticsController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Quote(FreightQuoteRequest request, string? provinceText)
     {
-        var isAdmin = SupplierSession.IsSupplierAdmin(HttpContext.Session);
-        // 普通供应商的货值按自己货物售价计算；管理员可指定供应商
+        var isAdmin = SupplierSession.IsPlatformAdmin(HttpContext.Session);
+        // 普通供应商的货值按自己货物售价计算；平台管理员可指定供应商
         if (string.IsNullOrEmpty(request.SupplierID) && !isAdmin)
             request.SupplierID = SupplierSession.GetSupplierId(HttpContext.Session);
 

@@ -12,6 +12,9 @@ public interface IProductRepository : IBaseRepository<InvProduct>
     /// <summary>查询全部商品图片（服务层内存分组，按商品取前 3 张）</summary>
     Task<List<InvProductImage>> GetAllProductImagesAsync();
 
+    /// <summary>查询全部商品的上下架状态（INV_PRODUCTS.STATUS），返回 ProductID → STATUS</summary>
+    Task<Dictionary<string, string?>> GetProductStatusMapAsync();
+
     /// <summary>查询某商品的全部图片（按展示顺序升序）</summary>
     Task<List<InvProductImage>> GetProductImagesAsync(string productId);
 

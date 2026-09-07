@@ -103,4 +103,15 @@ public class GoodsRepository : IGoodsRepository
         var sql = "DELETE FROM Inv_Goods WHERE ProductID = :ProductId AND SupplierID = :SupplierId";
         await _uow.Connection.ExecuteAsync(sql, new { ProductId = productId, SupplierId = supplierId }, _uow.Transaction);
     }
+
+    public async Task<int> UpdateStatusByProductAsync(string productId, string status, DateTime updateTime)
+    {
+        var sql = """
+            UPDATE Inv_Goods
+            SET Status = :Status, UpdateTime = :UpdateTime
+            WHERE ProductID = :ProductId
+            """;
+        return await _uow.Connection.ExecuteAsync(sql,
+            new { ProductId = productId, Status = status, UpdateTime = updateTime }, _uow.Transaction);
+    }
 }

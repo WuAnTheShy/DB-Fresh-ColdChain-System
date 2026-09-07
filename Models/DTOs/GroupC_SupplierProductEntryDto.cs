@@ -2,8 +2,8 @@ namespace FreshColdChain.Models.DTOs;
 
 /// <summary>
 /// 商品上架搜索条目：一个“供应商 × 商品”的供货组合。
-/// 供 C 组团长“商品上架”模块使用——搜索供应商得到其全部报价商品，
-/// 搜索商品得到所有报价该商品的供应商。
+/// 供 C 组团长“商品上架”模块使用——以供应商的货物（Inv_Goods）为准：
+/// 搜索供应商得到其全部上架货物商品，搜索商品得到所有建立货物供货的供应商。
 /// </summary>
 public class SupplierProductEntryDto
 {
@@ -29,6 +29,12 @@ public class SupplierProductEntryDto
 
     /// <summary>商品图片（按展示顺序，最多 3 张）</summary>
     public List<string> Images { get; set; } = new();
+
+    /// <summary>该供应商对该商品的上架状态（Inv_Goods.Status：ACTIVE=上架，其它=下架）</summary>
+    public string? ProductStatus { get; set; }
+
+    /// <summary>该供应商是否仍上架该商品（下架后为 false，团长端应显示“已下架”且不可入团）</summary>
+    public bool IsProductActive => string.Equals(ProductStatus, "ACTIVE", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -69,9 +75,9 @@ public class PromoterProductEntryDetailDto
     /// <summary>商品图片（按展示顺序，最多 3 张）</summary>
     public List<string> Images { get; set; } = new();
 
-    /// <summary>商品平台状态（INV_PRODUCTS.STATUS：ACTIVE=上架，其它=下架）</summary>
+    /// <summary>该供应商对该商品的上架状态（Inv_Goods.Status：ACTIVE=上架，其它=下架）</summary>
     public string? ProductStatus { get; set; }
 
-    /// <summary>商品是否仍处于平台在售状态（供应商下架后为 false，团长端应显示“已下架”）</summary>
+    /// <summary>该供应商是否仍上架该商品（下架后为 false，团长端应显示“已下架”）</summary>
     public bool IsProductActive => string.Equals(ProductStatus, "ACTIVE", StringComparison.OrdinalIgnoreCase);
 }

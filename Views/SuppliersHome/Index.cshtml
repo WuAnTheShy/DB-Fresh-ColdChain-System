@@ -3,7 +3,19 @@
     ViewData["Title"] = "供应商首页";
 }
 
-<div class="supplier-home-welcome text-center">
-    <div class="display-6 mb-2">欢迎，@Context.Session.GetString("SupplierName")</div>
-    <p class="text-muted mb-0">请使用左侧菜单管理您的货物、定价规则与物流发货。</p>
-</div>
+@if (!string.IsNullOrEmpty(Context.Session.GetString("SupplierId")))
+{
+    <div class="text-center py-4">
+        <div class="display-6 mb-2">欢迎，@Context.Session.GetString("SupplierName")</div>
+        <p class="text-muted">左侧菜单可管理货物、定价规则与物流发货。供货价统一在「我的货物」维护（售价 = 团长进价），入库与商品图文在货物行内操作。</p>
+    </div>
+}
+else
+{
+    <div class="alert alert-info text-center mx-auto mt-4" style="max-width: 560px;">
+        供应商门户需要先登录。请以「供应商」身份登录后，在「我的货物」中统一维护供货价、上下架与商品图文。
+        <div class="mt-2">
+            <a class="btn btn-primary" asp-controller="Account" asp-action="Login" asp-route-role="供应商">供应商登录</a>
+        </div>
+    </div>
+}

@@ -33,12 +33,15 @@
                             <li class="nav-item">
                                 <a class="nav-link" asp-controller="SuppliersHome" asp-action="Index">首页</a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="Products" asp-action="Index">产品库存</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="Suppliers" asp-action="Index">供应商</a>
-                            </li>
+                            @if (FreshColdChain.Filters.AdminSession.IsProductAdmin(Context.Session))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Products" asp-action="Index">产品库存</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Suppliers" asp-action="Index">供应商</a>
+                                </li>
+                            }
                             <li class="nav-item">
                                 <a class="nav-link" asp-controller="Prices" asp-action="Index">💰 定价规则</a>
                             </li>

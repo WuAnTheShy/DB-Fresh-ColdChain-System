@@ -1,0 +1,157 @@
+@model UpdateGoodsDto
+@{
+    ViewData["Title"] = "商品图文与上架信息";
+    ViewData["BackController"] = "Goods";
+    ViewData["BackAction"] = "MyGoods";
+    ViewData["BackText"] = "返回我的货物";
+    var productName = ViewBag.ProductName as string ?? "";
+    var productId = ViewBag.ProductId as string ?? "";
+    var images = (ViewBag.Images as List<SupplierProductImageDto>) ?? new List<SupplierProductImageDto>();
+}
+<h3>商品图文与上架信息：@productName</h3>
+<p class="text-muted">
+    售价、温区与保质期用于库存与冷链；商品图文（文字介绍 + 图片）会展示给团长端，
+    团长可参考/复制/改写您的文字并展示您的前 3 张图片。改价也可回“我的货物”行内直接操作。
+</p>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+
+<div class="row g-4">
+    <!-- 上架信息 + 文字介绍 -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header"><h5 class="mb-0">⚙️ 上架信息与文字介绍</h5></div>
+            <div class="card-body">
+                <form asp-action="Edit" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="productId" value="@productId" />
+                    <div class="mb-3"><label class="form-label">售价（= 团长进价）<span class="text-danger">*</span></label><input asp-for="SalePrice" class="form-control" type="number" step="0.01" required /></div>
+                    <div class="mb-3">
+                        <label class="form-label">温区</label>
+                        <select asp-for="StorageReq" class="form-select">
+                            <option value="">-- 未设置（默认按冷藏）--</option>
+                            <option value="CHILLED">冷藏 (CHILLED)</option>
+                            <option value="FROZEN">冷冻 (FROZEN)</option>
+                            <option value="AMBIENT">常温 (AMBIENT)</option>
+                        </select>
+                        <small class="text-muted">用于库存保质与冷链运输。</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">保质期（小时）<span class="text-danger">*</span></label>
+                        <input asp-for="ShelfLifeHours" class="form-control" type="number" min="1" required placeholder="例如：72" />
+                        <small class="text-muted">进货批次过期校验依赖该值，请务必填写。</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">📝 商品图文 — 文字介绍</label>
+                        <textarea asp-for="Description" class="form-control" rows="4" maxlength="2000" placeholder="产地、规格、储存方式等；该介绍会展示给团长，可参考/复制/改写为带货介绍"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">上下架</label>
+                        <select asp-for="Status" class="form-select">
+                            <option value="ACTIVE">上架中</option>
+                            <option value="INACTIVE">已下架</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <a class="btn btn-outline-secondary" asp-action="MyGoods">取消</a>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 商品图片 -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">🖼 商品图片</h5>
+            </div>
+            <div class="card-body">
+                @if (images.Any())
+                {
+                    <div class="d-flex flex-wrap gap-3 mb-3">
+                        @foreach (var img in images)
+                        {
+                            if (img.HasImageData)
+                            {
+                                <div class="position-relative">
+                                    <img src="@img.ImageUrl" alt="@productName" class="product-img" onerror="this.style.display='none'" />
+                                    @if (!img.IsOwned)
+                                    {
+                                        <span class="badge bg-secondary position-absolute bottom-0 end-0 m-1" style="font-size:10px;">平台图</span>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="d-flex align-items-center badge bg-light text-dark border" style="height:120px;width:120px;">
+                                    <span class="small text-center">⚠ 未上传成功</span>
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <div class="text-muted small mb-2">只能删除<b>自己上传</b>的图片；平台通用图由管理员维护。</div>
+                    @foreach (var img in images)
+                    {
+                        <div class="d-flex align-items-center gap-3 border-bottom py-2">
+                            @if (img.HasImageData)
+                            {
+                                <img src="@img.ImageUrl" class="product-thumb-sm" onerror="this.style.display='none'" />
+                                <span class="small">图片 @img.ImageID</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark">未上传成功</span>
+                                <span class="small text-muted">@img.ImageID</span>
+                            }
+                            @if (img.IsOwned)
+                            {
+                                <form asp-controller="Suppliers" asp-action="DeleteMyProductImage" method="post" class="ms-auto mb-0"
+                                      onsubmit="return confirm('确定删除这张图片吗？删除后无法恢复。');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="imageId" value="@img.ImageID" />
+                                    <input type="hidden" name="productId" value="@productId" />
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <span class="ms-auto badge bg-secondary">平台图 · 不可删除</span>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-muted small mb-3">暂无图片，请在下方上传（最多 9 张，团长端展示前 3 张）。</p>
+                }
+
+                <form asp-controller="Suppliers" asp-action="UploadMyProductImage" method="post" enctype="multipart/form-data" class="d-flex align-items-center gap-2 mt-3">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="productId" value="@productId" />
+                    <label class="btn btn-outline-success btn-sm mb-0" style="cursor:pointer;">
+                        <input type="file" name="imageFile" accept="image/*" hidden
+                               onchange="document.getElementById('fileName').textContent = this.files.length ? this.files[0].name : '';" />
+                        选择图片
+                    </label>
+                    <span id="fileName" class="text-muted small">未选择文件（支持 jpg / png / webp / gif，单张 ≤ 5MB）</span>
+                    <button type="submit" class="btn btn-sm btn-primary" style="flex-shrink:0;">上传</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <style>
+        .product-img { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb; }
+        .product-thumb-sm { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; }
+    </style>
+}

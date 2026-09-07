@@ -55,6 +55,13 @@ public class ProductRepository : BaseRepository<InvProduct>, IProductRepository
         return result.FirstOrDefault();
     }
 
+    public async Task<Dictionary<string, string?>> GetProductStatusMapAsync()
+    {
+        var sql = "SELECT ProductID, Status FROM Inv_Products";
+        var rows = (await _uow.Connection.QueryAsync<(string ProductID, string? Status)>(sql, null, _uow.Transaction)).ToList();
+        return rows.ToDictionary(r => r.ProductID, r => r.Status, StringComparer.OrdinalIgnoreCase);
+    }
+
     public async Task<List<InvProductImage>> GetAllProductImagesAsync()
     {
         var sql = """
