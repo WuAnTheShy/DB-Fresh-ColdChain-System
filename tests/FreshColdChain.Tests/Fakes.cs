@@ -551,6 +551,13 @@ internal sealed class FakeOrderRepository : IOrderRepository
         else
             action();
     }
+
+    public Task<List<ProductGroupRecord>> GetProductGroupRecordsAsync(
+        string promoterId,
+        string productId,
+        int take,
+        IDbTransaction? transaction = null)
+        => Task.FromResult(new List<ProductGroupRecord>());
 }
 
 internal sealed class FakeCustomerRepository : ICustomerRepository

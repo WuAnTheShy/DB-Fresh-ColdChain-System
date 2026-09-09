@@ -24,6 +24,15 @@
                     </div>
                 }
 
+                @if (TempData["Success"] is string successMsg)
+                {
+                    <div class="alert alert-success" role="alert">@successMsg</div>
+                }
+                @if (TempData["Error"] is string errorMsg)
+                {
+                    <div class="alert alert-danger" role="alert">@errorMsg</div>
+                }
+
                 <form asp-action="Login" asp-route-role="@ViewBag.Role" method="post">
                     @if (ViewBag.Role?.ToString() == "管理员")
                     {

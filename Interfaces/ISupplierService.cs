@@ -10,6 +10,12 @@ public interface ISupplierService
     Task<ApiResponse<PagedResult<SupplierDto>>> GetSuppliersAsync(int pageIndex, int pageSize);
     Task<ApiResponse<SupplierDto>> GetSupplierByIdAsync(string id);
     Task<ApiResponse<SupplierDto>> CreateSupplierAsync(CreateSupplierDto dto);
+
+    /// <summary>
+    /// 供应商自助入驻申请（公开入口）：创建 Status=Pending 的供应商，
+    /// 由账号管理员在「注册审核」中审核通过（Active）后方可登录。
+    /// </summary>
+    Task<ApiResponse<SupplierDto>> RegisterSupplierAsync(CreateSupplierDto dto);
     Task<ApiResponse<SupplierDto>> UpdateSupplierAsync(string id, CreateSupplierDto dto);
     Task<ApiResponse> DeleteSupplierAsync(string id);
 

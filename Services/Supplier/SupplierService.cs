@@ -57,6 +57,34 @@ public class SupplierService : ISupplierService
         }
     }
 
+    public async Task<ApiResponse<SupplierDto>> RegisterSupplierAsync(CreateSupplierDto dto)
+    {
+        try
+        {
+            // 登录账号全局唯一：重复注册会导致登录时取到错误账号
+            var all = await _repo.GetAllAsync();
+            if (all.Any(s => !string.IsNullOrEmpty(s.LoginAccount)
+                             && string.Equals(s.LoginAccount, dto.LoginAccount, StringComparison.OrdinalIgnoreCase)))
+                return ApiResponse<SupplierDto>.Fail("该登录账号已被注册，请更换账号后重试");
+
+            var s = new InvSupplier
+            {
+                SupplierName = dto.SupplierName, LicenseNo = dto.LicenseNo,
+                ExpiryDate = dto.ExpiryDate, CreditLevel = dto.CreditLevel,
+                ContactPhone = dto.ContactPhone, LoginAccount = dto.LoginAccount,
+                LoginPassword = string.IsNullOrEmpty(dto.LoginPassword) ? null : HashPassword(dto.LoginPassword),
+                // 自助入驻先进入待审核状态，审核通过（Active）后方可登录
+                Status = "Pending"
+            };
+            await _repo.AddAsync(s);
+            return ApiResponse<SupplierDto>.Success(MapToDto(s), "入驻申请已提交，请等待管理员审核");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse<SupplierDto>.Fail($"入驻申请提交失败：{ex.Message}");
+        }
+    }
+
     public async Task<ApiResponse<SupplierDto>> UpdateSupplierAsync(string id, CreateSupplierDto dto)
     {
         try
@@ -280,7 +308,8 @@ public class SupplierService : ISupplierService
             ExpiryDate = s.ExpiryDate,
             CreditLevel = s.CreditLevel,
             ContactPhone = s.ContactPhone,
-            LoginAccount = s.LoginAccount
+            LoginAccount = s.LoginAccount,
+            Status = s.Status
         }).ToList();
 
         return ApiResponse<List<SupplierAccountDto>>.Success(list);
