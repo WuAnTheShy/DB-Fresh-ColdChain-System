@@ -42,6 +42,7 @@ public class SuppliersController : Controller
         return RedirectToAction("Login", "Account", new { role = "供应商" });
     }
 
+<<<<<<< Updated upstream
     /// <summary>供应商自己的报价页：只能看到并维护自己的产品报价</summary>
     [HttpGet]
     public async Task<IActionResult> MyQuotes()
@@ -107,6 +108,48 @@ public class SuppliersController : Controller
         var r = await _service.UpdateProductDescriptionAsync(supplierId, productId, description);
         TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
         return RedirectToAction(nameof(EditProductInfo), new { productId });
+=======
+    // 供应商自助入驻（公开入口，无需登录）：提交后进入 Pending 待审核，
+    // 由账号管理员在「注册审核」（Admins/AccountReview）中通过或驳回
+
+    /// <summary>供应商入驻申请页（登录页「点击注册新账户」跳转到这里）。</summary>
+    [HttpGet]
+    public IActionResult Register() => View(new CreateSupplierDto());
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Register(CreateSupplierDto dto, string? confirmPassword)
+    {
+        if (string.IsNullOrWhiteSpace(dto.SupplierName) ||
+            string.IsNullOrWhiteSpace(dto.LoginAccount) ||
+            string.IsNullOrWhiteSpace(dto.LoginPassword))
+        {
+            ModelState.AddModelError("", "供应商名称、登录账号和登录密码均不能为空");
+            return View(dto);
+        }
+        if (!dto.ExpiryDate.HasValue)
+        {
+            // 资质到期时间参与登录校验，空值会被视为已过期、审核通过后也无法登录
+            ModelState.AddModelError("", "请填写资质到期时间");
+            return View(dto);
+        }
+        if (dto.LoginPassword != confirmPassword)
+        {
+            ModelState.AddModelError("", "两次输入密码不同");
+            return View(dto);
+        }
+
+        var r = await _service.RegisterSupplierAsync(dto);
+        if (r.IsSuccess)
+        {
+            // 审核通过前不可登录，回到登录页并提示等待审核
+            TempData["Success"] = r.Message;
+            return RedirectToAction("Login", "Account", new { role = "供应商" });
+        }
+
+        ModelState.AddModelError("", r.Message);
+        return View(dto);
+>>>>>>> Stashed changes
     }
 
     /// <summary>

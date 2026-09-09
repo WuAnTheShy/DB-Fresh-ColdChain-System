@@ -78,4 +78,6 @@ public class SupplierAccountDto
     public int CreditLevel { get; set; }
     public string? ContactPhone { get; set; }
     public string? LoginAccount { get; set; }
+    /// <summary>状态: Pending / Active / Disabled / Rejected</summary>
+    public string Status { get; set; } = "Active";
 }

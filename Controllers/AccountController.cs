@@ -131,7 +131,9 @@ namespace FreshColdChain.Controllers
         public IActionResult SupplierRegister()
         {
             ViewBag.Role = "供应商";
-            return RedirectToAction("Create", "Suppliers");
+            // 供应商注册走公开入驻入口（Suppliers/Register，创建 Pending 待审核账号）；
+            // 原跳转目标 Suppliers/Create 为管理员专属操作（[RequireAdmin]），未登录会被弹回登录页
+            return RedirectToAction("Register", "Suppliers");
         }
 
         [HttpPost]
