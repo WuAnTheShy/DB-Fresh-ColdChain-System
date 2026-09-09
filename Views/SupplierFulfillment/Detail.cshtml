@@ -15,6 +15,15 @@
     <span class="badge text-bg-primary fs-6">@logistics.StatusName</span>
 </div>
 
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+
 @if (logistics.IsFallback)
 {
     <div class="alert alert-warning">

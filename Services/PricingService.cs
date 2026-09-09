@@ -306,7 +306,7 @@ public class PricingService : IPricingService
             Priority = dto.Priority,
             IsActive = dto.IsActive ? 1 : 0,
             EffectiveFrom = dto.EffectiveFrom,
-            EffectiveTo = dto.EffectiveTo
+            EffectiveTo = NormalizeEffectiveTo(dto.EffectiveTo)
         };
 
         try
@@ -351,7 +351,7 @@ public class PricingService : IPricingService
         rule.Priority = dto.Priority;
         rule.IsActive = dto.IsActive ? 1 : 0;
         rule.EffectiveFrom = dto.EffectiveFrom;
-        rule.EffectiveTo = dto.EffectiveTo;
+        rule.EffectiveTo = NormalizeEffectiveTo(dto.EffectiveTo);
 
         try
         {
@@ -402,6 +402,16 @@ public class PricingService : IPricingService
             return ApiResponse.Fail($"规则删除失败：{ex.Message}");
         }
     }
+
+    /// <summary>
+    /// 表单里的日期控件（type="date"）只提交日期、绑定到 DateTime 时是当天 00:00:00，
+    /// 若直接把「结束日期」当天 00:00 落库，则当天 00:00 之后 EffectiveTo >= now 恒不成立，
+    /// 导致规则在结束日期当天就失效。这里把“纯日期”的结束时间归一到当天 23:59:59.9999999。
+    /// </summary>
+    private static DateTime? NormalizeEffectiveTo(DateTime? value)
+        => value is { } d && d.TimeOfDay == TimeSpan.Zero
+            ? d.Date.AddDays(1).AddTicks(-1)
+            : value;
 
     // 映射
 

@@ -6,6 +6,22 @@
     ViewData["BackText"] = "返回供应商首页";
 }
 
+@functions {
+    static string TimeWindowLabel(string? tw)
+    {
+        if (string.IsNullOrWhiteSpace(tw)) return "全时段";
+        return tw.Trim().ToUpperInvariant() switch
+        {
+            "ALL_DAY" or "ALLDAY" => "全天生效",
+            "AFTER_18_00" => "18:00 后生效",
+            "NIGHT_22_TO_02" => "深夜 22:00-02:00",
+            "WEEKEND_ONLY" => "周末生效",
+            "SUMMER_SEASON" => "夏季（6-8月）",
+            _ => tw
+        };
+    }
+}
+
 <h3>💰 定价规则管理</h3>
 
 <p>
@@ -54,7 +70,7 @@
                             default:<span class="badge bg-light text-dark">@r.TriggerType</span> break;
                         }
                     </td>
-                    <td>@(r.TimeWindow ?? "全时段")</td>
+                    <td>@TimeWindowLabel(r.TimeWindow)</td>
                     <td>@(r.ManualPrice.HasValue && r.TriggerType == "ManualPrice" ? $"¥{r.ManualPrice}" : r.DiscountRate.HasValue ? $"{r.DiscountRate.Value * 10:0.##}折" : "-")</td>
                     <td>@r.Priority</td>
                     <td>@(r.IsActive ? "启用" : "禁用")</td>

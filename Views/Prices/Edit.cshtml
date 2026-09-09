@@ -8,6 +8,8 @@
 
 <h3>✏️ 编辑定价规则</h3>
 
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
 <form asp-action="Edit" method="post">
     @Html.AntiForgeryToken()
 
@@ -34,8 +36,17 @@
             </select>
         </div>
         <div class="col-md-4" id="timeWindowGroup">
-            <label class="form-label">时间窗口</label>
-            <input asp-for="TimeWindow" class="form-control" placeholder="18:00-20:00" />
+            <label class="form-label">生效时段 <small class="text-muted">（仅时段折扣）</small></label>
+            <select class="form-select" id="timeWindowPreset">
+                <option value="ALL_DAY">全天生效</option>
+                <option value="AFTER_18_00">18:00 后生效</option>
+                <option value="NIGHT_22_TO_02">深夜 22:00-02:00</option>
+                <option value="WEEKEND_ONLY">周末生效</option>
+                <option value="SUMMER_SEASON">夏季（6-8月）</option>
+                <option value="__CUSTOM__">自定义时段…</option>
+            </select>
+            <input asp-for="TimeWindow" type="hidden" id="timeWindowValue" />
+            <input id="timeWindowCustom" class="form-control mt-2" placeholder="如 18:00-20:00" style="display:none" />
         </div>
         <div class="col-md-4">
             <label class="form-label">优先级</label>
@@ -98,5 +109,36 @@
         }
         triggerType.addEventListener('change', updateVisibility);
         updateVisibility();
+
+        // 生效时段：预设下拉 + 自定义时段输入，统一写回 TimeWindow 隐藏域
+        const timeWindowPreset = document.getElementById('timeWindowPreset');
+        const timeWindowValue = document.getElementById('timeWindowValue');
+        const timeWindowCustom = document.getElementById('timeWindowCustom');
+
+        const presetFor = (value) => {
+            const v = (value || '').trim().toUpperCase();
+            if (!v || v === 'ALL_DAY' || v === 'ALLDAY') return 'ALL_DAY';
+            if (v === 'AFTER_18_00') return 'AFTER_18_00';
+            if (v === 'NIGHT_22_TO_02') return 'NIGHT_22_TO_02';
+            if (v === 'WEEKEND_ONLY') return 'WEEKEND_ONLY';
+            if (v === 'SUMMER_SEASON') return 'SUMMER_SEASON';
+            return '__CUSTOM__';
+        };
+
+        function syncTimeWindow() {
+            if (timeWindowPreset.value === '__CUSTOM__') {
+                timeWindowCustom.style.display = '';
+                timeWindowValue.value = timeWindowCustom.value;
+            } else {
+                timeWindowCustom.style.display = 'none';
+                timeWindowValue.value = timeWindowPreset.value;
+            }
+        }
+
+        timeWindowPreset.value = presetFor(timeWindowValue.value);
+        timeWindowCustom.value = timeWindowValue.value;
+        syncTimeWindow();
+        timeWindowPreset.addEventListener('change', syncTimeWindow);
+        timeWindowCustom.addEventListener('input', () => { timeWindowValue.value = timeWindowCustom.value; });
     </script>
 }
