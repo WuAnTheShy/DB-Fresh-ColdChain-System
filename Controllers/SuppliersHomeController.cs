@@ -1,4 +1,4 @@
-//用于前端页面API
+// 用于前端页面API
 
 using Microsoft.AspNetCore.Mvc;
 using FreshColdChain.Models;

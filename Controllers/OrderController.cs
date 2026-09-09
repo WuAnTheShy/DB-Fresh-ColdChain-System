@@ -8,6 +8,7 @@ namespace FreshColdChain.Controllers;
 /// <summary>
 /// 订单 Controller，负责查询、创建和状态流转入口。
 /// </summary>
+[ServiceFilter(typeof(GroupBAdminSessionAuthorizationFilter))]
 public sealed class OrderController : Controller
 {
     private readonly IOrderService _orderService;
@@ -22,6 +23,7 @@ public sealed class OrderController : Controller
     }
 
     [HttpGet]
+    [GroupBPermission(GroupBPermissions.OrdersRead)]
     public async Task<IActionResult> Index(OrderQueryRequest request)
     {
         if (!ModelState.IsValid)
@@ -48,12 +50,14 @@ public sealed class OrderController : Controller
     }
 
     [HttpGet]
+    [GroupBPermission(GroupBPermissions.OrdersManage)]
     public IActionResult Create()
     {
         return View(new CreateOrderRequest());
     }
 
     [HttpPost]
+    [GroupBPermission(GroupBPermissions.OrdersManage)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(
         CreateOrderRequest request,
@@ -85,6 +89,7 @@ public sealed class OrderController : Controller
     }
 
     [HttpGet]
+    [GroupBPermission(GroupBPermissions.OrdersRead)]
     public async Task<IActionResult> Detail(string id)
     {
         if (!GroupBIds.IsValid(id))
@@ -104,6 +109,7 @@ public sealed class OrderController : Controller
     }
 
     [HttpPost]
+    [GroupBPermission(GroupBPermissions.OrdersManage)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Transition(
         string id,
@@ -136,6 +142,7 @@ public sealed class OrderController : Controller
     }
 
     [HttpPost]
+    [GroupBPermission(GroupBPermissions.OrdersManage)]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Cancel(
         string id,

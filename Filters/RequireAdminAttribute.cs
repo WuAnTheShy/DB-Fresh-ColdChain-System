@@ -4,17 +4,28 @@ using Microsoft.AspNetCore.Mvc.Filters;
 namespace FreshColdChain.Filters;
 
 /// <summary>
-/// 要求「供应商管理员」登录（固定账号 admin，Session["IsSupplierAdmin"]="true"），
-/// 否则跳转供应商登录页。用于保护 A 组平台级操作：增加物品、修改运费模板、供应商管理。
-/// 注意：这不是 B 组/C 组的平台管理员（Session["AdminName"]）。
+/// 要求「平台商品管理员」登录（可查看/操作全部供应商数据）：
+/// - C 组商品管理员（Session["AdminKind"]="PRODUCT"，在管理后台外壳下复用 A 组平台级页面）；
+/// - 兼容旧的 A 组供应商管理员会话（固定账号 admin 已随 20260906 迁移删除，仅遗留会话可命中）。
+/// 否则跳转对应登录入口。用于保护平台级操作：增加物品、修改运费模板、供应商管理、全部货物等。
 /// </summary>
 public class RequireAdminAttribute : ActionFilterAttribute
 {
     public override void OnActionExecuting(ActionExecutingContext context)
     {
-        if (!SupplierSession.IsSupplierAdmin(context.HttpContext.Session))
+        var session = context.HttpContext.Session;
+        if (SupplierSession.IsSupplierAdmin(session) || AdminSession.IsProductAdmin(session))
         {
-            context.Result = new RedirectToActionResult("Login", "Account", new { role = "供应商" });
+            return;
         }
+
+        // C 组其它管理员已登录但无此权限 → 回到各自工作台首页
+        if (AdminSession.IsLoggedIn(session))
+        {
+            context.Result = new RedirectToActionResult("Dashboard", "Admins", null);
+            return;
+        }
+
+        context.Result = new RedirectToActionResult("Login", "Account", new { role = "供应商" });
     }
 }

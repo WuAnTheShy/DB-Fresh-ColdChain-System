@@ -42,7 +42,7 @@ async function request(path, options = {}) {
     const validationErrors = payload?.errors ?? {}
     const firstValidationMessage = Object.values(validationErrors).flat()[0]
     throw new ApiError(
-      payload?.message ?? payload?.title ?? firstValidationMessage ?? '请求失败，请稍后重试',
+      payload?.message ?? firstValidationMessage ?? payload?.title ?? '请求失败，请稍后重试',
       response.status,
       payload?.traceId,
       validationErrors,
@@ -57,6 +57,9 @@ function jsonBody(value) {
 }
 
 export const api = {
+  getPromoters: () => request('/api/promoters'),
+  getConsumerCatalog: () => request('/api/consumer-catalog'),
+  getPromoterProductIntro: (promoterId, productId) => request(`/api/promoters/${encodeURIComponent(promoterId)}/featured-products/${encodeURIComponent(productId)}/intro`),
   getCurrentCustomer: () => request('/api/auth/customer/me'),
   loginCustomer: (payload) => request('/api/auth/customer/login', {
     method: 'POST',
@@ -121,14 +124,14 @@ export const api = {
     method: 'POST',
     body: jsonBody(payload),
   }),
+  quoteCheckoutFreight: (payload) => request('/api/orders/freight-quote', {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
   getCheckoutBatch: (checkoutBatchId) => request(`/api/orders/batches/${encodeURIComponent(checkoutBatchId)}`),
   payCheckoutBatch: (checkoutBatchId, payload) => request(`/api/orders/batches/${encodeURIComponent(checkoutBatchId)}/pay`, {
     method: 'POST',
     body: jsonBody(payload),
-  }),
-  transitionOrder: (orderId, targetStatus) => request(`/api/orders/${orderId}/transition`, {
-    method: 'POST',
-    body: jsonBody({ targetStatus }),
   }),
   cancelOrder: (orderId) => request(`/api/orders/${orderId}/cancel`, {
     method: 'POST',
@@ -136,12 +139,29 @@ export const api = {
   confirmOrderItemReceipt: (orderId, orderDetailId) => request(`/api/orders/${orderId}/items/${orderDetailId}/confirm-receipt`, {
     method: 'POST',
   }),
+  confirmOrderReceipt: (orderId) => request(`/api/orders/${orderId}/confirm-receipt`, {
+    method: 'POST',
+  }),
+  submitProductEvaluation: (orderId, orderDetailId, payload) => request(`/api/orders/${orderId}/items/${orderDetailId}/evaluation`, {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
+  submitOrderEvaluation: (orderId, payload) => request(`/api/orders/${orderId}/evaluation`, {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
+  getPromoterEvaluationSummary: (promoterId) => request(`/api/promoters/${encodeURIComponent(promoterId)}/evaluation-summary`),
+  getProductGroupRecords: (promoterId, productId) => request(`/api/promoters/${encodeURIComponent(promoterId)}/products/${encodeURIComponent(productId)}/group-records`),
   getOrderRefunds: (orderId) => request(`/api/orders/${orderId}/refunds`),
   applyOrderRefund: (orderId, payload) => request(`/api/orders/${orderId}/refunds`, {
     method: 'POST',
     body: jsonBody(payload),
   }),
-  applyCheckoutBatchRefund: (batchId, payload) => request(`/api/orders/batches/${encodeURIComponent(batchId)}/refunds`, {
-    method: 'POST', body: jsonBody(payload),
+  previewOrderRefund: (orderId, payload) => request(`/api/orders/${orderId}/refunds/preview`, {
+    method: 'POST',
+    body: jsonBody(payload),
+  }),
+  cancelOrderRefund: (orderId, refundId) => request(`/api/orders/${orderId}/refunds/${refundId}`, {
+    method: 'DELETE',
   }),
 }

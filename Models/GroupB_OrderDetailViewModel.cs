@@ -8,15 +8,26 @@ public sealed class OrderDetailViewModel
     public string OrderId { get; init; } = string.Empty;
     public BizOrder? Order { get; init; }
     public string CustomerName { get; init; } = string.Empty;
+    public string? PromoterName { get; init; }
     public IReadOnlyList<BizOrderDetail> Details { get; init; } = [];
+    public IReadOnlyList<OrderCardProductItem> ProductItems { get; init; } = [];
     public IReadOnlyList<OrderSupplierGroupViewModel> SupplierGroups { get; init; } = [];
+    public FreightCalculationResult? FreightQuote { get; init; }
     public bool CanShip { get; init; }
     public bool CanComplete { get; init; }
     public bool CanCancel { get; init; }
 
+    public string DisplayStatusCode => Order == null
+        ? string.Empty
+        : OrderDisplayStatus.GetCode(
+            Order.OrderStatus,
+            SupplierGroups.Select(group => group.Logistics));
+
     public string StatusName => Order == null
         ? string.Empty
-        : OrderStatusNames.GetName(OrderStatusCodes.Parse(Order.OrderStatus));
+        : OrderDisplayStatus.GetName(
+            Order.OrderStatus,
+            SupplierGroups.Select(group => group.Logistics));
 }
 
 /// <summary>
@@ -28,6 +39,7 @@ public sealed class OrderSupplierGroupViewModel
     public decimal SubTotal { get; init; }
     public string FulfillmentStatus { get; init; } = "未同步";
     public string? TrackingNo { get; init; }
+    public SupplierLogisticsSnapshot Logistics { get; init; } = new();
     public IReadOnlyList<BizOrderDetail> Items { get; init; } = [];
 }
 
@@ -41,6 +53,7 @@ public sealed class OrderDetailHeader
     public string CustomerId { get; init; } = string.Empty;
     public string? CheckoutBatchId { get; init; }
     public string? PromoterId { get; init; }
+    public string? PromoterName { get; init; }
     public string AddressId { get; init; } = string.Empty;
     public string CustomerName { get; init; } = string.Empty;
     public string ReceiverName { get; init; } = string.Empty;
@@ -49,6 +62,7 @@ public sealed class OrderDetailHeader
     public decimal TotalAmount { get; init; }
     public decimal DiscountAmount { get; init; }
     public decimal FreightAmount { get; init; }
+    public string? FreightQuoteSnapshot { get; init; }
     public decimal FinalAmount { get; init; }
     public int PointsEarned { get; init; }
     public int PointsUsed { get; init; }
@@ -74,6 +88,7 @@ public sealed class OrderDetailHeader
             TotalAmount = TotalAmount,
             DiscountAmount = DiscountAmount,
             FreightAmount = FreightAmount,
+            FreightQuoteSnapshot = FreightQuoteSnapshot,
             FinalAmount = FinalAmount,
             PointsEarned = PointsEarned,
             PointsUsed = PointsUsed,

@@ -41,9 +41,34 @@ public sealed class CreateOrderItemRequest
     [StringLength(36, ErrorMessage = "团长ID不能超过36个字符")]
     public string PromoterId { get; set; } = string.Empty;
 
+    /// <summary>
+    /// 供货供应商ID。同一商品可能由多个供应商分别供货，
+    /// 交易身份 = (商品, 供应商)，缺省时后端将拒绝下单。
+    /// </summary>
+    [Required(ErrorMessage = "供应商ID不能为空")]
+    [StringLength(36, ErrorMessage = "供应商ID不能超过36个字符")]
+    public string SupplierId { get; set; } = string.Empty;
+
     [Range(typeof(decimal), "0.01", "99999999.99", ErrorMessage = "客户端商品价格无效")]
     public decimal? ClientUnitPrice { get; set; }
 
     [Range(1, 9999, ErrorMessage = "商品数量必须在1到9999之间")]
     public int Quantity { get; set; } = 1;
+}
+
+/// <summary>
+/// 确认订单页的运费预估请求。最终运费仍以下单时服务端重新计算的结果为准。
+/// </summary>
+public sealed class CheckoutFreightQuoteRequest
+{
+    [Required(ErrorMessage = "消费者ID不能为空")]
+    [StringLength(36, ErrorMessage = "消费者ID不能超过36个字符")]
+    public string CustomerId { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "收货地址ID不能为空")]
+    [StringLength(36, ErrorMessage = "收货地址ID不能超过36个字符")]
+    public string AddressId { get; set; } = string.Empty;
+
+    [MinLength(1, ErrorMessage = "至少需要一件商品才能计算运费")]
+    public List<CreateOrderItemRequest> Items { get; set; } = [];
 }

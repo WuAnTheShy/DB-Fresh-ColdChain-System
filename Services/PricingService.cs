@@ -66,7 +66,7 @@ public class PricingService : IPricingService
         _uow = uow;
     }
 
-    // ==================== 价格计算（核心算法） ====================
+    // 价格计算（核心算法）
 
     public async Task<ApiResponse<PriceCalculationResult>> CalculatePriceAsync(PriceCalculationRequest request)
     {
@@ -119,7 +119,7 @@ public class PricingService : IPricingService
         });
     }
 
-    // ==================== 触发条件判断 ====================
+    // 触发条件判断
 
     /// <summary>
     /// 判断当前规则是否满足触发条件
@@ -225,7 +225,7 @@ public class PricingService : IPricingService
         return 24;
     }
 
-    // ==================== 价格计算 ====================
+    // 价格计算
 
     private static decimal ComputeFinalPrice(BizPriceRule rule, decimal defaultPrice)
     {
@@ -245,7 +245,7 @@ public class PricingService : IPricingService
         return defaultPrice;
     }
 
-    // ==================== 规则管理 CRUD ====================
+    // 规则管理 CRUD
 
     public async Task<ApiResponse<List<PriceRuleDto>>> GetRulesByProductAsync(string productId, string? supplierId = null)
     {
@@ -403,7 +403,7 @@ public class PricingService : IPricingService
         }
     }
 
-    // ==================== 映射 ====================
+    // 映射
 
     private static PriceRuleDto MapToDto(BizPriceRule r, InvProduct? product) => new()
     {

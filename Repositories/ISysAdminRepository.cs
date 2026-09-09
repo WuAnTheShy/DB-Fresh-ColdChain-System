@@ -13,6 +13,9 @@ namespace FreshColdChain.Repositories
         // 用户相关
         Task<GroupC_SysUser?> GetUserByIdAsync(string userId, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
         GroupC_SysUser? GetUserByName(string username);
+        Task<List<GroupC_SysUser>> GetAllUsersAsync(IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
+        Task<List<GroupC_SysUser>> GetUsersByStatusAsync(string status, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
+        Task<bool> UpdateUserStatusAsync(string userId, string status, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
         Task <bool> ExistsUsernameAsync(string username, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
         Task <bool> SaveUserAsync(GroupC_SysUser user, bool isNew, IDbTransaction? transaction = null, CancellationToken cancellationToken = default);
 

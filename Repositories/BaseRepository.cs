@@ -50,7 +50,7 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
         _columns = _allColumns.Where(c => c.PropName != _keyProp.Name).ToList();
     }
 
-    // ==================== 读 ====================
+    // 读
 
     public virtual async Task<T?> GetByIdAsync(int id)
     {
@@ -98,7 +98,7 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
         return count > 0;
     }
 
-    // ==================== 写 ====================
+    // 写
 
     public virtual async Task<T> AddAsync(T entity)
     {
@@ -160,7 +160,7 @@ public class BaseRepository<T> : IBaseRepository<T> where T : class
 
     public virtual Task SaveChangesAsync() => Task.CompletedTask;
 
-    // ==================== 工具 ====================
+    // 工具
 
     private static string GetColumnName(PropertyInfo prop)
     {

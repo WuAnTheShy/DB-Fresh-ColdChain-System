@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/promoter-portal.css" asp-append-version="true" />
 </head>
-<body class="promoter-portal">
+<body class="promoter-portal role-admin">
     <div class="portal-wrapper">
         <aside class="portal-sidebar">
             <div class="sidebar-brand">
@@ -19,32 +19,101 @@
                 </div>
             </div>
             @{
+                var adminKind = FreshColdChain.Filters.AdminSession.GetKind(Context.Session);
+                var adminKindName = FreshColdChain.Filters.AdminSession.KindName(adminKind);
                 var adminAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
-                var isRoleModule = new[] { "RoleManagement", "PendingPromoters", "PendingSuppliers", "ManagePromoters", "ManageSuppliers", "AddPromoter" }.Contains(adminAction);
-                var isFinanceModule = new[] { "FinanceManagement", "PendingWithdrawals", "PendingRefunds", "PaymentRecords" }.Contains(adminAction);
+                var adminController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+                // 商品管理员会进入 A 组页面（Goods/Products/Prices/ColdChainLogistics），导航需按 controller 高亮
+                var isAccountModule = new[] { "AccountReview", "PendingPromoters", "PendingSuppliers" }.Contains(adminAction);
+                var isCreateModule = new[] { "AccountCreate", "AddPromoter" }.Contains(adminAction);
+                var isManageModule = new[] { "AccountManage", "ManagePromoters", "ManageSuppliers" }.Contains(adminAction);
                 var isLogModule = adminAction == "OperationLogs";
             }
             <nav class="sidebar-nav">
-                <a asp-controller="Admins" asp-action="Dashboard"
-                   class="nav-link @(adminAction == "Dashboard" ? "active" : "")">
-                    <span class="nav-icon">⌂</span> 工作台
-                </a>
-                <a asp-controller="Admins" asp-action="RoleManagement"
-                   class="nav-link @(isRoleModule ? "active" : "")">
-                    <span class="nav-icon">👥</span> 角色管理
-                </a>
-                <a asp-controller="Admins" asp-action="FinanceManagement"
-                   class="nav-link @(isFinanceModule ? "active" : "")">
-                    <span class="nav-icon">💰</span> 财务管理
-                </a>
-                <a asp-controller="Admins" asp-action="OperationLogs"
-                   class="nav-link @(isLogModule ? "active" : "")">
-                    <span class="nav-icon">📋</span> 日志管理
-                </a>
+                @if (adminKind == FreshColdChain.Filters.AdminSession.LogKind)
+                {
+                    <!-- 日志管理员：只有操作日志 -->
+                    <a asp-controller="Admins" asp-action="OperationLogs"
+                       class="nav-link @(isLogModule ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 12h6M9 16h6"/></svg></span> 操作日志
+                    </a>
+                }
+                else if (adminKind == FreshColdChain.Filters.AdminSession.ProductKind)
+                {
+                    <!-- 商品管理员：继承 A 组商品管理员的页面与导航 -->
+                    <a asp-controller="Goods" asp-action="AdminIndex"
+                       class="nav-link @(adminController == "Goods" && adminAction == "AdminIndex" ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l5 4V9l5 4V9l8-5v17H3z"/><path d="M3 21h18"/></svg></span> 全部货物
+                    </a>
+                    <a asp-controller="Products" asp-action="Index"
+                       class="nav-link @(adminController == "Products" && adminAction == "Index" ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2V4a2 2 0 0 1 2-2z"/><path d="M8 8h8M8 12h8"/></svg></span> 物品管理
+                    </a>
+                    <a asp-controller="Prices" asp-action="Index"
+                       class="nav-link @(adminController == "Prices" && adminAction == "Index" ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1"/></svg></span> 定价规则
+                    </a>
+                    <a asp-controller="ColdChainLogistics" asp-action="Quote"
+                       class="nav-link @(adminController == "ColdChainLogistics" && adminAction == "Quote" ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8"/><path d="M2 17h20M8 21a2 2 0 1 0 4 0M16 21a2 2 0 1 0 4 0"/></svg></span> 计算运费
+                    </a>
+                    <a asp-controller="ColdChainLogistics" asp-action="Shipments"
+                       class="nav-link @(adminController == "ColdChainLogistics" && adminAction == "Shipments" ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h2a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H8"/><path d="M4 6h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-2"/><circle cx="7" cy="17" r="3"/><path d="M3 6V4a1 1 0 0 1 1-1h4"/></svg></span> 发货记录
+                    </a>
+                    <a asp-controller="ColdChainLogistics" asp-action="Traceability"
+                       class="nav-link @(adminController == "ColdChainLogistics" && adminAction == "Traceability" ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span> 精准溯源
+                    </a>
+                    <a asp-controller="ColdChainLogistics" asp-action="Index"
+                       class="nav-link @(adminController == "ColdChainLogistics" && adminAction == "Index" ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2 4h10l-2 6H7l-3-10z"/><path d="M6 4h13l1 6H9"/></svg></span> 运费模板
+                    </a>
+                }
+                else if (adminKind == FreshColdChain.Filters.AdminSession.FinanceKind)
+                {
+                    <!-- 财务管理员 -->
+                    <a asp-controller="Admins" asp-action="Dashboard"
+                       class="nav-link @(adminAction == "Dashboard" ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg></span> 财务工作台
+                    </a>
+                    <a asp-controller="Admins" asp-action="PendingWithdrawals"
+                       class="nav-link @(adminAction == "PendingWithdrawals" ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span> 提现审核
+                    </a>
+                    <a asp-controller="Admins" asp-action="PendingRefunds"
+                       class="nav-link @(adminAction == "PendingRefunds" ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 2.6-6.4L3 9"/></svg></span> 退款管理
+                    </a>
+                    <a asp-controller="Admins" asp-action="PaymentRecords"
+                       class="nav-link @(adminAction == "PaymentRecords" ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m8 8 8 8M16 8l-8 8"/></svg></span> 支付流水
+                    </a>
+                }
+                else
+                {
+                    <!-- 账号管理员 -->
+                    <a asp-controller="Admins" asp-action="Dashboard"
+                       class="nav-link @(adminAction == "Dashboard" ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg></span> 工作台
+                    </a>
+                    <a asp-controller="Admins" asp-action="AccountReview"
+                       class="nav-link @(isAccountModule ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11 3 17M18 13l-3 3-3-3M3 5h18v14H3z"/><path d="M3 3v18"/></svg></span> 注册审核
+                    </a>
+                    <a asp-controller="Admins" asp-action="AccountCreate"
+                       class="nav-link @(isCreateModule ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/><path d="M19 5v6M16 8h6"/></svg></span> 账号新增
+                    </a>
+                    <a asp-controller="Admins" asp-action="AccountManage"
+                       class="nav-link @(isManageModule ? "active" : "")">
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></span> 账号管理
+                    </a>
+                }
             </nav>
             <div class="sidebar-footer">
-                <div class="user-chip">管理员: @Context.Session.GetString("AdminName")</div>
-                <a asp-controller="Account" asp-action="Login" asp-route-role="管理员" class="btn btn-outline-light btn-sm w-100 mt-2">退出登录</a>
+                <div class="user-chip">@adminKindName: @Context.Session.GetString("AdminName")</div>
+                <a asp-controller="Account" asp-action="Logout" class="btn btn-outline-light btn-sm w-100 mt-2">退出登录</a>
             </div>
         </aside>
         <main class="portal-main">

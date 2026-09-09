@@ -1,4 +1,4 @@
-//操作InvSupplierPrices表
+// 操作InvSupplierPrices表
 
 using FreshColdChain.Models;
 

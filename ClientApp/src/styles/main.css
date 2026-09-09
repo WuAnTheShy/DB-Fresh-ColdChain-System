@@ -51,7 +51,7 @@ a:hover { color: #c7511f; }
   margin-right: auto;
   margin-left: auto;
 }
-.header-inner { width: 100%; max-width: none; margin-right: 0; margin-left: 0; padding-right: 16px; padding-left: 16px; }
+.header-inner { width: 100%; max-width: none; margin-right: auto; margin-left: auto; padding-right: 16px; padding-left: 16px; }
 .page-space { padding-top: 16px; }
 
 /* ---------- 共享品牌(AppHeader / ShopFooter 共用) ---------- */
@@ -70,6 +70,26 @@ a:hover { color: #c7511f; }
 
 /* 商品网格(首页 / 搜索 / 团长详情 / 商品详情共用) */
 .product-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+
+/* 列表到底提示(搜索 / 分类 / 关注时间流 / 团长详情等共用) */
+.list-end-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 4px 0 0;
+  padding: 18px 0 6px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+.list-end-tip::before,
+.list-end-tip::after {
+  width: 42px;
+  height: 1px;
+  background: #d8dddb;
+  content: "";
+}
 
 /* ---------- 页面头部(搜索 / 订单 / 关注 / 地址 / 领券共用) ---------- */
 .listing-header, .account-page-header, .cart-title { margin-top: 4px; }
@@ -123,6 +143,14 @@ a:hover { color: #c7511f; }
   .home-section { padding-top: 24px; }
   .section-title-row h2 { font-size: 18px; }
   .product-grid, .listing-product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+
+  /* 移动端首页 / 分类 / 团长页商品列表单列 */
+  .home-page .product-grid,
+  .home-page .listing-product-grid,
+  .search-page .product-grid,
+  .search-page .listing-product-grid,
+  .leader-detail-page .product-grid,
+  .leader-detail-page .listing-product-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .listing-header, .account-page-header { align-items: flex-start; }
   .listing-header h1, .account-page-header h1 { font-size: 21px; }
   .listing-header > span { display: none; }
@@ -134,4 +162,15 @@ a:hover { color: #c7511f; }
 
 @media (max-width: 374.98px) {
   .store-container, .header-inner { width: calc(100% - 16px); }
+}
+
+.app-filter-definitions {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.fallback-photo-tint {
+  filter: url('#fallback-photo-blue-overlay');
 }

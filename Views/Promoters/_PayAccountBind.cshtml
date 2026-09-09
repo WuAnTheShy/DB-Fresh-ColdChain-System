@@ -1,0 +1,75 @@
+@model PromoterPayAccountBindModel
+@{
+    var returnAction = string.IsNullOrWhiteSpace(Model.ReturnAction) ? "Withdrawals" : Model.ReturnAction;
+}
+
+<div class="content-card">
+    <div class="content-card-header"><h5>收款账户绑定</h5></div>
+    <div class="content-card-body">
+        <p class="text-muted small mb-3">提现必须使用已绑定的微信、支付宝或银行卡，未绑定的平台无法提交申请。</p>
+        @foreach (var item in Model.Accounts)
+        {
+            <div class="pay-account-row">
+                <div>
+                    <div class="pay-account-label">@item.Label</div>
+                    @if (item.IsBound)
+                    {
+                        <div class="pay-account-value">@item.AccountNo</div>
+                    }
+                    else
+                    {
+                        <div class="pay-account-value text-muted">未绑定</div>
+                    }
+                </div>
+                <div class="pay-account-actions">
+                    <button type="button"
+                            class="btn btn-sm @(item.IsBound ? "btn-outline-primary" : "btn-success") bind-pay-btn"
+                            data-platform="@item.Platform"
+                            data-label="@item.Label"
+                            data-placeholder="@item.Placeholder"
+                            data-account="@item.AccountNo">
+                        @(item.IsBound ? "修改" : "绑定")
+                    </button>
+                    @if (item.IsBound)
+                    {
+                        <form asp-controller="Promoters" asp-action="UnbindPayAccount" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="platform" value="@item.Platform" />
+                            <input type="hidden" name="returnAction" value="@returnAction" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('确定解绑该@(item.Label)账户吗？');">解绑</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="modal fade" id="bindPayAccountModal" tabindex="-1" aria-labelledby="bindPayAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form asp-controller="Promoters" asp-action="BindPayAccount" method="post" id="bindPayAccountForm">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="bindPayAccountModalLabel">绑定收款账户</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="platform" id="bindPlatform" />
+                    <input type="hidden" name="returnAction" value="@returnAction" />
+                    <div class="mb-3">
+                        <label class="form-label" id="bindAccountLabel">账号</label>
+                        <input type="text" name="accountNo" id="bindAccountNo" class="form-control"
+                               required maxlength="64" autocomplete="off" />
+                        <div class="form-text" id="bindAccountHint"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-success">保存绑定</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

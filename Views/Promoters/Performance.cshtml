@@ -21,7 +21,7 @@
 <div class="stat-grid">
     <div class="stat-card sales">
         <div class="stat-card-top">
-            <span class="stat-icon bg-purple-subtle text-purple">📈</span>
+            <span class="stat-icon bg-purple-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V10"/><path d="M9 20V4"/><path d="M15 20v-8"/><path d="M21 20V7"/></svg></span>
             <span class="stat-label">累计有效销售额</span>
         </div>
         <div class="stat-value">@Model.TotalSales.ToString("N2")</div>
@@ -29,7 +29,7 @@
     </div>
     <div class="stat-card">
         <div class="stat-card-top">
-            <span class="stat-icon bg-success-subtle text-success">%</span>
+            <span class="stat-icon bg-success-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg></span>
             <span class="stat-label">当前佣金比例</span>
         </div>
         <div class="stat-value">@Model.CurrentTierRate<span style="font-size:16px">%</span></div>
@@ -37,7 +37,7 @@
     </div>
     <div class="stat-card pending">
         <div class="stat-card-top">
-            <span class="stat-icon bg-warning-subtle text-warning">⏳</span>
+            <span class="stat-icon bg-warning-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
             <span class="stat-label">待结算佣金</span>
         </div>
         <div class="stat-value text-warning">@Model.PendingBalance.ToString("N2")</div>
@@ -45,7 +45,7 @@
     </div>
     <div class="stat-card">
         <div class="stat-card-top">
-            <span class="stat-icon bg-success-subtle text-success">¥</span>
+            <span class="stat-icon bg-success-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span>
             <span class="stat-label">可提现余额</span>
         </div>
         <div class="stat-value text-success">@Model.CurrentBalance.ToString("N2")</div>
@@ -66,7 +66,7 @@
                             <div class="tier-step-marker">
                                 @if (step.IsAchieved)
                                 {
-                                    <span>✓</span>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                                 }
                                 else
                                 {
@@ -122,7 +122,8 @@
                 @if (Model.IsMaxTier)
                 {
                     <div class="alert alert-success mb-0">
-                        🎉 已达最高等级「@Model.LevelName」，基础佣金比例 <strong>@Model.CurrentTierRate%</strong>。
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.1 4.6 5 .6-3.7 3.4.9 5L12 14.6 7.7 16.6l.9-5L4.9 8.2l5-.6z"/></svg>
+                        已达最高等级「@Model.LevelName」，基础佣金比例 <strong>@Model.CurrentTierRate%</strong>。
                     </div>
                 }
                 else
@@ -158,7 +159,16 @@
                     @foreach (var m in Model.Milestones)
                     {
                         <div class="milestone-item @(m.IsAchieved ? "achieved" : "")">
-                            <div class="milestone-icon">@(m.IsAchieved ? "✓" : "○")</div>
+                            <div class="milestone-icon">
+                                @if (m.IsAchieved)
+                                {
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                }
+                                else
+                                {
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/></svg>
+                                }
+                            </div>
                             <div class="milestone-body">
                                 <div class="milestone-label">@m.Label</div>
                                 <div class="milestone-bonus text-success">+¥@m.BonusAmount.ToString("N2") 奖励佣金</div>

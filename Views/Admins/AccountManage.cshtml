@@ -1,0 +1,339 @@
+@{
+    ViewData["Title"] = "账号管理";
+    var promoters = (ViewBag.Promoters as List<GroupC_CrmPromoter>) ?? new List<GroupC_CrmPromoter>();
+    var suppliers = (ViewBag.Suppliers as List<FreshColdChain.Models.DTOs.SupplierDto>) ?? new List<FreshColdChain.Models.DTOs.SupplierDto>();
+    var admins = (ViewBag.Admins as List<GroupC_SysUser>) ?? new List<GroupC_SysUser>();
+    var currentAdminId = ViewBag.CurrentAdminId as string;
+}
+<partial name="_Alerts" />
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg> 账号管理</h5>
+        <a asp-action="AccountCreate" class="btn btn-sm btn-primary">+ 新增账号</a>
+    </div>
+    <div class="content-card-body p-0">
+        <ul class="nav nav-tabs px-3 pt-2" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabManagePromoters" type="button" role="tab">
+                    团长账号 <span class="badge text-bg-light ms-1">@promoters.Count</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabManageSuppliers" type="button" role="tab">
+                    供应商账号 <span class="badge text-bg-light ms-1">@suppliers.Count</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabManageAdmins" type="button" role="tab">
+                    管理员账号 <span class="badge text-bg-light ms-1">@admins.Count</span>
+                </button>
+            </li>
+        </ul>
+        <div class="tab-content p-0">
+            <!-- 团长账号 -->
+            <div class="tab-pane fade show active" id="tabManagePromoters" role="tabpanel">
+                @if (!promoters.Any())
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m2 7 10 7L22 7"/></svg></div>
+                        <p>暂无团长账号</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>团长</th>
+                                    <th>登录账号</th>
+                                    <th>联系电话</th>
+                                    <th>基础佣金率</th>
+                                    <th>累计销售额</th>
+                                    <th>可提现余额</th>
+                                    <th>注册时间</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in promoters)
+                                {
+                                    var (badge, text) = item.Status switch
+                                    {
+                                        "Enable" => ("text-bg-success", "正常"),
+                                        "Disable" => ("text-bg-secondary", "已禁用"),
+                                        "Frozen" => ("text-bg-danger", "已冻结"),
+                                        _ => ("text-bg-warning", "待审核")
+                                    };
+                                    <tr>
+                                        <td>
+                                            @item.PromoterName
+                                            <div class="small text-muted"><code>@item.PromoterId</code></div>
+                                        </td>
+                                        <td class="small">@item.LoginAccount</td>
+                                        <td class="small">@item.Phone</td>
+                                        <td>@((item.BaseCommissionRate * 100).ToString("0.##"))%</td>
+                                        <td>¥@item.TotalSales.ToString("N2")</td>
+                                        <td>¥@item.CurrentBalance.ToString("N2")</td>
+                                        <td class="small text-muted">@item.RegisterTime.ToString("yyyy-MM-dd")</td>
+                                        <td><span class="badge @badge">@text</span></td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-primary mb-1" data-bs-toggle="modal"
+                                                    data-bs-target="#rateModal"
+                                                    data-id="@item.PromoterId" data-name="@item.PromoterName" data-rate="@item.BaseCommissionRate">改比例</button>
+                                            @if (item.Status == "Enable")
+                                            {
+                                                <form asp-action="SetPromoterStatus" method="post" style="display:inline-block;"
+                                                      onsubmit="return confirm('确认禁用该团长？禁用后其无法登录。');">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="promoterId" value="@item.PromoterId" />
+                                                    <input type="hidden" name="targetStatus" value="Disable" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">禁用</button>
+                                                </form>
+                                            }
+                                            else if (item.Status is "Disable" or "Frozen")
+                                            {
+                                                <form asp-action="SetPromoterStatus" method="post" style="display:inline-block;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="promoterId" value="@item.PromoterId" />
+                                                    <input type="hidden" name="targetStatus" value="Enable" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-success">重新启用</button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去审核</a>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <!-- 供应商账号 -->
+            <div class="tab-pane fade" id="tabManageSuppliers" role="tabpanel">
+                @if (!suppliers.Any())
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m2 7 10 7L22 7"/></svg></div>
+                        <p>暂无供应商</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>供应商</th>
+                                    <th>登录账号</th>
+                                    <th>联系电话</th>
+                                    <th>信用等级</th>
+                                    <th>资质到期日</th>
+                                    <th>供货商品</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in suppliers)
+                                {
+                                    var (badge, text) = item.Status switch
+                                    {
+                                        "Active" => ("text-bg-success", "正常"),
+                                        "Disabled" => ("text-bg-secondary", "已禁用"),
+                                        "Rejected" => ("text-bg-danger", "已驳回"),
+                                        _ => ("text-bg-warning", "待审核")
+                                    };
+                                    <tr>
+                                        <td>
+                                            @item.SupplierName
+                                            <div class="small text-muted"><code>@item.SupplierID</code></div>
+                                        </td>
+                                        <td class="small">@item.LoginAccount</td>
+                                        <td class="small">@item.ContactPhone</td>
+                                        <td>@item.CreditLevel</td>
+                                        <td class="small text-muted">@item.ExpiryDate?.ToString("yyyy-MM-dd")</td>
+                                        <td class="small" style="max-width: 260px;">
+                                            @if (item.ProductNames == null || !item.ProductNames.Any())
+                                            {
+                                                <span class="text-muted">暂无商品</span>
+                                            }
+                                            else
+                                            {
+                                                @string.Join("、", item.ProductNames)
+                                            }
+                                        </td>
+                                        <td><span class="badge @badge">@text</span></td>
+                                        <td>
+                                            @if (item.Status == "Active")
+                                            {
+                                                <form asp-action="SetSupplierStatus" method="post" style="display:inline-block;"
+                                                      onsubmit="return confirm('确认禁用该供应商？禁用后其无法登录门户。');">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                                                    <input type="hidden" name="targetStatus" value="Disabled" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">禁用</button>
+                                                </form>
+                                            }
+                                            else if (item.Status is "Disabled" or "Rejected")
+                                            {
+                                                <form asp-action="SetSupplierStatus" method="post" style="display:inline-block;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                                                    <input type="hidden" name="targetStatus" value="Active" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-success">重新启用</button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去审核</a>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+
+            <!-- 管理员账号 -->
+            <div class="tab-pane fade" id="tabManageAdmins" role="tabpanel">
+                @if (!admins.Any())
+                {
+                    <div class="empty-state">
+                        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="m2 7 10 7L22 7"/></svg></div>
+                        <p>暂无管理员账号</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>管理员</th>
+                                    <th>所属种类</th>
+                                    <th>登录账号</th>
+                                    <th>联系电话</th>
+                                    <th>注册时间</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in admins)
+                                {
+                                    var (badge, text) = item.Status switch
+                                    {
+                                        "Enabled" or "Enable" => ("text-bg-success", "正常"),
+                                        "Pending" => ("text-bg-warning", "待审核"),
+                                        _ => ("text-bg-secondary", "已禁用")
+                                    };
+                                    var isSelf = currentAdminId == item.UserId;
+                                    <tr>
+                                        <td>
+                                            @item.RealName
+                                            @if (isSelf)
+                                            {
+                                                <span class="badge text-bg-info ms-1">当前账号</span>
+                                            }
+                                            <div class="small text-muted"><code>@item.UserId</code></div>
+                                        </td>
+                                        <td><span class="badge text-bg-light border">@FreshColdChain.Filters.AdminSession.KindName(item.AdminKind)</span></td>
+                                        <td class="small">@item.Username</td>
+                                        <td class="small">@item.Phone</td>
+                                        <td class="small text-muted">@item.CreateTime.ToString("yyyy-MM-dd")</td>
+                                        <td><span class="badge @badge">@text</span></td>
+                                        <td>
+                                            @if (item.Status == "Pending")
+                                            {
+                                                <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去审核</a>
+                                            }
+                                            else if (item.Status is "Enabled" or "Enable")
+                                            {
+                                                @if (!isSelf)
+                                                {
+                                                    <form asp-action="SetAdminStatus" method="post" style="display:inline-block;"
+                                                          onsubmit="return confirm('确认禁用该管理员？禁用后其无法登录。');">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="userId" value="@item.UserId" />
+                                                        <input type="hidden" name="targetStatus" value="Disabled" />
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger">禁用</button>
+                                                    </form>
+                                                }
+                                            }
+                                            else if (item.Status == "Disabled")
+                                            {
+                                                @if (!isSelf)
+                                                {
+                                                    <form asp-action="SetAdminStatus" method="post" style="display:inline-block;">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="userId" value="@item.UserId" />
+                                                        <input type="hidden" name="targetStatus" value="Enabled" />
+                                                        <button type="submit" class="btn btn-sm btn-outline-success">重新启用</button>
+                                                    </form>
+                                                }
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 修改佣金比例 Modal -->
+<div class="modal fade" id="rateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="UpdateCommissionRate" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="rateModalPromoterId" name="PromoterId" />
+                <div class="modal-header">
+                    <h6 class="modal-title">修改佣金比例</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-2">
+                        团长：<strong id="rateModalPromoterName"></strong>
+                        （当前 <span id="rateModalCurrent"></span>）
+                    </p>
+                    <label class="form-label">新基础佣金率（小数，如 0.03 表示 3%）</label>
+                    <input type="number" class="form-control" id="rateModalInput" name="BaseCommissionRate"
+                           step="0.001" min="0" max="1" required />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary btn-sm">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var rateModalEl = document.getElementById('rateModal');
+        if (rateModalEl) {
+            rateModalEl.addEventListener('show.bs.modal', function (event) {
+                var btn = event.relatedTarget;
+                if (!btn) return;
+                document.getElementById('rateModalPromoterId').value = btn.getAttribute('data-id');
+                document.getElementById('rateModalPromoterName').textContent = btn.getAttribute('data-name');
+                document.getElementById('rateModalCurrent').textContent = (parseFloat(btn.getAttribute('data-rate')) * 100).toFixed(2) + '%';
+                document.getElementById('rateModalInput').value = btn.getAttribute('data-rate');
+            });
+        }
+    })();
+</script>

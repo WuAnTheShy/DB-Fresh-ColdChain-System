@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/promoter-portal.css" asp-append-version="true" />
 </head>
-<body class="promoter-portal">
+<body class="promoter-portal role-promoter">
     @{
         var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
     }
@@ -24,31 +24,31 @@
             <nav class="sidebar-nav">
                 <a asp-controller="Promoters" asp-action="Dashboard"
                    class="nav-link @(currentAction == "Dashboard" ? "active" : "")">
-                    <span class="nav-icon">⌂</span> 工作台
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg></span> 工作台
                 </a>
                 <a asp-controller="Promoters" asp-action="Performance"
                    class="nav-link @(currentAction == "Performance" ? "active" : "")">
-                    <span class="nav-icon">★</span> 业绩概览
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 14l3-4 4 3 5-7"/></svg></span> 业绩概览
                 </a>
                 <a asp-controller="Promoters" asp-action="Commissions"
                    class="nav-link @(currentAction == "Commissions" ? "active" : "")">
-                    <span class="nav-icon">¥</span> 佣金明细
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span> 佣金明细
                 </a>
                 <a asp-controller="Promoters" asp-action="Withdrawals"
                    class="nav-link @(currentAction == "Withdrawals" ? "active" : "")">
-                    <span class="nav-icon">↓</span> 提现管理
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M9 15h6"/></svg></span> 提现管理
                 </a>
                 <a asp-controller="Promoters" asp-action="Profile"
                    class="nav-link @(currentAction == "Profile" ? "active" : "")">
-                    <span class="nav-icon">☺</span> 个人资料
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></span> 个人资料
                 </a>
                 <a asp-controller="Promoters" asp-action="ProductListing"
-                   class="nav-link @(currentAction == "ProductListing" ? "active" : "")">
-                    <span class="nav-icon">📦</span> 商品上架
+                   class="nav-link @(currentAction is "ProductListing" or "EntryDetail" ? "active" : "")">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg></span> 商品上架
                 </a>
                 <a asp-controller="Promoters" asp-action="BoundConsumers"
                    class="nav-link @(currentAction == "BoundConsumers" ? "active" : "")">
-                    <span class="nav-icon">👥</span> 我的消费者
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14.5c2.5.3 4.5 2 4.5 5"/></svg></span> 我的消费者
                 </a>
             </nav>
             <div class="sidebar-footer">

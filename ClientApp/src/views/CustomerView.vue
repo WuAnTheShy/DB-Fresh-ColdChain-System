@@ -1,12 +1,14 @@
 <script setup>
-import { BadgeCheck, Bell, ChevronRight, Coins, MapPin, PackageSearch, Save, TicketPercent, UserRound } from '@lucide/vue'
+import { BadgeCheck, Bell, ChevronRight, Coins, LogOut, MapPin, PackageSearch, Save, TicketPercent, UserRound } from '@lucide/vue'
 import { onMounted, reactive, ref } from 'vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
+import { useRouter } from 'vue-router'
 import { ApiError, api } from '../services/api'
 import { useCustomerContext } from '../state/customer'
 import { avatarUrl, presetAvatars } from '../assets/avatars'
 
-const { customerId } = useCustomerContext()
+const router = useRouter()
+const { customerId, clearCustomer } = useCustomerContext()
+const loggingOut = ref(false)
 const loading = ref(true)
 const saving = ref(false)
 const notFound = ref(false)
@@ -28,17 +30,26 @@ async function saveProfile() {
   saving.value = true; error.value = ''; success.value = ''
   try { await api.updateCustomer(customerId.value, { ...form, email: form.email || null }); success.value = '账户资料已更新'; await loadProfile() } catch (requestError) { error.value = requestError.message } finally { saving.value = false }
 }
+async function logout() {
+  loggingOut.value = true
+  try {
+    await api.logoutCustomer()
+    clearCustomer()
+    await router.push('/')
+  } finally {
+    loggingOut.value = false
+  }
+}
 onMounted(loadProfile)
 </script>
 
 <template>
   <div class="store-container page-space profile-page">
-    <StoreBreadcrumb :items="[{ label: '个人中心' }]" />
     <div v-if="error" class="alert alert-danger">{{ error }}</div>
     <div v-if="success" class="alert alert-success">{{ success }}</div>
     <div v-if="loading" class="store-loading"><span class="spinner-border spinner-border-sm"></span>正在读取账户信息</div>
     <div v-else-if="notFound" class="store-empty">
-      <UserRound :size="40" /><strong>当前演示消费者尚未建档</strong><span>请先通过系统初始数据建立消费者账号</span>
+      <UserRound :size="40" /><strong>消费者账户不存在</strong><span>请重新登录，或注册新的消费者账号</span>
     </div>
     <template v-else-if="profile">
       <section class="profile-banner"><span class="profile-avatar">
@@ -126,6 +137,11 @@ onMounted(loadProfile)
           <div v-else class="inline-empty">暂无收货地址</div>
         </aside>
       </div>
+      <section class="account-section profile-logout">
+        <button class="btn btn-outline-danger" type="button" :disabled="loggingOut" @click="logout">
+          <LogOut :size="17" />退出登录
+        </button>
+      </section>
     </template>
   </div>
 </template>
@@ -426,6 +442,12 @@ onMounted(loadProfile)
   color: var(--muted);
   font-size: 9px;
   line-height: 1.45;
+}
+
+.profile-logout {
+  display: flex;
+  justify-content: center;
+  margin-top: 15px;
 }
 
 @media (max-width: 767.98px) {

@@ -1,3 +1,4 @@
+using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
 using FreshColdChain.Models.ViewModels;
 using FreshColdChain.Services;
@@ -13,18 +14,21 @@ namespace FreshColdChain.Controllers
         private readonly PromoterPortalDataProvider _dataProvider;
         private readonly ISupplierService _supplierService;
         private readonly PromoterService _promoterService;
-        private readonly WithdrawalService _withdrawalService;  
+        private readonly WithdrawalService _withdrawalService;
+        private readonly PromoterIntroStore _introStore;
 
         public PromotersController(
             PromoterPortalDataProvider dataProvider,
             ISupplierService supplierService,
             PromoterService promoterService,
-            WithdrawalService withdrawalService)
+            WithdrawalService withdrawalService,
+            PromoterIntroStore introStore)
         { 
             _dataProvider = dataProvider;
             _supplierService = supplierService;
             _promoterService = promoterService;
             _withdrawalService = withdrawalService;
+            _introStore = introStore;
         }
 
         public async Task<IActionResult> Dashboard()
@@ -71,12 +75,28 @@ namespace FreshColdChain.Controllers
             var redirect = EnsureLoggedIn();
             if (redirect != null) return redirect;
             var promoterId = GetPromoterId()!;
+            var promoter = _dataProvider.GetPromoter(promoterId);
+
+            if (form.ApplyAmount <= 0)
+            {
+                TempData["ErrorMessage"] = "提现金额必须大于 0。";
+                return View(_dataProvider.BuildWithdrawals(promoterId, form));
+            }
+
+            var platform = PromoterPayAccounts.Normalize(form.AccountPlatform);
+            var boundAccount = promoter.GetBoundPayAccount(platform);
+            if (string.IsNullOrWhiteSpace(boundAccount))
+            {
+                TempData["ErrorMessage"] = $"请先绑定{PromoterPayAccounts.Label(platform)}收款账户后再申请提现。";
+                return View(_dataProvider.BuildWithdrawals(promoterId, form));
+            }
 
             var request = new GroupC_WithdrawalRequest
             {
                 PromoterId = promoterId,
                 ApplyAmount = form.ApplyAmount,
-                AccountInfo = $"{form.AccountPlatform}：{form.AccountInfo}"
+                AccountPlatform = platform,
+                AccountInfo = PromoterPayAccounts.FormatAccountInfo(platform, boundAccount)
             };
 
             var result = await _withdrawalService.ApplyWithdrawal(promoterId, request);
@@ -87,6 +107,40 @@ namespace FreshColdChain.Controllers
 
             var vm = _dataProvider.BuildWithdrawals(promoterId, form);
             return View(vm);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BindPayAccount(string platform, string accountNo, string? returnAction)
+        {
+            var redirect = EnsureLoggedIn();
+            if (redirect != null) return redirect;
+            var promoterId = GetPromoterId()!;
+
+            var result = await _promoterService.BindPayAccountAsync(promoterId, platform, accountNo);
+            if (result.IsSuccess)
+                TempData["SuccessMessage"] = $"{PromoterPayAccounts.Label(platform)}已绑定。";
+            else
+                TempData["ErrorMessage"] = result.ErrorMessage;
+
+            return RedirectToSafeAction(returnAction);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UnbindPayAccount(string platform, string? returnAction)
+        {
+            var redirect = EnsureLoggedIn();
+            if (redirect != null) return redirect;
+            var promoterId = GetPromoterId()!;
+
+            var result = await _promoterService.UnbindPayAccountAsync(promoterId, platform);
+            if (result.IsSuccess)
+                TempData["SuccessMessage"] = $"{PromoterPayAccounts.Label(platform)}已解绑。";
+            else
+                TempData["ErrorMessage"] = result.ErrorMessage;
+
+            return RedirectToSafeAction(returnAction);
         }
 
         public IActionResult Profile()
@@ -132,8 +186,14 @@ namespace FreshColdChain.Controllers
             return null;
         }
 
+        private IActionResult RedirectToSafeAction(string? returnAction)
+        {
+            var action = returnAction is "Profile" or "Withdrawals" ? returnAction : "Withdrawals";
+            return RedirectToAction(action);
+        }
 
-        // ========= 商品上架（原“供应商绑定”模块改造）：搜索供应商→其商品 / 搜索商品→跨供应商，入团/移除 =========
+
+        // 商品上架（原“供应商绑定”模块改造）：搜索供应商→其商品 / 搜索商品→跨供应商，入团/移除
 
         /// <summary>
         /// 商品上架页：关键词为供应商名称/ID → 返回该供应商提供的全部商品；
@@ -186,6 +246,40 @@ namespace FreshColdChain.Controllers
         }
 
         /// <summary>
+        /// 已上架商品独立详情页：展示该（商品 × 供应商）组合的商品图、报价/推荐价/定价范围与商品介绍，
+        /// 并允许团长在此修改团长定价与带货介绍（模仿消费者端商品详情页的独立页面样式）。
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> EntryDetail(string productId, string supplierId, string? keyword)
+        {
+            var redirect = EnsureLoggedIn();
+            if (redirect != null) return redirect;
+            var promoterId = GetPromoterId()!;
+
+            var entry = await _promoterService.GetProductEntryDetailAsync(promoterId, productId, supplierId);
+            if (entry == null)
+            {
+                TempData["ErrorMessage"] = "未找到该已上架商品，可能已被移除。";
+                return RedirectToAction("ProductListing", new { keyword });
+            }
+
+            // 一次提供该供应商上传的该商品的所有图片（图文编辑器的“供应商图库”），
+            // 以及当前已保存的图文介绍内容（历史纯文字自动包装为段落）
+            var supplierImages = await _promoterService.GetSupplierProductImagesAsync(productId);
+            var richContent = await _introStore.LoadAsync(entry.PromoterDesc);
+
+            return View(new ProductEntryDetailViewModel
+            {
+                Keyword = keyword ?? "",
+                ProductId = productId,
+                SupplierId = supplierId,
+                Entry = entry,
+                SupplierImages = supplierImages,
+                RichContent = richContent
+            });
+        }
+
+        /// <summary>
         /// 将（商品，供应商）加入/移出团长入团商品（商品入团表 CRM_PRODUCT_ENTRIES）。
         /// 入团时携带团长定价 price（留空则默认推荐价），以及该组合的报价 supplyPrice、推荐价 defaultPrice，
         /// 由服务层校验定价规则：|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2。
@@ -205,7 +299,9 @@ namespace FreshColdChain.Controllers
                 if (action == "bind")
                 {
                     success = await _promoterService.AddProductEntryAsync(promoterId, productId, supplierId, price, supplyPrice, defaultPrice, description);
-                    TempData["SuccessMessage"] = success ? "商品已加入入团商品！" : "入团失败，请重试。";
+                    TempData["SuccessMessage"] = success
+                        ? "商品已上架！点击记录行的「详情」按钮，可设置团长定价与带货介绍。"
+                        : "入团失败，请重试。";
                 }
                 else if (action == "unbind")
                 {
@@ -244,7 +340,8 @@ namespace FreshColdChain.Controllers
                 TempData["ErrorMessage"] = "定价保存失败：" + ex.Message;
             }
 
-            return RedirectToAction("ProductListing", new { keyword });
+            // 定价调整在独立详情页完成，保存后回到该商品详情页
+            return RedirectToAction("EntryDetail", new { productId, supplierId, keyword });
         }
 
         /// <summary>
@@ -252,7 +349,7 @@ namespace FreshColdChain.Controllers
         /// 给消费者端展示的始终是团长的文字。
         /// </summary>
         [HttpPost]
-        public async Task<IActionResult> UpdateEntryDescription(string productId, string supplierId, string? keyword, string? promoterDesc)
+        public async Task<IActionResult> UpdateEntryDescription(string productId, string supplierId, string? keyword, string? contentJson)
         {
             var redirect = EnsureLoggedIn();
             if (redirect != null) return redirect;
@@ -260,15 +357,34 @@ namespace FreshColdChain.Controllers
 
             try
             {
-                var success = await _promoterService.UpdateEntryDescriptionAsync(promoterId, productId, supplierId, promoterDesc);
-                TempData["SuccessMessage"] = success ? "带货介绍已保存！" : "介绍保存失败，请重试。";
+                // 团长端提交的是富文本 JSON（title + 多段 text/images），
+                // 服务层会写入 wwwroot 图文内容文件，并把相对路径存入 PROMOTERDESC。
+                var success = await _promoterService.UpdateEntryDescriptionAsync(promoterId, productId, supplierId, contentJson);
+                TempData["SuccessMessage"] = success ? "图文介绍已保存！" : "介绍保存失败，请重试。";
             }
             catch (Exception ex)
             {
                 TempData["ErrorMessage"] = "介绍保存失败：" + ex.Message;
             }
 
-            return RedirectToAction("ProductListing", new { keyword });
+            // 介绍编辑在独立详情页完成，保存后回到该商品详情页
+            return RedirectToAction("EntryDetail", new { productId, supplierId, keyword });
+        }
+
+        /// <summary>
+        /// 团长端图文介绍编辑器上传本地图片：保存到 wwwroot/uploads/promoter-img/，
+        /// 返回可访问的相对路径；校验扩展名与大小（5MB），文件名随机生成。
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> UploadPromoterImage(IFormFile? file)
+        {
+            if (EnsureLoggedIn() != null)
+                return Json(new { ok = false, message = "登录状态已失效，请刷新页面后重试。" });
+
+            var result = await _introStore.UploadImageAsync(file);
+            return Json(result.Ok
+                ? new { ok = true, url = result.Url }
+                : new { ok = false, message = result.Message });
         }
 
 

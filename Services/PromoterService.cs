@@ -32,9 +32,13 @@ namespace FreshColdChain.Services
 		private readonly IPCRRepository _pcrRepository;
 		// 商品仓库（用于商品图片）
 		private readonly IProductRepository _productRepository;
-		
+		// 货物仓库（Inv_Goods，校验供应商上架状态）
+		private readonly IGoodsRepository _goodsRepository;
+		// 团长图文介绍（文件存储：数据库存相对路径，实际内容为 wwwroot 下 JSON 文件）
+		private readonly PromoterIntroStore _introStore;
+
         // 构造函数
-        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPromoterProductRepository iproductRepository,IPCRRepository pcrRepository, IProductRepository productRepository)
+        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPromoterProductRepository iproductRepository,IPCRRepository pcrRepository, IProductRepository productRepository, IGoodsRepository goodsRepository, PromoterIntroStore introStore)
         {
             _uow = uow;
             _ipromoterRepository = ipromoterRepository;
@@ -43,6 +47,8 @@ namespace FreshColdChain.Services
             _iproductRepository = iproductRepository;
 			_pcrRepository = pcrRepository;
 			_productRepository = productRepository;
+			_goodsRepository = goodsRepository;
+			_introStore = introStore;
         }
 
 
@@ -91,16 +97,19 @@ namespace FreshColdChain.Services
 
         /// <summary>
         /// 查询团长带货商品（消费者端查看团长带货接口）：
-        /// 返回已入团商品的（团长文字介绍、售价、商品图片等）。
-        /// 文字介绍优先取团长写的（PromoterDesc），未填写时兜底为供应商商品文字（Description）。
+        /// 返回已入团商品的（团长带货介绍存储值、售价、商品图片等）。
+        /// 介绍存储值语义：空=无介绍；/uploads/promoter-desc/*.json=图文内容文件相对路径（图文介绍改造后格式）；
+        /// 未填写时兜底为供应商商品文字（Description，兼容消费者端纯文本简介）。
         /// </summary>
         public async Task<List<GroupC_FeaturedProductDto>> GetPromoterFeaturedProductsAsync(string promoterId)
         {
             var items = await GetProductEntryDetailsAsync(promoterId);
-            return items.Select(p => new GroupC_FeaturedProductDto
+            // 供应商已下架商品不再对消费者端可见；团长端列表仍展示并标注“已下架”
+            return items.Where(p => p.IsProductActive).Select(p => new GroupC_FeaturedProductDto
             {
                 ProductID = p.ProductID,
                 ProductName = p.ProductName,
+                PublishedAt = p.CreateTime,
                 Unit = p.Unit,
                 SupplierID = p.SupplierID,
                 SupplierName = p.SupplierName,
@@ -114,10 +123,10 @@ namespace FreshColdChain.Services
 
 
 
-        // ========== 新增功能：团长注册、登录、管理员直接添加 ==========
+        // 新增功能：团长注册、登录、管理员直接添加
 
         // 团长注册（首次注册，待管理员审核激活）
-        //团长注册
+        // 团长注册
         public async Task<GroupC_PromoterRegisterResult> RegisterPromoter(GroupC_PromoterRegisterInfo registerInfo,
             IDbTransaction? transaction = null, CancellationToken cancellationToken = default)
         {
@@ -415,7 +424,107 @@ namespace FreshColdChain.Services
             }
         }
 
-        //============================团长-供应商合作服务===================================
+        public async Task<Result> BindPayAccountAsync(string promoterId, string platform, string accountNo)
+        {
+            await _uow.BeginAsync();
+            var _result = new Result();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(promoterId))
+                    throw new Exception("团长编号不能为空");
+                if (!PromoterPayAccounts.IsValidPlatform(platform))
+                    throw new Exception("请选择微信、支付宝或银行卡");
+
+                var (ok, error) = PromoterPayAccounts.ValidateAccount(platform, accountNo);
+                if (!ok)
+                    throw new Exception(error);
+
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, _uow.Transaction);
+                if (promoter == null)
+                    throw new Exception("该团长不存在");
+
+                var normalizedPlatform = PromoterPayAccounts.Normalize(platform);
+                var normalizedAccount = accountNo.Trim();
+                if (normalizedPlatform == PromoterPayAccounts.BankCard)
+                    normalizedAccount = System.Text.RegularExpressions.Regex.Replace(normalizedAccount, @"[\s-]", string.Empty);
+
+                var dbResult = await _ipromoterRepository.GroupC_UpdatePromoterPayAccountAsync(
+                    promoterId, normalizedPlatform, normalizedAccount, _uow.Transaction);
+                if (!dbResult)
+                    throw new Exception("绑定收款账户失败");
+
+                await _logManager.WriteTableChangeLog(new GroupC_LogAuditrails
+                {
+                    TableName = "CRM_PROMOTERS",
+                    ActionType = "Update",
+                    OperatorType = "Promoter",
+                    OperatorId = promoterId,
+                    OldValue = JsonConvert.SerializeObject(new { Platform = normalizedPlatform, Account = promoter.GetBoundPayAccount(normalizedPlatform) }),
+                    NewValue = JsonConvert.SerializeObject(new { Platform = normalizedPlatform, Account = normalizedAccount }),
+                    RecordId = promoterId
+                });
+
+                await _uow.CommitAsync();
+                _result.IsSuccess = true;
+                return _result;
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                _result.IsSuccess = false;
+                _result.ErrorMessage = $"系统错误：{ex.Message}";
+                return _result;
+            }
+        }
+
+        public async Task<Result> UnbindPayAccountAsync(string promoterId, string platform)
+        {
+            await _uow.BeginAsync();
+            var _result = new Result();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(promoterId))
+                    throw new Exception("团长编号不能为空");
+                if (!PromoterPayAccounts.IsValidPlatform(platform))
+                    throw new Exception("请选择微信、支付宝或银行卡");
+
+                var promoter = await _ipromoterRepository.GroupC_FindPromoterRecordAsync(promoterId, _uow.Transaction);
+                if (promoter == null)
+                    throw new Exception("该团长不存在");
+
+                var normalizedPlatform = PromoterPayAccounts.Normalize(platform);
+                var dbResult = await _ipromoterRepository.GroupC_UpdatePromoterPayAccountAsync(
+                    promoterId, normalizedPlatform, string.Empty, _uow.Transaction);
+                if (!dbResult)
+                    throw new Exception("解绑收款账户失败");
+
+                await _logManager.WriteTableChangeLog(new GroupC_LogAuditrails
+                {
+                    TableName = "CRM_PROMOTERS",
+                    ActionType = "Update",
+                    OperatorType = "Promoter",
+                    OperatorId = promoterId,
+                    OldValue = JsonConvert.SerializeObject(new { Platform = normalizedPlatform, Account = promoter.GetBoundPayAccount(normalizedPlatform) }),
+                    NewValue = JsonConvert.SerializeObject(new { Platform = normalizedPlatform, Account = (string?)null }),
+                    RecordId = promoterId
+                });
+
+                await _uow.CommitAsync();
+                _result.IsSuccess = true;
+                return _result;
+            }
+            catch (Exception ex)
+            {
+                if (_uow.Connection.State == ConnectionState.Open)
+                    await _uow.RollbackAsync();
+                _result.IsSuccess = false;
+                _result.ErrorMessage = $"系统错误：{ex.Message}";
+                return _result;
+            }
+        }
+
+        // 团长-供应商合作服务
         public async Task<List<string>> GetActiveSupplierIdsAsync(string promoterId)
         {
             return await _ipsRepository.GetActiveSupplierIdsByPromoterAsync(promoterId, _uow.Transaction);
@@ -460,7 +569,7 @@ namespace FreshColdChain.Services
             }
         }
 
-        //============================团长-商品入团服务（商品入团表 CRM_PRODUCT_ENTRIES）===================================
+        // 团长-商品入团服务（商品入团表 CRM_PRODUCT_ENTRIES）
         // 说明：入团商品 =（团长，商品，供应商）三元组。团长与商品为多对多，
         //       同一商品可由不同供应商供货，故以“商品+供应商”组合为绑定单位。
 
@@ -503,7 +612,7 @@ namespace FreshColdChain.Services
 
         /// <summary>
         /// 为已入团商品详情批量附加商品图片：按（供应商×商品）过滤——
-        /// 该供应商自己上传的图在前，平台通用图在后，取前 3 张。
+        /// 该供应商自己上传的图在前，平台通用图在后，完整返回供商品详情查看。
         /// </summary>
         private async Task AttachProductImagesAsync(IEnumerable<PromoterProductEntryDetailDto> items)
         {
@@ -519,8 +628,9 @@ namespace FreshColdChain.Services
                     .OrderBy(img => img.SupplierID != item.SupplierID)
                     .ThenBy(img => img.SortOrder)
                     .ThenBy(img => img.CreateTime)
-                    .Take(3)
                     .Select(img => img.ImageUrl)
+                    .Where(url => !string.IsNullOrWhiteSpace(url))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
         }
@@ -529,6 +639,15 @@ namespace FreshColdChain.Services
         public async Task<List<(string ProductId, string SupplierId, decimal? PromoterPrice)>> GetActiveProductEntriesAsync(string promoterId)
         {
             return await _iproductRepository.GetActiveEntriesByPromoterAsync(promoterId, _uow.Transaction);
+        }
+
+        /// <summary>查询指定（商品，供应商）入团组合的详情（含商品图）；不存在或非上架状态返回 null</summary>
+        public async Task<PromoterProductEntryDetailDto?> GetProductEntryDetailAsync(string promoterId, string productId, string supplierId)
+        {
+            var item = await _iproductRepository.GetActiveEntryDetailAsync(promoterId, productId, supplierId, _uow.Transaction);
+            if (item != null)
+                await AttachProductImagesAsync(new[] { item });
+            return item;
         }
 
         /// <summary>
@@ -541,6 +660,13 @@ namespace FreshColdChain.Services
         public async Task<bool> AddProductEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, decimal supplyPrice, decimal defaultPrice, string? description = null)
         {
             var price = promoterPrice ?? defaultPrice;
+
+            // 该供应商已下架该货物（Inv_Goods.Status != 'ACTIVE'）或未建立货物时不允许入团
+            var goods = await _goodsRepository.GetAsync(productId, supplierId);
+            if (goods == null || !string.Equals(goods.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("该供应商已下架该商品，暂不可入团，请等待供应商恢复上架后再操作。");
+            }
 
             // 定价规则：|团长价 - 推荐价| < |推荐价 - 报价| / 2
             var allowedDiff = Math.Abs(defaultPrice - supplyPrice) / 2m;
@@ -565,13 +691,24 @@ namespace FreshColdChain.Services
             }
         }
 
-        /// <summary>更新已入团（商品，供应商）组合的团长带货介绍文字（团长主动书写/改写）</summary>
-        public async Task<bool> UpdateEntryDescriptionAsync(string promoterId, string productId, string supplierId, string? promoterDesc)
+        /// <summary>
+        /// 更新已入团（商品，供应商）组合的团长带货介绍。
+        /// 团长端提交的是富文本 JSON（title + 多段 text/images）：
+        /// 保存时把图文内容写入 wwwroot/uploads/promoter-desc/ 下 JSON 文件，
+        /// 数据库 PROMOTERDESC 仅存该文件的相对路径；内容为空时删除文件并置空。
+        /// </summary>
+        public async Task<bool> UpdateEntryDescriptionAsync(string promoterId, string productId, string supplierId, string? contentJson)
         {
+            // 解析（非法 JSON 会返回错误信息并抛异常），空内容代表“清除介绍”
+            var (content, error) = PromoterIntroStore.TryParse(contentJson);
+            if (error != null) throw new InvalidOperationException(error);
+
+            var stored = await _introStore.SaveAsync(promoterId, productId, supplierId, content);
+
             await _uow.BeginAsync();
             try
             {
-                var result = await _iproductRepository.UpdateEntryDescriptionAsync(promoterId, productId, supplierId, promoterDesc, _uow.Transaction);
+                var result = await _iproductRepository.UpdateEntryDescriptionAsync(promoterId, productId, supplierId, stored, _uow.Transaction);
                 await _uow.CommitAsync();
                 return result;
             }
@@ -580,6 +717,49 @@ namespace FreshColdChain.Services
                 await _uow.RollbackAsync();
                 throw;
             }
+        }
+
+        /// <summary>
+        /// 查询“该供应商上传的该商品”的全部图片（一次全量返回，供团长编辑图文介绍时选择插入）。
+        /// 商品图片按商品维度存放于 Inv_ProductImages，不截取数量限制。
+        /// </summary>
+        public async Task<List<string>> GetSupplierProductImagesAsync(string productId)
+        {
+            var images = await _productRepository.GetAllProductImagesAsync();
+            return images
+                .Where(img => string.Equals(img.ProductID, productId, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(img => img.SortOrder)
+                .ThenBy(img => img.CreateTime)
+                .Select(img => img.ImageUrl)
+                .Where(url => !string.IsNullOrWhiteSpace(url))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        /// <summary>
+        /// 消费者端读取「团长推文」：团长对某商品的图文介绍（标题 + 段落）。
+        /// 仅返回该团长有效入团且平台在售（IsProductActive）的商品；
+        /// 商品不在该团长在售列表返回 null；无介绍内容返回 HasIntro=false。
+        /// </summary>
+        public async Task<GroupC_PromoterIntroResult?> GetProductIntroAsync(string promoterId, string productId)
+        {
+            if (string.IsNullOrWhiteSpace(promoterId) || string.IsNullOrWhiteSpace(productId)) return null;
+
+            var items = await GetProductEntryDetailsAsync(promoterId);
+            var entry = items.FirstOrDefault(x =>
+                string.Equals(x.ProductID, productId, StringComparison.OrdinalIgnoreCase) && x.IsProductActive);
+            if (entry == null) return null;
+
+            var rich = await _introStore.LoadAsync(entry.PromoterDesc);
+            if (rich == null || rich.IsEmpty())
+                return new GroupC_PromoterIntroResult();
+
+            return new GroupC_PromoterIntroResult
+            {
+                HasIntro = true,
+                Title = rich.Title,
+                Sections = rich.Sections
+            };
         }
 
         /// <summary>将（商品，供应商）从团长入团商品中移除（软删除）</summary>
@@ -598,7 +778,7 @@ namespace FreshColdChain.Services
                 throw;
             }
         }
-//============================团长-消费者绑定服务===================================
+// 团长-消费者绑定服务
         public async Task<Result> BindCustomerToPromoterAsync(
             string customerId,
             string promoterId,
@@ -711,7 +891,7 @@ namespace FreshColdChain.Services
             return await _pcrRepository.GetRelationsByPromoterAsync(promoterId.Trim(), _uow.Transaction);
         }
 
-        // ========== 私有辅助方法 ==========
+        // 私有辅助方法
         private string GenerateInviteCode()
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";

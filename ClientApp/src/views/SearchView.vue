@@ -1,17 +1,17 @@
 <script setup>
-import { SearchX, SlidersHorizontal } from '@lucide/vue'
+import { RefreshCw, SearchX, SlidersHorizontal } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ProductCard from '../components/ProductCard.vue'
-import StoreBreadcrumb from '../components/StoreBreadcrumb.vue'
 import { useShop } from '../state/shop'
 import { useCustomerContext } from '../state/customer'
 
 const route = useRoute()
-const { categories, products } = useShop()
+const { categories, products, catalogLoading, catalogError, catalogUsingFallback, loadCatalog } = useShop()
 const { isAuthenticated } = useCustomerContext()
 const storage = ref('all')
 const sort = ref('default')
+const storageOptions = computed(() => [...new Set(products.map((product) => product.storage).filter(Boolean))])
 
 const activeCategory = computed(() => String(route.params.slug ?? ''))
 const keyword = computed(() => String(route.query.q ?? '').trim())
@@ -27,7 +27,6 @@ const results = computed(() => {
   })
   if (sort.value === 'priceAsc') return [...list].sort((a, b) => a.price - b.price)
   if (sort.value === 'priceDesc') return [...list].sort((a, b) => b.price - a.price)
-  if (sort.value === 'sold') return [...list].sort((a, b) => b.sold - a.sold)
   return list
 })
 
@@ -38,7 +37,6 @@ watch(() => route.fullPath, () => {
 
 <template>
   <div class="store-container page-space">
-    <StoreBreadcrumb :items="[{ label: categoryName || (keyword ? `搜索：${keyword}` : '全部商品') }]" />
     <div class="listing-header">
       <div><span class="title-icon"><SlidersHorizontal :size="22" /></span><div><h1>{{ pageTitle }}</h1></div></div>
       <span>共 {{ results.length }} 件商品</span>
@@ -47,12 +45,18 @@ watch(() => route.fullPath, () => {
     <div class="listing-layout">
       <aside class="filter-panel">
         <div><strong>商品分类</strong><RouterLink to="/search">全部商品</RouterLink><RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`">{{ category.name }}</RouterLink></div>
-        <div><strong>温控方式</strong><label><input v-model="storage" type="radio" value="all" />全部</label><label><input v-model="storage" type="radio" value="冷藏" />冷藏</label></div>
+        <div><strong>温控方式</strong><label><input v-model="storage" type="radio" value="all" />全部</label><label v-for="option in storageOptions" :key="option"><input v-model="storage" type="radio" :value="option" />{{ option }}</label></div>
       </aside>
 
       <section class="listing-results">
-        <div class="sort-bar"><span>生鲜严选商品</span><label>排序<select v-model="sort"><option value="default">综合排序</option><option value="sold">销量</option><option v-if="isAuthenticated" value="priceAsc">价格从低到高</option><option v-if="isAuthenticated" value="priceDesc">价格从高到低</option></select></label></div>
-        <div v-if="results.length" class="product-grid listing-product-grid"><ProductCard v-for="product in results" :key="product.id" :product="product" /></div>
+        <div class="sort-bar"><span>当前在团商品</span><label>排序<select v-model="sort"><option value="default">综合排序</option><option v-if="isAuthenticated" value="priceAsc">价格从低到高</option><option v-if="isAuthenticated" value="priceDesc">价格从高到低</option></select></label></div>
+        <div v-if="catalogUsingFallback" class="alert alert-warning" role="status">真实目录暂时不可用，当前为只读兜底展示，暂不可下单。</div>
+        <div v-if="catalogLoading" class="store-loading" role="status">正在读取商品目录…</div>
+        <div v-else-if="catalogError && !catalogUsingFallback" class="store-empty" role="alert"><strong>商品目录读取失败</strong><span>{{ catalogError }}</span><button class="btn btn-outline-secondary" type="button" @click="loadCatalog(true)"><RefreshCw :size="15" />重新加载</button></div>
+        <template v-else-if="results.length">
+          <div class="product-grid listing-product-grid"><ProductCard v-for="product in results" :key="product.id" :product="product" /></div>
+          <p class="list-end-tip">到底了~</p>
+        </template>
         <div v-else class="store-empty"><SearchX :size="34" /><strong>没有找到符合条件的商品</strong><span>请清除筛选条件或尝试其他关键词</span><RouterLink class="btn btn-outline-secondary" to="/search">查看全部商品</RouterLink></div>
       </section>
     </div>
@@ -86,5 +90,8 @@ watch(() => route.fullPath, () => {
   .filter-panel label { font-size: 9px; }
   .filter-panel a:not(.router-link-active), .filter-panel > div:nth-child(2) label:nth-of-type(n+3) { display: none; }
   .sort-bar { padding: 0 10px; }
+
+  /* 移动端分类 / 搜索结果商品列表单列 */
+  .product-grid.listing-product-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 }
 </style>

@@ -1,6 +1,7 @@
 ﻿using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
+using FreshColdChain.Filters;
 using FreshColdChain.Services;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -32,26 +33,44 @@ namespace FreshColdChain.Controllers
             var pendingList = await _promoterService.GetPendingPromotersAsync();
             return View(pendingList);
         }
-        // 管理员首页
+        // 管理员首页：按管理员种类分别呈现各自工作台
         public async Task<IActionResult> Dashboard()
         {
-            var adminName = HttpContext.Session.GetString("AdminName");
+            var session = HttpContext.Session;
+            // 日志管理员只有操作日志一个界面；商品管理员直达商品管理首页（A 组页面）
+            if (AdminSession.IsKind(session, AdminSession.LogKind))
+                return RedirectToAction(nameof(OperationLogs));
+            if (AdminSession.IsKind(session, AdminSession.ProductKind))
+                return RedirectToAction("AdminIndex", "Goods");
+
+            var adminName = session.GetString("AdminName");
             ViewBag.AdminName = adminName ?? "管理员";
+            ViewBag.AdminKind = AdminSession.GetKind(session);
+
+            // —— 财务管理员工作台 ——
+            if (AdminSession.IsKind(session, AdminSession.FinanceKind))
+            {
+                var pendingWithdrawals = await _withdrawalService.GetPendingWithdrawalsAsync();
+                ViewBag.PendingWithdrawalCount = pendingWithdrawals.Count;
+                ViewBag.PendingWithdrawalAmount = pendingWithdrawals.Sum(w => w.ApplyAmount);
+                ViewBag.RecentWithdrawals = pendingWithdrawals.Take(5).ToList();
+
+                var pendingRefunds = await _refundService.GetPendingRefundsAsync();
+                ViewBag.PendingRefundCount = pendingRefunds.Count;
+                ViewBag.PendingRefundAmount = pendingRefunds.Sum(r => r.RefundAmount);
+                ViewBag.RecentRefunds = pendingRefunds.Take(5).ToList();
+                return View();
+            }
+
+            // —— 账号管理员工作台（默认） ——
             var pendingPromoters = await _promoterService.GetPendingPromotersAsync();
             ViewBag.PendingPromoterCount = pendingPromoters.Count;
 
-            var pendingWithdrawals = await _withdrawalService.GetPendingWithdrawalsAsync();
-            ViewBag.PendingWithdrawalCount = pendingWithdrawals.Count;
-            ViewBag.PendingWithdrawalAmount = pendingWithdrawals.Sum(w => w.ApplyAmount);
-            ViewBag.RecentWithdrawals = pendingWithdrawals.Take(5).ToList();
-
-            var pendingRefunds = await _refundService.GetPendingRefundsAsync();
-            ViewBag.PendingRefundCount = pendingRefunds.Count;
-            ViewBag.PendingRefundAmount = pendingRefunds.Sum(r => r.RefundAmount);
-            ViewBag.RecentRefunds = pendingRefunds.Take(5).ToList();
-
             var pendingSuppliers = await _supplierService.GetSuppliersByStatusAsync("Pending");
             ViewBag.PendingSupplierCount = pendingSuppliers.Data?.Count ?? 0;
+
+            var pendingAdmins = await _systemAdminService.GetPendingAdminsAsync();
+            ViewBag.PendingAdminCount = pendingAdmins.Count;
             return View();
         }
         // 团长审核通过
@@ -69,7 +88,7 @@ namespace FreshColdChain.Controllers
             {
                 TempData["ErrorMessage"] = result.ErrorMessage;
             }
-            return RedirectToAction(nameof(PendingPromoters));
+            return RedirectToAction(nameof(AccountReview));
         }
 
         // 团长审核拒绝
@@ -87,7 +106,7 @@ namespace FreshColdChain.Controllers
             {
                 TempData["ErrorMessage"] = result.ErrorMessage;
             }
-            return RedirectToAction(nameof(PendingPromoters));
+            return RedirectToAction(nameof(AccountReview));
         }
 
         public async Task<IActionResult> PendingWithdrawals()
@@ -210,16 +229,12 @@ namespace FreshColdChain.Controllers
             return View(model);
         }
 
-        // ========== 角色管理（团长/供应商）==========
+        // 角色管理（团长/供应商）
 
-        // 角色管理主页（hub：注册审核 / 新增 / 启禁用入口 + 待办统计）
-        public async Task<IActionResult> RoleManagement()
+        // 角色管理主页：原 hub 已被账号管理员的「注册审核/账号新增/账号管理」三个页面取代
+        public IActionResult RoleManagement()
         {
-            var pendingPromoters = await _promoterService.GetPendingPromotersAsync();
-            var pendingSuppliers = await _supplierService.GetSuppliersByStatusAsync("Pending");
-            ViewBag.PendingPromoterCount = pendingPromoters.Count();
-            ViewBag.PendingSupplierCount = pendingSuppliers.Data?.Count ?? 0;
-            return View();
+            return RedirectToAction(nameof(AccountReview));
         }
 
         // 团长管理列表（启用/禁用）
@@ -240,7 +255,7 @@ namespace FreshColdChain.Controllers
                 result.IsSuccess
                     ? (targetStatus == "Enable" ? "团长已重新启用" : "团长已禁用")
                     : result.ErrorMessage;
-            return RedirectToAction(nameof(ManagePromoters));
+            return RedirectToAction(nameof(AccountManage));
         }
 
         // 管理员新增团长（免审核，直接生效）
@@ -258,7 +273,7 @@ namespace FreshColdChain.Controllers
             if (result.IsSuccess)
             {
                 TempData["SuccessMessage"] = "团长已创建（免审核，直接生效）";
-                return RedirectToAction(nameof(ManagePromoters));
+                return RedirectToAction(nameof(AccountManage));
             }
             TempData["ErrorMessage"] = result.ErrorMessage;
             return View(addInfo);
@@ -272,7 +287,7 @@ namespace FreshColdChain.Controllers
             var result = await _promoterService.UpdateCommissionRate(request);
             TempData[result.IsSuccess ? "SuccessMessage" : "ErrorMessage"] =
                 result.IsSuccess ? "佣金比例已更新" : result.ErrorMessage;
-            return RedirectToAction(nameof(ManagePromoters));
+            return RedirectToAction(nameof(AccountManage));
         }
 
         // 供应商注册审核列表（Pending 状态）
@@ -287,7 +302,7 @@ namespace FreshColdChain.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ApproveSupplier(string supplierId)
         {
-            return await ChangeSupplierStatus(supplierId, "Active", "供应商入驻已通过审核", nameof(PendingSuppliers));
+            return await ChangeSupplierStatus(supplierId, "Active", "供应商入驻已通过审核", nameof(AccountReview));
         }
 
         // 供应商审核驳回（需要输入原因）
@@ -298,9 +313,9 @@ namespace FreshColdChain.Controllers
             if (string.IsNullOrWhiteSpace(rejectReason))
             {
                 TempData["ErrorMessage"] = "请填写驳回原因";
-                return RedirectToAction(nameof(PendingSuppliers));
+                return RedirectToAction(nameof(AccountReview));
             }
-            return await ChangeSupplierStatus(supplierId, "Rejected", $"供应商入驻已驳回：{rejectReason}", nameof(PendingSuppliers));
+            return await ChangeSupplierStatus(supplierId, "Rejected", $"供应商入驻已驳回：{rejectReason}", nameof(AccountReview));
         }
 
         // 供应商管理列表（启用/禁用）
@@ -316,7 +331,7 @@ namespace FreshColdChain.Controllers
         public async Task<IActionResult> SetSupplierStatus(string supplierId, string targetStatus)
         {
             return await ChangeSupplierStatus(supplierId, targetStatus,
-                targetStatus == "Active" ? "供应商已重新启用" : "供应商已禁用", nameof(ManageSuppliers));
+                targetStatus == "Active" ? "供应商已重新启用" : "供应商已禁用", nameof(AccountManage));
         }
 
         // 供应商状态变更公共入口：调服务层做流转校验，成功后写操作日志
@@ -343,18 +358,98 @@ namespace FreshColdChain.Controllers
             return RedirectToAction(redirectAction);
         }
 
-        // ========== 财务管理 ==========
+        // 账号管理员的三个工作页面
+
+        // 注册审核：团长 + 供应商 + 管理员 三类待审账号
+        public async Task<IActionResult> AccountReview()
+        {
+            ViewBag.PendingPromoters = await _promoterService.GetPendingPromotersAsync();
+            var pendingSuppliers = await _supplierService.GetSuppliersByStatusAsync("Pending");
+            ViewBag.PendingSuppliers = pendingSuppliers.Data ?? new List<SupplierDto>();
+            ViewBag.PendingAdmins = await _systemAdminService.GetPendingAdminsAsync();
+            return View();
+        }
+
+        // 管理员账号管理：团长 + 供应商 + 管理员（启禁用/佣金调整）
+        public async Task<IActionResult> AccountManage()
+        {
+            var promoters = await _promoterService.GetAllPromotersAsync();
+            ViewBag.Promoters = promoters.ToList();
+            var suppliers = await _supplierService.GetAllSuppliersAsync();
+            ViewBag.Suppliers = suppliers.Data ?? new List<SupplierDto>();
+            ViewBag.Admins = await _systemAdminService.GetAllAdminsAsync();
+            ViewBag.CurrentAdminId = HttpContext.Session.GetString("AdminId");
+            return View();
+        }
+
+        // 账号新增：团长新增 + 供应商新增（两个标签页）
+        public IActionResult AccountCreate()
+        {
+            ViewBag.NewPromoter = new GroupC_PromoterAddInfo { BaseCommissionRate = 0.03m };
+            return View();
+        }
+
+        // 管理员新增供应商（复用 B 组供应商创建服务）
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddSupplier(CreateSupplierDto dto)
+        {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.SupplierName))
+            {
+                TempData["ErrorMessage"] = "供应商名称不能为空";
+                return RedirectToAction(nameof(AccountCreate));
+            }
+            var result = await _supplierService.CreateSupplierAsync(dto);
+            TempData[result.IsSuccess ? "SuccessMessage" : "ErrorMessage"] =
+                result.IsSuccess ? "供应商已创建（直接生效）" : result.Message;
+            return RedirectToAction(nameof(AccountManage));
+        }
+
+        // 管理员注册审核通过（账号管理员操作）
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ApproveAdmin(string userId)
+        {
+            string operatorId = HttpContext.Session.GetString("AdminName") ?? "Admin";
+            var result = await _systemAdminService.ApproveAdminAsync(userId, operatorId);
+            TempData[result.IsSuccess ? "SuccessMessage" : "ErrorMessage"] =
+                result.IsSuccess ? "管理员注册已审核通过，该管理员可登录" : result.ErrorMessage;
+            return RedirectToAction(nameof(AccountReview));
+        }
+
+        // 管理员注册审核拒绝（可填原因）
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RejectAdmin(string userId, string? rejectReason)
+        {
+            string operatorId = HttpContext.Session.GetString("AdminName") ?? "Admin";
+            var result = await _systemAdminService.RejectAdminAsync(userId, operatorId, rejectReason);
+            TempData[result.IsSuccess ? "SuccessMessage" : "ErrorMessage"] =
+                result.IsSuccess ? "管理员注册申请已驳回" : result.ErrorMessage;
+            return RedirectToAction(nameof(AccountReview));
+        }
+
+        // 管理员启用/禁用
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SetAdminStatus(string userId, string targetStatus)
+        {
+            string operatorId = HttpContext.Session.GetString("AdminName") ?? "Admin";
+            var result = await _systemAdminService.SetAdminStatus(operatorId, userId, targetStatus);
+            TempData[result.IsSuccess ? "SuccessMessage" : "ErrorMessage"] =
+                result.IsSuccess
+                    ? (targetStatus == "Enabled" ? "管理员已重新启用" : "管理员已禁用")
+                    : result.ErrorMessage;
+            return RedirectToAction(nameof(AccountManage));
+        }
+
+        // 财务管理
 
         // 财务管理主页（hub：提现审核 / 退款管理 / 支付流水入口 + 待办统计）
-        public async Task<IActionResult> FinanceManagement()
+        public IActionResult FinanceManagement()
         {
-            var pendingWithdrawals = await _withdrawalService.GetPendingWithdrawalsAsync();
-            var pendingRefunds = await _refundService.GetPendingRefundsAsync();
-            ViewBag.PendingWithdrawalCount = pendingWithdrawals.Count;
-            ViewBag.PendingWithdrawalAmount = pendingWithdrawals.Sum(w => w.ApplyAmount);
-            ViewBag.PendingRefundCount = pendingRefunds.Count;
-            ViewBag.PendingRefundAmount = pendingRefunds.Sum(r => r.RefundAmount);
-            return View();
+            // 财务管理员工作台已并入 Dashboard，保留此 action 兼容旧链接
+            return RedirectToAction(nameof(Dashboard));
         }
     }
 }

@@ -20,6 +20,13 @@ public class LogFreightTemplate
     [Column("PackagingFee")] public decimal PackagingFee { get; set; }
     [Column("FreeShippingThreshold")] public decimal? FreeShippingThreshold { get; set; }
     [Column("IsEnabled")] public int IsEnabled { get; set; } = 1;
+
+    [NotMapped]
+    public bool IsEnabledChecked
+    {
+        get => IsEnabled == 1;
+        set => IsEnabled = value ? 1 : 0;
+    }
 }
 
 /// <summary>一个供应商对应一张冷链发货履约单。</summary>

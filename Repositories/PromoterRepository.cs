@@ -107,7 +107,10 @@ public class PromoterRepository : IPromoterRepository
                 REMARK as Remark,
                 LOGINACCOUNT as LoginAccount,
                 LOGINPASSWORD as LoginPassword,
-                AVATAR as Avatar
+                AVATAR as Avatar,
+                WECHATACCOUNT as WeChatAccount,
+                ALIPAYACCOUNT as AlipayAccount,
+                BANKCARDACCOUNT as BankCardAccount
             FROM CRM_PROMOTERS
             WHERE PROMOTERID = :PromoterId";
         return await _uow.Connection.QueryFirstOrDefaultAsync<GroupC_CrmPromoter>(sql, new { PromoterId = promoterId }, transaction);
@@ -133,7 +136,10 @@ public class PromoterRepository : IPromoterRepository
                 REMARK as Remark,
                 LOGINACCOUNT as LoginAccount,
                 LOGINPASSWORD as LoginPassword,
-                AVATAR as Avatar
+                AVATAR as Avatar,
+                WECHATACCOUNT as WeChatAccount,
+                ALIPAYACCOUNT as AlipayAccount,
+                BANKCARDACCOUNT as BankCardAccount
             FROM CRM_PROMOTERS
             WHERE PROMOTERID = :PromoterId";
 
@@ -166,7 +172,10 @@ public class PromoterRepository : IPromoterRepository
                 REMARK as Remark,
                 LOGINACCOUNT as LoginAccount,
                 LOGINPASSWORD as LoginPassword,
-                AVATAR as Avatar
+                AVATAR as Avatar,
+                WECHATACCOUNT as WeChatAccount,
+                ALIPAYACCOUNT as AlipayAccount,
+                BANKCARDACCOUNT as BankCardAccount
             FROM CRM_PROMOTERS
             ORDER BY REGISTERTIME DESC";
 
@@ -232,6 +241,26 @@ public class PromoterRepository : IPromoterRepository
         return rows > 0;
     }
 
+    public async Task<bool> GroupC_UpdatePromoterPayAccountAsync(
+        string promoterId,
+        string platform,
+        string? accountNo,
+        IDbTransaction? transaction = null)
+    {
+        const string sql = @"
+            UPDATE CRM_PROMOTERS
+            SET WECHATACCOUNT = CASE WHEN :Platform = 'WeChat' THEN :AccountNo ELSE WECHATACCOUNT END,
+                ALIPAYACCOUNT = CASE WHEN :Platform = 'Alipay' THEN :AccountNo ELSE ALIPAYACCOUNT END,
+                BANKCARDACCOUNT = CASE WHEN :Platform = 'BankCard' THEN :AccountNo ELSE BANKCARDACCOUNT END
+            WHERE PROMOTERID = :PromoterId";
+
+        var rows = await _uow.Connection.ExecuteAsync(
+            sql,
+            new { PromoterId = promoterId, Platform = platform, AccountNo = accountNo },
+            transaction);
+        return rows > 0;
+    }
+
     public async Task<decimal?> GroupC_FindPromoterPendingBalanceAsync(string? promoterId, IDbTransaction? transaction = null)
     {
         const string sql = @"
@@ -283,7 +312,10 @@ public class PromoterRepository : IPromoterRepository
                 REMARK as Remark,
                 LOGINACCOUNT as LoginAccount,
                 LOGINPASSWORD as LoginPassword,
-                AVATAR as Avatar
+                AVATAR as Avatar,
+                WECHATACCOUNT as WeChatAccount,
+                ALIPAYACCOUNT as AlipayAccount,
+                BANKCARDACCOUNT as BankCardAccount
             FROM CRM_PROMOTERS
             WHERE LOGINACCOUNT = :LoginAccount";
 

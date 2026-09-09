@@ -51,53 +51,76 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
     /// 计费逻辑：
     ///   1. 根据商品 StorageReq（温区）和目的地（省→市→区三级匹配）查找运费模板
     ///   2. 模板匹配优先级：精确到区(4分) > 精确到市(2分) > 精确到省(1分) > 通配符*(0分)
-    ///   3. 费用 = 首重费 + 续重费 × ceil((总重-首重)/续重单位) + 包装费
+    ///   3. 按供应商、温区和模板合并重量，每组只收一次首重费和包装费
+    ///      费用 = 首重费 + 续重费 × ceil((总重-首重)/续重单位) + 包装费
     ///   4. 单笔订单货值达到免运费阈值时免收运费
     /// </summary>
     public async Task<ApiResponse<FreightQuoteDto>> QuoteFreightAsync(FreightQuoteRequest request)
+    {
+        try
+        {
+            return await QuoteFreightCoreAsync(request);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "冷链运费报价异常 Province={Province} City={City} District={District}",
+                request.Province, request.City, request.District);
+            return ApiResponse<FreightQuoteDto>.Fail($"运费计算异常：{exception.Message}");
+        }
+    }
+
+    private async Task<ApiResponse<FreightQuoteDto>> QuoteFreightCoreAsync(FreightQuoteRequest request)
     {
         if (request.Items.Count == 0)
             return ApiResponse<FreightQuoteDto>.Fail("至少需要一个商品");
 
         // 只加载启用的运费模板，在内存中按地区优先级匹配
         var rules = await _templates.GetEnabledAsync();
+        decimal total = 0;
+        var quoteItems = new Dictionary<(string ProductId, string SupplierId), FreightQuoteItemDto>();
+        var packages = new Dictionary<(string SupplierId, string Zone, string TemplateId),
+            (LogFreightTemplate Rule, decimal Weight)>();
 
         // 先加载商品 + 货物售价，算出总货值（免运费阈值用）
-        var supplierId = request.SupplierID ?? "";
-        var loaded = new List<(FreightItemDto Item, InvProduct Product, decimal UnitPrice)>();
-        decimal goodsAmount = 0;
         foreach (var item in request.Items)
         {
             var product = await _products.GetByIdAsync(item.ProductID);
             if (product == null || item.Quantity <= 0 || product.WeightKG is not > 0)
                 return ApiResponse<FreightQuoteDto>.Fail("商品、数量或计费重量无效");
 
+            var supplierId = string.IsNullOrWhiteSpace(item.SupplierID) ? request.SupplierID : item.SupplierID;
+            if (string.IsNullOrWhiteSpace(supplierId))
+                return ApiResponse<FreightQuoteDto>.Fail($"商品 {product.ProductName} 缺少供应商，无法分包计费");
+            supplierId = supplierId.Trim();
+
             var goods = await _goodsRepo.GetAsync(item.ProductID, supplierId);
             var unitPrice = goods?.SalePrice ?? 0m;
-            goodsAmount += unitPrice * item.Quantity;
-            loaded.Add((item, product, unitPrice));
-        }
-
-        decimal total = 0;
-        var quoteItems = new List<FreightQuoteItemDto>();
-
-        foreach (var (item, product, unitPrice) in loaded)
-        {
+            var itemGoodsAmount = unitPrice * item.Quantity;
             // 记录商品明细（无论是否免运费都展示）
-            quoteItems.Add(new FreightQuoteItemDto
+            var itemKey = (product.ProductID, supplierId);
+            if (quoteItems.TryGetValue(itemKey, out var existingItem))
             {
-                ProductID = product.ProductID,
-                ProductName = product.ProductName,
-                Quantity = item.Quantity,
-                UnitPrice = unitPrice
-            });
+                existingItem.Quantity = checked(existingItem.Quantity + item.Quantity);
+            }
+            else
+            {
+                quoteItems.Add(itemKey, new FreightQuoteItemDto
+                {
+                    ProductID = product.ProductID,
+                    SupplierID = supplierId,
+                    ProductName = product.ProductName,
+                    Quantity = item.Quantity,
+                    UnitPrice = unitPrice
+                });
+            }
 
             // 确定温区：默认 CHILLED（冷藏），读取商品 StorageReq 字段
             var zone = string.IsNullOrWhiteSpace(product.StorageReq)
                 ? "CHILLED"
-                : product.StorageReq.ToUpperInvariant();
+                : product.StorageReq.Trim().ToUpperInvariant();
 
-            // 按地区优先级匹配运费规则（省 > 市 > 区 > 通配 *）
+            // 3. 优先命中更具体的地区，其次是精确温区；相同优先级按模板编号稳定选择。
+            //    * / 空 / NULL 都视为通配，匹配所有温区
             var matchedRule = rules
                 .Where(r => r.IsEnabled == 1
                     && (IsWildcard(r.TemperatureZone) || r.TemperatureZone == zone)
@@ -105,34 +128,42 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                     && (IsWildcard(r.DestinationCity) || r.DestinationCity == request.City)
                     && (IsWildcard(r.DestinationDistrict) || r.DestinationDistrict == request.District))
                 .OrderByDescending(r =>
-                    (!IsWildcard(r.DestinationProvince) ? 4 : 0)
+                    (!IsWildcard(r.DestinationProvince) ? 1 : 0)
                     + (!IsWildcard(r.DestinationCity) ? 2 : 0)
-                    + (!IsWildcard(r.DestinationDistrict) ? 1 : 0))
+                    + (!IsWildcard(r.DestinationDistrict) ? 4 : 0))
+                .ThenByDescending(r => !IsWildcard(r.TemperatureZone))
+                .ThenBy(r => r.TemplateID, StringComparer.Ordinal)
                 .FirstOrDefault();
 
             if (matchedRule == null)
                 return ApiResponse<FreightQuoteDto>.Fail($"缺少 {zone} 温层运费规则");
 
-            // 免运费阈值：总货值达标则本商品不参与计费
+            if (matchedRule.BaseWeight < 0 || matchedRule.BaseFee < 0 ||
+                matchedRule.ExtraWeightUnit <= 0 || matchedRule.ExtraWeightFee < 0 ||
+                matchedRule.PackagingFee < 0 || matchedRule.FreeShippingThreshold < 0)
+                return ApiResponse<FreightQuoteDto>.Fail($"运费模板 {matchedRule.TemplateName} 的计费参数无效");
+
+            // 4. 免运费阈值：货值达标则本商品不参与计费
             if (matchedRule.FreeShippingThreshold.HasValue
-                && goodsAmount >= matchedRule.FreeShippingThreshold)
+                && (request.GoodsAmount > 0 ? request.GoodsAmount : itemGoodsAmount) >= matchedRule.FreeShippingThreshold)
                 continue;
 
-            // 阶梯计费：首重费 + 续重费 × 续重阶梯数 + 包装费
-            var weight = product.WeightKG.Value * item.Quantity;
-            var extraUnits = matchedRule.ExtraWeightUnit > 0
-                ? Math.Max(0, decimal.Ceiling((weight - matchedRule.BaseWeight) / matchedRule.ExtraWeightUnit))
-                : 0;
-            total += matchedRule.BaseFee
-                + extraUnits * matchedRule.ExtraWeightFee
-                + matchedRule.PackagingFee;
+            var packageKey = (supplierId, zone, matchedRule.TemplateID);
+            var priorWeight = packages.TryGetValue(packageKey, out var package) ? package.Weight : 0m;
+            packages[packageKey] = (matchedRule, priorWeight + product.WeightKG.Value * item.Quantity);
+        }
+
+        foreach (var (rule, weight) in packages.Values)
+        {
+            var extraUnits = Math.Max(0, decimal.Ceiling((weight - rule.BaseWeight) / rule.ExtraWeightUnit));
+            total += rule.BaseFee + extraUnits * rule.ExtraWeightFee + rule.PackagingFee;
         }
 
         return ApiResponse<FreightQuoteDto>.Success(new FreightQuoteDto
         {
             FreightAmount = decimal.Round(total, 2),
-            RuleSummary = "按地区、温层、首重和续重计算",
-            Items = quoteItems
+            RuleSummary = $"按供应商、温区和模板聚合重量，{packages.Count} 个计费包裹分别计算首重、续重和包装费",
+            Items = quoteItems.Values.ToList()
         });
     }
 
@@ -180,8 +211,11 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                     throw new InvalidOperationException($"商品 {item.ProductID} 库存不足（可用 {stock.AvailableQty}，需要 {item.Quantity}）");
 
                 // 3b. FEFO 先进先出：按过期时间从早到晚扣减库存批次（SKIP LOCKED 防并发冲突）
+                //     一张发货单只属于一个供应商，只允许扣该供应商自己的批次，防止明细写 A 家、扣 B 家货
                 var remaining = item.Quantity;
-                var batches = await _batches.GetByProductIdForUpdateAsync(item.ProductID);
+                var batches = await _batches.GetByProductAndSupplierForUpdateAsync(
+                    item.ProductID,
+                    request.SupplierID);
 
                 foreach (var batch in batches)
                 {
@@ -232,7 +266,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         }
     }
 
-    // ========== 精准溯源查询 ==========
+    // 精准溯源查询
 
     /// <summary>
     /// 按订单 ID 查询溯源链路：该订单 → 所有发货单 → 每单用了哪些批次
@@ -315,7 +349,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         });
     }
 
-    // ========== 溯源辅助方法 ==========
+    // 溯源辅助方法
 
     /// <summary>判断地区字段是否为通配符（* 或空或 NULL）</summary>
     private static bool IsWildcard(string? val)

@@ -11,6 +11,9 @@ public interface IGoodsRepository
     /// <summary>查询全部货物（管理员用，含物品与供应商名称）</summary>
     Task<List<InvGoods>> GetAllAsync(string? keyword = null);
 
+    /// <summary>查询某物品的全部供应商货物（含供应商名称）</summary>
+    Task<List<InvGoods>> GetByProductAsync(string productId);
+
     /// <summary>查询单件货物（按物品+供应商）</summary>
     Task<InvGoods?> GetAsync(string productId, string supplierId);
 
@@ -22,4 +25,7 @@ public interface IGoodsRepository
 
     /// <summary>删除货物</summary>
     Task DeleteAsync(string productId, string supplierId);
+
+    /// <summary>按“物品”批量设置状态：该物品下所有供应商的货物统一置为目标状态（商品下架联动用），返回受影响行数</summary>
+    Task<int> UpdateStatusByProductAsync(string productId, string status, DateTime updateTime);
 }

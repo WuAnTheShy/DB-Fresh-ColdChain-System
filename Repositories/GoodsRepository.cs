@@ -45,6 +45,15 @@ public class GoodsRepository : IGoodsRepository
         return result.ToList();
     }
 
+    public async Task<List<InvGoods>> GetByProductAsync(string productId)
+    {
+        var sql = SelectWithDetails + " WHERE g.ProductID = :ProductId ORDER BY s.SupplierName";
+        var result = await _uow.Connection.QueryAsync<InvGoods, InvProduct, InvSupplier, InvGoods>(sql,
+            (goods, product, supplier) => { goods.Product = product; goods.Supplier = supplier; return goods; },
+            new { ProductId = productId }, _uow.Transaction, splitOn: "PRODUCTNAME,SUPPLIERNAME");
+        return result.ToList();
+    }
+
     public async Task<InvGoods?> GetAsync(string productId, string supplierId)
     {
         var sql = SelectWithDetails + " WHERE g.ProductID = :ProductId AND g.SupplierID = :SupplierId";
@@ -93,5 +102,16 @@ public class GoodsRepository : IGoodsRepository
     {
         var sql = "DELETE FROM Inv_Goods WHERE ProductID = :ProductId AND SupplierID = :SupplierId";
         await _uow.Connection.ExecuteAsync(sql, new { ProductId = productId, SupplierId = supplierId }, _uow.Transaction);
+    }
+
+    public async Task<int> UpdateStatusByProductAsync(string productId, string status, DateTime updateTime)
+    {
+        var sql = """
+            UPDATE Inv_Goods
+            SET Status = :Status, UpdateTime = :UpdateTime
+            WHERE ProductID = :ProductId
+            """;
+        return await _uow.Connection.ExecuteAsync(sql,
+            new { ProductId = productId, Status = status, UpdateTime = updateTime }, _uow.Transaction);
     }
 }

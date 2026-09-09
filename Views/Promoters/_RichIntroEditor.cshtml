@@ -1,0 +1,377 @@
+@model FreshColdChain.Models.ViewModels.ProductEntryDetailViewModel
+@using FreshColdChain.Models.DTOs
+@using System.Text.Json
+@{
+    var p = Model.Entry;
+    var supplierText = p.Description ?? "";
+    var richTitle = Model.RichContent?.Title ?? "";
+    var richSections = Model.RichContent?.Sections ?? new List<PromoterIntroSection>();
+    var introEditorJson = JsonSerializer.Serialize(new
+    {
+        productId = p.ProductID,
+        supplierId = p.SupplierID,
+        keyword = Model.Keyword,
+        supplierImages = Model.SupplierImages ?? new List<string>(),
+        supplierText,
+        hasIntro = !(string.IsNullOrWhiteSpace(richTitle) && richSections.Count == 0),
+        content = new { title = richTitle, sections = richSections }
+    }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+}
+
+<!-- 图文编辑器初始数据（application/json，非 HTML，安全内嵌） -->
+<script type="application/json" id="introEditorData">@Html.Raw(introEditorJson)</script>
+
+<section class="entry-detail-card entry-desc-section">
+    <h2>商品介绍（图文）</h2>
+    <p class="desc-hint">
+        编写标题与多个内容段落；每个段落<b>可只含文字、只含图片，或图文并存</b>，顺序即消费者端的展示顺序。
+        段落图片可从<b>供应商商品图库</b>选择，也可以<b>上传本地图片</b>后插入。
+    </p>
+
+    <form asp-action="UpdateEntryDescription" method="post" id="descForm">
+        <input type="hidden" name="productId" value="@p.ProductID" />
+        <input type="hidden" name="supplierId" value="@p.SupplierID" />
+        <input type="hidden" name="keyword" value="@Model.Keyword" />
+        <input type="hidden" name="contentJson" id="contentJsonInput" value="" />
+
+        <div class="intro-editor">
+            <div class="intro-title-row">
+                <label for="introTitle">介绍标题</label>
+                <input id="introTitle" type="text" class="form-control" maxlength="100"
+                       placeholder="选填：如“产地直采 · 今日鲜达”，一句话推荐标题" />
+            </div>
+            <div class="intro-block-hint">内容段落（可多段；每段可只有文字、只有图片，或文字与图片并存）</div>
+            <div id="sectionList" class="section-list"></div>
+            <div class="editor-actions">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="addSectionBtn">＋ 添加段落</button>
+                @if (!string.IsNullOrWhiteSpace(supplierText))
+                {
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="copySupplierBtn"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 12h6M9 16h6"/></svg> 加入供应商原版介绍</button>
+                }
+                <button type="button" class="btn btn-sm btn-outline-danger" id="clearIntroBtn">清空介绍</button>
+            </div>
+            <div class="desc-save-row">
+                <button type="submit" class="btn btn-primary" id="saveIntroBtn">保存图文介绍</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- 供应商原版介绍（只读参考） -->
+    <div class="supplier-origin">
+        <h3>供应商介绍</h3>
+        <p class="origin-text" id="supplierOriginText">@(string.IsNullOrEmpty(supplierText) ? "供应商暂未提供商品文字介绍，您可以直接在上方撰写图文介绍。" : supplierText)</p>
+    </div>
+
+    <!-- 消费者端实时预览 -->
+    <div class="intro-preview">
+        <b>推文实时展示效果</b>
+        <div id="previewBox" class="preview-render"></div>
+    </div>
+</section>
+
+<!-- 图片选择弹层：供应商商品图片 / 上传本地图片 -->
+<div class="picker-mask" id="pickerMask" style="display:none;">
+    <div class="picker-panel">
+        <div class="picker-head">
+            <span>选择要插入本段的图片</span>
+            <button type="button" id="pickerCloseBtn" title="关闭">×</button>
+        </div>
+        <div class="picker-tabs">
+            <button type="button" data-tab="supplier" class="active">供应商商品图片</button>
+            <button type="button" data-tab="upload">上传本地图片</button>
+        </div>
+        <div class="picker-body">
+            <div id="tabSupplier"></div>
+            <div id="tabUpload" class="picker-upload">
+                <div class="text-muted small">将本地上传的图片插入当前段落（支持 JPG/PNG/GIF/WebP，≤ 5MB）。</div>
+                <input type="file" id="pickerFile" accept=".jpg,.jpeg,.png,.gif,.webp,image/*" />
+                <div>
+                    <button type="button" class="btn btn-sm btn-primary" id="pickerUploadBtn">上传并插入</button>
+                    <span id="pickerUploadMsg" class="text-muted small"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    var dataNode = document.getElementById('introEditorData');
+    if (!dataNode) return;
+    var data = JSON.parse(dataNode.textContent);
+
+    var availableImages = (data.supplierImages || []).slice(); // 供应商商品图片库（含本次会话上传的）
+    var hasIntroBefore = !!data.hasIntro;
+    var pickerTargetIndex = -1; // 当前要插入图片的段落索引
+
+    var state = {
+        title: (data.content && data.content.title) ? data.content.title : '',
+        sections: (data.content && data.content.sections && data.content.sections.length)
+            ? data.content.sections.map(function (s) { return { text: s.text || '', images: (s.images || []).slice() }; })
+            : [{ text: '', images: [] }]
+    };
+
+    var sectionList = document.getElementById('sectionList');
+    var titleInput = document.getElementById('introTitle');
+    var previewBox = document.getElementById('previewBox');
+    var descForm = document.getElementById('descForm');
+    var contentJsonInput = document.getElementById('contentJsonInput');
+
+    /* ---------------- 渲染段落列表 ---------------- */
+    function esc(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function renderEditor() {
+        if (!sectionList) return;
+        if (!state.sections.length) state.sections = [{ text: '', images: [] }];
+        titleInput.value = state.title;
+
+        if (!state.sections.length) {
+            sectionList.innerHTML = '<div class="section-empty-tip">暂无内容段落 —— 点击下方“＋ 添加段落”开始撰写（可只写文字、只放图片或图文并存）</div>';
+            return;
+        }
+
+        var html = '';
+        state.sections.forEach(function (s, idx) {
+            var imgs = s.images.map(function (u) {
+                return '<span class="sec-img"><img src="' + esc(u) + '" alt="段落图片" onerror="this.style.display=\'none\'">' +
+                    '<button type="button" class="rm-img" data-act="rmimg" data-idx="' + idx + '" data-url="' + esc(u) + '" title="移除这张图">×</button></span>';
+            }).join('');
+            html += '<div class="section-card" data-idx="' + idx + '">' +
+                '<div class="section-tools">' +
+                '<span class="section-no">段落 ' + (idx + 1) + '</span>' +
+                '<span class="ms-auto">' +
+                (idx > 0 ? '<button type="button" class="icon-btn" data-act="up" data-idx="' + idx + '" title="上移">↑</button>' : '') +
+                (idx < state.sections.length - 1 ? '<button type="button" class="icon-btn" data-act="down" data-idx="' + idx + '" title="下移">↓</button>' : '') +
+                '<button type="button" class="icon-btn danger" data-act="del" data-idx="' + idx + '" title="删除本段"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>' +
+                '</span></div>' +
+                '<textarea class="form-control sec-text" data-idx="' + idx + '" rows="2" placeholder="填写本段文字（可留空，本段将只展示图片）">' + esc(s.text) + '</textarea>' +
+                (imgs ? '<div class="sec-images">' + imgs + '</div>' : '') +
+                '<div class="sec-actions">' +
+                '<button type="button" class="btn btn-sm btn-outline-primary" data-act="pick" data-idx="' + idx + '">＋ 从图库选图 / 上传图片</button>' +
+                '<span class="tip">图片可来自供应商商品图库，也可本地上传</span>' +
+                '</div></div>';
+        });
+        sectionList.innerHTML = html;
+    }
+
+    /* ---------------- 实时预览（消费者端形态） ---------------- */
+    function renderPreview() {
+        if (!previewBox) return;
+        var sections = state.sections.filter(function (s) { return s.text.trim() !== '' || s.images.length > 0; });
+        if (state.title.trim() === '' && sections.length === 0) {
+            previewBox.innerHTML = '<div class="pv-empty">尚未撰写内容 —— 添加段落、填写文字并配图后，此处将实时预览消费者端效果。</div>';
+            return;
+        }
+        var html = '';
+        if (state.title.trim()) html += '<div class="pv-title">' + esc(state.title.trim()) + '</div>';
+        sections.forEach(function (s) {
+            if (s.text.trim()) html += '<p class="pv-text">' + esc(s.text.trim()) + '</p>';
+            if (s.images.length) {
+                html += '<div class="pv-images">' + s.images.map(function (u) {
+                    return '<img src="' + esc(u) + '" alt="介绍图片" onerror="this.style.display=\'none\'">';
+                }).join('') + '</div>';
+            }
+        });
+        previewBox.innerHTML = html;
+    }
+
+    /* ---------------- 图库弹层 ---------------- */
+    var pickerMask = document.getElementById('pickerMask');
+    var supplierTab = document.getElementById('tabSupplier');
+    var uploadTab = document.getElementById('tabUpload');
+    var pickerFile = document.getElementById('pickerFile');
+    var pickerUploadMsg = document.getElementById('pickerUploadMsg');
+
+    function openPicker(sectionIndex) {
+        pickerTargetIndex = sectionIndex;
+        pickerFile.value = '';
+        pickerUploadMsg.textContent = '';
+        switchPickerTab('supplier');
+        pickerMask.style.display = 'flex';
+        renderSupplierGrid();
+    }
+    function closePicker() {
+        pickerMask.style.display = 'none';
+        pickerTargetIndex = -1;
+    }
+    function switchPickerTab(tab) {
+        document.querySelectorAll('.picker-tabs button').forEach(function (b) {
+            b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+        });
+        supplierTab.style.display = (tab === 'supplier') ? '' : 'none';
+        uploadTab.classList.toggle('active', tab === 'upload');
+    }
+
+    function addImagesToSection(urls) {
+        var idx = pickerTargetIndex;
+        if (idx < 0 || idx >= state.sections.length) return;
+        urls.forEach(function (u) {
+            if (!u) return;
+            if (state.sections[idx].images.indexOf(u) < 0 && state.sections[idx].images.length < 20) {
+                state.sections[idx].images.push(u);
+            }
+        });
+    }
+
+    function renderSupplierGrid() {
+        if (!supplierTab) return;
+        if (!availableImages.length) {
+            supplierTab.innerHTML = '<div class="picker-empty">供应商暂未上传该商品的图片 —— 切换到“上传本地图片”添加。</div>';
+            return;
+        }
+        var html = '<div class="picker-grid">' + availableImages.map(function (u, i) {
+            return '<div class="pic" data-url="' + esc(u) + '" title="点击插入本段">' +
+                '<img src="' + esc(u) + '" alt="图片' + (i + 1) + '" onerror="this.parentElement.style.display=\'none\'">' +
+                (i === 0 ? '<div class="pic-tag">商品主图</div>' : '') +
+                '</div>';
+        }).join('') + '</div>';
+        supplierTab.innerHTML = html;
+        supplierTab.querySelectorAll('.pic').forEach(function (pic) {
+            pic.addEventListener('click', function () {
+                addImagesToSection([pic.getAttribute('data-url')]);
+                renderEditor();
+                renderPreview();
+                closePicker();
+            });
+        });
+    }
+
+    /* ---------------- 上传本地图片 ---------------- */
+    function uploadAndInsert() {
+        var file = pickerFile.files && pickerFile.files[0];
+        if (!file) { pickerUploadMsg.textContent = '请先选择要上传的图片文件。'; return; }
+        var btn = document.getElementById('pickerUploadBtn');
+        btn.disabled = true;
+        pickerUploadMsg.textContent = '上传中…';
+        var fd = new FormData();
+        fd.append('file', file);
+        fetch('/Promoters/UploadPromoterImage', { method: 'POST', body: fd })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res && res.ok && res.url) {
+                    if (availableImages.indexOf(res.url) < 0) availableImages.unshift(res.url);
+                    addImagesToSection([res.url]);
+                    renderEditor();
+                    renderPreview();
+                    closePicker();
+                } else {
+                    pickerUploadMsg.textContent = (res && res.message) || '上传失败，请重试。';
+                    btn.disabled = false;
+                }
+            })
+            .catch(function () {
+                pickerUploadMsg.textContent = '网络异常，上传失败。';
+                btn.disabled = false;
+            });
+    }
+
+    /* ---------------- 段落操作 ---------------- */
+    sectionList.addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-act]');
+        if (!btn) return;
+        var act = btn.getAttribute('data-act');
+        var idx = parseInt(btn.getAttribute('data-idx'), 10);
+        if (isNaN(idx)) return;
+
+        if (act === 'up' && idx > 0) {
+            var up = state.sections.splice(idx, 1)[0];
+            state.sections.splice(idx - 1, 0, up);
+            renderEditor(); renderPreview();
+        } else if (act === 'down' && idx < state.sections.length - 1) {
+            var d = state.sections.splice(idx, 1)[0];
+            state.sections.splice(idx + 1, 0, d);
+            renderEditor(); renderPreview();
+        } else if (act === 'del') {
+            state.sections.splice(idx, 1);
+            renderEditor(); renderPreview();
+        } else if (act === 'rmimg') {
+            var url = btn.getAttribute('data-url');
+            var arr = state.sections[idx].images;
+            var pos = arr.indexOf(url);
+            if (pos >= 0) arr.splice(pos, 1);
+            renderEditor(); renderPreview();
+        } else if (act === 'pick') {
+            openPicker(idx);
+        }
+    });
+
+    // 输入实时更新状态（不重建 DOM，避免丢失焦点）
+    sectionList.addEventListener('input', function (e) {
+        var ta = e.target;
+        if (!ta || !ta.classList.contains('sec-text')) return;
+        var idx = parseInt(ta.getAttribute('data-idx'), 10);
+        if (!isNaN(idx) && state.sections[idx]) state.sections[idx].text = ta.value;
+        renderPreview();
+    });
+
+    titleInput.addEventListener('input', function () { state.title = titleInput.value; renderPreview(); });
+
+    // 操作条按钮
+    document.getElementById('addSectionBtn').addEventListener('click', function () {
+        state.sections.push({ text: '', images: [] });
+        renderEditor(); renderPreview();
+        // 滚动到新段落
+        var cards = sectionList.querySelectorAll('.section-card');
+        if (cards.length) cards[cards.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    function addSupplierText() {
+        var text = (data.supplierText || '').trim();
+        if (!text) { alert('供应商暂未提供商品文字介绍。'); return; }
+        state.sections.push({ text: text, images: [] });
+        renderEditor(); renderPreview();
+    }
+    var copyBtn = document.getElementById('copySupplierBtn');
+    if (copyBtn) copyBtn.addEventListener('click', addSupplierText);
+
+    document.getElementById('clearIntroBtn').addEventListener('click', function () {
+        var empty = state.title.trim() === '' && state.sections.every(function (s) { return s.text.trim() === '' && s.images.length === 0; });
+        if (empty) { alert('当前没有可清空的内容。'); return; }
+        if (!confirm('确定清空编辑区内容吗？还需点击“保存图文介绍”才会生效。')) return;
+        state.title = '';
+        state.sections = [{ text: '', images: [] }];
+        renderEditor(); renderPreview();
+    });
+
+    /* ---------------- 弹层交互 ---------------- */
+    document.getElementById('pickerCloseBtn').addEventListener('click', closePicker);
+    pickerMask.addEventListener('click', function (e) { if (e.target === pickerMask) closePicker(); });
+    document.querySelectorAll('.picker-tabs button').forEach(function (b) {
+        b.addEventListener('click', function () { switchPickerTab(b.getAttribute('data-tab')); });
+    });
+    document.getElementById('pickerUploadBtn').addEventListener('click', uploadAndInsert);
+
+    /* ---------------- 保存：组装 JSON 提交 ---------------- */
+    descForm.addEventListener('submit', function (e) {
+        var title = state.title.trim();
+        var sections = state.sections
+            .map(function (s) { return { text: s.text.trim(), images: s.images.slice() }; })
+            .filter(function (s) { return s.text !== '' || s.images.length > 0; });
+
+        if (title === '' && sections.length === 0) {
+            if (hasIntroBefore && !confirm('确定清除该商品的图文介绍吗？清除后消费者端将不再展示团长图文介绍。')) {
+                e.preventDefault();
+                return;
+            }
+            contentJsonInput.value = '';
+            return; // 允许提交，服务端视为清空
+        }
+
+        contentJsonInput.value = JSON.stringify({ title: title, sections: sections });
+        var btn = document.getElementById('saveIntroBtn');
+        btn.disabled = true;
+        btn.textContent = '保存中…';
+    });
+
+    /* ---------------- 初始化 ---------------- */
+    titleInput.value = state.title;
+    renderEditor();
+    renderPreview();
+})();
+</script>

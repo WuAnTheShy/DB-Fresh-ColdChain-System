@@ -1,6 +1,6 @@
 namespace FreshColdChain.Models.DTOs;
 
-// ========== 价格计算 ==========
+// 价格计算
 
 /// <summary>价格计算请求 — B 组下单时计算实时价格</summary>
 public class PriceCalculationRequest
@@ -29,7 +29,7 @@ public class PriceCalculationResult
     public decimal DiscountAmount => DefaultPrice - FinalPrice;
 }
 
-// ========== 规则管理 DTO ==========
+// 规则管理 DTO
 
 /// <summary>价格规则展示/列表</summary>
 public class PriceRuleDto

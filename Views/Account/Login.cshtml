@@ -24,16 +24,22 @@
                     </div>
                 }
 
-                @if (TempData["Success"] is string successMsg)
-                {
-                    <div class="alert alert-success" role="alert">@successMsg</div>
-                }
-                @if (TempData["Error"] is string errorMsg)
-                {
-                    <div class="alert alert-danger" role="alert">@errorMsg</div>
-                }
-
                 <form asp-action="Login" asp-route-role="@ViewBag.Role" method="post">
+                    @if (ViewBag.Role?.ToString() == "管理员")
+                    {
+                        var kinds = ViewBag.AdminKinds as (string Code, string Name)[] ?? new (string Code, string Name)[0];
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">管理员类型</label>
+                            <select name="adminKind" class="form-select" required>
+                                <option value="">请选择您的管理员类型</option>
+                                @foreach (var kind in kinds)
+                                {
+                                    <option value="@kind.Code">@kind.Name</option>
+                                }
+                            </select>
+                            <div class="form-text">请选择与注册时填写一致的种类，登录后才可进入对应子系统。</div>
+                        </div>
+                    }
                     <div class="mb-3">
                         <label class="form-label fw-bold">用户名</label>
                         <input type="text" class="form-control" id="username" name="username"

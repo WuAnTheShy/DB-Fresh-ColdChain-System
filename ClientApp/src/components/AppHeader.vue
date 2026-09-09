@@ -1,17 +1,22 @@
 <script setup>
-import { LogOut, MapPin, Menu, Search, ShoppingCart, X } from '@lucide/vue'
-import { ref, watch } from 'vue'
+import { MapPin, Menu, Search, ShoppingCart, UserRound, X } from '@lucide/vue'
+import { Offcanvas } from 'bootstrap'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useShop } from '../state/shop'
-import { api } from '../services/api'
+import { avatarUrl } from '../assets/avatars'
 import { useCustomerContext } from '../state/customer'
 
 const router = useRouter()
 const route = useRoute()
 const { categories, cartCount } = useShop()
-const { customerName, isAuthenticated, clearCustomer } = useCustomerContext()
+const { customerName, isAuthenticated, deliveryLocation, avatar } = useCustomerContext()
 const keyword = ref(String(route.query.q ?? ''))
-const loggingOut = ref(false)
+
+const navCategories = computed(() => {
+  const sortKey = (name) => (name === '其他' || name === '其它' ? 1 : 0)
+  return [...categories].sort((a, b) => sortKey(a.name) - sortKey(b.name))
+})
 
 watch(() => route.query.q, (value) => {
   keyword.value = String(value ?? '')
@@ -21,14 +26,20 @@ function search() {
   router.push({ path: '/search', query: keyword.value.trim() ? { q: keyword.value.trim() } : {} })
 }
 
-async function logout() {
-  loggingOut.value = true
-  try {
-    await api.logoutCustomer()
-    clearCustomer()
-    await router.push('/')
-  } finally {
-    loggingOut.value = false
+// 移动端侧栏内导航：先关闭菜单，再交由 RouterLink 正常跳转。
+// 不能用 data-bs-dismiss 挂在 <a> 上——Bootstrap 会对其 preventDefault，
+// 与 vue-router 的点击处理冲突导致导航不生效。
+function closeMobileMenu() {
+  const menu = document.getElementById('mobileMenu')
+  if (menu) {
+    Offcanvas.getOrCreateInstance(menu).hide()
+  }
+}
+
+function onMobileNavClick(event) {
+  // 仅当点击到导航链接（RouterLink 渲染为 <a>）时关闭菜单，交由路由跳转
+  if (event.target.closest('a')) {
+    closeMobileMenu()
   }
 }
 </script>
@@ -48,15 +59,16 @@ async function logout() {
           <small>fresh</small>
         </RouterLink>
 
-        <button class="delivery-location d-none d-xl-flex" type="button" title="选择配送地址">
+        <RouterLink class="delivery-location d-none d-xl-flex" :to="isAuthenticated ? '/addresses' : '/auth'"
+          title="管理配送地址">
           <MapPin :size="19" />
-          <span><small>配送至</small><strong>上海市浦东新区</strong></span>
-        </button>
+          <span><small>配送至</small><strong>{{ deliveryLocation }}</strong></span>
+        </RouterLink>
 
         <form class="global-search" role="search" @submit.prevent="search">
           <select class="search-category d-none d-md-block" aria-label="商品分类">
             <option>全部</option>
-            <option v-for="category in categories" :key="category.slug">{{ category.name }}</option>
+            <option v-for="category in navCategories" :key="category.slug">{{ category.name }}</option>
           </select>
           <input v-model="keyword" type="search" placeholder="搜索鲜邻团" aria-label="搜索" />
           <button type="submit" aria-label="提交搜索" title="搜索">
@@ -66,9 +78,12 @@ async function logout() {
 
         <div class="header-account-area d-none d-md-flex">
           <RouterLink class="header-account" :to="isAuthenticated ? '/profile' : '/auth'">
+            <i class="header-account-avatar"><img v-if="isAuthenticated && avatarUrl(avatar)" :src="avatarUrl(avatar)"
+                :alt="`${customerName}的头像`" />
+              <UserRound v-else :size="21" />
+            </i>
             <span><small>{{ isAuthenticated ? `你好，${customerName}` : '你好，请登录' }}</small><strong>账户与会员</strong></span>
           </RouterLink>
-          <button v-if="isAuthenticated" class="header-logout" type="button" :disabled="loggingOut" title="退出登录" aria-label="退出登录" @click="logout"><LogOut :size="17" /></button>
         </div>
         <RouterLink class="header-account d-none d-lg-flex" to="/orders">
           <span><small>退换货</small><strong>与订单</strong></span>
@@ -87,7 +102,7 @@ async function logout() {
           <Menu :size="17" />全部分类
         </RouterLink>
         <RouterLink to="/following">我的关注</RouterLink>
-        <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`">{{
+        <RouterLink v-for="category in navCategories" :key="category.slug" :to="`/category/${category.slug}`">{{
           category.name }}</RouterLink>
         <RouterLink to="/coupons">领券中心</RouterLink>
       </div>
@@ -101,15 +116,12 @@ async function logout() {
           <X :size="22" />
         </button>
       </div>
-      <div class="offcanvas-body">
+      <div class="offcanvas-body" @click="onMobileNavClick">
         <p class="mobile-menu-label">商城导航</p>
-        <RouterLink to="/following" data-bs-dismiss="offcanvas">我的关注</RouterLink>
-        <RouterLink v-for="category in categories" :key="category.slug" :to="`/category/${category.slug}`"
-          data-bs-dismiss="offcanvas">{{ category.name }}</RouterLink>
-        <RouterLink to="/coupons" data-bs-dismiss="offcanvas">领券中心</RouterLink>
-        <RouterLink to="/addresses" data-bs-dismiss="offcanvas">收货地址</RouterLink>
-        <RouterLink :to="isAuthenticated ? '/profile' : '/auth'" data-bs-dismiss="offcanvas">{{ isAuthenticated ? `${customerName}的账户` : '登录 / 注册' }}</RouterLink>
-        <button v-if="isAuthenticated" class="mobile-logout" type="button" data-bs-dismiss="offcanvas" :disabled="loggingOut" @click="logout"><LogOut :size="17" />退出登录</button>
+        <RouterLink to="/following">我的关注</RouterLink>
+        <RouterLink v-for="category in navCategories" :key="category.slug" :to="`/category/${category.slug}`">{{
+          category.name }}</RouterLink>
+        <RouterLink to="/coupons">领券中心</RouterLink>
       </div>
     </div>
   </header>
@@ -148,10 +160,29 @@ async function logout() {
   text-decoration: none;
 }
 
-.header-account-area { position: relative; align-items: center; }
-.header-account-area .header-account { padding-right: 31px; }
-.header-logout { position: absolute; right: 4px; display: inline-flex; width: 27px; height: 36px; align-items: center; justify-content: center; border: 0; background: transparent; color: #ddd; }
-.header-logout:hover { color: var(--amber); }
+.header-account-area {
+  align-items: center;
+}
+
+.header-account-avatar {
+  display: inline-flex;
+  width: 33px;
+  height: 33px;
+  flex: 0 0 33px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .28);
+  border-radius: 50%;
+  background: var(--amber);
+  color: #2e2209;
+}
+
+.header-account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 .delivery-location {
   padding: 7px;
@@ -318,7 +349,7 @@ async function logout() {
 }
 
 .secondary-inner a.router-link-active {
-    font-weight: 700;
+  font-weight: 700;
 }
 
 
@@ -352,8 +383,6 @@ async function logout() {
   font-size: 11px;
   font-weight: 700;
 }
-
-.mobile-logout { display: flex; align-items: center; gap: 8px; padding: 12px 9px; border: 0; border-bottom: 1px solid #303b36; background: transparent; color: #e8edeb; text-align: left; }
 
 /* Amazon-inspired storefront refresh */
 .store-header {
@@ -446,7 +475,7 @@ async function logout() {
     grid-template-columns: 40px auto 1fr auto;
     grid-template-rows: 50px 47px;
     gap: 0 8px;
-    padding: 5px 0 6px;
+    padding: 5px 8px 6px;
   }
 
   .store-brand {
@@ -456,6 +485,7 @@ async function logout() {
   .global-search {
     grid-column: 1 / -1;
     grid-row: 2;
+    grid-template-columns: 1fr 46px;
     height: 42px;
   }
 

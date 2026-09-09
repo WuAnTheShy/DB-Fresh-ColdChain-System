@@ -1,4 +1,4 @@
-//操作InvCategory表
+// 操作InvCategory表
 
 using FreshColdChain.Models;
 

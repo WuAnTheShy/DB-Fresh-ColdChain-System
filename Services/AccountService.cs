@@ -47,13 +47,6 @@ namespace FreshColdChain.Services
             var verifyResponse = await _isupplierService.VerifySupplierPasswordAsync(loginAccount, password);
             if (!verifyResponse.IsSuccess || !verifyResponse.Data)
                 return new SupplierLoginResult { IsSuccess = false, Message = "账号或密码错误" };
-            // 状态检查：仅正常（Active）账号可登录，待审核/被驳回/被禁用均拒绝
-            if (string.Equals(supplier.Status, "Pending", StringComparison.OrdinalIgnoreCase))
-                return new SupplierLoginResult { IsSuccess = false, Message = "入驻申请正在审核中，请等待管理员审核" };
-            if (string.Equals(supplier.Status, "Rejected", StringComparison.OrdinalIgnoreCase))
-                return new SupplierLoginResult { IsSuccess = false, Message = "入驻申请已被驳回，请联系平台管理员" };
-            if (string.Equals(supplier.Status, "Disabled", StringComparison.OrdinalIgnoreCase))
-                return new SupplierLoginResult { IsSuccess = false, Message = "账号已被禁用，请联系平台管理员" };
             var expiryDate = (DateTime)(supplier.ExpiryDate != null ? supplier.ExpiryDate : DateTime.MinValue);
             // 检查状态
             if (DateTime.Compare(expiryDate, DateTime.Now) < 0)

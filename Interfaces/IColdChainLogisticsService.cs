@@ -14,7 +14,7 @@ public interface IColdChainLogisticsService
     /// <summary>按 FEFO 扣减批次库存并发货，记录批次溯源映射</summary>
     Task<ApiResponse<LogExpressDelivery>> CreateShipmentAsync(ShipmentRequest request);
 
-    // ========== 精准溯源查询 ==========
+    // 精准溯源查询
 
     /// <summary>按订单 ID 查询该订单的所有发货单及其批次溯源明细（正向溯源）</summary>
     Task<ApiResponse<List<DeliveryTraceDto>>> GetTraceabilityByOrderAsync(string orderId);

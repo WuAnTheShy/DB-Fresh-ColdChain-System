@@ -72,21 +72,45 @@ public class PromoterProductRepository : IPromoterProductRepository
 
     public async Task<List<PromoterProductEntryDetailDto>> GetActiveEntriesDetailAsync(string promoterId, IDbTransaction? transaction = null)
     {
-        // 表/列名以共享库（COLDCHAIN）实际结构为准：INV_SUPPLIERPRICES、DEFAULTPRICE、SUPPLYPRICE
+        // 上架状态/售价/文字介绍以该供应商的货物（INV_GOODS）为准：货物即该供应商的唯一供货源。
+        // 供货价=货物售价；推荐价(建议零售)=供货价×1.2，实时派生（不落库），保证两价天然区分、有定价浮动空间。
         const string sql = @"
             SELECT E.PRODUCTID, E.SUPPLIERID, E.PROMOTERPRICE, E.PROMOTERDESC,
-                   P.PRODUCTNAME, P.UNIT, P.DEFAULTPRICE, P.DESCRIPTION,
+                   E.CREATETIME AS CreateTime,
+                   P.PRODUCTNAME, P.UNIT,
                    S.SUPPLIERNAME,
-                   SP.SUPPLYPRICE
+                   COALESCE(G.SALEPRICE, P.DEFAULTPRICE) AS SUPPLYPRICE,
+                   ROUND(COALESCE(G.SALEPRICE, P.DEFAULTPRICE) * 1.2, 2) AS DEFAULTprice,
+                   COALESCE(G.DESCRIPTION, P.DESCRIPTION) AS DESCRIPTION,
+                   COALESCE(G.STATUS, P.STATUS) AS ProductStatus
             FROM CRM_PRODUCT_ENTRIES E
             JOIN INV_PRODUCTS P ON P.PRODUCTID = E.PRODUCTID
             JOIN INV_SUPPLIERS S ON S.SUPPLIERID = E.SUPPLIERID
-            LEFT JOIN INV_SUPPLIERPRICES SP ON SP.SUPPLIERID = E.SUPPLIERID AND SP.PRODUCTID = E.PRODUCTID
+            LEFT JOIN INV_GOODS G ON G.SUPPLIERID = E.SUPPLIERID AND G.PRODUCTID = E.PRODUCTID
             WHERE E.PROMOTERID = :PromoterId AND E.STATUS = 'Active'
             ORDER BY E.CREATETIME DESC, E.PRODUCTID";
         var result = await _uow.Connection.QueryAsync<PromoterProductEntryDetailDto>(sql,
             new { PromoterId = promoterId }, transaction);
         return result.ToList();
+    }
+
+    public async Task<PromoterProductEntryDetailDto?> GetActiveEntryDetailAsync(string promoterId, string productId, string supplierId, IDbTransaction? transaction = null)
+    {
+        const string sql = @"
+            SELECT E.PRODUCTID, E.SUPPLIERID, E.PROMOTERPRICE, E.PROMOTERDESC,
+                   P.PRODUCTNAME, P.UNIT,
+                   S.SUPPLIERNAME,
+                   COALESCE(G.SALEPRICE, P.DEFAULTPRICE) AS SUPPLYPRICE,
+                   ROUND(COALESCE(G.SALEPRICE, P.DEFAULTPRICE) * 1.2, 2) AS DEFAULTprice,
+                   COALESCE(G.DESCRIPTION, P.DESCRIPTION) AS DESCRIPTION,
+                   COALESCE(G.STATUS, P.STATUS) AS ProductStatus
+            FROM CRM_PRODUCT_ENTRIES E
+            JOIN INV_PRODUCTS P ON P.PRODUCTID = E.PRODUCTID
+            JOIN INV_SUPPLIERS S ON S.SUPPLIERID = E.SUPPLIERID
+            LEFT JOIN INV_GOODS G ON G.SUPPLIERID = E.SUPPLIERID AND G.PRODUCTID = E.PRODUCTID
+            WHERE E.PROMOTERID = :PromoterId AND E.PRODUCTID = :ProductId AND E.SUPPLIERID = :SupplierId AND E.STATUS = 'Active'";
+        return await _uow.Connection.QueryFirstOrDefaultAsync<PromoterProductEntryDetailDto>(sql,
+            new { PromoterId = promoterId, ProductId = productId, SupplierId = supplierId }, transaction);
     }
 
     public async Task<List<(string ProductId, string SupplierId, decimal? PromoterPrice)>> GetActiveEntriesByPromoterAsync(string promoterId, IDbTransaction? transaction = null)

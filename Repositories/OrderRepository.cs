@@ -11,7 +11,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
 {
     public OrderRepository(IConfiguration configuration) : base(configuration) { }
 
-    // ========== Biz_Orders ==========
+    // Biz_Orders
 
     /// <summary>创建订单</summary>
     public async Task<string> CreateOrderAsync(BizOrder order, IDbTransaction? transaction = null)
@@ -19,11 +19,11 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
         var sql = @"
             INSERT INTO Biz_Orders (
                 OrderId, OrderNo, CustomerId, CheckoutBatchId, PromoterId, AddressId, ReceiverName, ReceiverPhone,
-                ShippingAddress, TotalAmount, DiscountAmount, FreightAmount,
+                ShippingAddress, TotalAmount, DiscountAmount, FreightAmount, FreightQuoteSnapshot,
                 FinalAmount, PointsEarned, PointsUsed, PointsDiscountAmount, OrderStatus, PaymentExpiresAt, CreatedAt)
             VALUES (
                 :OrderId, :OrderNo, :CustomerId, :CheckoutBatchId, :PromoterId, :AddressId, :ReceiverName, :ReceiverPhone,
-                :ShippingAddress, :TotalAmount, :DiscountAmount, :FreightAmount,
+                :ShippingAddress, :TotalAmount, :DiscountAmount, :FreightAmount, :FreightQuoteSnapshot,
                 :FinalAmount, :PointsEarned, :PointsUsed, :PointsDiscountAmount, :OrderStatus, :PaymentExpiresAt, SYSDATE)";
 
         return await WithConnectionAsync(transaction, async connection =>
@@ -169,15 +169,20 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                           o.CustomerId,
                           o.CheckoutBatchId,
                           o.PromoterId,
+                          p.PromoterName,
                           c.CustomerName,
                           o.FinalAmount,
                           o.OrderStatus,
-                          COUNT(d.OrderDetailId) AS ItemCount,
+                          COUNT(DISTINCT d.OrderDetailId) AS ItemCount,
                           COUNT(DISTINCT d.SupplierId) AS SupplierCount,
+                          MIN(d.ProductId) KEEP (DENSE_RANK FIRST ORDER BY d.OrderDetailId) AS FirstProductId,
+                          MIN(d.ProductName) KEEP (DENSE_RANK FIRST ORDER BY d.OrderDetailId) AS FirstProductName,
+                          MIN(d.Quantity) KEEP (DENSE_RANK FIRST ORDER BY d.OrderDetailId) AS FirstProductQuantity,
                           o.CreatedAt
                           ,o.PaymentExpiresAt
                    FROM Biz_Orders o
                    JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
+                   LEFT JOIN Crm_Promoters p ON p.PromoterId = o.PromoterId
                    LEFT JOIN Biz_OrderDetails d ON d.OrderId = o.OrderId
                    {CreateOrderFilterSql()}
                    GROUP BY o.OrderId,
@@ -185,6 +190,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                             o.CustomerId,
                             o.CheckoutBatchId,
                             o.PromoterId,
+                            p.PromoterName,
                             c.CustomerName,
                             o.FinalAmount,
                             o.OrderStatus,
@@ -193,6 +199,112 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                    ORDER BY o.CreatedAt DESC, o.OrderId DESC
                    OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY",
                 CreateOrderQueryParameters(request, offset),
+                transaction)).ToList());
+    }
+
+    public async Task<List<OrderCardProductItem>> GetOrderCardItemsAsync(
+        IReadOnlyCollection<string> orderIds,
+        IDbTransaction? transaction = null)
+    {
+        if (orderIds.Count == 0)
+            return [];
+
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<OrderCardProductItem>(
+                @"SELECT d.OrderId,
+                         d.OrderDetailId,
+                         d.ProductId,
+                         d.ProductName,
+                         d.SupplierId,
+                         d.Quantity,
+                         d.UnitPrice,
+                         d.SubTotal,
+                         MIN(productImage.ImageUrl) KEEP (
+                             DENSE_RANK FIRST ORDER BY
+                                 CASE WHEN productImage.SupplierId = d.SupplierId THEN 0 ELSE 1 END,
+                                 productImage.SortOrder NULLS LAST,
+                                 productImage.CreateTime NULLS LAST,
+                                 productImage.ImageId NULLS LAST
+                         ) AS ImageUrl
+                  FROM Biz_OrderDetails d
+                  LEFT JOIN Inv_ProductImages productImage
+                    ON productImage.ProductId = d.ProductId
+                   AND (productImage.SupplierId = d.SupplierId OR productImage.SupplierId IS NULL)
+                  WHERE d.OrderId IN :OrderIds
+                  GROUP BY d.OrderId,
+                           d.OrderDetailId,
+                           d.ProductId,
+                           d.ProductName,
+                           d.SupplierId,
+                           d.Quantity,
+                           d.UnitPrice,
+                           d.SubTotal
+                  ORDER BY d.OrderId, d.OrderDetailId",
+                new { OrderIds = orderIds },
+                transaction)).ToList());
+    }
+
+    public async Task<int> CountSupplierFulfillmentOrdersAsync(
+        string supplierId,
+        SupplierFulfillmentQuery query,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, connection =>
+            connection.ExecuteScalarAsync<int>(
+                $@"SELECT COUNT(DISTINCT o.OrderId)
+                   FROM Biz_Orders o
+                   JOIN Biz_OrderDetails d ON d.OrderId = o.OrderId
+                   WHERE d.SupplierId = :SupplierId
+                     AND o.OrderStatus IN ('PAID', 'SHIPPED', 'COMPLETED')
+                     AND (:OrderStatus IS NULL OR o.OrderStatus = :OrderStatus)
+                     AND (:Keyword IS NULL
+                         OR o.OrderNo LIKE '%' || :Keyword || '%'
+                         OR o.ReceiverName LIKE '%' || :Keyword || '%'
+                         OR o.ReceiverPhone LIKE '%' || :Keyword || '%')",
+                CreateSupplierFulfillmentParameters(supplierId, query),
+                transaction));
+    }
+
+    public async Task<List<SupplierFulfillmentOrderListItem>> GetSupplierFulfillmentOrdersAsync(
+        string supplierId,
+        SupplierFulfillmentQuery query,
+        int offset,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<SupplierFulfillmentOrderListItem>(
+                $@"SELECT o.OrderId,
+                          o.OrderNo,
+                          c.CustomerName,
+                          o.ReceiverName,
+                          o.ReceiverPhone,
+                          o.ShippingAddress,
+                          o.OrderStatus,
+                          COUNT(d.OrderDetailId) AS ItemCount,
+                          SUM(d.Quantity) AS TotalQuantity,
+                          SUM(d.SubTotal) AS SupplierAmount,
+                          o.CreatedAt
+                   FROM Biz_Orders o
+                   JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
+                   JOIN Biz_OrderDetails d ON d.OrderId = o.OrderId
+                   WHERE d.SupplierId = :SupplierId
+                     AND o.OrderStatus IN ('PAID', 'SHIPPED', 'COMPLETED')
+                     AND (:OrderStatus IS NULL OR o.OrderStatus = :OrderStatus)
+                     AND (:Keyword IS NULL
+                         OR o.OrderNo LIKE '%' || :Keyword || '%'
+                         OR o.ReceiverName LIKE '%' || :Keyword || '%'
+                         OR o.ReceiverPhone LIKE '%' || :Keyword || '%')
+                   GROUP BY o.OrderId,
+                            o.OrderNo,
+                            c.CustomerName,
+                            o.ReceiverName,
+                            o.ReceiverPhone,
+                            o.ShippingAddress,
+                            o.OrderStatus,
+                            o.CreatedAt
+                   ORDER BY o.CreatedAt DESC, o.OrderId DESC
+                   OFFSET :Offset ROWS FETCH NEXT :PageSize ROWS ONLY",
+                CreateSupplierFulfillmentParameters(supplierId, query, offset),
                 transaction)).ToList());
     }
 
@@ -207,6 +319,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                          o.CustomerId,
                          o.CheckoutBatchId,
                          o.PromoterId,
+                         p.PromoterName,
                          o.AddressId,
                          c.CustomerName,
                          o.ReceiverName,
@@ -215,6 +328,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                          o.TotalAmount,
                          o.DiscountAmount,
                          o.FreightAmount,
+                         o.FreightQuoteSnapshot,
                          o.FinalAmount,
                          o.PointsEarned,
                          o.PointsUsed,
@@ -225,6 +339,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                          o.UpdatedAt
                   FROM Biz_Orders o
                   JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
+                  LEFT JOIN Crm_Promoters p ON p.PromoterId = o.PromoterId
                   WHERE o.OrderId = :OrderId",
                 new { OrderId = orderId },
                 transaction));
@@ -295,7 +410,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
         });
     }
 
-    // ========== Biz_OrderDetails ==========
+    // Biz_OrderDetails
 
     /// <summary>批量插入订单明细</summary>
     public async Task InsertDetailsAsync(IEnumerable<BizOrderDetail> details, IDbTransaction? transaction = null)
@@ -360,6 +475,40 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 transaction) == 1);
     }
 
+    /// <summary>
+    /// 查询某团长在团商品的「跟团记录」：购买过该商品的消费者（按消费者聚合，最近购买优先）。
+    /// 仅统计已支付/已发货/已完成的真实成交订单，剔除待支付与已取消/退款。
+    /// </summary>
+    public async Task<List<ProductGroupRecord>> GetProductGroupRecordsAsync(
+        string promoterId,
+        string productId,
+        int take,
+        IDbTransaction? transaction = null)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+            (await connection.QueryAsync<ProductGroupRecord>(
+                @"SELECT
+                    c.CustomerId,
+                    c.CustomerName,
+                    c.Avatar,
+                    MIN(d.SupplierId) AS SupplierId,
+                    SUM(d.Quantity) AS TotalQuantity,
+                    SUM(d.SubTotal) AS TotalSpent,
+                    MAX(o.CreatedAt) AS PurchasedAt,
+                    MIN(o.OrderStatus) AS OrderStatus
+                  FROM Biz_OrderDetails d
+                  JOIN Biz_Orders o ON o.OrderId = d.OrderId
+                  JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
+                  WHERE d.ProductId = :ProductId
+                    AND o.PromoterId = :PromoterId
+                    AND o.OrderStatus IN ('PAID', 'SHIPPED', 'COMPLETED')
+                  GROUP BY c.CustomerId, c.CustomerName, c.Avatar
+                  ORDER BY MAX(o.CreatedAt) DESC
+                  OFFSET 0 ROWS FETCH NEXT :Take ROWS ONLY",
+                new { ProductId = productId, PromoterId = promoterId, Take = take },
+                transaction)).ToList());
+    }
+
     private static string CreateOrderFilterSql()
     {
         return @"WHERE (:CustomerId IS NULL OR o.CustomerId = :CustomerId)
@@ -382,6 +531,25 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
             request.Keyword,
             Offset = offset,
             request.PageSize
+        };
+    }
+
+    private static object CreateSupplierFulfillmentParameters(
+        string supplierId,
+        SupplierFulfillmentQuery query,
+        int offset = 0)
+    {
+        return new
+        {
+            SupplierId = supplierId,
+            OrderStatus = query.Status.HasValue
+                ? OrderStatusCodes.ToCode(query.Status.Value)
+                : null,
+            Keyword = string.IsNullOrWhiteSpace(query.Keyword)
+                ? null
+                : query.Keyword.Trim(),
+            Offset = offset,
+            query.PageSize
         };
     }
 }

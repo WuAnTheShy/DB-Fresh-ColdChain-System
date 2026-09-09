@@ -27,7 +27,7 @@ namespace FreshColdChain.Services
             _logManager = logManager;
             _icommissionRecordRepository = icommissionRecordRepository;
         }
-        //佣金结算触发函数
+        // 佣金结算触发函数
         public async Task<CommissionResult> RegisterCompletedOrderAsync(CommissionOrderRequest commissionOrderRequest,
             IDbTransaction? transaction = null,
             CancellationToken cancellationToken = default)
@@ -45,11 +45,11 @@ namespace FreshColdChain.Services
                 }
                 else if (_uow.Transaction == null)
                 {
-                    //外部事务（B组传入）：挂载到工作单元，使C组仓储复用事务所在的连接，
-                    //避免"C组自建连接 + B组事务"导致的连接/事务不匹配异常
+                    // 外部事务（B组传入）：挂载到工作单元，使C组仓储复用事务所在的连接，
+                    // 避免"C组自建连接 + B组事务"导致的连接/事务不匹配异常
                     _uow.AttachExternalTransaction(transaction);
                 }
-                //无团长的普通订单不产生佣金，直接返回成功（0佣金），不阻塞B组订单完成
+                // 无团长的普通订单不产生佣金，直接返回成功（0佣金），不阻塞B组订单完成
                 if (string.IsNullOrEmpty(commissionOrderRequest.promoterID))
                 {
                     if (ownTransaction)
@@ -77,8 +77,8 @@ namespace FreshColdChain.Services
                 _tableLog.NewValue = JsonConvert.SerializeObject(new { TotalSales = _newTotalSales });
                 await _logManager.WriteTableChangeLog(_tableLog);
 
-                //等级挂钩：累计销售额跨档导致等级变化时，同步更新佣金比例（等级越高比例越高）。
-                //本单仍按结算前的旧比例计佣，新比例从下一单开始生效；退款回滚时在 RefundRollbackMoney 内对称回退
+                // 等级挂钩：累计销售额跨档导致等级变化时，同步更新佣金比例（等级越高比例越高）。
+                // 本单仍按结算前的旧比例计佣，新比例从下一单开始生效；退款回滚时在 RefundRollbackMoney 内对称回退
                 var _levelRate = GroupC_LevelCommissionPolicy.ResolveRate(_newTotalSales);
                 if (_promoterInfo.BaseCommissionRate != _levelRate)
                 {
@@ -95,7 +95,7 @@ namespace FreshColdChain.Services
 
                 _commissionResult.CommBaseAmount = _promoterInfo.BaseCommissionRate * commissionOrderRequest.finalAmount;
 
-                //阶梯奖励：累计销售额每跨过一档即发放对应奖励，一单跨多档时全部叠加到该单奖励佣金
+                // 阶梯奖励：累计销售额每跨过一档即发放对应奖励，一单跨多档时全部叠加到该单奖励佣金
                 _commissionResult.CommBonusAmount = GroupC_CommissionBonusPolicy.CalculateCrossedBonus(_oldTotalSales, _newTotalSales);
 
                 var totalCommission = _commissionResult.CommBaseAmount + _commissionResult.CommBonusAmount;
@@ -115,7 +115,8 @@ namespace FreshColdChain.Services
 
                 var record = new CommissionRecord
                 {
-                    RecordId = "PROC_" + Guid.NewGuid().ToString("N"),
+                    // FIN_PROCOMRECORDS.RECORDID 为 VARCHAR2(36)：4 位前缀 + 32 位 GUID。
+                    RecordId = "PROC" + Guid.NewGuid().ToString("N"),
                     PromoterId = commissionOrderRequest.promoterID,
                     OrderId = commissionOrderRequest.orderID,  // 需要从请求中传入订单ID
                     FinalAmount = commissionOrderRequest.finalAmount,
@@ -165,7 +166,7 @@ namespace FreshColdChain.Services
             }
 
         }
-        //过退款期激活佣金（二段结算：待结算余额 → 可提现余额）
+        // 过退款期激活佣金（二段结算：待结算余额 → 可提现余额）
         public async Task<Result> ActivatePromoterMoney(ActivateCommissionOrderRequest request,
             IDbTransaction? transaction = null, CancellationToken cancellationToken = default)
         {
@@ -181,7 +182,7 @@ namespace FreshColdChain.Services
                 }
                 else if (_uow.Transaction == null)
                 {
-                    //外部事务：挂载到工作单元，使C组仓储复用事务所在的连接
+                    // 外部事务：挂载到工作单元，使C组仓储复用事务所在的连接
                     _uow.AttachExternalTransaction(transaction);
                 }
                 if (string.IsNullOrEmpty(request.orderID))
@@ -189,7 +190,7 @@ namespace FreshColdChain.Services
                     throw new Exception("订单编号为空");
                 }
 
-                //先查佣金记录并校验状态，再动账（顺序不能反，否则重复调用/退款后调用会错误加钱）
+                // 先查佣金记录并校验状态，再动账（顺序不能反，否则重复调用/退款后调用会错误加钱）
                 var record = await _icommissionRecordRepository.GetByOrderIdAsync(request.orderID, transaction);
                 if (record == null)
                 {
@@ -197,7 +198,7 @@ namespace FreshColdChain.Services
                 }
                 if (record.Status == "Settled")
                 {
-                    //幂等：已激活过直接返回成功，不重复动账
+                    // 幂等：已激活过直接返回成功，不重复动账
                     if (ownTransaction)
                         await _uow.CommitAsync();
                     _result.IsSuccess = true;
@@ -214,9 +215,9 @@ namespace FreshColdChain.Services
                     throw new Exception("团长信息不存在");
                 }
 
-                //激活金额以佣金记录为准（不信任调用方传入的金额）：
-                //发生过部分退款时，按订单金额留存比例计算剩余有效佣金
-                //（注：部分退款且跨阶梯回滚的极端场景下，与退款时按档位撤销的金额可能存在微小差异，
+                // 激活金额以佣金记录为准（不信任调用方传入的金额）：
+                // 发生过部分退款时，按订单金额留存比例计算剩余有效佣金
+                // （注：部分退款且跨阶梯回滚的极端场景下，与退款时按档位撤销的金额可能存在微小差异，
                 //  如需分毫不差需另增"已回滚佣金"字段，当前按比例口径与记录自洽）
                 var refundRatio = record.FinalAmount > 0
                     ? record.RefundedAmount / record.FinalAmount
@@ -226,7 +227,7 @@ namespace FreshColdChain.Services
                 var _oldPromoterPendingBalance = _promoterInfo.PendingBalance;
                 var _oldPromoterCurrentBalance = _promoterInfo.CurrentBalance;
 
-                //乐观锁：仅当状态仍为 Pending 时才置为 Settled，防止与退款/其他结算任务并发导致重复动账
+                // 乐观锁：仅当状态仍为 Pending 时才置为 Settled，防止与退款/其他结算任务并发导致重复动账
                 if (!await _icommissionRecordRepository.TryUpdateStatusAsync(record.RecordId, "Pending", "Settled", transaction))
                 {
                     throw new Exception("佣金记录状态已变化，激活失败请重试");

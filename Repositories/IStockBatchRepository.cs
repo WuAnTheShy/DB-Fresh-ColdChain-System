@@ -1,4 +1,4 @@
-//操作InvStockBatch表
+// 操作InvStockBatch表
 
 using FreshColdChain.Models;
 
@@ -16,6 +16,10 @@ public interface IStockBatchRepository : IBaseRepository<InvStockBatch>
     Task<List<InvStockBatch>> GetByProductIdWithSupplierAsync(string productId);
     /// <summary>查询某商品在某供应商下的全部批次（含供应商信息，不做过期/数量过滤，供供应商查看自己进货）</summary>
     Task<List<InvStockBatch>> GetByProductAndSupplierWithSupplierAsync(string productId, string supplierId);
+    /// <summary>带行级锁的 FEFO 批次查询 — 限定 (商品, 供应商)。出库/发货按供应商维度扣减时使用</summary>
+    Task<List<InvStockBatch>> GetByProductAndSupplierForUpdateAsync(string productId, string supplierId);
+    /// <summary>查某商品在某供应商下的活跃批次合计（未过期）— 供应商级可用量口径</summary>
+    Task<int> GetActiveTotalByProductAndSupplierAsync(string productId, string supplierId);
     /// <summary>将已过期但仍为ACTIVE的批次标记为EXPIRED,返回更新行数</summary>
     Task<int> MarkExpiredBatchesAsync();
     /// <summary>查某产品活跃批次合计</summary>

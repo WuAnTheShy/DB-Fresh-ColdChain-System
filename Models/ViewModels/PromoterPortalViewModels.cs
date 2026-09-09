@@ -1,3 +1,4 @@
+using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
 
 namespace FreshColdChain.Models.ViewModels
@@ -111,13 +112,29 @@ namespace FreshColdChain.Models.ViewModels
         public string? BlockReason { get; set; }
         public WithdrawalApplyForm Form { get; set; } = new();
         public List<PromoterWithdrawalRecordViewModel> Records { get; set; } = new();
+        public List<PromoterPayAccountItem> PayAccounts { get; set; } = new();
     }
 
     public class WithdrawalApplyForm
     {
-        public string AccountPlatform { get; set; } = "WeChat";
+        public string AccountPlatform { get; set; } = PromoterPayAccounts.WeChat;
         public string AccountInfo { get; set; } = string.Empty;
         public decimal ApplyAmount { get; set; }
+    }
+
+    public class PromoterPayAccountItem
+    {
+        public string Platform { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public string Placeholder { get; set; } = string.Empty;
+        public string? AccountNo { get; set; }
+        public bool IsBound => !string.IsNullOrWhiteSpace(AccountNo);
+    }
+
+    public class PromoterPayAccountBindModel
+    {
+        public string ReturnAction { get; set; } = "Withdrawals";
+        public List<PromoterPayAccountItem> Accounts { get; set; } = new();
     }
 
     public class PromoterWithdrawalRecordViewModel
@@ -141,6 +158,7 @@ namespace FreshColdChain.Models.ViewModels
         public decimal TotalAsset { get; set; }
         public string StatusLabel { get; set; } = string.Empty;
         public string StatusBadgeClass { get; set; } = "secondary";
+        public List<PromoterPayAccountItem> PayAccounts { get; set; } = new();
     }
     public class PromoterBoundConsumersViewModel
     {
