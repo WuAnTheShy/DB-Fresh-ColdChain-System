@@ -51,6 +51,23 @@ public class PriceRuleDto
     public DateTime? EffectiveTo { get; set; }
 }
 
+/// <summary>
+/// 价格规则可作用的货物选项：供应商在「新建/编辑定价规则」下拉中选择自己已有货物。
+/// 一个选项对应一条 Inv_Goods 供货记录（供应商 × 商品），value 采用该货物的 ProductID。
+/// </summary>
+public class PriceRuleGoodsOptionDto
+{
+    public string SupplierID { get; set; } = string.Empty;
+    public string? SupplierName { get; set; }
+    public string ProductID { get; set; } = string.Empty;
+    public string? ProductName { get; set; }
+    public string? Unit { get; set; }
+    /// <summary>该供应商对该物品的售价（规则打折的基准价）</summary>
+    public decimal SalePrice { get; set; }
+    /// <summary>货物上下架状态（ACTIVE=上架，其它=下架）</summary>
+    public string? Status { get; set; }
+}
+
 /// <summary>创建/编辑价格规则请求</summary>
 public class SavePriceRuleDto
 {

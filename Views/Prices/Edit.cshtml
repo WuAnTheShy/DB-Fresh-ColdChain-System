@@ -13,8 +13,29 @@
 
     <div class="row mb-3">
         <div class="col-md-6">
-            <label class="form-label">商品 ID</label>
-            <input asp-for="ProductID" class="form-control" readonly />
+            @{
+                var goodsOptions = (ViewData["GoodsOptions"] as List<PriceRuleGoodsOptionDto>)
+                    ?? new List<PriceRuleGoodsOptionDto>();
+                var isAdminScope = ViewData["IsAdminScope"] is true;
+            }
+            <label class="form-label">货物商品 <span class="text-danger">*</span></label>
+            <input asp-for="SupplierID" type="hidden" id="supplierIdValue" />
+            <select asp-for="ProductID" class="form-select" id="productSelect" required>
+                <option value="">@(goodsOptions.Count == 0 ? "-- 暂无可用货物，请先到「我的货物」建立货物 --" : "-- 请选择货物商品 --")</option>
+                @foreach (var o in goodsOptions)
+                {
+                    var unitLabel = string.IsNullOrWhiteSpace(o.Unit) ? "" : $"（{o.Unit}）";
+                    var statusNote = string.Equals(o.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase) ? "" : "（已下架）";
+                    var label = isAdminScope
+                        ? $"[{(string.IsNullOrWhiteSpace(o.SupplierName) ? o.SupplierID : o.SupplierName)}] {o.ProductName}{unitLabel} 售价 ¥{o.SalePrice:0.##}{statusNote}"
+                        : $"{o.ProductName}{unitLabel} 售价 ¥{o.SalePrice:0.##}{statusNote}";
+                    <option value="@o.ProductID" data-supplier="@o.SupplierID" selected="@(Model.ProductID == o.ProductID)">@label</option>
+                }
+            </select>
+            @if (isAdminScope)
+            {
+                <div class="form-text text-warning">平台管理员视图：选中商品后规则将归属对应供应商</div>
+            }
         </div>
         <div class="col-md-6">
             <label class="form-label">规则名称</label>
@@ -98,5 +119,51 @@
         }
         triggerType.addEventListener('change', updateVisibility);
         updateVisibility();
+<<<<<<< Updated upstream
+=======
+
+        // 生效时段：预设下拉 + 自定义时段输入，统一写回 TimeWindow 隐藏域
+        const timeWindowPreset = document.getElementById('timeWindowPreset');
+        const timeWindowValue = document.getElementById('timeWindowValue');
+        const timeWindowCustom = document.getElementById('timeWindowCustom');
+
+        const presetFor = (value) => {
+            const v = (value || '').trim().toUpperCase();
+            if (!v || v === 'ALL_DAY' || v === 'ALLDAY') return 'ALL_DAY';
+            if (v === 'AFTER_18_00') return 'AFTER_18_00';
+            if (v === 'NIGHT_22_TO_02') return 'NIGHT_22_TO_02';
+            if (v === 'WEEKEND_ONLY') return 'WEEKEND_ONLY';
+            if (v === 'SUMMER_SEASON') return 'SUMMER_SEASON';
+            return '__CUSTOM__';
+        };
+
+        function syncTimeWindow() {
+            if (timeWindowPreset.value === '__CUSTOM__') {
+                timeWindowCustom.style.display = '';
+                timeWindowValue.value = timeWindowCustom.value;
+            } else {
+                timeWindowCustom.style.display = 'none';
+                timeWindowValue.value = timeWindowPreset.value;
+            }
+        }
+
+        timeWindowPreset.value = presetFor(timeWindowValue.value);
+        timeWindowCustom.value = timeWindowValue.value;
+        syncTimeWindow();
+        timeWindowPreset.addEventListener('change', syncTimeWindow);
+        timeWindowCustom.addEventListener('input', () => { timeWindowValue.value = timeWindowCustom.value; });
+
+        // 商品下拉：把所选货物归属的供应商同步到 SupplierID（平台管理员视图尤为关键）
+        const productSelect = document.getElementById('productSelect');
+        const supplierIdValue = document.getElementById('supplierIdValue');
+        function syncSupplierId() {
+            const opt = productSelect.options[productSelect.selectedIndex];
+            if (opt && opt.dataset.supplier) {
+                supplierIdValue.value = opt.dataset.supplier;
+            }
+        }
+        productSelect.addEventListener('change', syncSupplierId);
+        syncSupplierId();
+>>>>>>> Stashed changes
     </script>
 }

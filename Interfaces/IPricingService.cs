@@ -29,4 +29,10 @@ public interface IPricingService
 
     /// <summary>删除价格规则（supplierId 非空时校验归属）</summary>
     Task<ApiResponse> DeleteRuleAsync(string ruleId, string? supplierId = null);
+
+    /// <summary>
+    /// 新建/编辑规则页面的商品下拉选项：返回指定供应商已有货物对应的商品。
+    /// supplierId 为 null（平台管理员）时返回全部货物（含供应商名，便于跨供应商建规则）。
+    /// </summary>
+    Task<List<PriceRuleGoodsOptionDto>> GetGoodsOptionsAsync(string? supplierId);
 }

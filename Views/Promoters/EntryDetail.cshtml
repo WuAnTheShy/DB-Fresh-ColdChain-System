@@ -139,7 +139,7 @@
                 <span class="sp-value"><code class="small">@p.SupplierID</code></span>
             </div>
             <dl class="entry-facts">
-                <div><dt>供应商报价</dt><dd>￥@p.SupplyPrice.ToString("F2")</dd></div>
+                <div><dt>供应商动态定价</dt><dd>￥@p.SupplyPrice.ToString("F2")</dd></div>
                 <div><dt>商品推荐价</dt><dd>￥@p.DefaultPrice.ToString("F2")</dd></div>
                 <div><dt>允许定价范围</dt><dd>￥@priceMin.ToString("F2") ~ ￥@priceMax.ToString("F2")</dd></div>
                 <div><dt>当前团长定价</dt><dd class="text-success-strong">￥@currentPrice.ToString("F2")</dd></div>
@@ -151,7 +151,7 @@
             <div class="price-now-label">当前团长定价（消费者端售价）</div>
             <div class="price-now-value"><span class="cur">￥</span><strong>@currentPrice.ToString("F2")</strong></div>
             <div class="price-ref-row">
-                <span>报价 <b>￥@p.SupplyPrice.ToString("F2")</b></span>
+                <span>供应商动态定价 <b>￥@p.SupplyPrice.ToString("F2")</b></span>
                 <span>推荐价 <b>￥@p.DefaultPrice.ToString("F2")</b></span>
             </div>
             <form asp-action="UpdateEntryPrice" method="post" class="price-form" id="priceForm">
@@ -193,7 +193,7 @@
             });
         });
 
-        // 团长定价校验：|团长价 - 推荐价| < |推荐价 - 报价| / 2（留空 = 使用推荐价）
+        // 团长定价校验：|团长价 - 推荐价| < |推荐价 - 供应商动态定价| / 2（留空 = 使用推荐价）
         var priceForm = document.getElementById('priceForm');
         if (priceForm) {
             priceForm.addEventListener('submit', function (e) {

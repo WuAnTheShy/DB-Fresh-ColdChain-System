@@ -27,16 +27,17 @@
     padding: 0.6rem 2rem;
 }
 
-/* 服务承诺条：位于欢迎横幅正下方（与 hero 同宽、四组聚拢居中、青色图标） */
+/* 服务承诺条：位于欢迎横幅正下方（青色图标 + 放大文字）
+   四项等分铺满整条宽度，任意视口宽度下都均匀分布，不会聚拢“缩”在中间 */
 .promise-strip {
+<<<<<<< Updated upstream
     --strip-gap: 13rem; /* 组间距（竖线自动定位在两组正中，与 --strip-gap 联动） */
+=======
+>>>>>>> Stashed changes
     display: flex;
-    justify-content: center; /* 四组承诺聚拢，不贴两侧 */
     align-items: center;
-    gap: var(--strip-gap);
-    flex-wrap: nowrap; /* 保持单行：窗口缩放 / 浏览器缩放时不会突然换行错位 */
     margin: 1rem auto 2.5rem; /* 与 hero 拉开间距，整体下移 */
-    padding: 1.15rem 2rem;
+    padding: 1.15rem 0.5rem;
     background: rgba(235, 245, 245, 0.88); /* 几乎全透明 */
     border: 1px solid rgba(0, 113, 133, 0.18);
     border-radius: 1.1rem;
@@ -46,41 +47,38 @@
 
 .promise-strip > div {
     position: relative;
+    flex: 1 1 0; /* 四项等分，铺满整行；无需固定间距，全屏时自动随容器变宽 */
     display: flex;
     align-items: center;
+    justify-content: center; /* 图标 + 文字在各自列内居中 */
     gap: 9px;
-    flex: none; /* 禁止被压缩，防止缩放时文字重叠 */
+    padding: 0 0.5rem; /* 与分隔竖线保持间距 */
+    white-space: nowrap; /* 防止缩放时文字重叠 */
 }
 
-/* 组与组之间的淡灰竖分隔线：高度与承诺条框高一致，位于两组字之间 */
+/* 相邻两项之间的淡灰竖分隔线：落在等分列的中缝，随容器宽度自动定位 */
 .promise-strip > div:not(:last-child)::after {
     content: "";
     position: absolute;
     top: -1.15rem; /* 从承诺条框顶延伸到框底，高度与框高一致 */
     bottom: -1.15rem;
-    right: calc(var(--strip-gap) / -2); /* 落在两组字正中间 */
+    right: 0; /* 正好落在相邻两列边界上 */
     width: 0.8px;
     background: rgba(41, 61, 81, 0.18); /* 淡灰 */
 }
 
-/* 窗口/浏览器缩放时视口宽度变化，组间距分档平滑收缩（保持单行，竖线自动联动）；
-   断点与 Bootstrap 容器断点对齐，缩放比例越大间距越小，不会挤爆换行 */
-@media (max-width: 1399.98px) {
-    .promise-strip { --strip-gap: 9rem; }
-}
-
-@media (max-width: 1199.98px) {
-    .promise-strip { --strip-gap: 6rem; }
-}
-
-@media (max-width: 991.98px) {
-    .promise-strip { --strip-gap: 3rem; }
-}
-
 @media (max-width: 767.98px) {
     .promise-strip {
+<<<<<<< Updated upstream
         flex-wrap: wrap; /* 超窄屏（移动端）才允许换行 */
         --strip-gap: 2rem;
+=======
+        flex-wrap: wrap; /* 超窄屏（移动端）允许换行 */
+        row-gap: 1rem;
+    }
+    .promise-strip > div {
+        flex: 1 1 40%; /* 移动端每行放两个，避免文字过挤 */
+>>>>>>> Stashed changes
     }
 }
 

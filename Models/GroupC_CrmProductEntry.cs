@@ -37,6 +37,20 @@ public class GroupC_CrmProductEntry
     public decimal? PromoterPrice { get; set; }
 
     /// <summary>
+    /// 动态报价快照：入团/上架时刻按“供应商动态定价（规则引擎）”计算的最终报价（团长进价），
+    /// 入库后不再随货物售价与价格规则实时漂移，供团长端/消费者端离线展示。
+    /// </summary>
+    [Column("SUPPLYPRICE")]
+    public decimal? SupplyPrice { get; set; }
+
+    /// <summary>
+    /// 推荐价快照：入团时刻动态报价 × 1.2（1.2 倍率不变），
+    /// 团长未定价时即作为默认售价展示。
+    /// </summary>
+    [Column("DEFAULTPRICE")]
+    public decimal? DefaultPrice { get; set; }
+
+    /// <summary>
     /// 团长带货介绍存储值（图文介绍改造后）：空=无介绍；
     /// /uploads/promoter-desc/*.json=图文内容文件相对路径；
     /// 其它非空串=历史纯文字介绍（兼容读取，团长保存图文介绍后转为相对路径）。

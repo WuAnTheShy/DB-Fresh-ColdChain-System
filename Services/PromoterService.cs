@@ -36,9 +36,11 @@ namespace FreshColdChain.Services
 		private readonly IGoodsRepository _goodsRepository;
 		// 团长图文介绍（文件存储：数据库存相对路径，实际内容为 wwwroot 下 JSON 文件）
 		private readonly PromoterIntroStore _introStore;
+		// 供应商动态定价引擎：入团时按 商品×供应商×数量×当前时间 计算动态报价（无规则命中=货物售价）
+		private readonly IPricingService _pricing;
 
         // 构造函数
-        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPromoterProductRepository iproductRepository,IPCRRepository pcrRepository, IProductRepository productRepository, IGoodsRepository goodsRepository, PromoterIntroStore introStore)
+        public PromoterService(IUnitOfWork uow, IPromoterRepository ipromoterRepository, ITableLogService logManager, IPromoterSupplierRepository ipsRepository, IPromoterProductRepository iproductRepository,IPCRRepository pcrRepository, IProductRepository productRepository, IGoodsRepository goodsRepository, PromoterIntroStore introStore, IPricingService pricing)
         {
             _uow = uow;
             _ipromoterRepository = ipromoterRepository;
@@ -49,6 +51,7 @@ namespace FreshColdChain.Services
 			_productRepository = productRepository;
 			_goodsRepository = goodsRepository;
 			_introStore = introStore;
+			_pricing = pricing;
         }
 
 
@@ -585,7 +588,7 @@ namespace FreshColdChain.Services
             if (allowedDiff == 0 ? actualDiff != 0 : actualDiff >= allowedDiff)
             {
                 throw new InvalidOperationException(
-                    $"定价超出允许范围：|团长价({price:F2}) - 推荐价({defaultPrice:F2})| 必须小于 |推荐价 - 报价| / 2 = {allowedDiff:F2}");
+                    $"定价超出允许范围：|团长价({price:F2}) - 推荐价({defaultPrice:F2})| 必须小于 |推荐价 - 供应商动态定价| / 2 = {allowedDiff:F2}");
             }
 
             await _uow.BeginAsync();
@@ -651,15 +654,16 @@ namespace FreshColdChain.Services
 
         /// <summary>
         /// 将（商品，供应商）加入团长入团商品（重复加入则自动恢复 Active）。
-        /// supplyPrice 为该供应商报价，defaultPrice 为商品推荐价。
         /// promoterPrice 为团长定价：未填写（null）时默认取推荐价；
         /// 填写时须满足定价规则 |团长价 - 推荐价| &lt; |推荐价 - 报价| / 2，否则抛异常。
+        /// 供应商报价 = 供应商动态定价：入团时刻调用 A 组规则引擎
+        /// （商品×供应商×数量1×当前时间）计算最终报价，无规则命中即货物售价；
+        /// 推荐价 = 报价 × 1.2（倍率不变）。两者随入团快照落库到
+        /// CRM_PRODUCT_ENTRIES.SUPPLYPRICE / DEFAULTPRICE，团长端/消费者端此后读取快照。
         /// description 为供应商商品文字：作为团长带货介绍默认值（默认复制供应商文字，团长可自行修改）。
         /// </summary>
-        public async Task<bool> AddProductEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, decimal supplyPrice, decimal defaultPrice, string? description = null)
+        public async Task<bool> AddProductEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, string? description = null)
         {
-            var price = promoterPrice ?? defaultPrice;
-
             // 该供应商已下架该货物（Inv_Goods.Status != 'ACTIVE'）或未建立货物时不允许入团
             var goods = await _goodsRepository.GetAsync(productId, supplierId);
             if (goods == null || !string.Equals(goods.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
@@ -667,19 +671,45 @@ namespace FreshColdChain.Services
                 throw new InvalidOperationException("该供应商已下架该商品，暂不可入团，请等待供应商恢复上架后再操作。");
             }
 
+            // 报价 = 供应商动态定价：按当前时间/数量1计算规则命中后的最终供货价；引擎异常时回退货物售价
+            var supplyPrice = goods.SalePrice;
+            try
+            {
+                var calc = await _pricing.CalculatePriceAsync(new PriceCalculationRequest
+                {
+                    ProductID = productId,
+                    SupplierID = supplierId,
+                    Quantity = 1m // 团长进价按单件询价；批量优惠在最终零售/下单场景体现
+                });
+                if (calc.IsSuccess && calc.Data != null)
+                {
+                    supplyPrice = calc.Data.FinalPrice;
+                }
+            }
+            catch
+            {
+                // 忽略规则引擎异常，回退静态售价，保证入团流程可用
+            }
+
+            // 推荐价(建议零售) = 动态报价 × 1.2（倍率与历史一致）
+            var defaultPrice = Math.Round(supplyPrice * 1.2m, 2);
+            var price = promoterPrice ?? defaultPrice;
+
             // 定价规则：|团长价 - 推荐价| < |推荐价 - 报价| / 2
             var allowedDiff = Math.Abs(defaultPrice - supplyPrice) / 2m;
             var actualDiff = Math.Abs(price - defaultPrice);
             if (allowedDiff == 0 ? actualDiff != 0 : actualDiff >= allowedDiff)
             {
                 throw new InvalidOperationException(
-                    $"定价超出允许范围：|团长价({price:F2}) - 推荐价({defaultPrice:F2})| 必须小于 |推荐价 - 报价| / 2 = {allowedDiff:F2}");
+                    $"定价超出允许范围：|团长价({price:F2}) - 推荐价({defaultPrice:F2})| 必须小于 |推荐价 - 供应商动态定价| / 2 = {allowedDiff:F2}");
             }
 
             await _uow.BeginAsync();
             try
             {
-                var result = await _iproductRepository.AddOrUpdateEntryAsync(promoterId, productId, supplierId, price, description, "Active", _uow.Transaction);
+                // supplyPrice/defaultPrice 作为动态报价快照随入团写入 CRM_PRODUCT_ENTRIES
+                var result = await _iproductRepository.AddOrUpdateEntryAsync(
+                    promoterId, productId, supplierId, price, supplyPrice, defaultPrice, description, "Active", _uow.Transaction);
                 await _uow.CommitAsync();
                 return result;
             }

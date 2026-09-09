@@ -12,8 +12,13 @@ namespace FreshColdChain.Controllers;
 public class PricesController : Controller
 {
     private readonly IPricingService _pricing;
+    private readonly IPromoterListedPriceSyncService _listedPriceSync;
 
-    public PricesController(IPricingService pricing) => _pricing = pricing;
+    public PricesController(IPricingService pricing, IPromoterListedPriceSyncService listedPriceSync)
+    {
+        _pricing = pricing;
+        _listedPriceSync = listedPriceSync;
+    }
 
     // ========== 规则列表 ==========
 
@@ -27,7 +32,14 @@ public class PricesController : Controller
     // ========== 创建规则 ==========
 
     [HttpGet]
-    public IActionResult Create() => View(new SavePriceRuleDto());
+    public async Task<IActionResult> Create()
+    {
+        var dto = new SavePriceRuleDto();
+        if (ScopedSupplierId() is { } supplierId)
+            dto.SupplierID = supplierId; // 平台管理员不预设，需在下拉中选定所属供应商
+        await LoadGoodsOptionsAsync(dto, ScopedSupplierId());
+        return View(dto);
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -40,9 +52,10 @@ public class PricesController : Controller
         if (!r.IsSuccess)
         {
             ModelState.AddModelError("", r.Message);
+            await LoadGoodsOptionsAsync(dto, ScopedSupplierId());
             return View(dto);
         }
-        TempData["Success"] = r.Message;
+        TempData["Success"] = r.Message + await BuildSyncSuffixAsync(new[] { (dto.SupplierID, dto.ProductID) });
         return RedirectToAction(nameof(Index));
     }
 
@@ -59,7 +72,7 @@ public class PricesController : Controller
         }
 
         var rule = r.Data!;
-        return View(new SavePriceRuleDto
+        var dto = new SavePriceRuleDto
         {
             ProductID = rule.ProductID,
             SupplierID = rule.SupplierID,
@@ -74,20 +87,34 @@ public class PricesController : Controller
             IsActive = rule.IsActive,
             EffectiveFrom = rule.EffectiveFrom,
             EffectiveTo = rule.EffectiveTo
-        });
+        };
+        await LoadGoodsOptionsAsync(dto, ScopedSupplierId());
+        return View(dto);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(string id, SavePriceRuleDto dto)
     {
+        // 普通供应商的规则归属保持自己，防止把规则改挂到别的供应商下
+        if (!SupplierSession.IsPlatformAdmin(HttpContext.Session))
+            dto.SupplierID = SupplierSession.GetSupplierId(HttpContext.Session);
+        // 变更前的归属/商品：平台管理员把规则迁移到别的供应商时，新旧供应商名下的已上架条目都要重算
+        var before = (await _pricing.GetRuleByIdAsync(id, ScopedSupplierId())).Data;
         var r = await _pricing.UpdateRuleAsync(id, dto, ScopedSupplierId());
         if (!r.IsSuccess)
         {
             ModelState.AddModelError("", r.Message);
+            await LoadGoodsOptionsAsync(dto, ScopedSupplierId());
             return View(dto);
         }
-        TempData["Success"] = r.Message;
+        var scopes = new List<(string? SupplierId, string ProductId)> { (dto.SupplierID, dto.ProductID) };
+        if (before != null
+            && !string.Equals(before.SupplierID, dto.SupplierID, StringComparison.OrdinalIgnoreCase))
+        {
+            scopes.Add((before.SupplierID, before.ProductID));
+        }
+        TempData["Success"] = r.Message + await BuildSyncSuffixAsync(scopes);
         return RedirectToAction(nameof(Index));
     }
 
@@ -97,8 +124,13 @@ public class PricesController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(string id)
     {
+        // 删除前取规则归属的商品×供应商，删除成功后其名下已上架条目需重算
+        var before = (await _pricing.GetRuleByIdAsync(id, ScopedSupplierId())).Data;
         var r = await _pricing.DeleteRuleAsync(id, ScopedSupplierId());
-        TempData[r.IsSuccess ? "Success" : "Error"] = r.Message;
+        var message = r.Message;
+        if (r.IsSuccess && before != null)
+            message += await BuildSyncSuffixAsync(new[] { (before.SupplierID, before.ProductID) });
+        TempData[r.IsSuccess ? "Success" : "Error"] = message;
         return RedirectToAction(nameof(Index));
     }
 
@@ -127,4 +159,45 @@ public class PricesController : Controller
     /// <summary>当前供应商 ID：平台管理员返回 null（可操作全部），普通供应商返回自己的 ID</summary>
     private string? ScopedSupplierId()
         => SupplierSession.IsPlatformAdmin(HttpContext.Session) ? null : SupplierSession.GetSupplierId(HttpContext.Session);
+
+    /// <summary>
+    /// 加载「货物商品」下拉选项到 ViewData。
+    /// dto.SupplierID：普通供应商为当前供应商；平台管理员为表单提交/选中的所属供应商。
+    /// </summary>
+    private async Task LoadGoodsOptionsAsync(SavePriceRuleDto dto, string? scopedSupplierId)
+    {
+        ViewData["GoodsOptions"] = await _pricing.GetGoodsOptionsAsync(scopedSupplierId);
+        // 平台管理员（无固定供应商）需要在下拉里体现供应商归属
+        ViewData["IsAdminScope"] = scopedSupplierId == null;
+    }
+
+    /// <summary>
+    /// 规则增删改成功后，同步重算对应（供应商×商品）下所有团长已上架条目的动态定价快照，
+    /// 并返回“已同步更新 N 个……”的中文提示后缀；同步失败不阻断规则保存，只给出提示。
+    /// </summary>
+    private async Task<string> BuildSyncSuffixAsync(IEnumerable<(string? SupplierId, string ProductId)> scopes)
+    {
+        var total = 0;
+        var failed = 0;
+        foreach (var (supplierId, productId) in scopes)
+        {
+            if (string.IsNullOrWhiteSpace(supplierId))
+                continue;
+            try
+            {
+                total += await _listedPriceSync.SyncListedPricesAsync(supplierId, productId);
+            }
+            catch
+            {
+                failed++;
+            }
+        }
+
+        var parts = new List<string>();
+        if (total > 0)
+            parts.Add($"已同步重算 {total} 个团长已上架商品的供应商动态定价");
+        if (failed > 0)
+            parts.Add($"{failed} 个同步失败，相关商品重新入团后可刷新价格");
+        return parts.Count > 0 ? "，" + string.Join("，", parts) : "";
+    }
 }

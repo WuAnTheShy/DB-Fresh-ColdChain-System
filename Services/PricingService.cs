@@ -199,12 +199,16 @@ public class PricingService : IPricingService
     }
 
     /// <summary>
-    /// 临期折扣：查询产品批次，有批次在阈值时间内过期则触发。
+    /// 临期折扣：读取该供应商对该物品的货物级保质期（供应商在「我的货物」维护，
+    /// 未建立货物或未填时兜底物品级默认值），有批次在阈值时间内过期则触发。
     /// 阈值从 TimeWindow 解析（如 "EXPIRY_LESS_THAN_3_DAYS" → 72h），默认 24 小时。
     /// </summary>
     private async Task<bool> IsProductExpiringSoonAsync(InvProduct product, string supplierId, string? timeWindow, DateTime now)
     {
-        if (product.ExpiryHours is not > 0) return false;
+        // 生效保质期：货物上声明的优先（供应商可在前端维护），未声明用物品默认值
+        var goods = await _goodsRepo.GetAsync(product.ProductID, supplierId);
+        var expiryHours = goods?.ShelfLifeHours ?? product.ExpiryHours;
+        if (expiryHours is not > 0) return false;
 
         var thresholdHours = ParseExpiryThresholdHours(timeWindow);
         var batches = await _batchRepo.GetByProductIdAsync(product.ProductID);
@@ -403,7 +407,47 @@ public class PricingService : IPricingService
         }
     }
 
+<<<<<<< Updated upstream
     // ==================== 映射 ====================
+=======
+    // 规则页面的商品下拉选项
+
+    public async Task<List<PriceRuleGoodsOptionDto>> GetGoodsOptionsAsync(string? supplierId)
+    {
+        // 供应商只看自己建立的货物；平台管理员（supplierId=null）看全部货物
+        var goodsList = supplierId == null
+            ? await _goodsRepo.GetAllAsync()
+            : await _goodsRepo.GetBySupplierAsync(supplierId);
+
+        return goodsList
+            .Where(g => g.Product != null)
+            .Select(g => new PriceRuleGoodsOptionDto
+            {
+                SupplierID = g.SupplierID,
+                SupplierName = g.Supplier?.SupplierName,
+                ProductID = g.ProductID,
+                ProductName = g.Product?.ProductName,
+                Unit = g.Product?.Unit,
+                SalePrice = g.SalePrice,
+                Status = g.Status,
+            })
+            .OrderBy(o => o.ProductName)
+            .ThenBy(o => o.SupplierName)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 表单里的日期控件（type="date"）只提交日期、绑定到 DateTime 时是当天 00:00:00，
+    /// 若直接把「结束日期」当天 00:00 落库，则当天 00:00 之后 EffectiveTo >= now 恒不成立，
+    /// 导致规则在结束日期当天就失效。这里把“纯日期”的结束时间归一到当天 23:59:59.9999999。
+    /// </summary>
+    private static DateTime? NormalizeEffectiveTo(DateTime? value)
+        => value is { } d && d.TimeOfDay == TimeSpan.Zero
+            ? d.Date.AddDays(1).AddTicks(-1)
+            : value;
+
+    // 映射
+>>>>>>> Stashed changes
 
     private static PriceRuleDto MapToDto(BizPriceRule r, InvProduct? product) => new()
     {

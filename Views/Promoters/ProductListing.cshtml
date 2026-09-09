@@ -34,7 +34,7 @@
                         <tr>
                             <th>商品</th>
                             <th>供应商</th>
-                            <th class="text-center">报价</th>
+                            <th class="text-center">供应商动态定价</th>
                             <th class="text-center">推荐价</th>
                             <th class="text-center">定价范围</th>
                             <th class="text-center">当前团长定价</th>
@@ -234,7 +234,7 @@
                         <tr>
                             <th class="text-center" style="min-width:120px;">供应商</th>
                             <th style="min-width:120px;">商品</th>
-                            <th class="text-center" style="min-width:80px;">报价</th>
+                            <th class="text-center" style="min-width:130px;">供应商动态定价</th>
                             <th class="text-center" style="min-width:80px;">推荐价</th>
                             <th class="text-center" style="min-width:160px;">定价范围</th>
                             <th class="text-center" style="min-width:120px;">团长定价</th>
@@ -357,8 +357,7 @@
                                             <input type="hidden" name="supplierId" value="@item.SupplierID" />
                                             <input type="hidden" name="keyword" value="@Model.Keyword" />
                                             <input type="hidden" name="action" value="bind" />
-                                            <input type="hidden" name="supplyPrice" value="@item.SupplyPrice" />
-                                            <input type="hidden" name="defaultPrice" value="@item.DefaultPrice" />
+                                            <!-- 供应商动态定价/推荐价由服务端按规则引擎计算并快照落库，客户端不再携带 -->
                                             <input type="hidden" name="description" value="@item.Description" />
                                             <button type="submit" class="btn btn-sm btn-success">入团</button>
                                         </form>

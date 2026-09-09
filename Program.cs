@@ -65,6 +65,7 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPromoterService, PromoterService>();
 builder.Services.AddScoped<PromoterPortalDataProvider>();
 builder.Services.AddScoped<IRefundService, RefundService>();
+builder.Services.AddScoped<IPromoterListedPriceSyncService, PromoterListedPriceSyncService>();
 builder.Services.AddHostedService<GroupC_CommissionSettlementWorker>();
 
 // ========== MVC / API ==========

@@ -12,12 +12,15 @@ public class SupplierService : ISupplierService
     private readonly ISupplierRepository _repo;
     private readonly IProductRepository _productRepo;
     private readonly IGoodsRepository _goodsRepo;
+    // 供应商动态定价引擎：团长端商品上架搜索按规则引擎展示动态报价
+    private readonly IPricingService _pricing;
 
-    public SupplierService(ISupplierRepository repo, IProductRepository productRepo, IGoodsRepository goodsRepo)
+    public SupplierService(ISupplierRepository repo, IProductRepository productRepo, IGoodsRepository goodsRepo, IPricingService pricing)
     {
         _repo = repo;
         _productRepo = productRepo;
         _goodsRepo = goodsRepo;
+        _pricing = pricing;
     }
 
     public async Task<ApiResponse<PagedResult<SupplierDto>>> GetSuppliersAsync(int pageIndex, int pageSize)
@@ -362,9 +365,8 @@ public class SupplierService : ISupplierService
                     ProductID = p.ProductID,
                     ProductName = p.ProductName,
                     Unit = p.Unit,
-                    SupplyPrice = salePrice,
-                    // 商品推荐价(建议零售)=供货价×1.2：供货价为团长进价，推荐价为参考售价，保证两价区分、留有定价浮动空间
-                    DefaultPrice = Math.Round(salePrice * 1.2m, 2),
+                    SupplyPrice = salePrice, // 先以货物售价兜底，下方统一按规则引擎覆盖为动态报价
+                    DefaultPrice = Math.Round(salePrice * 1.2m, 2), // 兜底推荐价=供货价×1.2（动态覆盖后同样×1.2）
                     ExpiryHours = goods.ShelfLifeHours ?? p.ExpiryHours,
                     // 供应商上架（货物）时填写的文字介绍，团长可参考/复制/改写；未写时兜底商品通用介绍
                     Description = description,
@@ -398,6 +400,31 @@ public class SupplierService : ISupplierService
                 {
                     if (!supplierMap.TryGetValue(g.SupplierID, out var s)) continue;
                     CollectEntry(p, s, g);
+                }
+            }
+
+            // 报价 = 供应商动态定价：逐条按规则引擎实时计算（商品×供应商×数量1×当前时间）；
+            // 推荐价 = 动态报价 × 1.2（倍率不变）。此页为“入团前预览”，
+            // 真正入团时服务层会以当时价格再次计算并快照落库（CRM_PRODUCT_ENTRIES.SUPPLYPRICE/DEFAULTPRICE）。
+            foreach (var entry in entries)
+            {
+                try
+                {
+                    var calc = await _pricing.CalculatePriceAsync(new PriceCalculationRequest
+                    {
+                        ProductID = entry.ProductID,
+                        SupplierID = entry.SupplierID,
+                        Quantity = 1m
+                    });
+                    if (calc.IsSuccess && calc.Data != null)
+                    {
+                        entry.SupplyPrice = calc.Data.FinalPrice;
+                        entry.DefaultPrice = Math.Round(entry.SupplyPrice * 1.2m, 2);
+                    }
+                }
+                catch
+                {
+                    // 规则引擎异常时保留货物售价兜底展示，避免搜索失败
                 }
             }
 

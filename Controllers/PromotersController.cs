@@ -281,13 +281,13 @@ namespace FreshColdChain.Controllers
 
         /// <summary>
         /// 将（商品，供应商）加入/移出团长入团商品（商品入团表 CRM_PRODUCT_ENTRIES）。
-        /// 入团时携带团长定价 price（留空则默认推荐价），以及该组合的报价 supplyPrice、推荐价 defaultPrice，
-        /// 由服务层校验定价规则：|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2。
+        /// 入团时携带团长定价 price（留空则默认推荐价）；报价/推荐价不再信任客户端，
+        /// 由服务层调用供应商动态定价引擎计算（报价=动态价，推荐价=报价×1.2）并随入团快照落库。
         /// description 为供应商商品文字，入团时默认复制为团长带货介绍。
         /// </summary>
         [HttpPost]
         public async Task<IActionResult> ToggleProductEntry(string productId, string supplierId, string action, string? keyword,
-            decimal? price, decimal supplyPrice, decimal defaultPrice, string? description = null)
+            decimal? price, string? description = null)
         {
             var redirect = EnsureLoggedIn();
             if (redirect != null) return redirect;
@@ -298,7 +298,7 @@ namespace FreshColdChain.Controllers
             {
                 if (action == "bind")
                 {
-                    success = await _promoterService.AddProductEntryAsync(promoterId, productId, supplierId, price, supplyPrice, defaultPrice, description);
+                    success = await _promoterService.AddProductEntryAsync(promoterId, productId, supplierId, price, description);
                     TempData["SuccessMessage"] = success
                         ? "商品已上架！点击记录行的「详情」按钮，可设置团长定价与带货介绍。"
                         : "入团失败，请重试。";
