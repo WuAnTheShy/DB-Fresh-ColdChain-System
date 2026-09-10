@@ -1,6 +1,6 @@
 ﻿namespace FreshColdChain.Models.DTOs
 {
-    /// 提现审核通过请求
+    // 提现审核通过请求
     public class GroupC_WithdrawApproved
     {
         public string WithdrawalId { get; set; } = string.Empty;

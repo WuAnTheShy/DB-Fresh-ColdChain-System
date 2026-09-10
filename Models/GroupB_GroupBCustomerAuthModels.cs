@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FreshColdChain.Models;
 
-/// <summary>B 组消费者登录请求。</summary>
+// B 组消费者登录请求。
 public sealed class GroupBCustomerLoginRequest
 {
     [Required(ErrorMessage = "请输入手机号码")]
@@ -15,7 +15,7 @@ public sealed class GroupBCustomerLoginRequest
     public string Password { get; set; } = string.Empty;
 }
 
-/// <summary>B 组消费者身份验证结果，不暴露密码哈希。</summary>
+// B 组消费者身份验证结果，不暴露密码哈希。
 public sealed class GroupBCustomerLoginResult
 {
     public string CustomerId { get; init; } = string.Empty;
@@ -24,7 +24,7 @@ public sealed class GroupBCustomerLoginResult
     public string? Avatar { get; init; }
 }
 
-/// <summary>申请消费者密码重置验证码。</summary>
+// 申请消费者密码重置验证码。
 public sealed class GroupBCustomerPasswordResetCodeRequest
 {
     [Required(ErrorMessage = "请输入手机号码")]
@@ -32,7 +32,7 @@ public sealed class GroupBCustomerPasswordResetCodeRequest
     public string Phone { get; set; } = string.Empty;
 }
 
-/// <summary>模拟短信验证码发送结果，仅用于当前演示支付环境。</summary>
+// 模拟短信验证码发送结果，仅用于当前演示支付环境。
 public sealed class GroupBCustomerPasswordResetCodeResult
 {
     public string VerificationId { get; init; } = string.Empty;
@@ -41,7 +41,7 @@ public sealed class GroupBCustomerPasswordResetCodeResult
     public int ExpiresInSeconds { get; init; }
 }
 
-/// <summary>使用手机号和模拟短信验证码重置消费者密码。</summary>
+// 使用手机号和模拟短信验证码重置消费者密码。
 public sealed class GroupBCustomerPasswordResetRequest
 {
     [Required(ErrorMessage = "请输入手机号码")]

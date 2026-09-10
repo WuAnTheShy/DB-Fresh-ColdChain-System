@@ -13,12 +13,14 @@ namespace FreshColdChain.Controllers
         private readonly PromoterService _promoterService;
         private readonly SystemAdminService  _systemAdminService;
         private readonly AccountService _accountService;
-        
-        public AccountController(PromoterService promoterService, SystemAdminService systemAdminService, AccountService accountService)
+        private readonly ISupplierService _supplierService;
+
+        public AccountController(PromoterService promoterService, SystemAdminService systemAdminService, AccountService accountService, ISupplierService supplierService)
         {
             _promoterService = promoterService;
             _systemAdminService = systemAdminService;
             _accountService = accountService;
+            _supplierService = supplierService;
         }
         public IActionResult RoleSelect()
         {
@@ -103,9 +105,9 @@ namespace FreshColdChain.Controllers
                     // 避免进入供应商首页后还需二次登录
                     if (!string.IsNullOrEmpty(loginResult.SuppierId))
                         HttpContext.Session.SetString("SupplierId", loginResult.SuppierId);
-                    // 供应商登录后直接进入「我的货物」工作台（供货价/上下架/入库的唯一入口；
-                    // 商品管理员负责平台级物品与库存管理）
-                    return RedirectToAction("MyGoods", "Goods");
+                    // 供应商登录后进入供应商门户首页，由首页快捷入口分发到
+                    // 「我的货物」/「定价规则」/「计算运费」/「发货记录」等各工作台
+                    return RedirectToAction("Index", "SuppliersHome");
                 }
                 ModelState.AddModelError("", loginResult.Message);
                 return View();
@@ -148,10 +150,58 @@ namespace FreshColdChain.Controllers
             ViewBag.AdminKinds = AdminSession.Kinds;
             return View("AdminRegister");
         }
+        // 供应商自助入驻页（原实现会跳到仅管理员可访问的 Suppliers/Create 而被弹回登录页）
         public IActionResult SupplierRegister()
         {
             ViewBag.Role = "供应商";
-            return RedirectToAction("Create", "Suppliers");
+            return View("SupplierRegister");
+        }
+
+        // 供应商自助入驻提交：建档为 Pending（待账号管理员审核），信用分由管理员审核时填写
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SupplierRegister(string suppliername, string? licenseno, DateTime? expirydate,
+            string? contactphone, string username, string password, string password_again)
+        {
+            ViewBag.Role = "供应商";
+            if (password != password_again)
+            {
+                ModelState.AddModelError("", "两次输入密码不同");
+                return View("SupplierRegister");
+            }
+            if (string.IsNullOrWhiteSpace(suppliername) || string.IsNullOrWhiteSpace(username) ||
+                string.IsNullOrWhiteSpace(password))
+            {
+                ModelState.AddModelError("", "供应商名称、登录账号与密码不能为空");
+                return View("SupplierRegister");
+            }
+
+            // 登录账号唯一性校验（供应商门户按登录账号登录）
+            var existed = await _supplierService.FindSupplierAccountAsync(loginAccount: username.Trim());
+            if (existed.IsSuccess && existed.Data != null && existed.Data.Count > 0)
+            {
+                ModelState.AddModelError("", "该登录账号已被注册，请更换");
+                return View("SupplierRegister");
+            }
+
+            var registerResult = await _supplierService.CreateSupplierAsync(new CreateSupplierDto
+            {
+                SupplierName = suppliername.Trim(),
+                LicenseNo = licenseno,
+                ExpiryDate = expirydate,
+                ContactPhone = contactphone,
+                LoginAccount = username.Trim(),
+                LoginPassword = password,
+                // 自助入驻先进入待审核，信用分在审核通过时由管理员填写
+                Status = "Pending"
+            });
+            if (registerResult.IsSuccess)
+            {
+                TempData["RegisterSuccess"] = "入驻申请已提交，请等待账号管理员审核通过后登录。";
+                return RedirectToAction("Login", "Account", new { role = "供应商" });
+            }
+            ModelState.AddModelError("", registerResult.Message);
+            return View("SupplierRegister");
         }
 
         [HttpPost]

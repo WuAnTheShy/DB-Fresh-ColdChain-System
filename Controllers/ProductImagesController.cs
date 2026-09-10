@@ -10,10 +10,8 @@ namespace FreshColdChain.Controllers;
 [Route("images/product")]
 public sealed class ProductImagesController(ISupplierService supplierService) : ControllerBase
 {
-    /// <summary>
-    /// 按图片 ID 返回图片二进制。
-    /// 图片 ID 每次上传新生成（不可变），删除后行即消失，可放心缓存。
-    /// </summary>
+    // 按图片 ID 返回图片二进制。
+    // 图片 ID 每次上传新生成（不可变），删除后行即消失，可放心缓存。
     [HttpGet("{imageId}")]
     [ResponseCache(Duration = 3600)]
     public async Task<IActionResult> Get(string imageId, CancellationToken cancellationToken)

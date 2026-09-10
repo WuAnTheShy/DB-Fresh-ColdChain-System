@@ -23,18 +23,29 @@
 <!-- 欢迎横幅 -->
 <div class="dashboard-hero">
     <div class="hero-text">
-        <div class="hero-greeting">你好，@adminName <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 0 1 3 3c0 5-4 9-9 9s-9-4-9-9a3 3 0 0 1 6-2.5A6 6 0 0 1 12 7c1.3 0 2.5.4 3.5 1.1A3 3 0 0 1 18 8z"/><path d="M7 21h8"/></svg></div>
+        <div class="hero-greeting">你好，@adminName</div>
         <div class="hero-meta">
-            <span class="level-badge">@kindName</span>
+            <span class="level-badge level-badge-admin">@kindName</span>
             <span class="text-white-50">· 生鲜冷链团购管理后台</span>
+            @if (isFinance)
+            {
+                <span class="text-white-50">· 待办 @(pendingWithdrawalCount + pendingRefundCount) 项</span>
+            }
         </div>
     </div>
+    @if (isFinance)
+    {
+        <div class="hero-actions">
+            <a asp-action="PendingWithdrawals" class="btn btn-light btn-sm">提现审核</a>
+            <a asp-action="PendingRefunds" class="btn btn-light btn-sm">退款审核</a>
+        </div>
+    }
 </div>
 
 @if (isFinance)
 {
     var hasFinanceTodo = pendingWithdrawalCount + pendingRefundCount > 0;
-    <!-- 紧要事项 -->
+    <!-- 紧要事项（提现 / 退款待办合并为一个框） -->
     <div class="notice-panel rounded-3 overflow-hidden mb-3 shadow-sm">
         @if (!hasFinanceTodo)
         {
@@ -45,58 +56,72 @@
         }
         else
         {
-            @if (pendingWithdrawalCount > 0)
-            {
-                <div class="alert alert-warning d-flex align-items-center justify-content-between mb-0 border-0 rounded-0">
-                    <div class="d-flex align-items-center gap-2">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-                        <span>有 <strong>@pendingWithdrawalCount</strong> 笔提现申请待审核，合计 <strong>¥@pendingWithdrawalAmount.ToString("N2")</strong>。</span>
+            <div class="alert alert-warning mb-0 border-0 rounded-0">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div class="d-flex flex-wrap align-items-center gap-3">
+                        @if (pendingWithdrawalCount > 0)
+                        {
+                            <span class="d-flex align-items-center gap-2">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
+                                <span>提现 <strong>@pendingWithdrawalCount</strong> 笔待审核 · 合计 <strong>¥@pendingWithdrawalAmount.ToString("N2")</strong></span>
+                            </span>
+                        }
+                        @if (pendingRefundCount > 0)
+                        {
+                            <span class="d-flex align-items-center gap-2">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 2.6-6.4L3 9"/></svg>
+                                <span>退款 <strong>@pendingRefundCount</strong> 笔待审核 · 合计 <strong>¥@pendingRefundAmount.ToString("N2")</strong></span>
+                            </span>
+                        }
                     </div>
-                    <a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary">去处理</a>
+                    <span class="d-flex align-items-center gap-2">
+                        @if (pendingWithdrawalCount > 0)
+                        {
+                            <a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary">处理提现</a>
+                        }
+                        @if (pendingRefundCount > 0)
+                        {
+                            <a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary">处理退款</a>
+                        }
+                    </span>
                 </div>
-            }
-            @if (pendingRefundCount > 0)
-            {
-                <div class="alert alert-warning d-flex align-items-center justify-content-between mb-0 border-0 rounded-0">
-                    <div class="d-flex align-items-center gap-2">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 2.6-6.4L3 9"/></svg>
-                        <span>有 <strong>@pendingRefundCount</strong> 笔退款申请待审核，合计 <strong>¥@pendingRefundAmount.ToString("N2")</strong>。</span>
-                    </div>
-                    <a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary">去处理</a>
-                </div>
-            }
+            </div>
         }
     </div>
 
-    <!-- 财务核心指标 -->
-    <div class="stat-grid">
-        <div class="stat-card pending">
-            <div class="stat-card-top">
-                <span class="stat-icon bg-warning-subtle text-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span>
-                <span class="stat-label">待审核提现</span>
+    <!-- 财务核心指标（提现 / 退款两框合一） -->
+    <div class="overview-card">
+        <div class="overview-item">
+            <span class="overview-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span>
+            <div class="overview-body">
+                <div class="overview-value text-warning">@pendingWithdrawalCount <span class="unit">笔</span></div>
+                <div class="overview-label">待审核提现</div>
+                <div class="overview-sub">合计 ¥@pendingWithdrawalAmount.ToString("N2")</div>
             </div>
-            <div class="stat-value text-warning">@pendingWithdrawalCount</div>
-            <div class="stat-sub">合计 ¥@pendingWithdrawalAmount.ToString("N2")</div>
         </div>
-        <div class="stat-card sales">
-            <div class="stat-card-top">
-                <span class="stat-icon bg-danger-subtle text-danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 2.6-6.4L3 9"/></svg></span>
-                <span class="stat-label">待审核退款</span>
+        <div class="overview-item">
+            <span class="overview-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 2.6-6.4L3 9"/></svg></span>
+            <div class="overview-body">
+                <div class="overview-value text-danger">@pendingRefundCount <span class="unit">笔</span></div>
+                <div class="overview-label">待审核退款</div>
+                <div class="overview-sub">合计 ¥@pendingRefundAmount.ToString("N2")</div>
             </div>
-            <div class="stat-value text-dark">@pendingRefundCount</div>
-            <div class="stat-sub">合计 ¥@pendingRefundAmount.ToString("N2")</div>
         </div>
     </div>
 
-    <!-- 财务最近待办预览 -->
-    <div class="row g-3 mt-2">
-        <div class="col-md-6">
-            <div class="content-card h-100">
-                <div class="content-card-header">
-                    <h5>最近提现申请</h5>
-                    <a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary">查看全部</a>
-                </div>
-                <div class="content-card-body p-0">
+    <!-- 最近待办预览（提现 / 退款合并为一个框） -->
+    <div class="content-card mt-3">
+        <div class="content-card-header">
+            <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> 最近待办预览</h5>
+            <span class="text-muted small">提现与退款各取最近 5 条</span>
+        </div>
+        <div class="content-card-body">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold">最近提现申请</span>
+                        <a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary">查看全部</a>
+                    </div>
                     @if (!recentWithdrawals.Any())
                     {
                         <div class="empty-state py-4">
@@ -107,13 +132,13 @@
                     else
                     {
                         <div class="table-responsive">
-                            <table class="table table-hover mb-0 align-middle">
+                            <table class="table table-hover table-sm align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
                                         <th>团长编号</th>
                                         <th>申请金额</th>
                                         <th>申请时间</th>
-                                        <th></th>
+                                        <th class="text-end">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -123,9 +148,7 @@
                                             <td><code class="small">@w.PromoterId</code></td>
                                             <td class="text-danger fw-semibold">¥@w.ApplyAmount.ToString("N2")</td>
                                             <td class="small text-muted">@w.ApplyTime.ToString("MM-dd HH:mm")</td>
-                                            <td class="text-end">
-                                                <a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary">审核</a>
-                                            </td>
+                                            <td class="text-end"><a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary">审核</a></td>
                                         </tr>
                                     }
                                 </tbody>
@@ -133,15 +156,11 @@
                         </div>
                     }
                 </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="content-card h-100">
-                <div class="content-card-header">
-                    <h5>最近退款申请</h5>
-                    <a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary">查看全部</a>
-                </div>
-                <div class="content-card-body p-0">
+                <div class="col-md-6 divider-v-start">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold">最近退款申请</span>
+                        <a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary">查看全部</a>
+                    </div>
                     @if (!recentRefunds.Any())
                     {
                         <div class="empty-state py-4">
@@ -152,13 +171,13 @@
                     else
                     {
                         <div class="table-responsive">
-                            <table class="table table-hover mb-0 align-middle">
+                            <table class="table table-hover table-sm align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
                                         <th>订单号</th>
                                         <th>退款金额</th>
                                         <th>申请时间</th>
-                                        <th></th>
+                                        <th class="text-end">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -168,9 +187,7 @@
                                             <td><code class="small">@r.OrderId</code></td>
                                             <td class="text-danger fw-semibold">¥@r.RefundAmount.ToString("N2")</td>
                                             <td class="small text-muted">@r.ApplyTime.ToString("MM-dd HH:mm")</td>
-                                            <td class="text-end">
-                                                <a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary">审核</a>
-                                            </td>
+                                            <td class="text-end"><a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary">审核</a></td>
                                         </tr>
                                     }
                                 </tbody>
@@ -182,38 +199,42 @@
         </div>
     </div>
 
-    <!-- 财务模块快捷入口 -->
-    <div class="row g-3 mt-2">
-        <div class="col-md-4">
-            <div class="content-card h-100">
-                <div class="content-card-header">
-                    <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg> 提现审核</h5>
-                    <a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary">进入</a>
-                </div>
-                <div class="content-card-body">
-                    <p class="text-muted small mb-0">审核团长的提现申请，通过后自动打款登记。</p>
-                </div>
-            </div>
+    <!-- 财务模块快捷入口（一个框三格） -->
+    <div class="content-card mt-3">
+        <div class="content-card-header">
+            <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg> 财务模块快捷入口</h5>
         </div>
-        <div class="col-md-4">
-            <div class="content-card h-100">
-                <div class="content-card-header">
-                    <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 2.6-6.4L3 9"/></svg> 退款管理</h5>
-                    <a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary">进入</a>
+        <div class="content-card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="border rounded p-3 h-100 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">提现审核</span>
+                            <span class="badge badge-slate">待办 @pendingWithdrawalCount</span>
+                        </div>
+                        <p class="text-muted small mb-3">审核团长的提现申请，通过后自动打款登记。</p>
+                        <a asp-action="PendingWithdrawals" class="btn btn-sm btn-outline-primary w-100 mt-auto">进入提现审核</a>
+                    </div>
                 </div>
-                <div class="content-card-body">
-                    <p class="text-muted small mb-0">审核退款申请，执行佣金/积分回滚与订单状态变更。</p>
+                <div class="col-md-4">
+                    <div class="border rounded p-3 h-100 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">退款管理</span>
+                            <span class="badge badge-slate">待办 @pendingRefundCount</span>
+                        </div>
+                        <p class="text-muted small mb-3">审核退款申请，执行佣金/积分回滚与订单状态变更。</p>
+                        <a asp-action="PendingRefunds" class="btn btn-sm btn-outline-primary w-100 mt-auto">进入退款管理</a>
+                    </div>
                 </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="content-card h-100">
-                <div class="content-card-header">
-                    <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m8 8 8 8M16 8l-8 8"/></svg> 支付流水</h5>
-                    <a asp-action="PaymentRecords" class="btn btn-sm btn-outline-primary">进入</a>
-                </div>
-                <div class="content-card-body">
-                    <p class="text-muted small mb-0">查询支付流水与退款记录，支持多条件组合筛选。</p>
+                <div class="col-md-4">
+                    <div class="border rounded p-3 h-100 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">支付流水</span>
+                            <span class="badge badge-slate">查询</span>
+                        </div>
+                        <p class="text-muted small mb-3">查询支付流水与退款记录，支持多条件组合筛选。</p>
+                        <a asp-action="PaymentRecords" class="btn btn-sm btn-outline-primary w-100 mt-auto">进入支付流水</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -221,111 +242,80 @@
 }
 else
 {
-    var hasAccountTodo = pendingPromoterCount + pendingSupplierCount + pendingAdminCount > 0;
-    <!-- 紧要事项 -->
-    <div class="notice-panel rounded-3 overflow-hidden mb-3 shadow-sm">
-        @if (!hasAccountTodo)
-        {
-            <div class="alert alert-success d-flex align-items-center gap-2 mb-0 border-0 rounded-0">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                <span>所有待办均已处理完毕，今日无紧要事项。</span>
-            </div>
-        }
-        else
-        {
-            @if (pendingPromoterCount > 0)
-            {
-                <div class="alert alert-warning d-flex align-items-center justify-content-between mb-0 border-0 rounded-0">
-                    <div class="d-flex align-items-center gap-2">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-                        <span>有 <strong>@pendingPromoterCount</strong> 位团长的入驻申请待审核。</span>
-                    </div>
-                    <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去处理</a>
-                </div>
-            }
-            @if (pendingSupplierCount > 0)
-            {
-                <div class="alert alert-warning d-flex align-items-center justify-content-between mb-0 border-0 rounded-0">
-                    <div class="d-flex align-items-center gap-2">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-                        <span>有 <strong>@pendingSupplierCount</strong> 家供应商的入驻申请待审核。</span>
-                    </div>
-                    <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去处理</a>
-                </div>
-            }
-            @if (pendingAdminCount > 0)
-            {
-                <div class="alert alert-warning d-flex align-items-center justify-content-between mb-0 border-0 rounded-0">
-                    <div class="d-flex align-items-center gap-2">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                        <span>有 <strong>@pendingAdminCount</strong> 位新管理员的注册申请待审核。</span>
-                    </div>
-                    <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去处理</a>
-                </div>
-            }
-        }
-    </div>
-
-    <!-- 账号核心指标 -->
-    <div class="stat-grid">
-        <div class="stat-card">
-            <div class="stat-card-top">
-                <span class="stat-icon bg-primary-subtle text-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg></span>
-                <span class="stat-label">待审核团长</span>
-            </div>
-            <div class="stat-value text-primary">@pendingPromoterCount</div>
-            <div class="stat-sub">入驻申请待处理</div>
+    var pendingAccountTotal = pendingPromoterCount + pendingSupplierCount + pendingAdminCount;
+    <!-- 待审核：团长 / 供应商 / 管理员 三类合并为一张卡片 -->
+    <div class="content-card">
+        <div class="content-card-header">
+            <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg> 待审核账号</h5>
+            <span class="d-flex align-items-center gap-2">
+                <span class="badge badge-slate">@pendingAccountTotal</span>
+                <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去处理</a>
+            </span>
         </div>
-        <div class="stat-card">
-            <div class="stat-card-top">
-                <span class="stat-icon bg-info-subtle text-info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l5 4V9l5 4V9l8-5v17H3z"/><path d="M3 21h18"/></svg></span>
-                <span class="stat-label">待审核供应商</span>
-            </div>
-            <div class="stat-value text-dark">@pendingSupplierCount</div>
-            <div class="stat-sub">入驻申请待处理</div>
-        </div>
-        <div class="stat-card pending">
-            <div class="stat-card-top">
-                <span class="stat-icon bg-warning-subtle text-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-                <span class="stat-label">待审核管理员</span>
-            </div>
-            <div class="stat-value text-warning">@pendingAdminCount</div>
-            <div class="stat-sub">新管理员注册待处理</div>
+        <div class="content-card-body">
+            @if (pendingAccountTotal == 0)
+            {
+                <div class="alert alert-success d-flex align-items-center gap-2 mb-0 border-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                    <span>所有待办均已处理完毕，今日无紧要事项。</span>
+                </div>
+            }
+            else
+            {
+                <div class="row g-3 text-center">
+                    <div class="col-12 col-md-4">
+                        <div class="mini-stat-value text-primary">@pendingPromoterCount</div>
+                        <div class="mini-stat-label">待审核团长</div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="mini-stat-value text-info">@pendingSupplierCount</div>
+                        <div class="mini-stat-label">待审核供应商</div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <div class="mini-stat-value text-warning">@pendingAdminCount</div>
+                        <div class="mini-stat-label">待审核管理员</div>
+                    </div>
+                </div>
+            }
         </div>
     </div>
 
-    <!-- 账号模块快捷入口 -->
-    <div class="row g-3 mt-2">
-        <div class="col-md-4">
-            <div class="content-card h-100">
-                <div class="content-card-header">
-                    <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11 3 17M18 13l-3 3-3-3M3 5h18v14H3z"/><path d="M3 3v18"/></svg> 注册审核</h5>
-                    <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">进入</a>
-                </div>
-                <div class="content-card-body">
-                    <p class="text-muted small mb-0">团长 / 供应商 / 管理员的注册申请审核与驳回。</p>
-                </div>
-            </div>
+    <!-- 账号模块快捷入口（方框样式与团长工作台「快速查看」一致） -->
+    <div class="content-card">
+        <div class="content-card-header">
+            <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg> 账号管理功能</h5>
         </div>
-        <div class="col-md-4">
-            <div class="content-card h-100">
-                <div class="content-card-header">
-                    <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/><path d="M19 5v6M16 8h6"/></svg> 账号新增</h5>
-                    <a asp-action="AccountCreate" class="btn btn-sm btn-outline-primary">进入</a>
+        <div class="content-card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="border rounded p-3 h-100 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">注册审核</span>
+                            <span class="badge badge-slate">@pendingAccountTotal</span>
+                        </div>
+                        <p class="text-muted small mb-3">团长 / 供应商 / 管理员的注册申请审核与驳回。</p>
+                        <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary w-100 mt-auto">进入注册审核</a>
+                    </div>
                 </div>
-                <div class="content-card-body">
-                    <p class="text-muted small mb-0">管理员直接创建团长、供应商、管理员账号（免审核生效）。</p>
+                <div class="col-md-4">
+                    <div class="border rounded p-3 h-100 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">账号新增</span>
+                            <span class="badge badge-slate">免审核</span>
+                        </div>
+                        <p class="text-muted small mb-3">管理员直接创建团长、供应商、管理员账号（免审核生效）。</p>
+                        <a asp-action="AccountCreate" class="btn btn-sm btn-outline-primary w-100 mt-auto">进入账号新增</a>
+                    </div>
                 </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="content-card h-100">
-                <div class="content-card-header">
-                    <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg> 账号管理</h5>
-                    <a asp-action="AccountManage" class="btn btn-sm btn-outline-primary">进入</a>
-                </div>
-                <div class="content-card-body">
-                    <p class="text-muted small mb-0">团长 / 供应商 / 管理员的账号启用、禁用与佣金比例调整。</p>
+                <div class="col-md-4">
+                    <div class="border rounded p-3 h-100 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold">账号管理</span>
+                            <span class="badge badge-slate">启停</span>
+                        </div>
+                        <p class="text-muted small mb-3">团长 / 供应商 / 管理员的账号启用、禁用与佣金比例调整。</p>
+                        <a asp-action="AccountManage" class="btn btn-sm btn-outline-primary w-100 mt-auto">进入账号管理</a>
+                    </div>
                 </div>
             </div>
         </div>

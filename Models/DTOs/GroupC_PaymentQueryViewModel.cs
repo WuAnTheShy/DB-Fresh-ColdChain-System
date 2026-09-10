@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models.DTOs
 {
-    /// <summary>
-    /// 管理端"支付流水与退款记录"查询页视图模型
-    /// </summary>
+    // 管理端"支付流水与退款记录"查询页视图模型
     public class GroupC_PaymentQueryViewModel
     {
         // 查询条件（回显用）

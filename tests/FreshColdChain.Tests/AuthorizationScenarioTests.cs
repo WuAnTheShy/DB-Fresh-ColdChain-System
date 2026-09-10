@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using FreshColdChain.Controllers;
+using FreshColdChain.Filters;
 using FreshColdChain.Interfaces;
 using FreshColdChain.Models;
 using FreshColdChain.Models.DTOs;
@@ -222,9 +223,10 @@ internal static class AuthorizationScenarioTests
         }
         user.Status = "Enabled";
         // 此场景只运行管理员分支，不调用团长或供应商服务。
-        var controller = new AccountController(null!, service, null!)
+        var controller = new AccountController(null!, service, null!, null!)
             { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { Session = new AuthorizationSession() } } };
-        var result = await controller.Login("test-admin", "test-password", "管理员");
+        // 登录需与账号的管理员种类一致（该测试账号未填种类，按账号管理员处理）
+        var result = await controller.Login("test-admin", "test-password", "管理员", AdminSession.AccountKind);
         AssertEx.True(result is RedirectToActionResult);
         AssertEx.Equal("ADMIN1", controller.HttpContext.Session.GetString("AdminId"));
     }

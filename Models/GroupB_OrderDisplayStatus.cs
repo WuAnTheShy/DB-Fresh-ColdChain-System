@@ -1,9 +1,7 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 消费者端订单展示状态。订单在确认收货前仍保持 SHIPPED，
-/// 展示层根据各供应商包裹的实时状态提供更准确的描述。
-/// </summary>
+// 消费者端订单展示状态。订单在确认收货前仍保持 SHIPPED，
+// 展示层根据各供应商包裹的实时状态提供更准确的描述。
 public static class OrderDisplayStatus
 {
     public static string GetCode(

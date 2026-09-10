@@ -6,42 +6,58 @@
     ViewData["BackText"] = "返回我的货物";
     var products = ViewBag.Products as List<ProductDto> ?? new List<ProductDto>();
 }
-<h3>对物品建立货物</h3>
-<p class="text-muted">选择平台已有的物品，填写保质期、温区与文字介绍即可开始供货（不设数量上限，数量通过后续进货累积）；这些信息会展示给团长。</p>
-<div class="col-md-6">
-<form asp-action="Add" method="post">
-@Html.AntiForgeryToken()
-<div class="mb-3">
-<label class="form-label">选择物品 <span class="text-danger">*</span></label>
-<select asp-for="ProductID" class="form-select" required>
-    <option value="">— 请选择 —</option>
-    @foreach (var p in products)
-    {
-        <option value="@p.ProductID">@p.ProductName</option>
-    }
-</select>
+
+<div class="page-hero">
+    <div>
+        <div class="hero-greeting">对物品建立货物</div>
+        <div class="hero-meta">
+            <span class="text-white-50">选择平台已有的物品，填写保质期、温区与文字介绍即可开始供货（不设数量上限，数量通过后续进货累积）；这些信息会展示给团长。</span>
+        </div>
+    </div>
 </div>
-<div class="mb-3"><label class="form-label">售价（= 团长进价）<span class="text-danger">*</span></label><input asp-for="SalePrice" class="form-control" type="number" step="0.01" required /></div>
-<div class="mb-3">
-<label class="form-label">温区 <span class="text-danger">*</span></label>
-<select asp-for="StorageReq" class="form-select" required>
-    <option value="">-- 请选择温区 --</option>
-    <option value="CHILLED">冷藏 (CHILLED)</option>
-    <option value="FROZEN">冷冻 (FROZEN)</option>
-    <option value="AMBIENT">常温 (AMBIENT)</option>
-</select>
-<small class="text-muted">用于库存保质与冷链运输。</small>
-</div>
-<div class="mb-3">
-<label class="form-label">保质期（小时）<span class="text-danger">*</span></label>
-<input asp-for="ShelfLifeHours" class="form-control" type="number" min="1" required placeholder="例如：72" />
-<small class="text-muted">进货批次过期校验依赖该值，请务必填写。</small>
-</div>
-<div class="mb-3">
-<label class="form-label">文字介绍</label>
-<textarea asp-for="Description" class="form-control" rows="3" maxlength="2000" placeholder="产地、规格、储存方式等；该介绍会展示给团长，可参考/复制/改写为带货介绍"></textarea>
-</div>
-        <button type="submit" class="btn btn-success">建立货物</button>
-        <a class="btn btn-outline-secondary" asp-action="MyGoods">取消</a>
-    </form>
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> 货物信息</h5>
+        <span class="text-muted small">带 <span class="text-danger">*</span> 为必填</span>
+    </div>
+    <div class="content-card-body">
+        <div class="row">
+            <div class="col-lg-7">
+                <form asp-action="Add" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label class="form-label">选择物品 <span class="text-danger">*</span></label>
+                        <select asp-for="ProductID" class="form-select" required>
+                            <option value="">— 请选择 —</option>
+                            @foreach (var p in products)
+                            {
+                                <option value="@p.ProductID">@p.ProductName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">售价（= 团长进价）<span class="text-danger">*</span></label>
+                        <input asp-for="SalePrice" class="form-control" type="number" step="0.01" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">温区</label>
+                        <input class="form-control" value="跟随所选物品（在物品管理中维护）" disabled />
+                        <small class="text-muted">温区与保质属于物品本身的属性，货物不再单独覆盖。</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">保质期（小时）<span class="text-danger">*</span></label>
+                        <input asp-for="ShelfLifeHours" class="form-control" type="number" min="1" required placeholder="例如：72" />
+                        <small class="text-muted">进货批次过期校验依赖该值，请务必填写。</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">文字介绍</label>
+                        <textarea asp-for="Description" class="form-control" rows="3" maxlength="2000" placeholder="产地、规格、储存方式等；该介绍会展示给团长，可参考/复制/改写为带货介绍"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">建立货物</button>
+                    <a class="btn btn-outline-secondary" asp-action="MyGoods">取消</a>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>

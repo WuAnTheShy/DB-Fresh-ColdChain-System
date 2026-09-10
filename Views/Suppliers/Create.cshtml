@@ -1,17 +1,38 @@
 @model CreateSupplierDto
-@{ ViewData["Title"] = "新增供应商"; }
-<h3>新增供应商</h3>
-<div class="col-md-6">
-    <form asp-action="Create" method="post">
-        @Html.AntiForgeryToken()
-        <div class="mb-3"><label class="form-label">名称</label><input asp-for="SupplierName" class="form-control" required /></div>
-        <div class="mb-3"><label class="form-label">资质编号</label><input asp-for="LicenseNo" class="form-control" /></div>
-        <div class="mb-3"><label class="form-label">资质到期时间</label><input asp-for="ExpiryDate" class="form-control" type="date" /></div>
-        <div class="mb-3"><label class="form-label">信用等级</label><input asp-for="CreditLevel" class="form-control" type="number" /></div>
-        <div class="mb-3"><label class="form-label">联系电话</label><input asp-for="ContactPhone" class="form-control" /></div>
-        <div class="mb-3"><label class="form-label">登录账号</label><input asp-for="LoginAccount" class="form-control" /></div>
-        <div class="mb-3"><label class="form-label">登录密码</label><input asp-for="LoginPassword" class="form-control" type="password" /></div>
-        <button type="submit" class="btn btn-success">创建</button>
-        <a class="btn btn-outline-secondary" asp-action="Index">取消</a>
-    </form>
+@{
+    ViewData["Title"] = "新增供应商";
+}
+
+<div class="page-hero">
+    <div>
+        <div class="hero-greeting">新增供应商</div>
+        <div class="hero-meta">
+            <span class="text-white-50">创建后供应商可使用下方登录账号进入供应商门户</span>
+        </div>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l5 4V9l5 4V9l8-5v17H3z"/><path d="M3 21h18"/></svg> 供应商信息</h5>
+        <span class="text-muted small">带 <span class="text-danger">*</span> 为必填</span>
+    </div>
+    <div class="content-card-body">
+        <div class="row">
+            <div class="col-lg-7">
+                <form asp-action="Create" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3"><label class="form-label">名称 <span class="text-danger">*</span></label><input asp-for="SupplierName" class="form-control" required /></div>
+                    <div class="mb-3"><label class="form-label">资质编号</label><input asp-for="LicenseNo" class="form-control" /></div>
+                    <div class="mb-3"><label class="form-label">资质到期时间</label><input asp-for="ExpiryDate" class="form-control" type="date" /></div>
+                    <div class="mb-3"><label class="form-label">信用等级</label><input asp-for="CreditLevel" class="form-control" type="number" /></div>
+                    <div class="mb-3"><label class="form-label">联系电话</label><input asp-for="ContactPhone" class="form-control" /></div>
+                    <div class="mb-3"><label class="form-label">登录账号</label><input asp-for="LoginAccount" class="form-control" /></div>
+                    <div class="mb-3"><label class="form-label">登录密码</label><input asp-for="LoginPassword" class="form-control" type="password" /></div>
+                    <button type="submit" class="btn btn-success">创建</button>
+                    <a class="btn btn-outline-secondary" asp-action="Index">取消</a>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>

@@ -16,7 +16,7 @@ public sealed class GroupCAuthorizationResult
     public string? DenialReason { get; init; }
 }
 
-/// <summary>现有 SYS_ROLES 没有权限列，因此显式配置角色 ID 对应权限，未配置角色默认拒绝。</summary>
+// 现有 SYS_ROLES 没有权限列，因此显式配置角色 ID 对应权限，未配置角色默认拒绝。
 public sealed class GroupCAuthorizationOptions
 {
     public const string SectionName = "GroupC:Authorization";
@@ -24,7 +24,7 @@ public sealed class GroupCAuthorizationOptions
     public string[] SupplierPermissions { get; set; } = [];
 }
 
-/// <summary>每个受保护动作显式声明权限，未声明动作不能被过滤器默认放行。</summary>
+// 每个受保护动作显式声明权限，未声明动作不能被过滤器默认放行。
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
 public sealed class GroupBPermissionAttribute(string code) : Attribute
 {

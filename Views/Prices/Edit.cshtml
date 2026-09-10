@@ -6,106 +6,120 @@
     ViewData["BackText"] = "返回定价规则";
 }
 
-<h3>✏️ 编辑定价规则</h3>
-
-<form asp-action="Edit" method="post">
-    @Html.AntiForgeryToken()
-
-    <div class="row mb-3">
-        <div class="col-md-6">
-            @{
-                var goodsOptions = (ViewData["GoodsOptions"] as List<PriceRuleGoodsOptionDto>)
-                    ?? new List<PriceRuleGoodsOptionDto>();
-                var isAdminScope = ViewData["IsAdminScope"] is true;
-            }
-            <label class="form-label">货物商品 <span class="text-danger">*</span></label>
-            <input asp-for="SupplierID" type="hidden" id="supplierIdValue" />
-            <select asp-for="ProductID" class="form-select" id="productSelect" required>
-                <option value="">@(goodsOptions.Count == 0 ? "-- 暂无可用货物，请先到「我的货物」建立货物 --" : "-- 请选择货物商品 --")</option>
-                @foreach (var o in goodsOptions)
-                {
-                    var unitLabel = string.IsNullOrWhiteSpace(o.Unit) ? "" : $"（{o.Unit}）";
-                    var statusNote = string.Equals(o.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase) ? "" : "（已下架）";
-                    var label = isAdminScope
-                        ? $"[{(string.IsNullOrWhiteSpace(o.SupplierName) ? o.SupplierID : o.SupplierName)}] {o.ProductName}{unitLabel} 售价 ¥{o.SalePrice:0.##}{statusNote}"
-                        : $"{o.ProductName}{unitLabel} 售价 ¥{o.SalePrice:0.##}{statusNote}";
-                    <option value="@o.ProductID" data-supplier="@o.SupplierID" selected="@(Model.ProductID == o.ProductID)">@label</option>
-                }
-            </select>
-            @if (isAdminScope)
-            {
-                <div class="form-text text-warning">平台管理员视图：选中商品后规则将归属对应供应商</div>
-            }
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">规则名称</label>
-            <input asp-for="RuleName" class="form-control" />
+<div class="page-hero">
+    <div>
+        <div class="hero-greeting">编辑定价规则</div>
+        <div class="hero-meta">
+            <span class="text-white-50">调整触发类型、折扣与有效期；保存后立即对后续计价生效</span>
         </div>
     </div>
+</div>
 
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <label class="form-label">触发类型</label>
-            <select asp-for="TriggerType" class="form-select" id="triggerType" required>
-                <option value="">-- 请选择 --</option>
-                <option value="TimeBased">时段折扣</option>
-                <option value="ExpiryApproaching">临期折扣</option>
-                <option value="BulkDiscount">批量折扣</option>
-                <option value="ManualPrice">手动调价</option>
-            </select>
-        </div>
-        <div class="col-md-4" id="timeWindowGroup">
-            <label class="form-label">时间窗口</label>
-            <input asp-for="TimeWindow" class="form-control" placeholder="18:00-20:00" />
-        </div>
-        <div class="col-md-4">
-            <label class="form-label">优先级</label>
-            <input asp-for="Priority" class="form-control" type="number" />
-        </div>
+<div class="content-card">
+    <div class="content-card-header">
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg> 规则信息</h5>
     </div>
+    <div class="content-card-body">
+        <form asp-action="Edit" method="post">
+            @Html.AntiForgeryToken()
 
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <label class="form-label">折扣率</label>
-            <input asp-for="DiscountRate" class="form-control" type="number" step="0.01" min="0" max="1" />
-        </div>
-        <div class="col-md-4">
-            <label class="form-label">手动定价</label>
-            <input asp-for="ManualPrice" class="form-control" type="number" step="0.01" min="0" />
-        </div>
-    </div>
-
-    <div class="row mb-3" id="quantityGroup">
-        <div class="col-md-3">
-            <label class="form-label">最低购买量</label>
-            <input asp-for="MinQuantity" class="form-control" type="number" step="1" min="0" />
-        </div>
-        <div class="col-md-3">
-            <label class="form-label">最高购买量</label>
-            <input asp-for="MaxQuantity" class="form-control" type="number" step="1" min="0" />
-        </div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col-md-3">
-            <label class="form-label">开始日期</label>
-            <input asp-for="EffectiveFrom" class="form-control" type="date" />
-        </div>
-        <div class="col-md-3">
-            <label class="form-label">结束日期</label>
-            <input asp-for="EffectiveTo" class="form-control" type="date" />
-        </div>
-        <div class="col-md-3 d-flex align-items-end">
-            <div class="form-check">
-                <input asp-for="IsActive" class="form-check-input" type="checkbox" />
-                <label class="form-check-label">启用规则</label>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    @{
+                        var goodsOptions = (ViewData["GoodsOptions"] as List<PriceRuleGoodsOptionDto>)
+                            ?? new List<PriceRuleGoodsOptionDto>();
+                        var isAdminScope = ViewData["IsAdminScope"] is true;
+                    }
+                    <label class="form-label">货物商品 <span class="text-danger">*</span></label>
+                    <input asp-for="SupplierID" type="hidden" id="supplierIdValue" />
+                    <select asp-for="ProductID" class="form-select" id="productSelect" required>
+                        <option value="">@(goodsOptions.Count == 0 ? "-- 暂无可用货物，请先到「我的货物」建立货物 --" : "-- 请选择货物商品 --")</option>
+                        @foreach (var o in goodsOptions)
+                        {
+                            var unitLabel = string.IsNullOrWhiteSpace(o.Unit) ? "" : $"（{o.Unit}）";
+                            var statusNote = string.Equals(o.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase) ? "" : "（已下架）";
+                            var label = isAdminScope
+                                ? $"[{(string.IsNullOrWhiteSpace(o.SupplierName) ? o.SupplierID : o.SupplierName)}] {o.ProductName}{unitLabel} 售价 ¥{o.SalePrice:0.##}{statusNote}"
+                                : $"{o.ProductName}{unitLabel} 售价 ¥{o.SalePrice:0.##}{statusNote}";
+                            <option value="@o.ProductID" data-supplier="@o.SupplierID" selected="@(Model.ProductID == o.ProductID)">@label</option>
+                        }
+                    </select>
+                    @if (isAdminScope)
+                    {
+                        <div class="form-text text-warning">平台管理员视图：选中商品后规则将归属对应供应商</div>
+                    }
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">规则名称</label>
+                    <input asp-for="RuleName" class="form-control" />
+                </div>
             </div>
-        </div>
-    </div>
 
-    <button type="submit" class="btn btn-primary">保存修改</button>
-    <a asp-action="Index" class="btn btn-outline-secondary">取消</a>
-</form>
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">触发类型</label>
+                    <select asp-for="TriggerType" class="form-select" id="triggerType" required>
+                        <option value="">-- 请选择 --</option>
+                        <option value="TimeBased">时段折扣</option>
+                        <option value="ExpiryApproaching">临期折扣</option>
+                        <option value="BulkDiscount">批量折扣</option>
+                        <option value="ManualPrice">手动调价</option>
+                    </select>
+                </div>
+                <div class="col-md-4" id="timeWindowGroup">
+                    <label class="form-label">时间窗口</label>
+                    <input asp-for="TimeWindow" class="form-control" placeholder="18:00-20:00" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">优先级</label>
+                    <input asp-for="Priority" class="form-control" type="number" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label">折扣率</label>
+                    <input asp-for="DiscountRate" class="form-control" type="number" step="0.01" min="0" max="1" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">手动定价</label>
+                    <input asp-for="ManualPrice" class="form-control" type="number" step="0.01" min="0" />
+                </div>
+            </div>
+
+            <div class="row mb-3" id="quantityGroup">
+                <div class="col-md-3">
+                    <label class="form-label">最低购买量</label>
+                    <input asp-for="MinQuantity" class="form-control" type="number" step="1" min="0" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">最高购买量</label>
+                    <input asp-for="MaxQuantity" class="form-control" type="number" step="1" min="0" />
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">开始日期</label>
+                    <input asp-for="EffectiveFrom" class="form-control" type="date" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">结束日期</label>
+                    <input asp-for="EffectiveTo" class="form-control" type="date" />
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                        <input asp-for="IsActive" class="form-check-input" type="checkbox" />
+                        <label class="form-check-label">启用规则</label>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">保存修改</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">取消</a>
+        </form>
+    </div>
+</div>
 
 @section Scripts {
     <script>

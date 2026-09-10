@@ -3,9 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 供应商（文档表名：Inv_Suppliers）
-/// </summary>
+// 供应商（文档表名：Inv_Suppliers）
 [Table("Inv_Suppliers")]
 public class InvSupplier
 {
@@ -40,7 +38,7 @@ public class InvSupplier
     [MaxLength(255)]
     public string? LoginPassword { get; set; }
 
-    /// <summary>状态: Pending(待审核) / Active(正常) / Disabled(已禁用) / Rejected(入驻被驳回)</summary>
+    // 状态: Pending(待审核) / Active(正常) / Disabled(已禁用) / Rejected(入驻被驳回)
     [Column("STATUS")]
     [MaxLength(20)]
     public string Status { get; set; } = "Active";
@@ -48,7 +46,7 @@ public class InvSupplier
     // 导航属性
     [NotMapped] public ICollection<InvProduct> Products { get; set; } = new List<InvProduct>();
 
-    /// <summary>产品数量（SQL 聚合查询填充）</summary>
+    // 产品数量（SQL 聚合查询填充）
     [NotMapped]
     public int ProductCount { get; set; }
 }

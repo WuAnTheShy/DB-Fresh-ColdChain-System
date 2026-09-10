@@ -6,13 +6,17 @@
         ?? new List<(string Code, string Name)>();
 }
 
-<div class="d-flex justify-content-between align-items-start mb-3">
+<div class="page-hero">
     <div>
-        <a asp-action="Index" class="text-decoration-none">← 返回履约工作台</a>
-        <h2 class="mt-2 mb-1">订单 @Model.Order.OrderNo</h2>
-        <p class="text-muted mb-0">@Model.CustomerName · @Model.Order.CreatedAt.ToString("yyyy-MM-dd HH:mm")</p>
+        <div class="hero-greeting">订单 @Model.Order.OrderNo</div>
+        <div class="hero-meta">
+            <span class="text-white-50">@Model.CustomerName · @Model.Order.CreatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+        </div>
     </div>
-    <span class="badge text-bg-primary fs-6">@logistics.StatusName</span>
+    <div class="hero-actions">
+        <a class="btn btn-outline-light btn-sm" asp-action="Index">← 返回履约工作台</a>
+        <span class="badge bg-light text-dark">@logistics.StatusName</span>
+    </div>
 </div>
 
 @if (logistics.IsFallback)
@@ -31,69 +35,82 @@
 
 <div class="row g-3">
     <div class="col-lg-8">
-        <section class="card mb-3">
-            <div class="card-header fw-semibold">本供应商商品</div>
-            <div class="table-responsive">
-                <table class="table mb-0 align-middle">
-                    <thead><tr><th>商品</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
-                    <tbody>
-                    @foreach (var item in Model.Items)
-                    {
-                        <tr>
-                            <td>@item.ProductName</td>
-                            <td>@item.Quantity</td>
-                            <td>¥@item.UnitPrice.ToString("F2")</td>
-                            <td>¥@item.SubTotal.ToString("F2")</td>
-                        </tr>
-                    }
-                    </tbody>
-                </table>
+        <div class="content-card mb-3">
+            <div class="content-card-header">
+                <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> 本供应商商品</h5>
             </div>
-        </section>
+            <div class="content-card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light"><tr><th>商品</th><th>数量</th><th>单价</th><th>小计</th></tr></thead>
+                        <tbody>
+                        @foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td>@item.ProductName</td>
+                                <td>@item.Quantity</td>
+                                <td>¥@item.UnitPrice.ToString("F2")</td>
+                                <td>¥@item.SubTotal.ToString("F2")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-        <section class="card">
-            <div class="card-header fw-semibold">收货信息</div>
-            <div class="card-body">
+        <div class="content-card">
+            <div class="content-card-header">
+                <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg> 收货信息</h5>
+            </div>
+            <div class="content-card-body">
                 <p class="mb-1"><strong>@Model.Order.ReceiverName</strong> @Model.Order.ReceiverPhone</p>
                 <p class="mb-0 text-muted">@Model.Order.ShippingAddress</p>
             </div>
-        </section>
+        </div>
 
         @if (logistics.Events.Count > 0)
         {
-            <section class="card mt-3">
-                <div class="card-header fw-semibold">物流轨迹</div>
-                <div class="list-group list-group-flush">
-                    @foreach (var item in logistics.Events.OrderByDescending(item => item.OccurredAt))
-                    {
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between gap-3">
-                                <strong>@item.StatusName</strong>
-                                <span class="small text-muted">@item.OccurredAt.ToString("yyyy-MM-dd HH:mm")</span>
-                            </div>
-                            <div>@item.Description</div>
-                            <div class="small text-muted">
-                                @item.Location
-                                @if (item.TemperatureCelsius.HasValue)
-                                {
-                                    <span class="ms-2 @(item.IsTemperatureException ? "text-danger fw-semibold" : null)">
-                                        @item.TemperatureCelsius.Value.ToString("F1")℃
-                                    </span>
-                                }
-                            </div>
-                        </div>
-                    }
+            <div class="content-card mt-3">
+                <div class="content-card-header">
+                    <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h7a4 4 0 0 0 0-8H9a4 4 0 0 1 0-8h5"/></svg> 物流轨迹</h5>
+                    <span class="text-muted small">共 @logistics.Events.Count 条</span>
                 </div>
-            </section>
+                <div class="content-card-body p-0">
+                    <div class="list-group list-group-flush">
+                        @foreach (var item in logistics.Events.OrderByDescending(item => item.OccurredAt))
+                        {
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between gap-3">
+                                    <strong>@item.StatusName</strong>
+                                    <span class="small text-muted">@item.OccurredAt.ToString("yyyy-MM-dd HH:mm")</span>
+                                </div>
+                                <div>@item.Description</div>
+                                <div class="small text-muted">
+                                    @item.Location
+                                    @if (item.TemperatureCelsius.HasValue)
+                                    {
+                                        <span class="ms-2 @(item.IsTemperatureException ? "text-danger fw-semibold" : null)">
+                                            @item.TemperatureCelsius.Value.ToString("F1")℃
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
         }
     </div>
 
     <div class="col-lg-4">
         @if (Model.CanShip)
         {
-            <section class="card">
-                <div class="card-header fw-semibold">登记发货</div>
-                <form asp-action="Ship" asp-route-id="@Model.Order.OrderId" method="post" class="card-body">
+            <div class="content-card">
+                <div class="content-card-header">
+                    <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h2a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H8"/><path d="M4 6h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-2"/><circle cx="7" cy="17" r="3"/><path d="M3 6V4a1 1 0 0 1 1-1h4"/></svg> 登记发货</h5>
+                </div>
+                <form asp-action="Ship" asp-route-id="@Model.Order.OrderId" method="post" class="content-card-body">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="SupplierId" value="@Model.SupplierId" />
                     <div class="mb-3">
@@ -125,28 +142,30 @@
                     </div>
                     <button class="btn btn-success w-100" type="submit">确认发货</button>
                 </form>
-            </section>
+            </div>
         }
         else
         {
-            <section class="card">
-                <div class="card-header fw-semibold">物流信息</div>
-                <div class="card-body">
-                    <dl class="mb-0">
-                        <dt>承运商</dt><dd>@(logistics.CarrierName ?? "-")</dd>
-                        <dt>运单号</dt><dd>@(logistics.TrackingNo ?? "-")</dd>
-                        <dt>包裹温区</dt><dd>@logistics.PackageTemperature</dd>
-                        <dt>发货时间</dt><dd>@(logistics.ShippedAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</dd>
-                        <dt>预计送达</dt><dd>@(logistics.EstimatedArrivalAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</dd>
-                    </dl>
+            <div class="content-card">
+                <div class="content-card-header">
+                    <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2z"/><path d="M13 10h4l3 3v3h-7z"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg> 物流信息</h5>
                 </div>
-            </section>
+                <div class="content-card-body">
+                    <div class="info-row"><div class="info-label">承运商</div><div class="info-value">@(logistics.CarrierName ?? "-")</div></div>
+                    <div class="info-row"><div class="info-label">运单号</div><div class="info-value">@(logistics.TrackingNo ?? "-")</div></div>
+                    <div class="info-row"><div class="info-label">包裹温区</div><div class="info-value">@logistics.PackageTemperature</div></div>
+                    <div class="info-row"><div class="info-label">发货时间</div><div class="info-value">@(logistics.ShippedAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</div></div>
+                    <div class="info-row"><div class="info-label">预计送达</div><div class="info-value">@(logistics.EstimatedArrivalAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</div></div>
+                </div>
+            </div>
 
             @if (logistics.StatusCode is not LogisticsStatusCodes.Delivered and not LogisticsStatusCodes.Returned)
             {
-                <section class="card mt-3">
-                    <div class="card-header fw-semibold">追加物流轨迹</div>
-                    <form asp-action="AddTrackingEvent" asp-route-id="@Model.Order.OrderId" method="post" class="card-body">
+                <div class="content-card mt-3">
+                    <div class="content-card-header">
+                        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h7a4 4 0 0 0 0-8H9a4 4 0 0 1 0-8h5"/><path d="M20 14v4M18 16h4"/></svg> 追加物流轨迹</h5>
+                    </div>
+                    <form asp-action="AddTrackingEvent" asp-route-id="@Model.Order.OrderId" method="post" class="content-card-body">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="EventId" value="@GroupBIds.NewId()" />
                         <input type="hidden" name="OrderId" value="@Model.Order.OrderId" />
@@ -183,7 +202,7 @@
                         <input type="hidden" name="OccurredAt" value="@DateTime.Now.ToString("s")" />
                         <button class="btn btn-outline-primary w-100" type="submit">更新轨迹</button>
                     </form>
-                </section>
+                </div>
             }
         }
     </div>

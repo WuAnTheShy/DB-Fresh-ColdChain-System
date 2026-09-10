@@ -229,7 +229,7 @@ namespace FreshColdChain.Controllers
             return View(model);
         }
 
-        // ========== 角色管理（团长/供应商）==========
+        // 角色管理（团长/供应商）
 
         // 角色管理主页：原 hub 已被账号管理员的「注册审核/账号新增/账号管理」三个页面取代
         public IActionResult RoleManagement()
@@ -297,12 +297,17 @@ namespace FreshColdChain.Controllers
             return View(result.Data ?? new List<SupplierDto>());
         }
 
-        // 供应商审核通过
+        // 供应商审核通过（信用分由管理员在审核时填写）
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ApproveSupplier(string supplierId)
+        public async Task<IActionResult> ApproveSupplier(string supplierId, int creditLevel)
         {
-            return await ChangeSupplierStatus(supplierId, "Active", "供应商入驻已通过审核", nameof(AccountReview));
+            if (creditLevel < 0 || creditLevel > 100)
+            {
+                TempData["ErrorMessage"] = "请填写信用分（0-100）后再通过审核";
+                return RedirectToAction(nameof(AccountReview));
+            }
+            return await ChangeSupplierStatus(supplierId, "Active", "供应商入驻已通过审核", nameof(AccountReview), creditLevel);
         }
 
         // 供应商审核驳回（需要输入原因）
@@ -335,10 +340,11 @@ namespace FreshColdChain.Controllers
         }
 
         // 供应商状态变更公共入口：调服务层做流转校验，成功后写操作日志
+        // creditLevel 不为 null 时（审核通过）一并登记管理员填写的信用分
         private async Task<IActionResult> ChangeSupplierStatus(string supplierId, string targetStatus,
-            string successMessage, string redirectAction)
+            string successMessage, string redirectAction, int? creditLevel = null)
         {
-            var result = await _supplierService.SetSupplierStatusAsync(supplierId, targetStatus);
+            var result = await _supplierService.SetSupplierStatusAsync(supplierId, targetStatus, creditLevel);
             if (result.IsSuccess)
             {
                 await _tableLogService.WriteTableChangeLog(new GroupC_LogAuditrails
@@ -358,7 +364,7 @@ namespace FreshColdChain.Controllers
             return RedirectToAction(redirectAction);
         }
 
-        // ========== 账号管理员的三个工作页面 ==========
+        // 账号管理员的三个工作页面
 
         // 注册审核：团长 + 供应商 + 管理员 三类待审账号
         public async Task<IActionResult> AccountReview()
@@ -400,6 +406,12 @@ namespace FreshColdChain.Controllers
                 TempData["ErrorMessage"] = "供应商名称不能为空";
                 return RedirectToAction(nameof(AccountCreate));
             }
+            if (!ModelState.IsValid)
+            {
+                TempData["ErrorMessage"] = "提交信息格式有误，请检查后重新提交";
+                return RedirectToAction(nameof(AccountCreate));
+            }
+            // 初始信用分无需管理员填写，由服务层统一生成（默认 30）
             var result = await _supplierService.CreateSupplierAsync(dto);
             TempData[result.IsSuccess ? "SuccessMessage" : "ErrorMessage"] =
                 result.IsSuccess ? "供应商已创建（直接生效）" : result.Message;
@@ -460,7 +472,7 @@ namespace FreshColdChain.Controllers
             return RedirectToAction(nameof(AccountManage));
         }
 
-        // ========== 财务管理 ==========
+        // 财务管理
 
         // 财务管理主页（hub：提现审核 / 退款管理 / 支付流水入口 + 待办统计）
         public IActionResult FinanceManagement()

@@ -1,9 +1,7 @@
 namespace FreshColdChain.Models
 {
-    /// <summary>
-    /// 等级佣金政策：佣金比例与团长等级挂钩（等级越高比例越高）。
-    /// 等级由累计销售额决定，阈值与 GroupC_CommissionBonusPolicy 跨档奖励阈值保持一致。
-    /// </summary>
+    // 等级佣金政策：佣金比例与团长等级挂钩（等级越高比例越高）。
+    // 等级由累计销售额决定，阈值与 GroupC_CommissionBonusPolicy 跨档奖励阈值保持一致。
     public static class GroupC_LevelCommissionPolicy
     {
         // 等级阈值（累计销售额）
@@ -17,7 +15,7 @@ namespace FreshColdChain.Models
         public const decimal GoldRate = 0.05m;     // 黄金 5%
         public const decimal DiamondRate = 0.08m;  // 钻石 8%
 
-        /// <summary>按累计销售额返回当前等级对应的佣金比例</summary>
+        // 按累计销售额返回当前等级对应的佣金比例
         public static decimal ResolveRate(decimal totalSales)
         {
             if (totalSales >= DiamondThreshold) return DiamondRate;

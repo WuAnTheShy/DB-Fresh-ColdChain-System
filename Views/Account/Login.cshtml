@@ -24,6 +24,13 @@
                     </div>
                 }
 
+                @if (TempData["RegisterSuccess"] != null)
+                {
+                    <div class="alert alert-success" role="alert">
+                        @TempData["RegisterSuccess"]
+                    </div>
+                }
+
                 <form asp-action="Login" asp-route-role="@ViewBag.Role" method="post">
                     @if (ViewBag.Role?.ToString() == "管理员")
                     {
@@ -37,7 +44,7 @@
                                     <option value="@kind.Code">@kind.Name</option>
                                 }
                             </select>
-                            <div class="form-text">请选择与注册时填写一致的种类，登录后才可进入对应子系统。</div>
+                            <div class="form-text">请选择与注册时填写一致的种类</div>
                         </div>
                     }
                     <div class="mb-3">

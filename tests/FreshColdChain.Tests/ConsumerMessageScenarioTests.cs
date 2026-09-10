@@ -126,6 +126,20 @@ internal static class ConsumerMessageScenarioTests
             RequestedOrderIds.Add(orderId);
             return Task.FromResult(Refunds.Where(refund => refund.OrderId == orderId).ToList());
         }
+        public Task<List<FinRefund>> GetOrderRefundsAsync(IReadOnlyCollection<string> orderIds)
+        {
+            foreach (var orderId in orderIds)
+            {
+                RequestedOrderIds.Add(orderId);
+            }
+            return Task.FromResult(Refunds.Where(refund => orderIds.Contains(refund.OrderId!)).ToList());
+        }
+        public Task<List<string>> GetOrderIdsWithPendingRefundAsync() =>
+            Task.FromResult(Refunds
+                .Where(refund => refund.Status == "Pending")
+                .Select(refund => refund.OrderId!)
+                .Distinct(StringComparer.Ordinal)
+                .ToList());
         public Task<List<FinRefund>> SearchRefundsAsync(
             DateTime? startTime,
             DateTime? endTime,

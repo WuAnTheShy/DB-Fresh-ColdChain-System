@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FreshColdChain.Controllers.Api;
 
-/// <summary>消费者关注团长关系 API，持久化到 CRM_PCR。</summary>
+// 消费者关注团长关系 API，持久化到 CRM_PCR。
 [ApiController]
 [Route("api/customers/{customerId}/following")]
 public sealed class CustomerFollowingApiController : GroupBApiController

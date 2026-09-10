@@ -205,6 +205,12 @@ namespace FreshColdChain.Services
                     if (!recordResult.IsSuccess)
                         throw new Exception(recordResult.ErrorMessage ?? "退款申请记录写入失败");
                 }
+
+                //申请提交成功即把订单置为“退款审核中”，并记录申请前状态供驳回/取消时回退
+                await _orderService.EnterRefundReviewAsync(
+                    ctx.Order.OrderId,
+                    externalTransaction: _uow.Transaction);
+
                 await _uow.CommitAsync();
                 _result.IsSuccess = true;
                 return _result;
@@ -369,6 +375,9 @@ namespace FreshColdChain.Services
                 if (!cancelled)
                     throw new Exception("退款申请状态已变化，请刷新后重试");
 
+                //取消申请后，若订单已无待审核申请，订单从“退款审核中”回退到申请前状态
+                await ExitRefundReviewIfNoPendingAsync(orderId, _uow.Transaction);
+
                 await _uow.CommitAsync();
                 return new Result { IsSuccess = true };
             }
@@ -401,6 +410,10 @@ namespace FreshColdChain.Services
                         "Customer", remark, "Pending", transaction);
                     if (!created.IsSuccess)
                         throw new Exception(created.ErrorMessage ?? "退款申请记录写入失败");
+                    //未支付/已取消的订单不进入退款审核中，此处接口内部会自行跳过
+                    await _orderService.EnterRefundReviewAsync(
+                        order.OrderId,
+                        externalTransaction: transaction);
                 }
                 await _uow.CommitAsync();
                 return new Result { IsSuccess = true };
@@ -434,11 +447,13 @@ namespace FreshColdChain.Services
 
                 if (!approved)
                 {
-                    //驳回：仅更新申请单状态（乐观锁防并发重复审核），不涉及任何资金与订单状态变动
+                    //驳回：仅更新申请单状态（乐观锁防并发重复审核），不涉及任何资金变动
                     if (!await _irefundRepository.TryUpdateStatusAsync(refundId, "Pending", "Rejected", auditorId, auditRemark, _uow.Transaction))
                     {
                         throw new Exception("申请状态已变化，审核失败请重试");
                     }
+                    //驳回成功后，若订单已无待审核申请，订单从“退款审核中”回退到申请前状态
+                    await ExitRefundReviewIfNoPendingAsync(application.OrderId!, _uow.Transaction);
                     await _uow.CommitAsync();
                     _result.IsSuccess = true;
                     return _result;
@@ -477,6 +492,28 @@ namespace FreshColdChain.Services
             return await _irefundRepository.GetByOrderIdAsync(orderId);
         }
 
+        public async Task<List<FinRefund>> GetOrderRefundsAsync(IReadOnlyCollection<string> orderIds) //消费者端批量查询订单退款记录
+        {
+            if (orderIds == null || orderIds.Count == 0)
+            {
+                return new List<FinRefund>();
+            }
+            return await _irefundRepository.GetByOrderIdsAsync(orderIds);
+        }
+
+        //存在待审核退款申请的订单编号：订单真实状态往往仍是“已完成”，
+        //消费者端“退款售后”列表需据此把这些订单一起筛出来展示为“退款待审核”
+        public async Task<List<string>> GetOrderIdsWithPendingRefundAsync()
+        {
+            var pending = await _irefundRepository.GetByStatusAsync("Pending");
+            return pending
+                .Select(refund => refund.OrderId)
+                .Where(orderId => !string.IsNullOrWhiteSpace(orderId))
+                .Select(orderId => orderId!.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+        }
+
         public async Task<List<FinRefund>> SearchRefundsAsync(DateTime? startTime, DateTime? endTime,
             string? orderId, string? status) //管理端组合查询退款记录
         {
@@ -503,13 +540,20 @@ namespace FreshColdChain.Services
                 throw new Exception("订单已退款，请勿重复操作！");
             }
 
+            //订单处于“退款审核中”时，真实交易状态记录在 StatusBeforeRefund：
+            //退款准入（佣金结算拦截、14 天可退期、运费是否已发生、佣金回滚）必须按申请前状态判断，
+            //否则待审核期间会绕过这些防线。
+            var admissionStatus = orderStatus == OrderStatus.RefundReviewing
+                ? ParseStatusBeforeRefund(order.StatusBeforeRefund, orderStatus)
+                : orderStatus;
+
             //查询C组自己的佣金记录（FIN_PROCOMRECORDS），用于退款期校验与佣金回滚
             var record = await _icommissionRepository.GetByOrderIdAsync(orderId, transaction);
 
             //退款准入校验（仅已签收订单）：
             //防线一：佣金已过退款期并完成二段结算（Settled），佣金已转入可提现余额，禁止退款
             //防线二：超过可退款期14天，拒绝退款（优先取佣金记录签收时间；无佣金记录的订单用订单最后状态变更时间兜底）
-            if (orderStatus == OrderStatus.Completed)
+            if (admissionStatus == OrderStatus.Completed)
             {
                 if (record?.Status == "Settled")
                 {
@@ -527,13 +571,44 @@ namespace FreshColdChain.Services
             {
                 Order = order,
                 Details = orderDetail.Details,
-                OrderStatus = orderStatus,
+                OrderStatus = admissionStatus,
                 Record = record,
                 // REFUNDING 可能来自“已发货后部分退款”，也可能来自
                 // “未发货部分退款”，不能再仅靠订单状态判断运费是否已发生。
-                HasShipped = orderStatus is OrderStatus.Shipped or OrderStatus.Completed ||
+                HasShipped = admissionStatus is OrderStatus.Shipped or OrderStatus.Completed ||
                     deliveries.Count > 0
             };
+        }
+
+        //回退状态缺失或非法（历史脏数据）时按当前状态处理，避免单条脏数据阻断退款审核
+        private static OrderStatus ParseStatusBeforeRefund(string? statusBeforeRefund, OrderStatus fallback)
+        {
+            if (string.IsNullOrWhiteSpace(statusBeforeRefund))
+            {
+                return fallback;
+            }
+
+            try
+            {
+                return OrderStatusCodes.Parse(statusBeforeRefund);
+            }
+            catch (ArgumentException)
+            {
+                return fallback;
+            }
+        }
+
+        //退款申请被驳回/取消后，若订单已无待审核申请，则把订单从“退款审核中”回退到申请前状态
+        private async Task ExitRefundReviewIfNoPendingAsync(string orderId, IDbTransaction? transaction)
+        {
+            var applications = await _irefundRepository.GetByOrderIdAsync(orderId, transaction);
+            if (applications.Any(application =>
+                    string.Equals(application.Status, "Pending", StringComparison.Ordinal)))
+            {
+                return;
+            }
+
+            await _orderService.ExitRefundReviewAsync(orderId, externalTransaction: transaction);
         }
 
         //按消费者退款请求构建退款上下文（计算退款金额/数量/明细）

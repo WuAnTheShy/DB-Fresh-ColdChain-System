@@ -3,9 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 商品分类（文档表名：Inv_Category）
-/// </summary>
+// 商品分类（文档表名：Inv_Category）
 [Table("Inv_Category")]
 public class InvCategory
 {

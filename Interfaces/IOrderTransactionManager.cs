@@ -2,9 +2,7 @@ using System.Data;
 
 namespace FreshColdChain.Interfaces;
 
-/// <summary>
-/// 由 B 组管理订单业务事务的执行器。
-/// </summary>
+// 由 B 组管理订单业务事务的执行器。
 public interface IOrderTransactionManager
 {
     Task<TResult> ExecuteAsync<TResult>(

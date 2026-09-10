@@ -1,6 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>B 组对外提供的消费者账户只读快照。</summary>
+// B 组对外提供的消费者账户只读快照。
 public sealed class CustomerAccount
 {
     public string CustomerID { get; init; } = string.Empty;

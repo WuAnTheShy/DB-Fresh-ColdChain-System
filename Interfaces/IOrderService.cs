@@ -3,10 +3,8 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Interfaces;
 
-/// <summary>
-/// B 组对外暴露的接口 - 供 A 组、C 组调用。
-/// 【铁律】其他组只能通过此接口操作 B 组的表。
-/// </summary>
+// B 组对外暴露的接口 - 供 A 组、C 组调用。
+// 【铁律】其他组只能通过此接口操作 B 组的表。
 public interface IOrderService
 {
     Task<CreateCheckoutBatchResult> CreateCheckoutBatchAsync(
@@ -62,13 +60,23 @@ public interface IOrderService
         CancellationToken cancellationToken = default,
         IDbTransaction? externalTransaction = null);
 
-    /// <summary>
-    /// 部分退款时按比例扣回积分并将订单置为"退款中" - 供 C 组调用。
-    /// </summary>
+    // 部分退款时按比例扣回积分并将订单置为"退款中" - 供 C 组调用。
     Task DeductPointsForPartialRefundAsync(
         string customerId,
         string orderId,
         int pointsToDeduct,
+        CancellationToken cancellationToken = default,
+        IDbTransaction? externalTransaction = null);
+
+    // 消费者提交退款申请后订单进入"退款审核中"，并记录申请前状态 - 供 C 组调用。
+    Task EnterRefundReviewAsync(
+        string orderId,
+        CancellationToken cancellationToken = default,
+        IDbTransaction? externalTransaction = null);
+
+    // 退款申请被驳回/取消且订单已无待审核申请时，订单回退到申请前状态 - 供 C 组调用。
+    Task ExitRefundReviewAsync(
+        string orderId,
         CancellationToken cancellationToken = default,
         IDbTransaction? externalTransaction = null);
 

@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 优惠券中心页面数据。
-/// </summary>
+// 优惠券中心页面数据。
 public sealed class CouponCenterViewModel
 {
     public string CustomerId { get; init; } = string.Empty;
@@ -11,9 +9,7 @@ public sealed class CouponCenterViewModel
     public IReadOnlyList<AvailableCouponItem> AvailableCoupons { get; init; } = [];
 }
 
-/// <summary>
-/// 可领取的券模板及当前消费者领取状态。
-/// </summary>
+// 可领取的券模板及当前消费者领取状态。
 public sealed class ClaimableCouponItem
 {
     public string CouponId { get; init; } = string.Empty;
@@ -26,9 +22,7 @@ public sealed class ClaimableCouponItem
     public int HasClaimed { get; init; }
 }
 
-/// <summary>
-/// 当前消费者已领取且仍可使用的优惠券。
-/// </summary>
+// 当前消费者已领取且仍可使用的优惠券。
 public sealed class AvailableCouponItem
 {
     public string RecordId { get; init; } = string.Empty;

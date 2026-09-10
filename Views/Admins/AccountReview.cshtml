@@ -101,7 +101,7 @@
                                     <th>名称</th>
                                     <th>营业执照号</th>
                                     <th>资质到期日</th>
-                                    <th>信用等级</th>
+                                    <th>信用分</th>
                                     <th>联系电话</th>
                                     <th>登录账号</th>
                                     <th>操作</th>
@@ -115,19 +115,23 @@
                                         <td>@item.SupplierName</td>
                                         <td class="small">@item.LicenseNo</td>
                                         <td class="small text-muted">@item.ExpiryDate?.ToString("yyyy-MM-dd")</td>
-                                        <td>@item.CreditLevel</td>
+                                        <td>@(item.CreditLevel > 0 ? item.CreditLevel.ToString() : "—")</td>
                                         <td class="small">@item.ContactPhone</td>
                                         <td class="small">@item.LoginAccount</td>
                                         <td>
-                                            <form asp-action="ApproveSupplier" method="post" style="display:inline-block;"
-                                                  onsubmit="return confirm('确认通过该供应商的入驻申请？');">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="supplierId" value="@item.SupplierID" />
-                                                <button type="submit" class="btn btn-sm btn-success">通过</button>
-                                            </form>
-                                            <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#supplierRejectModal-@item.SupplierID">
-                                                驳回
-                                            </button>
+                                            <div class="d-flex flex-wrap align-items-center gap-1">
+                                                <form asp-action="ApproveSupplier" method="post" class="d-flex align-items-center gap-1"
+                                                      onsubmit="return confirm('确认通过该供应商的入驻申请？');">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                                                    <input type="number" name="creditLevel" class="form-control form-control-sm"
+                                                           style="width: 6rem;" min="0" max="100" placeholder="信用分" required />
+                                                    <button type="submit" class="btn btn-sm btn-success">通过</button>
+                                                </form>
+                                                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#supplierRejectModal-@item.SupplierID">
+                                                    驳回
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 }

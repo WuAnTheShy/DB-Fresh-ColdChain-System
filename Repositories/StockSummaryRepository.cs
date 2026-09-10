@@ -13,10 +13,8 @@ public class StockSummaryRepository : BaseRepository<InvStockSummary>, IStockSum
         return await _uow.Connection.QuerySingleOrDefaultAsync<InvStockSummary>(sql, new { Id = productId }, _uow.Transaction);
     }
 
-    /// <summary>
-    /// 带行级锁查询 — SELECT ... FOR UPDATE，阻止并发修改
-    /// 必须在事务内调用，否则锁不生效
-    /// </summary>
+    // 带行级锁查询 — SELECT ... FOR UPDATE，阻止并发修改
+    // 必须在事务内调用，否则锁不生效
     public async Task<InvStockSummary?> GetByProductIdForUpdateAsync(string productId)
     {
         var sql = """SELECT * FROM Inv_StockSummary WHERE ProductID = :Id FOR UPDATE""";

@@ -30,7 +30,7 @@ const foldedRefunds = computed(() => refunds.value.filter(item => item.status !=
 const hasPendingWholeOrder = computed(() => refunds.value.some(item => (
   item.status === 'Pending' && !item.detailId
 )))
-const shipped = computed(() => ['SHIPPED', 'COMPLETED', 'REFUNDING'].includes(order.value?.orderStatus))
+const shipped = computed(() => ['SHIPPED', 'COMPLETED', 'REFUNDING', 'REFUND_REVIEWING'].includes(order.value?.orderStatus))
 const isFullRefund = computed(() => (
   selectedEntries.value.length > 0 &&
   selectedEntries.value.length === orderDetail.value?.details.length &&

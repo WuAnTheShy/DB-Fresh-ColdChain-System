@@ -5,9 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FreshColdChain.Controllers;
 
-/// <summary>
-/// 消费者资料与收货地址管理。
-/// </summary>
+// 消费者资料与收货地址管理。
 public sealed class CustomerController : Controller
 {
     private readonly ICustomerService _customerService;

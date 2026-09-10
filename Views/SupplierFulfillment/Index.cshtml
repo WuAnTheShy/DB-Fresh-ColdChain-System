@@ -3,86 +3,106 @@
     ViewData["Title"] = "待发货订单";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="page-hero">
     <div>
-        <h2 class="mb-1">供应商履约工作台</h2>
-        <p class="text-muted mb-0">仅展示当前供应商负责的订单商品</p>
+        <div class="hero-greeting">供应商履约工作台</div>
+        <div class="hero-meta">
+            <span class="text-white-50">仅展示当前供应商负责的订单商品</span>
+        </div>
     </div>
-    <span class="badge text-bg-primary">共 @Model.TotalCount 单</span>
+    <div class="hero-actions">
+        <span class="badge bg-light text-dark">共 @Model.TotalCount 单</span>
+    </div>
 </div>
 
 @if (ViewData["Error"] is string error)
 {
-    <div class="alert alert-danger">@error</div>
+    <div class="alert alert-danger" data-auto-dismiss>@error</div>
 }
 
-<form method="get" class="card card-body mb-3">
-    <div class="row g-2 align-items-end">
-        <div class="col-md-4">
-            <label class="form-label">订单状态</label>
-            <select class="form-select" name="Status">
-                <option value="">全部履约订单</option>
-                <option value="Paid" selected="@(Model.Query.Status == OrderStatus.Paid)">已支付</option>
-                <option value="Shipped" selected="@(Model.Query.Status == OrderStatus.Shipped)">已发货</option>
-                <option value="Completed" selected="@(Model.Query.Status == OrderStatus.Completed)">已完成</option>
-            </select>
-        </div>
-        <div class="col-md-5">
-            <label class="form-label">订单号 / 收货人 / 手机号</label>
-            <input class="form-control" name="Keyword" value="@Model.Query.Keyword" maxlength="50" />
-        </div>
-        <div class="col-md-3 d-grid">
-            <button class="btn btn-primary" type="submit">查询</button>
-        </div>
+<div class="content-card">
+    <div class="content-card-header">
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg> 筛选条件</h5>
     </div>
-</form>
+    <div class="content-card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">订单状态</label>
+                <select class="form-select" name="Status">
+                    <option value="">全部履约订单</option>
+                    <option value="Paid" selected="@(Model.Query.Status == OrderStatus.Paid)">已支付</option>
+                    <option value="Shipped" selected="@(Model.Query.Status == OrderStatus.Shipped)">已发货</option>
+                    <option value="Completed" selected="@(Model.Query.Status == OrderStatus.Completed)">已完成</option>
+                </select>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">订单号 / 收货人 / 手机号</label>
+                <input class="form-control" name="Keyword" value="@Model.Query.Keyword" maxlength="50" />
+            </div>
+            <div class="col-md-3 d-grid">
+                <button class="btn btn-primary" type="submit">查询</button>
+            </div>
+        </form>
+    </div>
+</div>
 
-<div class="table-responsive">
-    <table class="table table-hover align-middle">
-        <thead class="table-light">
-        <tr>
-            <th>订单</th>
-            <th>收货信息</th>
-            <th>商品</th>
-            <th>供应商小计</th>
-            <th>状态</th>
-            <th></th>
-        </tr>
-        </thead>
-        <tbody>
+<div class="content-card mt-3">
+    <div class="content-card-header">
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg> 履约订单</h5>
+        <span class="text-muted small">共 @Model.TotalCount 单</span>
+    </div>
+    <div class="content-card-body p-0">
         @if (Model.Orders.Count == 0)
         {
-            <tr><td colspan="6" class="text-center text-muted py-4">暂无待处理履约订单</td></tr>
+            <div class="empty-state">
+                <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></div>
+                <p>暂无待处理履约订单</p>
+            </div>
         }
         else
         {
-            @foreach (var order in Model.Orders)
-            {
-                <tr>
-                    <td>
-                        <strong>@order.OrderNo</strong>
-                        <div class="small text-muted">@order.CreatedAt.ToString("yyyy-MM-dd HH:mm")</div>
-                    </td>
-                    <td>
-                        @order.ReceiverName @order.ReceiverPhone
-                        <div class="small text-muted text-truncate" style="max-width: 260px">@order.ShippingAddress</div>
-                    </td>
-                    <td>@order.ItemCount 种 / @order.TotalQuantity 件</td>
-                    <td>¥@order.SupplierAmount.ToString("F2")</td>
-                    <td><span class="badge text-bg-secondary">@order.StatusName</span></td>
-                    <td>
-                        <a class="btn btn-sm btn-outline-primary" asp-action="Detail" asp-route-id="@order.OrderId">处理履约</a>
-                    </td>
-                </tr>
-            }
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                    <tr>
+                        <th>订单</th>
+                        <th>收货信息</th>
+                        <th>商品</th>
+                        <th>供应商小计</th>
+                        <th>状态</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var order in Model.Orders)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@order.OrderNo</strong>
+                                <div class="small text-muted">@order.CreatedAt.ToString("yyyy-MM-dd HH:mm")</div>
+                            </td>
+                            <td>
+                                @order.ReceiverName @order.ReceiverPhone
+                                <div class="small text-muted text-truncate" style="max-width: 260px">@order.ShippingAddress</div>
+                            </td>
+                            <td>@order.ItemCount 种 / @order.TotalQuantity 件</td>
+                            <td>¥@order.SupplierAmount.ToString("F2")</td>
+                            <td><span class="badge bg-secondary">@order.StatusName</span></td>
+                            <td>
+                                <a class="btn btn-sm btn-outline-primary" asp-action="Detail" asp-route-id="@order.OrderId">处理履约</a>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
         }
-        </tbody>
-    </table>
+    </div>
 </div>
 
 @if (Model.TotalPages > 1)
 {
-    <nav aria-label="履约订单分页">
+    <nav aria-label="履约订单分页" class="mt-3">
         <ul class="pagination justify-content-center">
             @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
             {

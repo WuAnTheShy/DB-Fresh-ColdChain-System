@@ -4,16 +4,14 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Repositories;
 
-/// <summary>
-/// 积分与会员数据访问层 - Crm_PointLogs, Crm_MemberLevels
-/// </summary>
+// 积分与会员数据访问层 - Crm_PointLogs, Crm_MemberLevels
 public class PointRepository : B_BaseRepository, IPointRepository
 {
     private const string ConsumerLevelFilter =
         "('00000000000000000000000000000001','MEMBER_LEVEL_1','MEMBER_LEVEL_500','MEMBER_LEVEL_2000','MEMBER_LEVEL_5000')";
     public PointRepository(IConfiguration configuration) : base(configuration) { }
 
-    /// <summary>写入积分流水（防篡改审计）</summary>
+    // 写入积分流水（防篡改审计）
     public async Task InsertLogAsync(CrmPointLog log, IDbTransaction? transaction = null)
     {
         await WithConnectionAsync(transaction, async connection =>
@@ -26,7 +24,7 @@ public class PointRepository : B_BaseRepository, IPointRepository
         });
     }
 
-    /// <summary>检查订单对应类型的积分流水是否已经存在。</summary>
+    // 检查订单对应类型的积分流水是否已经存在。
     public async Task<bool> HasPointLogAsync(
         string customerId,
         string orderId,
@@ -52,7 +50,7 @@ public class PointRepository : B_BaseRepository, IPointRepository
         });
     }
 
-    /// <summary>获取所有会员等级（按消费门槛升序）</summary>
+    // 获取所有会员等级（按消费门槛升序）
     public async Task<List<CrmMemberLevel>> GetAllLevelsAsync(IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, async connection =>
@@ -61,7 +59,7 @@ public class PointRepository : B_BaseRepository, IPointRepository
                 transaction: transaction)).ToList());
     }
 
-    /// <summary>按ID读取会员等级，用于计算本次订单积分倍率</summary>
+    // 按ID读取会员等级，用于计算本次订单积分倍率
     public async Task<CrmMemberLevel?> GetLevelByIdAsync(
         string memberLevelId,
         IDbTransaction? transaction = null)
@@ -74,7 +72,7 @@ public class PointRepository : B_BaseRepository, IPointRepository
                 transaction));
     }
 
-    /// <summary>按累计消费查询当前应处的最高会员等级</summary>
+    // 按累计消费查询当前应处的最高会员等级
     public async Task<CrmMemberLevel?> GetLevelForSpentAsync(
         decimal totalSpent,
         IDbTransaction? transaction = null)

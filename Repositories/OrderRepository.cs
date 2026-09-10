@@ -4,26 +4,29 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Repositories;
 
-/// <summary>
-/// 订单数据访问层 - 只负责 Biz_Orders 和 Biz_OrderDetails 的 CRUD
-/// </summary>
+// 订单数据访问层 - 只负责 Biz_Orders 和 Biz_OrderDetails 的 CRUD
 public class OrderRepository : B_BaseRepository, IOrderRepository
 {
+    // 售后聚合时按订单号 IN 过滤的上限（防 IN 列表过长）
+    private const int MaxRefundOrderIdFilterCount = 500;
+
     public OrderRepository(IConfiguration configuration) : base(configuration) { }
 
-    // ========== Biz_Orders ==========
+    // Biz_Orders
 
-    /// <summary>创建订单</summary>
+    // 创建订单
     public async Task<string> CreateOrderAsync(BizOrder order, IDbTransaction? transaction = null)
     {
         var sql = @"
             INSERT INTO Biz_Orders (
                 OrderId, OrderNo, CustomerId, CheckoutBatchId, PromoterId, AddressId, ReceiverName, ReceiverPhone,
-                ShippingAddress, TotalAmount, DiscountAmount, FreightAmount, FreightQuoteSnapshot,
+                ReceiverProvince, ReceiverCity, ReceiverDistrict, ReceiverDetailAddress,
+                TotalAmount, DiscountAmount, FreightAmount, FreightQuoteSnapshot,
                 FinalAmount, PointsEarned, PointsUsed, PointsDiscountAmount, OrderStatus, PaymentExpiresAt, CreatedAt)
             VALUES (
                 :OrderId, :OrderNo, :CustomerId, :CheckoutBatchId, :PromoterId, :AddressId, :ReceiverName, :ReceiverPhone,
-                :ShippingAddress, :TotalAmount, :DiscountAmount, :FreightAmount, :FreightQuoteSnapshot,
+                :ReceiverProvince, :ReceiverCity, :ReceiverDistrict, :ReceiverDetailAddress,
+                :TotalAmount, :DiscountAmount, :FreightAmount, :FreightQuoteSnapshot,
                 :FinalAmount, :PointsEarned, :PointsUsed, :PointsDiscountAmount, :OrderStatus, :PaymentExpiresAt, SYSDATE)";
 
         return await WithConnectionAsync(transaction, async connection =>
@@ -33,7 +36,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
         });
     }
 
-    /// <summary>根据ID查订单</summary>
+    // 根据ID查订单
     public async Task<BizOrder?> GetByIdAsync(string orderId, IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, connection =>
@@ -152,7 +155,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 $@"SELECT COUNT(1)
                    FROM Biz_Orders o
                    JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
-                   {CreateOrderFilterSql()}",
+                   {CreateOrderFilterSql(request)}",
                 CreateOrderQueryParameters(request),
                 transaction));
     }
@@ -184,7 +187,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                    JOIN Crm_Customers c ON c.CustomerId = o.CustomerId
                    LEFT JOIN Crm_Promoters p ON p.PromoterId = o.PromoterId
                    LEFT JOIN Biz_OrderDetails d ON d.OrderId = o.OrderId
-                   {CreateOrderFilterSql()}
+                   {CreateOrderFilterSql(request)}
                    GROUP BY o.OrderId,
                             o.OrderNo,
                             o.CustomerId,
@@ -278,7 +281,10 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                           c.CustomerName,
                           o.ReceiverName,
                           o.ReceiverPhone,
-                          o.ShippingAddress,
+                          o.ReceiverProvince,
+                          o.ReceiverCity,
+                          o.ReceiverDistrict,
+                          o.ReceiverDetailAddress,
                           o.OrderStatus,
                           COUNT(d.OrderDetailId) AS ItemCount,
                           SUM(d.Quantity) AS TotalQuantity,
@@ -299,7 +305,10 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                             c.CustomerName,
                             o.ReceiverName,
                             o.ReceiverPhone,
-                            o.ShippingAddress,
+                            o.ReceiverProvince,
+                            o.ReceiverCity,
+                            o.ReceiverDistrict,
+                            o.ReceiverDetailAddress,
                             o.OrderStatus,
                             o.CreatedAt
                    ORDER BY o.CreatedAt DESC, o.OrderId DESC
@@ -324,7 +333,10 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                          c.CustomerName,
                          o.ReceiverName,
                          o.ReceiverPhone,
-                         o.ShippingAddress,
+                         o.ReceiverProvince,
+                         o.ReceiverCity,
+                         o.ReceiverDistrict,
+                         o.ReceiverDetailAddress,
                          o.TotalAmount,
                          o.DiscountAmount,
                          o.FreightAmount,
@@ -334,6 +346,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                          o.PointsUsed,
                          o.PointsDiscountAmount,
                          o.OrderStatus,
+                         o.StatusBeforeRefund,
                          o.PaymentExpiresAt,
                          o.CreatedAt,
                          o.UpdatedAt
@@ -358,7 +371,7 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 transaction)).ToList());
     }
 
-    /// <summary>带旧状态条件的原子状态更新</summary>
+    // 带旧状态条件的原子状态更新
     public async Task<bool> TryUpdateStatusAsync(
         string orderId,
         OrderStatus expectedStatus,
@@ -368,14 +381,73 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
         return await WithConnectionAsync(transaction, async connection =>
         {
             var affected = await connection.ExecuteAsync(
+                // 状态一旦变更即离开“退款审核中”，无需再保留回退记录
                 @"UPDATE Biz_Orders
-                  SET OrderStatus = :TargetStatus, UpdatedAt = SYSDATE
+                  SET OrderStatus = :TargetStatus,
+                      StatusBeforeRefund = NULL,
+                      UpdatedAt = SYSDATE
                   WHERE OrderId = :OrderId AND OrderStatus = :ExpectedStatus",
                 new
                 {
                     OrderId = orderId,
                     ExpectedStatus = OrderStatusCodes.ToCode(expectedStatus),
                     TargetStatus = OrderStatusCodes.ToCode(targetStatus)
+                },
+                transaction);
+            return affected == 1;
+        });
+    }
+
+    // 进入“退款审核中”：订单状态改为 REFUND_REVIEWING，
+    // 并在首次进入时把原状态记入 StatusBeforeRefund 供审核驳回/取消申请时回退（重复进入幂等）。
+    // 未支付/已取消/已退款的订单不参与退款审核，返回 false 且不改动订单。
+    public async Task<bool> TryEnterRefundReviewAsync(
+        string orderId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+        {
+            var affected = await connection.ExecuteAsync(
+                @"UPDATE Biz_Orders
+                  SET StatusBeforeRefund = NVL(StatusBeforeRefund, OrderStatus),
+                      OrderStatus = :RefundReviewing,
+                      UpdatedAt = SYSDATE
+                  WHERE OrderId = :OrderId
+                    AND OrderStatus IN (:Paid, :Shipped, :Completed, :Refunding, :RefundReviewing)",
+                new
+                {
+                    OrderId = orderId,
+                    Paid = OrderStatusCodes.Paid,
+                    Shipped = OrderStatusCodes.Shipped,
+                    Completed = OrderStatusCodes.Completed,
+                    Refunding = OrderStatusCodes.Refunding,
+                    RefundReviewing = OrderStatusCodes.RefundReviewing
+                },
+                transaction);
+            return affected == 1;
+        });
+    }
+
+    // 退出“退款审核中”：把订单状态回退到申请前记录的 StatusBeforeRefund 并清空该列。
+    // 订单不在退款审核中（例如已审核通过转为退款中/已退款）时不做任何改动，返回 false。
+    public async Task<bool> TryRestoreStatusBeforeRefundAsync(
+        string orderId,
+        IDbTransaction transaction)
+    {
+        return await WithConnectionAsync(transaction, async connection =>
+        {
+            var affected = await connection.ExecuteAsync(
+                @"UPDATE Biz_Orders
+                  SET OrderStatus = StatusBeforeRefund,
+                      StatusBeforeRefund = NULL,
+                      UpdatedAt = SYSDATE
+                  WHERE OrderId = :OrderId
+                    AND OrderStatus = :RefundReviewing
+                    AND StatusBeforeRefund IS NOT NULL",
+                new
+                {
+                    OrderId = orderId,
+                    RefundReviewing = OrderStatusCodes.RefundReviewing
                 },
                 transaction);
             return affected == 1;
@@ -410,9 +482,9 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
         });
     }
 
-    // ========== Biz_OrderDetails ==========
+    // Biz_OrderDetails
 
-    /// <summary>批量插入订单明细</summary>
+    // 批量插入订单明细
     public async Task InsertDetailsAsync(IEnumerable<BizOrderDetail> details, IDbTransaction? transaction = null)
     {
         var sql = @"
@@ -475,10 +547,27 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
                 transaction) == 1);
     }
 
-    private static string CreateOrderFilterSql()
+    private static string CreateOrderFilterSql(OrderQueryRequest request)
     {
-        return @"WHERE (:CustomerId IS NULL OR o.CustomerId = :CustomerId)
-                    AND (:OrderStatus IS NULL OR o.OrderStatus = :OrderStatus)
+        // 过滤条件按需拼接：状态集合（可多个，如“退款审核中+退款中”）与退款订单号集合之间取并集；
+        // 「退款售后」列表用订单号集合兜底改造前提交、订单状态未进入审核中的历史申请单。
+        // 两者都为空时退化为仅按消费者/关键词过滤（管理员订单查询等场景）。
+        var statusFilter = NormalizeStatuses(request).Count > 0
+            ? "o.OrderStatus IN :OrderStatuses"
+            : null;
+        var orderIdFilter = NormalizeOrderIds(request.OrderIds).Count > 0
+            ? "o.OrderId IN :RefundOrderIds"
+            : null;
+        var statusClause = (statusFilter, orderIdFilter) switch
+        {
+            (null, null) => "1 = 1",
+            (not null, null) => statusFilter,
+            (null, not null) => orderIdFilter,
+            _ => $"({statusFilter} OR {orderIdFilter})"
+        };
+
+        return $@"WHERE (:CustomerId IS NULL OR o.CustomerId = :CustomerId)
+                    AND {statusClause}
                     AND (:Keyword IS NULL
                         OR o.OrderNo LIKE '%' || :Keyword || '%'
                         OR c.CustomerName LIKE '%' || :Keyword || '%')";
@@ -491,13 +580,42 @@ public class OrderRepository : B_BaseRepository, IOrderRepository
         return new
         {
             request.CustomerId,
-            OrderStatus = request.Status.HasValue
-                ? OrderStatusCodes.ToCode(request.Status.Value)
-                : null,
+            // 条件未拼进 SQL 时 Dapper 按名绑定会自动忽略这两个集合参数
+            OrderStatuses = NormalizeStatuses(request)
+                .Select(OrderStatusCodes.ToCode)
+                .ToList(),
             request.Keyword,
             Offset = offset,
-            request.PageSize
+            request.PageSize,
+            RefundOrderIds = NormalizeOrderIds(request.OrderIds)
         };
+    }
+
+    // 状态过滤集合：服务端内部指定的 <see cref="OrderQueryRequest.OrderStatuses"/> 优先，
+    // 其次退化为外部传入的单个 <see cref="OrderQueryRequest.Status"/>。
+    private static IReadOnlyList<OrderStatus> NormalizeStatuses(OrderQueryRequest request)
+    {
+        if (request.OrderStatuses is { Count: > 0 })
+        {
+            return request.OrderStatuses.Distinct().ToList();
+        }
+
+        return request.Status.HasValue ? [request.Status.Value] : [];
+    }
+
+    private static IReadOnlyList<string> NormalizeOrderIds(IReadOnlyCollection<string>? orderIds)
+    {
+        if (orderIds == null || orderIds.Count == 0)
+        {
+            return [];
+        }
+
+        return orderIds
+            .Where(orderId => !string.IsNullOrWhiteSpace(orderId))
+            .Select(orderId => orderId.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .Take(MaxRefundOrderIdFilterCount)
+            .ToList();
     }
 
     private static object CreateSupplierFulfillmentParameters(

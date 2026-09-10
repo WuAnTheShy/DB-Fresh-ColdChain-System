@@ -12,11 +12,11 @@ OracleConfiguration.BindByName = true;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ========== Dapper 基础设施 ==========
+// Dapper 基础设施
 builder.Services.AddScoped<IDbConnectionFactory, OracleDbConnectionFactory>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-// ========== Repository 注册 ==========
+// Repository 注册
 // A组
 builder.Services.AddScoped(typeof(IBaseRepository<>), typeof(BaseRepository<>));
 builder.Services.AddScoped<ISupplierRepository, SupplierRepository>();
@@ -42,7 +42,7 @@ builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
 builder.Services.AddScoped<IPromoterSupplierRepository, PromoterSupplierRepository>();
 builder.Services.AddScoped<IPromoterProductRepository, PromoterProductRepository>();
 builder.Services.AddScoped<IPCRRepository, PCRRepository>();
-// ========== Service 注册 ==========
+// Service 注册
 // A组
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<IProductInventoryService, ProductInventoryService>();
@@ -68,7 +68,7 @@ builder.Services.AddScoped<IRefundService, RefundService>();
 builder.Services.AddScoped<IPromoterListedPriceSyncService, PromoterListedPriceSyncService>();
 builder.Services.AddHostedService<GroupC_CommissionSettlementWorker>();
 
-// ========== MVC / API ==========
+// MVC / API
 builder.Services.AddControllersWithViews()
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(

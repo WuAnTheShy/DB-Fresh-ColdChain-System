@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// Mkt_CouponRecords - 用户领券/用券记录
-/// </summary>
+// Mkt_CouponRecords - 用户领券/用券记录
 public class MktCouponRecord
 {
     public string RecordId { get; set; } = string.Empty;

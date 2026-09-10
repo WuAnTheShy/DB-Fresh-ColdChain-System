@@ -3,10 +3,8 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Interfaces;
 
-/// <summary>
-/// B 组调用 A 组运费与物流模块的跨组契约。
-/// A 组实现必须使用传入事务，不能自行提交或回滚。
-/// </summary>
+// B 组调用 A 组运费与物流模块的跨组契约。
+// A 组实现必须使用传入事务，不能自行提交或回滚。
 public interface ILogisticsService
 {
     Task<FreightCalculationResult> QuoteFreightAsync(

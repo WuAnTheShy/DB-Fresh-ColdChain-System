@@ -3,10 +3,8 @@ using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace FreshColdChain.Filters;
 
-/// <summary>
-/// 要求「供应商」登录（普通供应商或遗留供应商管理员会话），或「C 组商品管理员」，
-/// 否则跳转对应登录入口。数据归属过滤在服务层按 SupplierID 强制。
-/// </summary>
+// 要求「供应商」登录（普通供应商或遗留供应商管理员会话），或「C 组商品管理员」，
+// 否则跳转对应登录入口。数据归属过滤在服务层按 SupplierID 强制。
 public class RequireSupplierAttribute : ActionFilterAttribute
 {
     public override void OnActionExecuting(ActionExecutingContext context)

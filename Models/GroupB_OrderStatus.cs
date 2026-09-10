@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// B 组订单状态。数据库和跨组接口使用 <see cref="OrderStatusCodes"/> 中的稳定字符串代码。
-/// </summary>
+// B 组订单状态。数据库和跨组接口使用 <see cref="OrderStatusCodes"/> 中的稳定字符串代码。
 public enum OrderStatus
 {
     PendingPayment = 0,
@@ -11,12 +9,13 @@ public enum OrderStatus
     Completed = 3,
     Cancelled = 4,
     Refunding = 5,
-    Refunded = 6
+    Refunded = 6,
+
+    // 退款审核中：消费者已提交退款申请、平台财务尚未审核，审核驳回后回退到申请前状态。
+    RefundReviewing = 7
 }
 
-/// <summary>
-/// Biz_Orders.OrderStatus 的持久化代码，避免不同组对数字状态值产生歧义。
-/// </summary>
+// Biz_Orders.OrderStatus 的持久化代码，避免不同组对数字状态值产生歧义。
 public static class OrderStatusCodes
 {
     public const string PendingPayment = "PENDING_PAYMENT";
@@ -26,6 +25,7 @@ public static class OrderStatusCodes
     public const string Cancelled = "CANCELLED";
     public const string Refunding = "REFUNDING";
     public const string Refunded = "REFUNDED";
+    public const string RefundReviewing = "REFUND_REVIEWING";
     public const string Delivered = "DELIVERED";
 
     public static string ToCode(OrderStatus status)
@@ -39,6 +39,7 @@ public static class OrderStatusCodes
             OrderStatus.Cancelled => Cancelled,
             OrderStatus.Refunding => Refunding,
             OrderStatus.Refunded => Refunded,
+            OrderStatus.RefundReviewing => RefundReviewing,
             _ => throw new ArgumentOutOfRangeException(nameof(status), status, "订单状态无效")
         };
     }
@@ -54,6 +55,7 @@ public static class OrderStatusCodes
             Cancelled => OrderStatus.Cancelled,
             Refunding => OrderStatus.Refunding,
             Refunded => OrderStatus.Refunded,
+            RefundReviewing => OrderStatus.RefundReviewing,
             // 历史遗留：早期版本曾把物流签收态 DELIVERED 直接写入 Biz_Orders.OrderStatus。
             // 该值不在 CK_Order_Status 约束内，但存量数据中存在，按已完成交易兼容解析，
             // 避免订单列表/详情在序列化时因单个脏状态整体 500。
@@ -63,9 +65,7 @@ public static class OrderStatusCodes
     }
 }
 
-/// <summary>
-/// 订单状态的中文展示名称。
-/// </summary>
+// 订单状态的中文展示名称。
 public static class OrderStatusNames
 {
     public static string GetName(OrderStatus status)
@@ -79,6 +79,7 @@ public static class OrderStatusNames
             OrderStatus.Cancelled => "已取消",
             OrderStatus.Refunding => "退款中",
             OrderStatus.Refunded => "已退款",
+            OrderStatus.RefundReviewing => "退款审核中",
             _ => "未知状态"
         };
     }

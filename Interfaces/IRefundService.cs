@@ -29,6 +29,12 @@ namespace FreshColdChain.Interfaces
         //消费者端：查询某订单的全部退款申请记录
         public Task<List<FinRefund>> GetOrderRefundsAsync(string orderId);
 
+        //消费者端：批量查询多个订单的退款申请记录（订单列表展示退款状态用）
+        public Task<List<FinRefund>> GetOrderRefundsAsync(IReadOnlyCollection<string> orderIds);
+
+        //消费者端：查询存在待审核退款申请的订单编号（订单列表“退款售后”聚合筛选用）
+        public Task<List<string>> GetOrderIdsWithPendingRefundAsync();
+
         //管理端：组合查询退款记录（时间区间 [startTime, endTime) + 订单号 + 审核状态）
         public Task<List<FinRefund>> SearchRefundsAsync(DateTime? startTime, DateTime? endTime,
             string? orderId, string? status);

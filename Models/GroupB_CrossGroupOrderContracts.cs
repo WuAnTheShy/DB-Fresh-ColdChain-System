@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// A 组冷链运费计算请求。
-/// </summary>
+// A 组冷链运费计算请求。
 public sealed class FreightCalculationRequest
 {
     public string CustomerId { get; init; } = string.Empty;
@@ -13,7 +11,7 @@ public sealed class FreightCalculationRequest
     public IReadOnlyList<FulfillmentOrderItem> Items { get; init; } = [];
 }
 
-/// <summary>A 组返回、B 组用于计价和审计的结构化运费结果。</summary>
+// A 组返回、B 组用于计价和审计的结构化运费结果。
 public sealed class FreightCalculationResult
 {
     public int SchemaVersion { get; init; } = 1;
@@ -38,9 +36,7 @@ public sealed class FreightCalculationItemResult
     public decimal SubTotal { get; init; }
 }
 
-/// <summary>
-/// A 组发货或释放库存所需的订单快照。
-/// </summary>
+// A 组发货或释放库存所需的订单快照。
 public sealed class FulfillmentOrderRequest
 {
     public string OrderId { get; init; } = string.Empty;
@@ -51,9 +47,7 @@ public sealed class FulfillmentOrderRequest
     public IReadOnlyList<FulfillmentOrderItem> Items { get; init; } = [];
 }
 
-/// <summary>
-/// 跨组传递的最小订单商品快照。
-/// </summary>
+// 跨组传递的最小订单商品快照。
 public sealed class FulfillmentOrderItem
 {
     public string ProductId { get; init; } = string.Empty;
@@ -64,9 +58,7 @@ public sealed class FulfillmentOrderItem
     public decimal SubTotal { get; init; }
 }
 
-/// <summary>
-/// A 组返回的供应商履约状态，不在 B 组重复持久化物流表。
-/// </summary>
+// A 组返回的供应商履约状态，不在 B 组重复持久化物流表。
 public sealed class SupplierFulfillmentStatus
 {
     public string SupplierId { get; init; } = string.Empty;

@@ -5,9 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FreshColdChain.Controllers;
 
-/// <summary>
-/// 消费者优惠券中心。
-/// </summary>
+// 消费者优惠券中心。
 public sealed class CouponController : Controller
 {
     private readonly ICouponService _couponService;

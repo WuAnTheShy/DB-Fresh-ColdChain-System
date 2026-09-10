@@ -33,20 +33,18 @@ public class SuppliersController : Controller
         return View(r.Data);
     }
 
-    // ========== 供应商门户（供货价与商品图文入口已收敛到「我的货物」→ 货物行「编辑」）==========
+    // 供应商门户（供货价与商品图文入口已收敛到「我的货物」→ 货物行「编辑」）
 
-    /// <summary>旧供应商登录页已合并到主入口（Account 角色选择登录），统一跳转过去。</summary>
+    // 旧供应商登录页已合并到主入口（Account 角色选择登录），统一跳转过去。
     [HttpGet]
     public IActionResult Login()
     {
         return RedirectToAction("Login", "Account", new { role = "供应商" });
     }
 
-    /// <summary>
-    /// 供应商上传自己供货商品的图片（二进制直接写入 Inv_ProductImages.ImageData BLOB，
-    /// 之后统一通过 /images/product/{ImageID} 接口读取，多机部署也不会出现文件丢失）。
-    /// 仅允许 jpg/png/webp/gif，单张不超过 5MB。操作成功后返回「我的货物」的货物编辑页。
-    /// </summary>
+    // 供应商上传自己供货商品的图片（二进制直接写入 Inv_ProductImages.ImageData BLOB，
+    // 之后统一通过 /images/product/{ImageID} 接口读取，多机部署也不会出现文件丢失）。
+    // 仅允许 jpg/png/webp/gif，单张不超过 5MB。操作成功后返回「我的货物」的货物编辑页。
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(10 * 1024 * 1024)]
@@ -88,7 +86,7 @@ public class SuppliersController : Controller
         return RedirectToAction("Edit", "Goods", new { productId });
     }
 
-    /// <summary>供应商删除自己供货商品的某张图片（BLOB 随行删除）</summary>
+    // 供应商删除自己供货商品的某张图片（BLOB 随行删除）
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteMyProductImage(string imageId, string productId)

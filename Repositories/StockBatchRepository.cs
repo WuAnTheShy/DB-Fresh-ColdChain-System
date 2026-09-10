@@ -18,10 +18,8 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         return (await _uow.Connection.QueryAsync<InvStockBatch>(sql, new { Id = productId }, _uow.Transaction)).ToList();
     }
 
-    /// <summary>
-    /// 带行级锁的 FEFO 批次查询：FOR UPDATE SKIP LOCKED
-    /// 必须在事务内调用。并发出库时，已被其他事务锁定的批次行会被跳过，避免等待和死锁。
-    /// </summary>
+    // 带行级锁的 FEFO 批次查询：FOR UPDATE SKIP LOCKED
+    // 必须在事务内调用。并发出库时，已被其他事务锁定的批次行会被跳过，避免等待和死锁。
     public async Task<List<InvStockBatch>> GetByProductIdForUpdateAsync(string productId)
     {
         var sql = """
@@ -34,7 +32,7 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         return (await _uow.Connection.QueryAsync<InvStockBatch>(sql, new { Id = productId }, _uow.Transaction)).ToList();
     }
 
-    /// <summary>查询批次含供应商信息</summary>
+    // 查询批次含供应商信息
     public async Task<List<InvStockBatch>> GetByProductIdWithSupplierAsync(string productId)
     {
         var sql = """
@@ -50,7 +48,7 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         return result.ToList();
     }
 
-    /// <summary>查询某商品在某供应商下的全部批次（含供应商信息）</summary>
+    // 查询某商品在某供应商下的全部批次（含供应商信息）
     public async Task<List<InvStockBatch>> GetByProductAndSupplierWithSupplierAsync(string productId, string supplierId)
     {
         var sql = """
@@ -65,24 +63,22 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         return result.ToList();
     }
 
-    /// <summary>将已过期但仍为ACTIVE的批次标记为EXPIRED</summary>
+    // 将已过期但仍为ACTIVE的批次标记为EXPIRED
     public async Task<int> MarkExpiredBatchesAsync()
     {
         var sql = """UPDATE Inv_StockBatches SET Status='EXPIRED' WHERE Status='ACTIVE' AND ExpiryDate IS NOT NULL AND ExpiryDate < SYSDATE""";
         return await _uow.Connection.ExecuteAsync(sql, transaction: _uow.Transaction);
     }
 
-    /// <summary>查某产品活跃批次合计（过滤过期）</summary>
+    // 查某产品活跃批次合计（过滤过期）
     public async Task<int> GetActiveTotalByProductIdAsync(string productId)
     {
         var sql = """SELECT NVL(SUM(CurrentQty),0) FROM Inv_StockBatches WHERE ProductID=:Id AND Status='ACTIVE' AND (ExpiryDate IS NULL OR ExpiryDate>=SYSDATE)""";
         return await _uow.Connection.ExecuteScalarAsync<int>(sql, new { Id = productId }, _uow.Transaction);
     }
 
-    /// <summary>
-    /// 带行级锁的 FEFO 批次查询，限定 (ProductID, SupplierID)：
-    /// 发货单属于某个供应商时，只允许扣该供应商自己的批次，防止串货。
-    /// </summary>
+    // 带行级锁的 FEFO 批次查询，限定 (ProductID, SupplierID)：
+    // 发货单属于某个供应商时，只允许扣该供应商自己的批次，防止串货。
     public async Task<List<InvStockBatch>> GetByProductAndSupplierForUpdateAsync(string productId, string supplierId)
     {
         var sql = """
@@ -99,7 +95,7 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
             _uow.Transaction)).ToList();
     }
 
-    /// <summary>查某商品在某供应商下的活跃批次合计（过滤过期）— 供应商级可用量口径</summary>
+    // 查某商品在某供应商下的活跃批次合计（过滤过期）— 供应商级可用量口径
     public async Task<int> GetActiveTotalByProductAndSupplierAsync(string productId, string supplierId)
     {
         var sql = """
@@ -113,7 +109,7 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
             _uow.Transaction);
     }
 
-    /// <summary>查前缀匹配的最大序号，用于自动生成批次号。如 BAT20260812 → 查当天已有批次的最大 NN</summary>
+    // 查前缀匹配的最大序号，用于自动生成批次号。如 BAT20260812 → 查当天已有批次的最大 NN
     public async Task<int> GetMaxBatchNoByPrefixAsync(string prefix)
     {
         var sql = """SELECT BatchNo FROM Inv_StockBatches WHERE BatchNo LIKE :Prefix """;
@@ -129,9 +125,7 @@ public class StockBatchRepository : BaseRepository<InvStockBatch>, IStockBatchRe
         return max;
     }
 
-    /// <summary>
-    /// FEFO：取最早过期且还有库存的批次
-    /// </summary>
+    // FEFO：取最早过期且还有库存的批次
     public async Task<InvStockBatch?> GetOldestAvailableBatchAsync(string productId)
     {
         var sql = """

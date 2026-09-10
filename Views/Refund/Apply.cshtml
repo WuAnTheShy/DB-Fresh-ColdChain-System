@@ -69,7 +69,9 @@
 
                 <div class="mb-4">
                     <label class="form-label">退款原因</label>
-                    <textarea class="form-control" name="Remark" rows="3" placeholder="请简要说明退款原因" required @(hasPending ? "disabled" : "")></textarea>
+                    <textarea class="form-control" name="Remark" rows="3" maxlength="200"
+                              placeholder="请简要说明退款原因（200 字以内）" required @(hasPending ? "disabled" : "")></textarea>
+                    <div class="form-text">最多 200 字，审核意见会追加在该原因之后。</div>
                 </div>
 
                 <button type="submit" class="btn btn-danger" @(hasPending ? "disabled" : "")>提交申请</button>

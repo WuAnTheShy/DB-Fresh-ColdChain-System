@@ -21,9 +21,7 @@
         public DateTime? CommSettlementDate { get; set; }           //结算时间
     }
     //Request类
-    /// <summary>
-    /// C 组在订单完成时计算预计佣金所需的可信快照。
-    /// </summary>
+    // C 组在订单完成时计算预计佣金所需的可信快照。
     public class CommissionOrderRequest
     {
         public string orderID { get; init; } = string.Empty;               //订单编号

@@ -4,7 +4,7 @@
 }
 
 <div class="content-card">
-    <div class="content-card-header"><h5>收款账户绑定</h5></div>
+    <div class="content-card-header"><h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg> 收款账户绑定</h5></div>
     <div class="content-card-body">
         <p class="text-muted small mb-3">提现必须使用已绑定的微信、支付宝或银行卡，未绑定的平台无法提交申请。</p>
         @foreach (var item in Model.Accounts)
@@ -23,7 +23,7 @@
                 </div>
                 <div class="pay-account-actions">
                     <button type="button"
-                            class="btn btn-sm @(item.IsBound ? "btn-outline-primary" : "btn-success") bind-pay-btn"
+                            class="btn btn-sm btn-outline-primary bind-pay-btn"
                             data-platform="@item.Platform"
                             data-label="@item.Label"
                             data-placeholder="@item.Placeholder"

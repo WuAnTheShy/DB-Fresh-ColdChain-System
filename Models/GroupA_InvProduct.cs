@@ -3,9 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 商品（文档表名：Inv_Products）
-/// </summary>
+// 商品（文档表名：Inv_Products）
 [Table("Inv_Products")]
 public class InvProduct
 {
@@ -32,16 +30,16 @@ public class InvProduct
     [Column("VolumeLitre")]
     public decimal? VolumeLitre { get; set; }
 
-    /// <summary>默认保质期（小时），货物可覆盖</summary>
+    // 默认保质期（小时），货物可覆盖
     [Column("ExpiryHours")]
     public int? ExpiryHours { get; set; }
 
-    /// <summary>默认温区（COLD/FROZEN/常温），货物可覆盖</summary>
+    // 默认温区（COLD/FROZEN/常温），货物可覆盖
     [Column("StorageReq")]
     [MaxLength(20)]
     public string? StorageReq { get; set; }
 
-    /// <summary>物品通用文字介绍</summary>
+    // 物品通用文字介绍
     [Column("Description")]
     [MaxLength(2000)]
     public string? Description { get; set; }

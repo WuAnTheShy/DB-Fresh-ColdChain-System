@@ -60,7 +60,7 @@ internal static class LogisticsPersistenceScenarioTests
     private static LogisticsStore Store() => new()
     {
         Committed = new() { Deliveries = [new() { DeliveryID = "DEL1", OrderID = "ORDER1", SupplierID = "SUP1",
-            ShippedAt = ShippedAt, TrackingNo = "BASE-TRACK", LogisticsCompany = "基础承运商" }] }
+            ShippedAt = ShippedAt, TrackingNo = "BASE-TRACK", CarrierName = "基础承运商" }] }
     };
     private static async Task CommitEvent(LogisticsStore store, LogisticsTrackingEventCommand command)
     {
@@ -76,7 +76,7 @@ internal static class LogisticsPersistenceScenarioTests
         using var transaction = new FakeOrderTransaction();
         var result = await Service(store).RegisterShipmentAsync(Registration(DateTime.Now.AddHours(2)), transaction);
         AssertEx.Equal("TRACK-EXTERNAL", result.TrackingNo);
-        AssertEx.Equal(0, store.Committed.Details.Count);
+        AssertEx.Equal(0, store.Committed.Deliveries.Single().IsRegistered);
         AssertEx.True(!transaction.Committed && !transaction.RolledBack);
         transaction.Commit();
         var fresh = await Service(store).GetSnapshotAsync(Seed());
@@ -95,7 +95,7 @@ internal static class LogisticsPersistenceScenarioTests
         using var transaction = new FakeOrderTransaction();
         await Service(store).RegisterShipmentAsync(Registration(), transaction);
         transaction.Rollback();
-        AssertEx.Equal(0, store.Committed.Details.Count);
+        AssertEx.Equal(0, store.Committed.Deliveries.Single().IsRegistered);
         AssertEx.Equal(0, store.Committed.Events.Count);
         AssertEx.Equal("BASE-TRACK", (await Service(store).GetSnapshotAsync(Seed())).TrackingNo);
     }
@@ -109,7 +109,7 @@ internal static class LogisticsPersistenceScenarioTests
         AssertEx.Equal(LogisticsStatusCodes.InTransit, store.Committed.Deliveries.Single().LogisticsStatus);
         AssertEx.Equal(2, fresh.Events.Count);
         AssertEx.Equal(Event().OccurredAt, fresh.Events.Last().OccurredAt);
-        AssertEx.Equal(1, store.Committed.Details.Count);
+        AssertEx.Equal(1, store.Committed.Deliveries.Single().IsRegistered);
     }
 
     private static async Task AppendRollbackAsync()
@@ -122,7 +122,7 @@ internal static class LogisticsPersistenceScenarioTests
         AssertEx.True(!transaction.Committed && !transaction.RolledBack);
         transaction.Rollback();
         AssertEx.Equal(0, store.Committed.Events.Count);
-        AssertEx.Equal(0, store.Committed.Details.Count);
+        AssertEx.Equal(0, store.Committed.Deliveries.Single().IsRegistered);
         AssertEx.Equal(LogisticsStatusCodes.Shipped, store.Committed.Deliveries.Single().LogisticsStatus);
     }
 
@@ -165,7 +165,7 @@ internal static class LogisticsPersistenceScenarioTests
             Command = new() { SupplierId = "SUP2", CarrierCode = "TEST", TrackingNo = "TRACK-EXTERNAL" }
         }, conflicting));
         conflicting.Rollback();
-        AssertEx.Equal(1, registered.Committed.Details.Count);
+        AssertEx.Equal(1, registered.Committed.Deliveries.Single(item => item.DeliveryID == "DEL1").IsRegistered);
     }
 
     private static async Task TemperatureAsync()
@@ -290,7 +290,6 @@ internal sealed class LogisticsStore
 internal sealed class LogisticsStoreState
 {
     public List<LogExpressDelivery> Deliveries { get; set; } = [];
-    public List<LogLogisticsDetail> Details { get; set; } = [];
     public List<LogLogisticsEvent> Events { get; set; } = [];
 }
 internal sealed class TransactionalLogisticsRepository(LogisticsStore store) : IGroupALogisticsRepository
@@ -321,18 +320,25 @@ internal sealed class TransactionalLogisticsRepository(LogisticsStore store) : I
         if (forUpdate && delivery != null) locks.Add((transaction!, delivery.DeliveryID));
         return Task.FromResult(delivery);
     }
-    public Task<LogLogisticsDetail?> GetDetailAsync(string deliveryId, IDbTransaction? transaction = null, CancellationToken cancellationToken = default) =>
-        Task.FromResult(State(transaction).Details.SingleOrDefault(item => item.DeliveryId == deliveryId));
     public Task<IReadOnlyList<LogLogisticsEvent>> GetEventsAsync(string deliveryId, IDbTransaction? transaction = null, CancellationToken cancellationToken = default) =>
         Task.FromResult<IReadOnlyList<LogLogisticsEvent>>(State(transaction).Events.Where(item => item.DeliveryId == deliveryId).OrderBy(item => item.SequenceNo).ToList());
     public Task<LogLogisticsEvent?> GetEventAsync(string eventId, IDbTransaction transaction, CancellationToken cancellationToken = default) =>
         Task.FromResult(State(transaction).Events.SingleOrDefault(item => item.EventId == eventId));
-    public Task InsertDetailAsync(LogLogisticsDetail detail, IDbTransaction transaction, CancellationToken cancellationToken = default)
+    public Task UpdateDetailAsync(LogExpressDelivery detail, IDbTransaction transaction, CancellationToken cancellationToken = default)
     {
-        var state = Locked(detail.DeliveryId, transaction);
-        if (state.Details.Any(item => item.DeliveryId == detail.DeliveryId ||
-            detail.CarrierTrackingKey != null && item.CarrierTrackingKey == detail.CarrierTrackingKey)) throw new LogisticsWriteConflictException("运单冲突");
-        state.Details.Add(detail);
+        var state = Locked(detail.DeliveryID, transaction);
+        if (detail.CarrierTrackingKey != null && state.Deliveries.Any(item =>
+            item.DeliveryID != detail.DeliveryID && item.CarrierTrackingKey == detail.CarrierTrackingKey))
+            throw new LogisticsWriteConflictException("运单冲突");
+        var target = state.Deliveries.Single(item => item.DeliveryID == detail.DeliveryID);
+        target.CarrierCode = detail.CarrierCode;
+        target.CarrierName = detail.CarrierName;
+        target.TrackingNo = detail.TrackingNo;
+        target.PackageTemp = detail.PackageTemp;
+        target.CarrierTrackingKey = detail.CarrierTrackingKey;
+        target.EstimatedArrivalAt = detail.EstimatedArrivalAt;
+        target.Remark = detail.Remark;
+        target.IsRegistered = 1;
         return Task.CompletedTask;
     }
     public Task InsertEventAsync(LogLogisticsEvent item, IDbTransaction transaction, CancellationToken cancellationToken = default)

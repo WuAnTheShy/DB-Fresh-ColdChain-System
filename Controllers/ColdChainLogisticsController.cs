@@ -36,7 +36,7 @@ public class ColdChainLogisticsController : Controller
         _batches = batches;
     }
 
-    // ========== 运费模板管理 ==========
+    // 运费模板管理
 
     [HttpGet]
     [RequireAdmin]
@@ -129,7 +129,7 @@ public class ColdChainLogisticsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // ========== 运费报价 ==========
+    // 运费报价
 
     [HttpGet]
     public async Task<IActionResult> Quote()
@@ -169,9 +169,9 @@ public class ColdChainLogisticsController : Controller
         return View(request);
     }
 
-    // ========== 报价页下拉数据 ==========
+    // 报价页下拉数据
 
-    /// <summary>加载报价表单的下拉选项：商品（自有置顶）、供应商（仅管理员）、目的省份（来自启用模板）</summary>
+    // 加载报价表单的下拉选项：商品（自有置顶）、供应商（仅管理员）、目的省份（来自启用模板）
     private async Task LoadQuoteOptionsAsync(FreightQuoteRequest model, bool isAdmin)
     {
         ViewBag.IsAdmin = isAdmin;
@@ -213,7 +213,7 @@ public class ColdChainLogisticsController : Controller
             string.IsNullOrWhiteSpace(t.DestinationProvince) || t.DestinationProvince == "*");
     }
 
-    // ========== 发货管理 ==========
+    // 发货管理
 
     [HttpGet]
     public async Task<IActionResult> Shipments()
@@ -239,9 +239,9 @@ public class ColdChainLogisticsController : Controller
         return RedirectToAction(nameof(Shipments));
     }
 
-    // ========== 精准溯源查询 ==========
+    // 精准溯源查询
 
-    /// <summary>溯源查询入口页</summary>
+    // 溯源查询入口页
     [HttpGet]
     public async Task<IActionResult> Traceability()
     {
@@ -249,9 +249,9 @@ public class ColdChainLogisticsController : Controller
         return View();
     }
 
-    // ========== 溯源页下拉数据 ==========
+    // 溯源页下拉数据
 
-    /// <summary>加载溯源查询的下拉选项：订单（有发货记录）、发货单（全部）、批次（全部）</summary>
+    // 加载溯源查询的下拉选项：订单（有发货记录）、发货单（全部）、批次（全部）
     private async Task LoadTraceOptionsAsync()
     {
         // 订单：只列有发货记录的订单（DISTINCT OrderID JOIN 订单号）
@@ -285,7 +285,7 @@ public class ColdChainLogisticsController : Controller
             }).ToList();
     }
 
-    /// <summary>按订单 ID 查询完整溯源链路</summary>
+    // 按订单 ID 查询完整溯源链路
     [HttpGet]
     public async Task<IActionResult> TraceByOrder(string orderId)
     {
@@ -309,7 +309,7 @@ public class ColdChainLogisticsController : Controller
         return View("Traceability");
     }
 
-    /// <summary>按发货单 ID 查询单张发货单的批次明细</summary>
+    // 按发货单 ID 查询单张发货单的批次明细
     [HttpGet]
     public async Task<IActionResult> TraceByDelivery(string deliveryId)
     {
@@ -333,7 +333,7 @@ public class ColdChainLogisticsController : Controller
         return View("Traceability");
     }
 
-    /// <summary>反向溯源：按批次 ID 查去向</summary>
+    // 反向溯源：按批次 ID 查去向
     [HttpGet]
     public async Task<IActionResult> TraceByBatch(string batchId)
     {

@@ -4,7 +4,7 @@ using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services;
 
-/// <summary>B 组消费者绑定和会员等级的周期维护服务。</summary>
+// B 组消费者绑定和会员等级的周期维护服务。
 public sealed class GroupBDailyMaintenanceService
 {
     private readonly IOrderRepository _orderRepository;
@@ -55,7 +55,7 @@ public sealed class GroupBDailyMaintenanceService
         }
     }
 
-    /// <summary>每月 1 日以前一月末为截止点，以已完结订单累计金额重新定级并留痕。</summary>
+    // 每月 1 日以前一月末为截止点，以已完结订单累计金额重新定级并留痕。
     public async Task RunMonthlyMemberLevelSettlementAsync(CancellationToken cancellationToken = default)
     {
         var today = DateTime.Today;
@@ -132,7 +132,7 @@ public sealed class GroupBDailyCheckHostedService : BackgroundService
     }
 }
 
-/// <summary>独立于每日巡检的短周期任务，关闭超时结算批次并自动确认已发货订单。</summary>
+// 独立于每日巡检的短周期任务，关闭超时结算批次并自动确认已发货订单。
 public sealed class GroupBCheckoutExpiryHostedService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;

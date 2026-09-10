@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FreshColdChain.Controllers.Api;
 
-/// <summary>B 组消费者统一注册与登录入口。</summary>
+// B 组消费者统一注册与登录入口。
 [ApiController]
 [Route("api/auth/customer")]
 public sealed class GroupBAuthApiController : GroupBApiController

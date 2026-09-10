@@ -3,7 +3,7 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Services;
 
-/// <summary>使用 A、C 组公开契约组装 B 组消费者端可售目录。</summary>
+// 使用 A、C 组公开契约组装 B 组消费者端可售目录。
 public sealed class ConsumerCatalogService(
     IGroupAProductCatalogService productCatalogService,
     IGroupCPromoterCatalogService promoterCatalogService) : IConsumerCatalogService

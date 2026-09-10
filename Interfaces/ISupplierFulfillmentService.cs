@@ -2,7 +2,7 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Interfaces;
 
-/// <summary>B 组供应商履约编排入口，只读写 B 组订单并通过物流契约调用 A 组。</summary>
+// B 组供应商履约编排入口，只读写 B 组订单并通过物流契约调用 A 组。
 public interface ISupplierFulfillmentService
 {
     Task<SupplierFulfillmentListViewModel> GetOrdersAsync(

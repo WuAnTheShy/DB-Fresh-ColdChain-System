@@ -6,19 +6,17 @@ using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// A组动态定价引擎
-///
-/// 计算流程：
-///   1. 查商品 DefaultPrice
-///   2. 查该商品所有启用的规则（IsActive=1，在有效期内，按 Priority 升序）
-///   3. 遍历规则，第一个满足触发条件的规则生效：
-///      - TimeBased:      当前时间在 TimeWindow 内 → 应用折扣率
-///      - BulkDiscount:   购买量 >= MinQuantity → 应用折扣率
-///      - ExpiryApproaching: 商品批次近 N 小时过期 → 应用折扣率
-///      - ManualPrice:    直接使用 ManualPrice 作为最终售价
-///   4. 无规则命中 → 返回 DefaultPrice
-/// </summary>
+// A组动态定价引擎
+// 
+// 计算流程：
+//   1. 查商品 DefaultPrice
+//   2. 查该商品所有启用的规则（IsActive=1，在有效期内，按 Priority 升序）
+//   3. 遍历规则，第一个满足触发条件的规则生效：
+//      - TimeBased:      当前时间在 TimeWindow 内 → 应用折扣率
+//      - BulkDiscount:   购买量 >= MinQuantity → 应用折扣率
+//      - ExpiryApproaching: 商品批次近 N 小时过期 → 应用折扣率
+//      - ManualPrice:    直接使用 ManualPrice 作为最终售价
+//   4. 无规则命中 → 返回 DefaultPrice
 public class PricingService : IPricingService
 {
     private readonly IPriceRuleRepository _ruleRepo;
@@ -27,11 +25,9 @@ public class PricingService : IPricingService
     private readonly IGoodsRepository _goodsRepo;
     private readonly IUnitOfWork _uow;
 
-    /// <summary>
-    /// DB 存储的 TriggerType → 代码内部 TriggerType 映射。
-    /// DB 数据使用 NEAR_EXPIRY/SCHEDULED/QUANTITY/TIME_SLOT/SEASONAL/BULK 等值，
-    /// 代码内部使用 ExpiryApproaching/TimeBased/BulkDiscount/ManualPrice。
-    /// </summary>
+    // DB 存储的 TriggerType → 代码内部 TriggerType 映射。
+    // DB 数据使用 NEAR_EXPIRY/SCHEDULED/QUANTITY/TIME_SLOT/SEASONAL/BULK 等值，
+    // 代码内部使用 ExpiryApproaching/TimeBased/BulkDiscount/ManualPrice。
     private static readonly Dictionary<string, string> TriggerTypeMap = new(StringComparer.OrdinalIgnoreCase)
     {
         ["NEAR_EXPIRY"] = "ExpiryApproaching",
@@ -46,7 +42,7 @@ public class PricingService : IPricingService
         ["ManualPrice"] = "ManualPrice",
     };
 
-    /// <summary>将 DB 的 TriggerType 映射为内部标准值，未知类型返回原值</summary>
+    // 将 DB 的 TriggerType 映射为内部标准值，未知类型返回原值
     private static string NormalizeTriggerType(string? dbType)
         => !string.IsNullOrWhiteSpace(dbType) && TriggerTypeMap.TryGetValue(dbType, out var mapped)
             ? mapped
@@ -66,7 +62,7 @@ public class PricingService : IPricingService
         _uow = uow;
     }
 
-    // ==================== 价格计算（核心算法） ====================
+    // 价格计算（核心算法）
 
     public async Task<ApiResponse<PriceCalculationResult>> CalculatePriceAsync(PriceCalculationRequest request)
     {
@@ -119,11 +115,9 @@ public class PricingService : IPricingService
         });
     }
 
-    // ==================== 触发条件判断 ====================
+    // 触发条件判断
 
-    /// <summary>
-    /// 判断当前规则是否满足触发条件
-    /// </summary>
+    // 判断当前规则是否满足触发条件
     private async Task<bool> IsRuleTriggeredAsync(BizPriceRule rule, InvProduct product, string supplierId, decimal quantity, DateTime now)
     {
         var triggerType = NormalizeTriggerType(rule.TriggerType);
@@ -137,16 +131,14 @@ public class PricingService : IPricingService
         };
     }
 
-    /// <summary>
-    /// 解析 TimeWindow 并判断当前时间是否在窗口内。支持格式：
-    ///   "HH:mm-HH:mm"  — 时段窗口（支持跨天如 "22:00-06:00"）
-    ///   ALL_DAY          — 全时段始终匹配
-    ///   WEEKEND_ONLY     — 周六日
-    ///   NIGHT_22_TO_02   — 深夜 22:00-02:00
-    ///   AFTER_18_00      — 18:00 之后
-    ///   SUMMER_SEASON    — 6-8 月夏季
-    ///   空/NULL           — 全时段匹配
-    /// </summary>
+    // 解析 TimeWindow 并判断当前时间是否在窗口内。支持格式：
+    //   "HH:mm-HH:mm"  — 时段窗口（支持跨天如 "22:00-06:00"）
+    //   ALL_DAY          — 全时段始终匹配
+    //   WEEKEND_ONLY     — 周六日
+    //   NIGHT_22_TO_02   — 深夜 22:00-02:00
+    //   AFTER_18_00      — 18:00 之后
+    //   SUMMER_SEASON    — 6-8 月夏季
+    //   空/NULL           — 全时段匹配
     private static bool IsTimeInWindow(string? timeWindow, DateTime now)
     {
         if (string.IsNullOrWhiteSpace(timeWindow))
@@ -188,7 +180,7 @@ public class PricingService : IPricingService
         return false; // 无法识别的格式，不触发
     }
 
-    /// <summary>批量折扣：数量 >= MinQuantity，且不超过 MaxQuantity</summary>
+    // 批量折扣：数量 >= MinQuantity，且不超过 MaxQuantity
     private static bool IsBulkMatch(BizPriceRule rule, decimal quantity)
     {
         if (rule.MinQuantity.HasValue && quantity < rule.MinQuantity.Value)
@@ -198,11 +190,9 @@ public class PricingService : IPricingService
         return true;
     }
 
-    /// <summary>
-    /// 临期折扣：读取该供应商对该物品的货物级保质期（供应商在「我的货物」维护，
-    /// 未建立货物或未填时兜底物品级默认值），有批次在阈值时间内过期则触发。
-    /// 阈值从 TimeWindow 解析（如 "EXPIRY_LESS_THAN_3_DAYS" → 72h），默认 24 小时。
-    /// </summary>
+    // 临期折扣：读取该供应商对该物品的货物级保质期（供应商在「我的货物」维护，
+    // 未建立货物或未填时兜底物品级默认值），有批次在阈值时间内过期则触发。
+    // 阈值从 TimeWindow 解析（如 "EXPIRY_LESS_THAN_3_DAYS" → 72h），默认 24 小时。
     private async Task<bool> IsProductExpiringSoonAsync(InvProduct product, string supplierId, string? timeWindow, DateTime now)
     {
         // 生效保质期：货物上声明的优先（供应商可在前端维护），未声明用物品默认值
@@ -218,7 +208,7 @@ public class PricingService : IPricingService
         return batches.Any(b => b.SupplierID == supplierId && b.ExpiryDate.HasValue && b.ExpiryDate.Value <= threshold);
     }
 
-    /// <summary>从 TimeWindow 解析临期天数阈值，如 EXPIRY_LESS_THAN_3_DAYS → 72h，解析失败默认 24h</summary>
+    // 从 TimeWindow 解析临期天数阈值，如 EXPIRY_LESS_THAN_3_DAYS → 72h，解析失败默认 24h
     private static int ParseExpiryThresholdHours(string? timeWindow)
     {
         if (string.IsNullOrWhiteSpace(timeWindow)) return 24;
@@ -229,7 +219,7 @@ public class PricingService : IPricingService
         return 24;
     }
 
-    // ==================== 价格计算 ====================
+    // 价格计算
 
     private static decimal ComputeFinalPrice(BizPriceRule rule, decimal defaultPrice)
     {
@@ -249,7 +239,7 @@ public class PricingService : IPricingService
         return defaultPrice;
     }
 
-    // ==================== 规则管理 CRUD ====================
+    // 规则管理 CRUD
 
     public async Task<ApiResponse<List<PriceRuleDto>>> GetRulesByProductAsync(string productId, string? supplierId = null)
     {
@@ -433,17 +423,15 @@ public class PricingService : IPricingService
             .ToList();
     }
 
-    /// <summary>
-    /// 表单里的日期控件（type="date"）只提交日期、绑定到 DateTime 时是当天 00:00:00，
-    /// 若直接把「结束日期」当天 00:00 落库，则当天 00:00 之后 EffectiveTo >= now 恒不成立，
-    /// 导致规则在结束日期当天就失效。这里把“纯日期”的结束时间归一到当天 23:59:59.9999999。
-    /// </summary>
+    // 表单里的日期控件（type="date"）只提交日期、绑定到 DateTime 时是当天 00:00:00，
+    // 若直接把「结束日期」当天 00:00 落库，则当天 00:00 之后 EffectiveTo >= now 恒不成立，
+    // 导致规则在结束日期当天就失效。这里把“纯日期”的结束时间归一到当天 23:59:59.9999999。
     private static DateTime? NormalizeEffectiveTo(DateTime? value)
         => value is { } d && d.TimeOfDay == TimeSpan.Zero
             ? d.Date.AddDays(1).AddTicks(-1)
             : value;
 
-    // ==================== 映射 ====================
+    // 映射
 
     private static PriceRuleDto MapToDto(BizPriceRule r, InvProduct? product) => new()
     {

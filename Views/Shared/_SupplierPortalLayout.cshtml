@@ -3,11 +3,23 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - 供应商门户</title>
+    <title>鲜邻团·生鲜冷链直销系统工作台</title>
+    <link rel="icon" type="image/png" href="~/images/favicon.png" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/promoter-portal.css" asp-append-version="true" />
 </head>
-<body class="promoter-portal">
+@{
+    // 供应商端横幅底图：图片来自 ../../tmppic/supplier/，已复制到 wwwroot/images/supplier/
+    var heroController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    var heroKey = heroController switch
+    {
+        "Goods" => 1,
+        "Prices" => 2,
+        _ => 3
+    };
+    var heroPhoto = Url.Content($"~/images/supplier/page-hero-{heroKey}.jpg");
+}
+<body class="promoter-portal portal-shell role-supplier">
 @{
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
     var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
@@ -30,45 +42,45 @@
                 {
                     <a asp-controller="Goods" asp-action="AdminIndex"
                        class="nav-link @(currentController == "Goods" && currentAction == "AdminIndex" ? "active" : "")">
-                        <span class="nav-icon">📦</span> 全部货物
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg></span> 全部货物
                     </a>
                 }
                 else
                 {
                     <a asp-controller="Goods" asp-action="MyGoods"
                        class="nav-link @(currentController == "Goods" && currentAction == "MyGoods" ? "active" : "")">
-                        <span class="nav-icon">📦</span> 我的货物
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg></span> 我的货物
                     </a>
                 }
                 <a asp-controller="Prices" asp-action="Index"
                    class="nav-link @(currentController == "Prices" ? "active" : "")">
-                    <span class="nav-icon">💰</span> 定价规则
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1"/></svg></span> 定价规则
                 </a>
                 <a asp-controller="ColdChainLogistics" asp-action="Quote"
                    class="nav-link @(currentController == "ColdChainLogistics" && currentAction == "Quote" ? "active" : "")">
-                    <span class="nav-icon">🧾</span> 计算运费
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17V9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8"/><path d="M2 17h20M8 21a2 2 0 1 0 4 0M16 21a2 2 0 1 0 4 0"/></svg></span> 计算运费
                 </a>
                 <a asp-controller="ColdChainLogistics" asp-action="Shipments"
                    class="nav-link @(currentController == "ColdChainLogistics" && currentAction == "Shipments" ? "active" : "")">
-                    <span class="nav-icon">🚚</span> 发货记录
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h2a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H8"/><path d="M4 6h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-2"/><circle cx="7" cy="17" r="3"/><path d="M3 6V4a1 1 0 0 1 1-1h4"/></svg></span> 发货记录
                 </a>
                 <a asp-controller="ColdChainLogistics" asp-action="Traceability"
                    class="nav-link @(currentController == "ColdChainLogistics" && currentAction == "Traceability" ? "active" : "")">
-                    <span class="nav-icon">🔍</span> 精准溯源
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span> 精准溯源
                 </a>
                 <a asp-controller="SupplierFulfillment" asp-action="Index"
                    class="nav-link @(currentController == "SupplierFulfillment" ? "active" : "")">
-                    <span class="nav-icon">📋</span> 订单履约
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></span> 订单履约
                 </a>
                 @if (isAdmin)
                 {
                     <a asp-controller="Products" asp-action="Index"
                        class="nav-link @(currentController == "Products" ? "active" : "")">
-                        <span class="nav-icon">🏷️</span> 物品管理
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2V4a2 2 0 0 1 2-2z"/><path d="M8 8h8M8 12h8"/></svg></span> 物品管理
                     </a>
                     <a asp-controller="ColdChainLogistics" asp-action="Index"
                        class="nav-link @(currentController == "ColdChainLogistics" && currentAction == "Index" ? "active" : "")">
-                        <span class="nav-icon">🗂️</span> 运费模板
+                        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2 4h10l-2 6H7l-3-10z"/><path d="M6 4h13l1 6H9"/></svg></span> 运费模板
                     </a>
                 }
             </nav>
@@ -82,10 +94,25 @@
         </aside>
         <main class="portal-main">
             <header class="portal-header d-flex align-items-center justify-content-between">
-                <h1 class="page-title mb-0">@ViewData["Title"]</h1>
-                <span class="header-date text-muted small">@DateTime.Now.ToString("yyyy年MM月dd日 dddd")</span>
+                <div class="portal-header-left">
+                    <span class="portal-brand" aria-label="鲜邻团">
+                        <span class="pb-word">鲜邻团<i class="pb-smile" aria-hidden="true"></i></span>
+                        <small>fresh</small>
+                    </span>
+                    <span class="portal-header-sep" aria-hidden="true"></span>
+                    <h1 class="page-title mb-0">@ViewData["Title"]</h1>
+                </div>
+                <div class="portal-header-right">
+                    <span class="portal-header-sep" aria-hidden="true"></span>
+                    <div id="clock" class="portal-clock" title="当前时间">
+                        <span>
+                            <small id="clock-date"></small>
+                            <strong id="clock-time"></strong>
+                        </span>
+                    </div>
+                </div>
             </header>
-            <div class="portal-content">
+            <div class="portal-content" style="--hero-photo: url('@heroPhoto')">
                 @if (!string.IsNullOrEmpty(backAction))
                 {
                     <a class="btn btn-outline-secondary btn-sm mb-3" asp-controller="@backController" asp-action="@backAction">← @backText</a>
@@ -96,6 +123,30 @@
     </div>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
+    <script>
+        (function () {
+            function updateClock() {
+                var elDate = document.getElementById('clock-date');
+                var elTime = document.getElementById('clock-time');
+                if (!elDate || !elTime) {
+                    return;
+                }
+                var now = new Date();
+                var weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+                var year = now.getFullYear();
+                var month = String(now.getMonth() + 1).padStart(2, '0');
+                var day = String(now.getDate()).padStart(2, '0');
+                var hours = String(now.getHours()).padStart(2, '0');
+                var minutes = String(now.getMinutes()).padStart(2, '0');
+                var seconds = String(now.getSeconds()).padStart(2, '0');
+                elDate.textContent = '星期' + weekdays[now.getDay()] + ' ' + year + '年' + month + '月' + day + '日';
+                elTime.textContent = hours + ':' + minutes + ':' + seconds;
+            }
+            updateClock();
+            setInterval(updateClock, 1000);
+        })();
+    </script>
 </body>
 </html>

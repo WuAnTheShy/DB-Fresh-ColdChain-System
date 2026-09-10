@@ -10,6 +10,7 @@
         OrderStatusCodes.Cancelled => "text-bg-secondary",
         OrderStatusCodes.Refunding => "text-bg-warning",
         OrderStatusCodes.Refunded => "text-bg-dark",
+        OrderStatusCodes.RefundReviewing => "text-bg-warning",
         _ => "text-bg-light"
     };
 }
@@ -88,7 +89,8 @@
         }
 
         @if (order.OrderStatus is OrderStatusCodes.Paid or OrderStatusCodes.Shipped
-            or OrderStatusCodes.Completed or OrderStatusCodes.Refunding)
+            or OrderStatusCodes.Completed or OrderStatusCodes.Refunding
+            or OrderStatusCodes.RefundReviewing)
         {
             <div class="card shadow-sm mb-4">
                 <div class="card-body d-flex flex-wrap align-items-center gap-2">

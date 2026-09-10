@@ -40,7 +40,7 @@
 .rule-tip { margin-top: 8px; padding: 9px 11px; border-radius: 6px; background: #eef4f8; color: #4a5568; font-size: 12px; line-height: 1.6; }
 .price-form .btn { margin-top: 12px; }
 
-/* ===== 图文介绍编辑区 ===== */
+/* 图文介绍编辑区 */
 .entry-desc-section { padding: 22px 24px; }
 .entry-desc-section > h2 { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: #223B46; }
 .desc-hint { margin: 0 0 16px; color: #718096; font-size: 12.5px; line-height: 1.7; }

@@ -4,10 +4,8 @@ using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// B 组供应商履约编排：校验订单和供应商归属，调用 A 组发货，
-/// 并在所有供应商均已发货后推进 B 组订单状态。
-/// </summary>
+// B 组供应商履约编排：校验订单和供应商归属，调用 A 组发货，
+// 并在所有供应商均已发货后推进 B 组订单状态。
 public sealed class SupplierFulfillmentService(
     IOrderRepository orderRepository,
     ILogisticsService logisticsService,

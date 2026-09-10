@@ -1,17 +1,37 @@
 @model CreateSupplierDto
-@{ ViewData["Title"] = "编辑供应商"; }
-<h3>编辑供应商</h3>
-<div class="col-md-6">
-    <form asp-action="Edit" method="post">
-        @Html.AntiForgeryToken()
-        <div class="mb-3"><label class="form-label">名称</label><input asp-for="SupplierName" class="form-control" required /></div>
-        <div class="mb-3"><label class="form-label">资质编号</label><input asp-for="LicenseNo" class="form-control" /></div>
-        <div class="mb-3"><label class="form-label">资质到期时间</label><input asp-for="ExpiryDate" class="form-control" type="date" /></div>
-        <div class="mb-3"><label class="form-label">信用等级</label><input asp-for="CreditLevel" class="form-control" type="number" /></div>
-        <div class="mb-3"><label class="form-label">联系电话</label><input asp-for="ContactPhone" class="form-control" /></div>
-        <div class="mb-3"><label class="form-label">登录账号</label><input asp-for="LoginAccount" class="form-control" /></div>
-        <div class="mb-3"><label class="form-label">登录密码 (留空不修改)</label><input asp-for="LoginPassword" class="form-control" type="password" /></div>
-        <button type="submit" class="btn btn-primary">保存</button>
-        <a class="btn btn-outline-secondary" asp-action="Index">取消</a>
-    </form>
+@{
+    ViewData["Title"] = "编辑供应商";
+}
+
+<div class="page-hero">
+    <div>
+        <div class="hero-greeting">编辑供应商</div>
+        <div class="hero-meta">
+            <span class="text-white-50">@Model.SupplierName</span>
+        </div>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg> 供应商信息</h5>
+    </div>
+    <div class="content-card-body">
+        <div class="row">
+            <div class="col-lg-7">
+                <form asp-action="Edit" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3"><label class="form-label">名称 <span class="text-danger">*</span></label><input asp-for="SupplierName" class="form-control" required /></div>
+                    <div class="mb-3"><label class="form-label">资质编号</label><input asp-for="LicenseNo" class="form-control" /></div>
+                    <div class="mb-3"><label class="form-label">资质到期时间</label><input asp-for="ExpiryDate" class="form-control" type="date" /></div>
+                    <div class="mb-3"><label class="form-label">信用等级</label><input asp-for="CreditLevel" class="form-control" type="number" /></div>
+                    <div class="mb-3"><label class="form-label">联系电话</label><input asp-for="ContactPhone" class="form-control" /></div>
+                    <div class="mb-3"><label class="form-label">登录账号</label><input asp-for="LoginAccount" class="form-control" /></div>
+                    <div class="mb-3"><label class="form-label">登录密码 (留空不修改)</label><input asp-for="LoginPassword" class="form-control" type="password" /></div>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <a class="btn btn-outline-secondary" asp-action="Index">取消</a>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>

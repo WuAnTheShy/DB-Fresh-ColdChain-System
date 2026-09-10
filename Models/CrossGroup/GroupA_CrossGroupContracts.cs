@@ -1,15 +1,15 @@
 namespace FreshColdChain.Models.CrossGroup;
 
-// ========== A 组库存模块契约模型 ==========
+// A 组库存模块契约模型
 
-/// <summary>B 组向 A 组提交的库存预留请求项</summary>
+// B 组向 A 组提交的库存预留请求项
 public class InventoryReservationItem
 {
     public string ProductId { get; init; } = string.Empty;
     public int Quantity { get; init; }
 }
 
-/// <summary>A 组返回的可信商品快照</summary>
+// A 组返回的可信商品快照
 public class InventoryProductSnapshot
 {
     public string ProductId { get; init; } = string.Empty;
@@ -18,9 +18,9 @@ public class InventoryProductSnapshot
     public decimal UnitPrice { get; init; }
 }
 
-// ========== A 组物流模块契约模型 ==========
+// A 组物流模块契约模型
 
-/// <summary>运费计算请求</summary>
+// 运费计算请求
 public class FreightCalculationRequest
 {
     public string CustomerId { get; init; } = string.Empty;
@@ -31,7 +31,7 @@ public class FreightCalculationRequest
     public IReadOnlyList<FulfillmentOrderItem> Items { get; init; } = new List<FulfillmentOrderItem>();
 }
 
-/// <summary>发货/释放库存的订单快照</summary>
+// 发货/释放库存的订单快照
 public class FulfillmentOrderRequest
 {
     public string OrderId { get; init; } = string.Empty;
@@ -42,7 +42,7 @@ public class FulfillmentOrderRequest
     public IReadOnlyList<FulfillmentOrderItem> Items { get; init; } = new List<FulfillmentOrderItem>();
 }
 
-/// <summary>跨组传递的商品快照</summary>
+// 跨组传递的商品快照
 public class FulfillmentOrderItem
 {
     public string ProductId { get; init; } = string.Empty;
@@ -53,7 +53,7 @@ public class FulfillmentOrderItem
     public decimal SubTotal { get; init; }
 }
 
-/// <summary>A 组返回的供应商履约状态</summary>
+// A 组返回的供应商履约状态
 public class SupplierFulfillmentStatus
 {
     public string SupplierId { get; init; } = string.Empty;

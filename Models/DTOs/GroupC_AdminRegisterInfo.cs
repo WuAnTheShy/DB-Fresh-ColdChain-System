@@ -6,7 +6,7 @@
         public string LoginAccount { get; set; } = string.Empty;
         public string LoginPassword { get; set; } = string.Empty;
         public string Phone { get; set; } = string.Empty;
-        /// <summary>管理员种类：ACCOUNT/FINANCE/LOG/PRODUCT</summary>
+        // 管理员种类：ACCOUNT/FINANCE/LOG/PRODUCT
         public string AdminKind { get; set; } = "ACCOUNT";
     }
 }

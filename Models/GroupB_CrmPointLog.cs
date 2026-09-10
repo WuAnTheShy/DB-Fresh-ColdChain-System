@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// Crm_PointLogs - 积分流水 (每笔积分变动都记录)
-/// </summary>
+// Crm_PointLogs - 积分流水 (每笔积分变动都记录)
 public class CrmPointLog
 {
     public string PointLogId { get; set; } = string.Empty;

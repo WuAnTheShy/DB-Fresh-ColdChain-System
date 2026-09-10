@@ -19,206 +19,41 @@
 
 <partial name="_Alerts" />
 
-<!-- 已上架商品一览 -->
-<div class="content-card mb-4">
-    <div class="content-card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 已上架商品</h5>
-        <span class="badge bg-success">@activeProducts.Count</span>
+<div class="page-hero page-hero-green hero-photo hero-photo-2">
+    <div>
+        <div class="hero-greeting">商品上架</div>
+        <div class="hero-meta">
+            <span class="text-white-50">已上架 <span class="fw-semibold text-white">@activeProducts.Count</span> 件</span>
+            @if (inactiveProducts.Any())
+            {
+                <span class="text-white-50">· 已下架 @inactiveProducts.Count 件</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.Keyword))
+            {
+                <span class="text-white-50">· 搜索「@Model.Keyword」命中 @Model.Entries.Count 条</span>
+            }
+        </div>
     </div>
-    <div class="content-card-body p-0">
-        @if (activeProducts.Any())
-        {
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>商品</th>
-                            <th>供应商</th>
-                            <th class="text-center">供应商动态定价</th>
-                            <th class="text-center">推荐价</th>
-                            <th class="text-center">定价范围</th>
-                            <th class="text-center">当前团长定价</th>
-                            <th class="text-center">状态</th>
-                            <th class="text-center">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var p in activeProducts)
-                        {
-                            var priceDiff = Math.Abs(p.DefaultPrice - p.SupplyPrice) / 2m;
-                            var priceMin = p.DefaultPrice - priceDiff;
-                            var priceMax = p.DefaultPrice + priceDiff;
-                            var currentPrice = p.PromoterPrice ?? p.DefaultPrice;
-                            <tr>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        @if (p.Images.Any())
-                                        {
-                                            <img src="@p.Images[0]" alt="@p.ProductName" class="product-thumb" onerror="this.style.display='none'" />
-                                        }
-                                        <div>
-                                            <div>@p.ProductName
-                                                @if (!string.IsNullOrEmpty(p.Unit))
-                                                {
-                                                    <span class="text-muted small">（@p.Unit）</span>
-                                                }
-                                            </div>
-                                            @if (!string.IsNullOrWhiteSpace(p.PromoterDesc))
-                                            {
-                                                if (IsIntroFileValue(p.PromoterDesc))
-                                                {
-                                                    <div class="text-muted small d-flex align-items-center gap-1" style="max-width:340px;"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>已配置图文介绍（点右侧「详情」编辑 / 预览）</div>
-                                                }
-                                                else
-                                                {
-                                                    <div class="text-muted small text-truncate d-flex align-items-center gap-1" style="max-width:340px;" title="@p.PromoterDesc"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7l-6-4z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>@TrimText(p.PromoterDesc, 60)</div>
-                                                }
-                                            }
-                                            else if (!string.IsNullOrWhiteSpace(p.Description))
-                                            {
-                                                <div class="text-muted small text-truncate d-flex align-items-center gap-1" style="max-width:340px;" title="@p.Description"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7l-6-4z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>@TrimText(p.Description, 60)</div>
-                                            }
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>@p.SupplierName</td>
-                                <td class="text-center">￥@p.SupplyPrice.ToString("F2")</td>
-                                <td class="text-center">￥@p.DefaultPrice.ToString("F2")</td>
-                                <td class="text-center text-muted small">
-                                    ￥@priceMin.ToString("F2") ~ ￥@priceMax.ToString("F2")
-                                </td>
-                                <td class="text-center">
-                                    <span class="fw-bold text-primary">￥@currentPrice.ToString("F2")</span>
-                                </td>
-                                <td class="text-center">
-                                    <span class="badge bg-success">已上架</span>
-                                </td>
-                                <td class="text-center">
-                                    <div class="d-inline-flex gap-1">
-                                        <a asp-action="EntryDetail"
-                                           asp-route-productId="@p.ProductID"
-                                           asp-route-supplierId="@p.SupplierID"
-                                           asp-route-keyword="@Model.Keyword"
-                                           class="btn btn-sm btn-outline-primary">详情</a>
-                                        <form asp-action="ToggleProductEntry" method="post" style="display:inline;">
-                                            <input type="hidden" name="productId" value="@p.ProductID" />
-                                            <input type="hidden" name="supplierId" value="@p.SupplierID" />
-                                            <input type="hidden" name="keyword" value="@Model.Keyword" />
-                                            <input type="hidden" name="action" value="unbind" />
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">移除</button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-            <div class="px-3 py-2 text-muted small border-top">
-                点击上架记录的「详情」按钮，可在独立的商品页面中调整<b>团长定价</b>与<b>带货介绍</b>（消费者端展示的即是该介绍）。
-            </div>
-        }
-        else
-        {
-            <div class="text-center text-muted py-4">尚未上架任何商品，请在下方搜索（供应商或商品）并点击“入团”。</div>
-        }
+    <div class="hero-stat-pill">
+        <div class="pill-label">已上架商品</div>
+        <div class="pill-value">@activeProducts.Count <span class="fs-6 fw-normal">件</span></div>
+        <div class="pill-sub">已下架 @inactiveProducts.Count 件</div>
     </div>
 </div>
 
-<!-- 已下架商品（供应商已下架，消费者端不再可见，仅可移除） -->
-@if (inactiveProducts.Any())
-{
-    <div class="content-card mb-4">
-        <div class="content-card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 text-secondary"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 12l9 9 9-9-9-9z"/><path d="M12 8v4M12 16h.01"/></svg> 已下架商品</h5>
-            <span class="badge bg-secondary">@inactiveProducts.Count</span>
-        </div>
-        <div class="content-card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>商品</th>
-                            <th>供应商</th>
-                            <th class="text-center">推荐价</th>
-                            <th class="text-center">当前团长定价</th>
-                            <th class="text-center">状态</th>
-                            <th class="text-center">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var p in inactiveProducts)
-                        {
-                            var currentPrice = p.PromoterPrice ?? p.DefaultPrice;
-                            <tr class="table-secondary">
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
-                                        @if (p.Images.Any())
-                                        {
-                                            <img src="@p.Images[0]" alt="@p.ProductName" class="product-thumb" onerror="this.style.display='none'" />
-                                        }
-                                        <div>
-                                            <div>@p.ProductName
-                                                @if (!string.IsNullOrEmpty(p.Unit))
-                                                {
-                                                    <span class="text-muted small">（@p.Unit）</span>
-                                                }
-                                            </div>
-                                            @if (!string.IsNullOrWhiteSpace(p.Description))
-                                            {
-                                                <div class="text-muted small text-truncate d-flex align-items-center gap-1" style="max-width:340px;" title="@p.Description"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7l-6-4z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>@TrimText(p.Description, 60)</div>
-                                            }
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>@p.SupplierName</td>
-                                <td class="text-center">￥@p.DefaultPrice.ToString("F2")</td>
-                                <td class="text-center">
-                                    <span class="fw-bold">￥@currentPrice.ToString("F2")</span>
-                                </td>
-                                <td class="text-center">
-                                    <span class="badge bg-danger">已下架</span>
-                                </td>
-                                <td class="text-center">
-                                    <form asp-action="ToggleProductEntry" method="post" style="display:inline;">
-                                        <input type="hidden" name="productId" value="@p.ProductID" />
-                                        <input type="hidden" name="supplierId" value="@p.SupplierID" />
-                                        <input type="hidden" name="keyword" value="@Model.Keyword" />
-                                        <input type="hidden" name="action" value="unbind" />
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">移除</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-            <div class="px-3 py-2 text-muted small border-top">
-                以下商品已被<b>供应商下架</b>，消费者端不再可见；供应商恢复上架后会自动回到上方「已上架商品」列表。如不再需要，可点击「移除」。
-            </div>
-        </div>
-    </div>
-}
-
-<div class="content-card">
+<!-- 商品上架 -->
+<div class="content-card mb-4">
     <div class="content-card-header">
         <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> 商品上架</h5>
     </div>
     <div class="content-card-body">
-        <p class="text-muted small">
-            支持供应商名称/ID、商品名称搜索，您也可以选择不同供应商的相同商品一并上架。
-        </p>
-        <p class="text-muted small mb-3">
-            请点击「入团」上架后，通过上架记录中的「详情」进入独立商品页面设置团长定价，默认为供应商推荐价。
-
-            当前已上架商品数：<span class="badge bg-success">@Model.ListedKeys.Count</span>
-        </p>
+       
 
         <!-- 搜索表单 -->
         <form asp-action="SearchProducts" method="post" class="row g-3 mb-4">
             <div class="col-md-8">
                 <input type="text" name="keyword" class="form-control"
-                       placeholder="输入供应商名称/ID 或 商品名称搜索，例如：苹果 / 供应商A" value="@Model.Keyword" />
+                       placeholder="输入供应商或商品关键字后点击搜索" value="@Model.Keyword" />
             </div>
             <div class="col-md-2">
                 <button type="submit" class="btn btn-primary w-100">搜索</button>
@@ -323,7 +158,7 @@
                                                 <input type="hidden" name="supplierId" value="@item.SupplierID" />
                                                 <input type="hidden" name="keyword" value="@Model.Keyword" />
                                                 <input type="hidden" name="action" value="unbind" />
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">移除</button>
+                                                <button type="submit" class="btn btn-sm btn-danger">移除</button>
                                             </form>
                                         }
                                         else
@@ -339,13 +174,13 @@
                                                asp-route-productId="@item.ProductID"
                                                asp-route-supplierId="@item.SupplierID"
                                                asp-route-keyword="@Model.Keyword"
-                                               class="btn btn-sm btn-outline-primary">详情</a>
+                                               class="btn btn-sm btn-primary">详情</a>
                                             <form asp-action="ToggleProductEntry" method="post" style="display:inline;">
                                                 <input type="hidden" name="productId" value="@item.ProductID" />
                                                 <input type="hidden" name="supplierId" value="@item.SupplierID" />
                                                 <input type="hidden" name="keyword" value="@Model.Keyword" />
                                                 <input type="hidden" name="action" value="unbind" />
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">移除</button>
+                                                <button type="submit" class="btn btn-sm btn-danger">移除</button>
                                             </form>
                                         </div>
                                     }
@@ -359,7 +194,7 @@
                                             <input type="hidden" name="action" value="bind" />
                                             <!-- 供应商动态定价/推荐价由服务端按规则引擎计算并快照落库，客户端不再携带 -->
                                             <input type="hidden" name="description" value="@item.Description" />
-                                            <button type="submit" class="btn btn-sm btn-success">入团</button>
+                                            <button type="submit" class="btn btn-sm btn-forest">入团</button>
                                         </form>
                                     }
                                 </td>
@@ -373,12 +208,181 @@
         {
             <div class="alert alert-info">未找到符合条件的（供应商 × 商品），请尝试修改关键词。</div>
         }
-        else
-        {
-            <div class="text-center text-muted py-4">请在搜索框输入供应商或商品关键字后点击搜索</div>
-        }
     </div>
 </div>
+
+<!-- 已上架商品一览 -->
+<div class="content-card mb-4">
+    <div class="content-card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 已上架商品</h5>
+        <span class="badge bg-success">@activeProducts.Count</span>
+    </div>
+    @if (activeProducts.Any())
+    {
+        <div class="product-grid">
+            @foreach (var p in activeProducts)
+            {
+                var priceDiff = Math.Abs(p.DefaultPrice - p.SupplyPrice) / 2m;
+                var priceMin = p.DefaultPrice - priceDiff;
+                var priceMax = p.DefaultPrice + priceDiff;
+                var currentPrice = p.PromoterPrice ?? p.DefaultPrice;
+                <article class="product-card">
+                    <div class="product-card-head">
+                        @if (p.Images.Any())
+                        {
+                            <img src="@p.Images[0]" alt="@p.ProductName" class="product-thumb-lg" onerror="this.style.display='none'" />
+                        }
+                        else
+                        {
+                            <span class="product-thumb-lg is-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg></span>
+                        }
+                        <div class="product-card-identity">
+                            <strong class="product-card-title">@p.ProductName</strong>
+                            <small class="product-card-sub">@($"{p.SupplierName} · {p.ProductID}{(string.IsNullOrEmpty(p.Unit) ? "" : " · " + p.Unit)}")</small>
+                        </div>
+                        <span class="product-status-badge is-active">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                            已上架
+                        </span>
+                    </div>
+                    <div class="product-card-divider"></div>
+                    <div class="product-card-body">
+                        @if (!string.IsNullOrWhiteSpace(p.PromoterDesc))
+                        {
+                            if (IsIntroFileValue(p.PromoterDesc))
+                            {
+                                <p class="product-desc">已配置图文介绍，可在「详情」中编辑 / 预览</p>
+                            }
+                            else
+                            {
+                                <p class="product-desc">@TrimText(p.PromoterDesc, 60)</p>
+                            }
+                        }
+                        else if (!string.IsNullOrWhiteSpace(p.Description))
+                        {
+                            <p class="product-desc">@TrimText(p.Description, 60)</p>
+                        }
+                        else
+                        {
+                            <p class="product-desc is-empty">暂无商品介绍</p>
+                        }
+
+                        <div class="product-price-list">
+                            <div class="product-price-row">
+                                <span class="product-price-label">供应商动态定价</span>
+                                <span class="product-price-value">￥@p.SupplyPrice.ToString("F2")</span>
+                            </div>
+                            <div class="product-price-row">
+                                <span class="product-price-label">推荐价</span>
+                                <span class="product-price-value">￥@p.DefaultPrice.ToString("F2")</span>
+                            </div>
+                            <div class="product-price-row">
+                                <span class="product-price-label">定价范围</span>
+                                <span class="product-price-value is-muted">￥@priceMin.ToString("F2") ~ ￥@priceMax.ToString("F2")</span>
+                            </div>
+                            <div class="product-price-row">
+                                <span class="product-price-label">当前团长定价</span>
+                                <span class="product-price-value is-current">￥@currentPrice.ToString("F2")</span>
+                            </div>
+                        </div>
+
+                        <div class="product-card-actions">
+                            <a asp-action="EntryDetail"
+                               asp-route-productId="@p.ProductID"
+                               asp-route-supplierId="@p.SupplierID"
+                               asp-route-keyword="@Model.Keyword"
+                               class="btn btn-sm btn-brown">详情</a>
+                            <form asp-action="ToggleProductEntry" method="post">
+                                <input type="hidden" name="productId" value="@p.ProductID" />
+                                <input type="hidden" name="supplierId" value="@p.SupplierID" />
+                                <input type="hidden" name="keyword" value="@Model.Keyword" />
+                                <input type="hidden" name="action" value="unbind" />
+                                <button type="submit" class="btn btn-sm btn-ink">移除</button>
+                            </form>
+                        </div>
+                    </div>
+                </article>
+            }
+        </div>
+        <div class="product-grid-note">点击商品卡片的「详情」按钮，编辑定价并撰写推文。</div>
+    }
+    else
+    {
+        <div class="text-center text-muted py-4">尚未上架任何商品，请在下方搜索（供应商或商品）并点击“入团”。</div>
+    }
+</div>
+
+<!-- 已下架商品（供应商已下架，消费者端不再可见，仅可移除） -->
+@if (inactiveProducts.Any())
+{
+    <div class="content-card mb-4">
+        <div class="content-card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-secondary"><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 12l9 9 9-9-9-9z"/><path d="M12 8v4M12 16h.01"/></svg> 已下架商品</h5>
+            <span class="badge bg-secondary">@inactiveProducts.Count</span>
+        </div>
+        <div class="product-grid">
+            @foreach (var p in inactiveProducts)
+            {
+                var currentPrice = p.PromoterPrice ?? p.DefaultPrice;
+                <article class="product-card is-inactive">
+                    <div class="product-card-head">
+                        @if (p.Images.Any())
+                        {
+                            <img src="@p.Images[0]" alt="@p.ProductName" class="product-thumb-lg" onerror="this.style.display='none'" />
+                        }
+                        else
+                        {
+                            <span class="product-thumb-lg is-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg></span>
+                        }
+                        <div class="product-card-identity">
+                            <strong class="product-card-title">@p.ProductName</strong>
+                            <small class="product-card-sub">@($"{p.SupplierName} · {p.ProductID}{(string.IsNullOrEmpty(p.Unit) ? "" : " · " + p.Unit)}")</small>
+                        </div>
+                        <span class="product-status-badge is-inactive">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4M12 16h.01"/><circle cx="12" cy="12" r="9"/></svg>
+                            已下架
+                        </span>
+                    </div>
+                    <div class="product-card-divider"></div>
+                    <div class="product-card-body">
+                        @if (!string.IsNullOrWhiteSpace(p.Description))
+                        {
+                            <p class="product-desc">@TrimText(p.Description, 60)</p>
+                        }
+                        else
+                        {
+                            <p class="product-desc is-empty">暂无商品介绍</p>
+                        }
+
+                        <div class="product-price-list">
+                            <div class="product-price-row">
+                                <span class="product-price-label">推荐价</span>
+                                <span class="product-price-value">￥@p.DefaultPrice.ToString("F2")</span>
+                            </div>
+                            <div class="product-price-row">
+                                <span class="product-price-label">当前团长定价</span>
+                                <span class="product-price-value">￥@currentPrice.ToString("F2")</span>
+                            </div>
+                        </div>
+
+                        <div class="product-card-actions">
+                            <form asp-action="ToggleProductEntry" method="post">
+                                <input type="hidden" name="productId" value="@p.ProductID" />
+                                <input type="hidden" name="supplierId" value="@p.SupplierID" />
+                                <input type="hidden" name="keyword" value="@Model.Keyword" />
+                                <input type="hidden" name="action" value="unbind" />
+                                <button type="submit" class="btn btn-sm btn-ink">移除</button>
+                            </form>
+                        </div>
+                    </div>
+                </article>
+            }
+        </div>
+        <div class="product-grid-note">
+            以下商品已被<b>供应商下架</b>；供应商恢复上架后会自动回到上方「已上架商品」列表。如不再需要，可点击「移除」。
+        </div>
+    </div>
+}
 
 @section Scripts {
     <style>

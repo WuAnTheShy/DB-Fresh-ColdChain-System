@@ -22,7 +22,8 @@ internal static class FinancialTransactionScenarioTests
             ("C组直接退款与审计共同提交回滚", DirectRefundTransactionAsync),
             ("佣金记录编号符合数据库36位长度", CommissionRecordIdFitsDatabaseColumnAsync),
             ("退款佣金撤销失败不能继续批准退款", RefundCommissionFailureAsync),
-            ("佣金仓储返回更新失败时拒绝批准退款", RefundCommissionRecordFailureAsync)
+            ("佣金仓储返回更新失败时拒绝批准退款", RefundCommissionRecordFailureAsync),
+            ("退款申请进入审核中且驳回回退、通过后转已退款", RefundReviewStatusAsync)
         };
         var failures = 0;
         foreach (var (name, run) in scenarios)
@@ -134,6 +135,148 @@ internal static class FinancialTransactionScenarioTests
             AssertEx.Equal(failFinalUpdate ? 0 : 1, context.PointRepository.Logs.Count);
         }
     }
+
+    // 退款「审核中」状态闭环：申请即进入退款审核中并记录申请前状态，
+    // 驳回/取消且无其他待审核申请时回退，审核通过则转“已退款/退款中”。
+    private static async Task RefundReviewStatusAsync()
+    {
+        // 1) 提交退款申请：订单进入“退款审核中”，申请前状态被记录用于回退
+        foreach (var previousStatus in new[] { OrderStatusCodes.Paid, OrderStatusCodes.Completed })
+        {
+            var context = SeedOrder();
+            var order = context.OrderRepository.Orders.Single();
+            order.OrderStatus = previousStatus;
+            var uow = new FinancialUnitOfWork();
+            var applications = new List<FinRefund>();
+            var refunds = FinancialProxy.Create<IRefundRepository>((method, args) =>
+            {
+                if (method.Name == nameof(IRefundRepository.GetByOrderIdAsync))
+                    return Task.FromResult(applications.ToList());
+                if (method.Name != nameof(IRefundRepository.InsertRefundAsync))
+                    throw new NotSupportedException(method.Name);
+                ((FakeOrderTransaction)args![1]!).Stage(() => applications.Add((FinRefund)args[0]!));
+                return Task.CompletedTask;
+            });
+            var service = RefundService(context, uow, refunds, new FinancialLogRepository());
+
+            var applied = await service.ApplyRefund(new GroupC_RefundRequest
+            {
+                OrderId = TestIds.Order, LiabilityType = "Customer", Remark = "整单退款"
+            });
+
+            AssertEx.True(applied.IsSuccess);
+            AssertEx.Equal(1, applications.Count);
+            AssertEx.Equal("Pending", applications[0].Status);
+            AssertEx.Equal(OrderStatusCodes.RefundReviewing, order.OrderStatus);
+            AssertEx.Equal(previousStatus, order.StatusBeforeRefund);
+        }
+
+        // 2) 驳回：无其他待审核申请时回退到申请前状态；仍有待审核申请时保持审核中
+        foreach (var previousStatus in new[] { OrderStatusCodes.Paid, OrderStatusCodes.Completed })
+        foreach (var hasOtherPending in new[] { false, true })
+        {
+            var context = SeedOrder();
+            var order = context.OrderRepository.Orders.Single();
+            order.OrderStatus = OrderStatusCodes.RefundReviewing;
+            order.StatusBeforeRefund = previousStatus;
+            var uow = new FinancialUnitOfWork();
+            var service = RefundService(context, uow,
+                RejectedApplicationRefunds(uow, hasOtherPending), new FinancialLogRepository());
+
+            var result = await service.AuditRefund("REF-TX", false, "ADMIN");
+
+            AssertEx.True(result.IsSuccess);
+            AssertEx.Equal(
+                hasOtherPending ? OrderStatusCodes.RefundReviewing : previousStatus,
+                order.OrderStatus);
+            AssertEx.Equal(hasOtherPending, order.StatusBeforeRefund != null);
+        }
+
+        // 3) 通过：整单退款转“已退款”，部分退款转“退款中”，均不再保留回退状态
+        foreach (var partial in new[] { false, true })
+        foreach (var previousStatus in new[] { OrderStatusCodes.Paid, OrderStatusCodes.Completed })
+        {
+            var context = SeedOrder();
+            var order = context.OrderRepository.Orders.Single();
+            order.OrderStatus = OrderStatusCodes.RefundReviewing;
+            order.StatusBeforeRefund = previousStatus;
+            var uow = new FinancialUnitOfWork();
+            var service = RefundService(context, uow,
+                PendingApplicationRefunds(uow, partial), new FinancialLogRepository());
+
+            var result = await service.AuditRefund("REF-TX", true, "ADMIN");
+
+            AssertEx.True(result.IsSuccess);
+            AssertEx.Equal(partial ? OrderStatusCodes.Refunding : OrderStatusCodes.Refunded, order.OrderStatus);
+            AssertEx.True(order.StatusBeforeRefund == null);
+        }
+    }
+
+    // 驳回场景的退款申请仓储：GetByIdAsync 返回原始申请单；GetByOrderIdAsync 返回更新后的申请单列表，
+    // 与真实事务中“同连接可见已更新数据”的语义一致（可模拟该订单是否还有其他待审核申请）
+    private static IRefundRepository RejectedApplicationRefunds(FinancialUnitOfWork uow, bool hasOtherPending)
+    {
+        var application = RefundApplication(partial: false);
+        return FinancialProxy.Create<IRefundRepository>((method, args) => method.Name switch
+        {
+            nameof(IRefundRepository.GetByIdAsync) => Task.FromResult<FinRefund?>(application),
+            nameof(IRefundRepository.TryUpdateStatusAsync) => Reject(args!),
+            nameof(IRefundRepository.GetByOrderIdAsync) => QueryApplications(args!),
+            _ => throw new NotSupportedException(method.Name)
+        });
+
+        Task<bool> Reject(object?[] args)
+        {
+            AssertEx.Equal("Pending", (string)args[1]!);
+            AssertEx.Equal("Rejected", (string)args[2]!);
+            AssertEx.True(ReferenceEquals(uow.Transaction, args[5]));
+            return Task.FromResult(true);
+        }
+
+        Task<List<FinRefund>> QueryApplications(object?[] args)
+        {
+            AssertEx.True(ReferenceEquals(uow.Transaction, args[1]));
+            var updated = RefundApplication(partial: false);
+            updated.Status = "Rejected";
+            var applications = new List<FinRefund> { updated };
+            if (hasOtherPending)
+            {
+                applications.Add(new FinRefund
+                {
+                    RefundId = "REF-OTHER", OrderId = TestIds.Order, Status = "Pending",
+                    DetailId = "DETAIL-TX", SupplierId = "SUP1", RefundQty = 1, RefundAmount = 50m
+                });
+            }
+            return Task.FromResult(applications);
+        }
+    }
+
+    // 通过场景的退款申请仓储：GetByIdAsync 返回待审核申请单（partial 决定部分退款 / 整单退款）
+    private static IRefundRepository PendingApplicationRefunds(FinancialUnitOfWork uow, bool partial)
+    {
+        var application = RefundApplication(partial);
+        return FinancialProxy.Create<IRefundRepository>((method, args) => method.Name switch
+        {
+            nameof(IRefundRepository.GetByIdAsync) => Task.FromResult<FinRefund?>(application),
+            nameof(IRefundRepository.TryUpdateStatusAsync) => Approve(args!),
+            _ => throw new NotSupportedException(method.Name)
+        });
+
+        Task<bool> Approve(object?[] args)
+        {
+            AssertEx.Equal("Pending", (string)args[1]!);
+            AssertEx.Equal("Approved", (string)args[2]!);
+            AssertEx.True(ReferenceEquals(uow.Transaction, args[5]));
+            return Task.FromResult(true);
+        }
+    }
+
+    private static FinRefund RefundApplication(bool partial) => new()
+    {
+        RefundId = "REF-TX", OrderId = TestIds.Order, Status = "Pending",
+        DetailId = partial ? "DETAIL-TX" : null, SupplierId = partial ? "SUP1" : null,
+        RefundQty = partial ? 1 : 0, RefundAmount = partial ? 50m : 100m
+    };
 
     private static async Task DirectRefundTransactionAsync()
     {

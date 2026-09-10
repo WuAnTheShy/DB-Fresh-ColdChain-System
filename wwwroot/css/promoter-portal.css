@@ -1,4 +1,4 @@
-/* ===== 团长工作台 ===== */
+/* 团长工作台 */
 .promoter-portal {
     background: #CBE4EB;
     margin-bottom: 0;
@@ -29,6 +29,18 @@
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
+/* 团长端顶部身份卡：信息较多，头像与文本顶端对齐（供应商/管理员端保持居中，不受影响） */
+.role-promoter .sidebar-brand {
+    align-items: flex-start;
+    padding: 20px 18px;
+}
+
+/* 头像相对姓名行略微下移，与姓名行的视觉中线对齐 */
+.role-promoter .sidebar-brand .brand-avatar,
+.role-promoter .sidebar-brand .brand-icon {
+    margin-top: 6px;
+}
+
 .brand-icon {
     width: 40px;
     height: 40px;
@@ -42,8 +54,72 @@
     flex-shrink: 0;
 }
 
+/* 侧边栏品牌区头像（替代原「团」字图标） */
+.brand-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #fff;
+    border: 1px solid rgba(255,255,255,0.6);
+}
+
 .brand-title { font-size: 15px; font-weight: 600; }
 .brand-sub { font-size: 11px; opacity: 0.6; margin-top: 2px; }
+
+/* 顶部身份卡：头像 / 姓名右侧的团长身份、基础佣金、累计销售额 */
+.portal-shell .brand-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.portal-shell .brand-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.portal-shell .metric-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.portal-shell .metric-label { color: rgba(255,255,255,0.62); }
+.portal-shell .metric-value { color: #fff; font-weight: 600; }
+
+/* 姓名行：团长姓名靠左、等级标签（团长身份值）右对齐，与下方金额列对齐 */
+.portal-shell .brand-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+
+.portal-shell .brand-title-row .brand-title {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 身份卡内的等级标签做小一号，避免撑破 240px 侧栏 */
+.portal-shell .brand-title-row .level-badge {
+    flex: none;
+    padding: 1px 9px;
+    font-size: 11px;
+    line-height: 1.5;
+}
 
 .sidebar-nav {
     flex: 1;
@@ -74,6 +150,10 @@
     border-top: 1px solid rgba(255,255,255,0.1);
 }
 
+/* 侧边栏底部信息增多后：窗口较矮时导航区可独立滚动，底部身份信息不被裁切 */
+.portal-shell .sidebar-nav { overflow-y: auto; }
+.portal-shell .sidebar-footer { flex-shrink: 0; }
+
 .user-chip {
     font-size: 13px;
     opacity: 0.85;
@@ -99,7 +179,115 @@
 .portal-content { padding: 24px 28px; flex: 1; }
 .header-date { font-size: 13px; }
 
-/* ===== 工作台 Dashboard ===== */
+/* 门户顶部导航栏（团长/管理员/供应商端共用）：采用与「移除」按钮一致的深墨色（#002F36）+ 投影，含 logo 与时钟 */
+.portal-shell .portal-header {
+    background: #002F36;
+    border-bottom: 0;
+    box-shadow: 0 4px 12px rgba(0, 47, 54, 0.3);
+    padding: 10px 28px;
+    gap: 16px;
+}
+
+.portal-shell .page-title { color: #fff; }
+
+.portal-shell .portal-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+/* 右侧时钟区：竖线 + 时钟（与左侧 logo 后的竖线样式一致） */
+.portal-shell .portal-header-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: none;
+}
+
+/* 鲜邻团 logo（白色版，与消费者端导航栏一致） */
+.portal-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: none;
+    padding: 4px 6px 9px;
+    color: #fff;
+}
+
+.portal-brand .pb-word {
+    position: relative;
+    display: inline-block;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -1.5px;
+}
+
+.portal-brand .pb-smile {
+    position: absolute;
+    left: 28%;
+    right: -6px;
+    bottom: 0;
+    height: 12px;
+    border-bottom: 3px solid #f90;
+    border-radius: 0 0 55% 55%;
+    transform: rotate(-3deg);
+}
+
+.portal-brand .pb-smile::after {
+    content: "";
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    width: 0;
+    height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 7px solid #f90;
+    transform: rotate(12deg);
+}
+
+.portal-brand small {
+    align-self: flex-start;
+    margin-top: 3px;
+    color: #fff;
+    font-size: 9px;
+    line-height: 1;
+}
+
+.portal-header-sep {
+    width: 1px;
+    height: 26px;
+    flex: none;
+    background: rgba(255, 255, 255, 0.55);
+}
+
+/* 导航栏时钟（结构与配色仿商城导航栏时钟） */
+.portal-clock {
+    display: inline-flex;
+    flex: none;
+    padding: 4px 8px;
+    color: #fff;
+}
+
+.portal-clock span {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+    line-height: 1.35;
+}
+
+.portal-clock small { color: #b9c2be; font-size: 11px; }
+
+.portal-clock strong {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* 工作台 Dashboard */
 .dashboard-hero {
     background: #2E5870;
     border-radius: 14px;
@@ -111,6 +299,31 @@
     gap: 16px;
     margin-bottom: 24px;
     flex-wrap: wrap;
+}
+
+/* 团长端深色横幅底纹：裁剪成横条的图片以高透明度叠加 */
+.hero-photo {
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-photo::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: url('../images/promoter/page-hero-1.jpg') center / cover no-repeat;
+    opacity: 0.12;
+    pointer-events: none;
+}
+
+/* 保证文字与按钮浮在底纹之上 */
+.hero-photo-1::before { background-image: url('../images/promoter/page-hero-1.jpg'); }
+.hero-photo-2::before { background-image: url('../images/promoter/page-hero-2.jpg'); }
+.hero-photo-3::before { background-image: url('../images/promoter/page-hero-3.jpg'); opacity: 0.16; }
+
+.hero-photo > * {
+    position: relative;
+    z-index: 1;
 }
 
 .hero-greeting {
@@ -127,22 +340,39 @@
     font-size: 13px;
 }
 
+/* 团长等级标签：金色（深色横幅上的高亮标签） */
 .level-badge {
-    background: rgba(255,255,255,0.2);
-    border: 1px solid rgba(255,255,255,0.35);
+    background: #febd69;
+    border: 1px solid #f3a847;
     border-radius: 20px;
     padding: 2px 12px;
+    color: #4a3200;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
 }
 
+/* 管理员身份标签：绿色系（与团长等级标签的金色区分） */
+.level-badge-admin {
+    background: #D7F2E3;
+    border-color: #9EDCC0;
+    color: #1C6B47;
+}
+
+/* 团长等级标签（大号）：金色，与 .level-badge 统一 */
 .level-badge-lg {
-    background: #ACECF7;
-    color: #2E5870;
+    background: #febd69;
+    border: 1px solid #f3a847;
+    color: #4a3200;
     border-radius: 20px;
-    padding: 4px 14px;
+    padding: 3px 13px;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
+}
+
+/* 灰蓝色计数标签（如工作台「快速查看」的数量角标） */
+.portal-shell .badge-slate {
+    background-color: #5E7590;
+    color: #fff;
 }
 
 .hero-actions { display: flex; gap: 8px; flex-shrink: 0; }
@@ -204,7 +434,7 @@
 
 .stat-card {
     background: #fff;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 20px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
@@ -215,7 +445,7 @@
 
 .content-card {
     background: #fff;
-    border-radius: 12px;
+    border-radius: 8px;
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     margin-bottom: 20px;
     overflow: hidden;
@@ -261,8 +491,9 @@
 
 /* 页面横幅 */
 .page-hero {
-    border-radius: 14px;
+    border-radius: 10px;
     padding: 22px 28px;
+    background: #2E5870;
     color: #fff;
     display: flex;
     align-items: center;
@@ -273,17 +504,43 @@
 }
 
 .page-hero-purple { background: #2E5870; }
-.page-hero-green  { background: #223B46; }
+.page-hero-green  { background: #2E5870; }
 
 .hero-stat-pill, .profile-header-balance {
     background: rgba(255,255,255,0.15);
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 12px 20px;
     text-align: right;
 }
 
 .pill-label { font-size: 12px; opacity: 0.8; }
 .pill-value { font-size: 22px; font-weight: 700; }
+.pill-sub { font-size: 11px; opacity: 0.72; }
+
+/* 深色横幅内嵌指标行（提现管理：可提现 / 冻结中 / 累计已提现） */
+.page-hero.hero-stacked {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px 20px;
+    margin-bottom: 16px;
+}
+
+/* 紧凑版横幅：标题与说明同步缩小，整体高度约为原来的 1/3 */
+.hero-stacked .hero-greeting {
+    font-size: 16px;
+    margin-bottom: 0;
+}
+
+.hero-stacked .hero-meta { font-size: 12px; }
+
+.hero-stacked .hero-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
 
 /* 侧边栏余额 */
 .sidebar-balance {
@@ -296,7 +553,8 @@
 
 .balance-label { font-size: 11px; opacity: 0.65; }
 .balance-value { font-size: 18px; font-weight: 700; color: #2B96C9; margin: 4px 0; }
-.balance-level { font-size: 11px; opacity: 0.75; }
+
+/* 团长身份 / 基础佣金 / 累计销售额：已由侧栏底部移至顶部身份卡（见 .brand-metrics） */
 
 /* 等级阶梯 */
 .tier-ladder { display: flex; flex-direction: column; gap: 0; }
@@ -392,7 +650,7 @@
 
 /* 个人资料头 */
 .profile-header-card {
-    background: #223B46;
+    background: #2E5870;
     border-radius: 14px;
     padding: 24px 28px;
     color: #fff;
@@ -499,6 +757,28 @@
 .profile-header-info { flex: 1; }
 .profile-header-balance { margin-left: auto; }
 
+/* 个人资料正文：仿消费者个人中心的主次双栏布局（左主右辅） */
+.profile-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.85fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.profile-layout-main,
+.profile-layout-side {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 16px;
+}
+
+@media (max-width: 991.98px) {
+    .profile-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
 .status-tip { padding: 12px; background: #f7fafc; border-radius: 8px; height: 100%; }
 
 @media (max-width: 768px) {
@@ -508,7 +788,7 @@
     .portal-content { padding: 16px; }
 }
 
-/* ===== Bootstrap 5.2 text-bg-* 徽章工具类兼容补丁（本项目 Bootstrap 为 5.1，badge 默认白字无底，导致徽章不可见） ===== */
+/* Bootstrap 5.2 text-bg-* 徽章工具类兼容补丁（本项目 Bootstrap 为 5.1，badge 默认白字无底，导致徽章不可见） */
 .text-bg-primary   { color: #fff !important; background-color: #2E5870 !important; }
 .text-bg-secondary { color: #fff !important; background-color: #6c757d !important; }
 .text-bg-success   { color: #fff !important; background-color: #198754 !important; }
@@ -518,7 +798,7 @@
 .text-bg-light     { color: #000 !important; background-color: #f8f9fa !important; }
 .text-bg-dark      { color: #fff !important; background-color: #212529 !important; }
 
-/* ===== 五色基调：Bootstrap 语义色映射（团长端统一） ===== */
+/* 五色基调：Bootstrap 语义色映射（门户端统一） */
 /* 成功/金额 → 淡蓝 #2B96C9；待审核/进行中 → 深蓝灰 #2E5870；冻结/信息 → 深青灰 #223B46；主色 → 深蓝灰 #2E5870 */
 .text-success { color: #2B96C9 !important; }
 .text-warning { color: #2E5870 !important; }
@@ -526,32 +806,32 @@
 .text-primary { color: #2E5870 !important; }
 /* text-danger（退款/驳回）、text-muted（次要文字）保留 Bootstrap 语义色 */
 
-/* ===== 团长端输入控件：方角、去阴影 ===== */
-.role-promoter .form-control,
-.role-promoter .form-select,
-.role-promoter input.form-control,
-.role-promoter select.form-select,
-.role-promoter textarea.form-control {
+/* 门户端输入控件：方角、去阴影 */
+.portal-shell .form-control,
+.portal-shell .form-select,
+.portal-shell input.form-control,
+.portal-shell select.form-select,
+.portal-shell textarea.form-control {
     border-radius: 0 !important;
     box-shadow: none !important;
 }
-.role-promoter .form-control:focus,
-.role-promoter .form-select:focus,
-.role-promoter input.form-control:focus,
-.role-promoter select.form-select:focus,
-.role-promoter textarea.form-control:focus {
+.portal-shell .form-control:focus,
+.portal-shell .form-select:focus,
+.portal-shell input.form-control:focus,
+.portal-shell select.form-select:focus,
+.portal-shell textarea.form-control:focus {
     border-color: #2B96C9;
     box-shadow: none !important;
 }
 
-/* ===== 导航 SVG 图标统一样式 ===== */
+/* 导航 SVG 图标统一样式 */
 .sidebar-nav .nav-icon svg {
     width: 18px;
     height: 18px;
     flex-shrink: 0;
 }
 
-/* ===== 页面内联 SVG 图标统一样式（填充跟随文字颜色 currentColor） ===== */
+/* 页面内联 SVG 图标统一样式（填充跟随文字颜色 currentColor） */
 .stat-icon svg { width: 18px; height: 18px; }
 .empty-icon svg { width: 34px; height: 34px; }
 .content-card-header h5 svg,
@@ -563,3 +843,1124 @@
 .avatar-change-btn svg { width: 13px; height: 13px; display: block; }
 .tier-step-marker svg { width: 18px; height: 18px; }
 .milestone-icon svg { width: 18px; height: 18px; }
+
+/* 我的消费者：方框卡片（对齐消费者端团长带货商品的卡片风格） */
+.consumer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    padding: 20px;
+}
+
+.consumer-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #e7e7e7;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 4px 18px rgba(15, 17, 17, 0.06);
+    transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease-in-out;
+}
+
+.consumer-card:hover {
+    border-color: #d5d5d5;
+    box-shadow: 0 8px 24px rgba(15, 17, 17, 0.1);
+    transform: translateY(-2px);
+}
+
+.consumer-card-head {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 16px;
+}
+
+.consumer-avatar {
+    display: flex;
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    color: #fff;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.consumer-avatar.is-empty {
+    background: #CBE4EB !important;
+    color: #2E5870;
+}
+
+.consumer-avatar svg {
+    width: 24px;
+    height: 24px;
+}
+
+.consumer-identity {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+}
+
+.consumer-identity strong {
+    overflow: hidden;
+    color: #1f2321;
+    font-size: 15px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.consumer-identity small {
+    margin-top: 3px;
+    overflow: hidden;
+    color: #777d7a;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.consumer-card-divider {
+    height: 1px;
+    background: #ededed;
+}
+
+.consumer-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 15px 16px 16px;
+}
+
+.consumer-contact {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.consumer-contact-label {
+    color: #979c99;
+    font-size: 11px;
+}
+
+.consumer-contact-value {
+    display: flex;
+    min-height: 30px;
+    align-items: center;
+    gap: 7px;
+    color: #223B46;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    line-height: 1.1;
+    word-break: break-all;
+}
+
+.consumer-contact-value svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: #2B96C9;
+}
+
+.consumer-contact-value.is-empty {
+    color: #a0aec0;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+.consumer-contact-value.is-empty svg {
+    color: #cbd5e0;
+}
+
+.consumer-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.consumer-id-badge {
+    display: inline-flex;
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    overflow: hidden;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: #eef4f8;
+    color: #2E5870;
+    font-size: 11px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.consumer-status-badge {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: #e9f7ef;
+    color: #25a96b;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.consumer-status-badge svg {
+    width: 12px;
+    height: 12px;
+}
+
+@media (max-width: 767.98px) {
+    .consumer-grid {
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .consumer-card-head {
+        padding: 13px 14px;
+    }
+
+    .consumer-avatar {
+        width: 42px;
+        height: 42px;
+        flex-basis: 42px;
+        font-size: 17px;
+    }
+
+    .consumer-card-body {
+        padding: 13px 14px;
+    }
+}
+
+/* 门户端按钮统一配色标准
+   实心（深色）→ 业绩框深蓝 #2E5870
+   描边（浅色）→ 白底 + 蓝 #2B96C9 / 绿 #2e9e5b / 红 #e2574c
+   中性次要（取消、次级操作）→ 白底灰描边
+   btn-light → 白底深蓝字（用于深色横幅上）
+   btn-link → 保持链接样式 */
+
+/* —— 实心按钮：统一深蓝 —— */
+.portal-shell .btn-primary,
+.portal-shell .btn-success,
+.portal-shell .btn-info,
+.portal-shell .btn-dark {
+    border-color: #2E5870;
+    background-color: #2E5870;
+    color: #fff;
+}
+
+.portal-shell .btn-primary:hover,
+.portal-shell .btn-success:hover,
+.portal-shell .btn-info:hover,
+.portal-shell .btn-dark:hover,
+.portal-shell .btn-primary:focus,
+.portal-shell .btn-success:focus,
+.portal-shell .btn-info:focus,
+.portal-shell .btn-dark:focus,
+.portal-shell .btn-primary:active,
+.portal-shell .btn-success:active,
+.portal-shell .btn-info:active,
+.portal-shell .btn-dark:active,
+.portal-shell .btn-primary.active,
+.portal-shell .btn-success.active,
+.portal-shell .btn-info.active,
+.portal-shell .btn-dark.active {
+    border-color: #24485c;
+    background-color: #24485c;
+    color: #fff;
+}
+
+.portal-shell .btn-primary:focus,
+.portal-shell .btn-success:focus,
+.portal-shell .btn-info:focus,
+.portal-shell .btn-dark:focus {
+    box-shadow: 0 0 0 0.2rem rgba(46, 88, 112, 0.3);
+}
+
+.portal-shell .btn-primary:disabled,
+.portal-shell .btn-success:disabled,
+.portal-shell .btn-info:disabled,
+.portal-shell .btn-dark:disabled {
+    border-color: #2E5870;
+    background-color: #2E5870;
+    color: #fff;
+    opacity: 0.55;
+}
+
+/* —— 中性次要按钮（取消等）：白底灰描边，与主按钮区分 —— */
+.portal-shell .btn-secondary {
+    border-color: #cfd6da;
+    background-color: #fff;
+    color: #5a6770;
+}
+
+.portal-shell .btn-secondary:hover,
+.portal-shell .btn-secondary:focus,
+.portal-shell .btn-secondary:active,
+.portal-shell .btn-secondary.active {
+    border-color: #b3bcc2;
+    background-color: #f2f5f7;
+    color: #3d4a52;
+}
+
+.portal-shell .btn-secondary:focus {
+    box-shadow: 0 0 0 0.2rem rgba(90, 103, 112, 0.18);
+}
+
+/* —— 浅色按钮（用于深色横幅）：白底深蓝字 —— */
+.portal-shell .btn-light {
+    border-color: #fff;
+    background-color: #fff;
+    color: #2E5870;
+}
+
+.portal-shell .btn-light:hover,
+.portal-shell .btn-light:focus,
+.portal-shell .btn-light:active {
+    border-color: #eef2f4;
+    background-color: #eef2f4;
+    color: #24485c;
+}
+
+.portal-shell .btn-light:focus {
+    box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.45);
+}
+
+/* —— 描边按钮：白底 + 标准色 —— */
+/* 蓝 */
+.portal-shell .btn-outline-primary,
+.portal-shell .btn-outline-info {
+    border-color: #2B96C9;
+    background-color: #fff;
+    color: #2B96C9;
+}
+
+.portal-shell .btn-outline-primary:hover,
+.portal-shell .btn-outline-info:hover,
+.portal-shell .btn-outline-primary:focus,
+.portal-shell .btn-outline-info:focus,
+.portal-shell .btn-outline-primary:active,
+.portal-shell .btn-outline-info:active,
+.portal-shell .btn-outline-primary.active,
+.portal-shell .btn-outline-info.active {
+    border-color: #2B96C9;
+    background-color: #2B96C9;
+    color: #fff;
+}
+
+/* 绿 */
+.portal-shell .btn-outline-success {
+    border-color: #2e9e5b;
+    background-color: #fff;
+    color: #2e9e5b;
+}
+
+.portal-shell .btn-outline-success:hover,
+.portal-shell .btn-outline-success:focus,
+.portal-shell .btn-outline-success:active,
+.portal-shell .btn-outline-success.active {
+    border-color: #2e9e5b;
+    background-color: #2e9e5b;
+    color: #fff;
+}
+
+/* 红（含警告操作，统一到红色系） */
+.portal-shell .btn-outline-danger,
+.portal-shell .btn-outline-warning {
+    border-color: #e2574c;
+    background-color: #fff;
+    color: #e2574c;
+}
+
+.portal-shell .btn-outline-danger:hover,
+.portal-shell .btn-outline-warning:hover,
+.portal-shell .btn-outline-danger:focus,
+.portal-shell .btn-outline-warning:focus,
+.portal-shell .btn-outline-danger:active,
+.portal-shell .btn-outline-warning:active,
+.portal-shell .btn-outline-danger.active,
+.portal-shell .btn-outline-warning.active {
+    border-color: #e2574c;
+    background-color: #e2574c;
+    color: #fff;
+}
+
+/* 实心红（危险操作，如移除）：暗红底 + 白字 */
+.portal-shell .btn-danger {
+    border-color: #b23b30;
+    background-color: #b23b30;
+    color: #fff;
+}
+
+.portal-shell .btn-danger:hover,
+.portal-shell .btn-danger:focus,
+.portal-shell .btn-danger:active,
+.portal-shell .btn-danger.active {
+    border-color: #95302a;
+    background-color: #95302a;
+    color: #fff;
+}
+
+.portal-shell .btn-danger:focus {
+    box-shadow: 0 0 0 0.2rem rgba(178, 59, 48, 0.28);
+}
+
+.portal-shell .btn-danger:disabled {
+    border-color: #b23b30;
+    background-color: #b23b30;
+    color: #fff;
+}
+
+/* —— 消费者端配色按钮 —— */
+/* 棕底白字（如「详情」） */
+.portal-shell .btn-brown {
+    border-color: #8B5A2B;
+    background-color: #8B5A2B;
+    color: #fff;
+}
+
+.portal-shell .btn-brown:hover,
+.portal-shell .btn-brown:focus,
+.portal-shell .btn-brown:active,
+.portal-shell .btn-brown.active {
+    border-color: #6F4620;
+    background-color: #6F4620;
+    color: #fff;
+}
+
+.portal-shell .btn-brown:focus {
+    box-shadow: 0 0 0 0.2rem rgba(139, 90, 43, 0.28);
+}
+
+/* 深墨（深色，如「移除」） */
+.portal-shell .btn-ink {
+    border-color: #002F36;
+    background-color: #002F36;
+    color: #fff;
+}
+
+.portal-shell .btn-ink:hover,
+.portal-shell .btn-ink:focus,
+.portal-shell .btn-ink:active,
+.portal-shell .btn-ink.active {
+    border-color: #0b4a54;
+    background-color: #0b4a54;
+    color: #fff;
+}
+
+.portal-shell .btn-ink:focus {
+    box-shadow: 0 0 0 0.2rem rgba(0, 47, 54, 0.3);
+}
+
+/* 深绿（如「入团」） */
+.portal-shell .btn-forest {
+    border-color: #1E6B45;
+    background-color: #1E6B45;
+    color: #fff;
+}
+
+.portal-shell .btn-forest:hover,
+.portal-shell .btn-forest:focus,
+.portal-shell .btn-forest:active,
+.portal-shell .btn-forest.active {
+    border-color: #175536;
+    background-color: #175536;
+    color: #fff;
+}
+
+.portal-shell .btn-forest:focus {
+    box-shadow: 0 0 0 0.2rem rgba(30, 107, 69, 0.3);
+}
+
+/* 灰（次级） */
+.portal-shell .btn-outline-secondary {
+    border-color: #cfd6da;
+    background-color: #fff;
+    color: #5a6770;
+}
+
+.portal-shell .btn-outline-secondary:hover,
+.portal-shell .btn-outline-secondary:focus,
+.portal-shell .btn-outline-secondary:active,
+.portal-shell .btn-outline-secondary.active {
+    border-color: #b3bcc2;
+    background-color: #f2f5f7;
+    color: #3d4a52;
+}
+
+/* 描边按钮 focus 统一去默认外发光，避免与配色冲突 */
+.portal-shell .btn-outline-primary:focus,
+.portal-shell .btn-outline-info:focus,
+.portal-shell .btn-outline-success:focus,
+.portal-shell .btn-outline-danger:focus,
+.portal-shell .btn-outline-warning:focus,
+.portal-shell .btn-outline-secondary:focus {
+    box-shadow: none;
+}
+
+/* 指标合并卡片：多个指标合成一个框（扁平化 + 强层次，仿消费者个人中心入口） */
+.overview-card {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    margin-bottom: 24px;
+    overflow: hidden;
+    border: 1px solid #e7e7e7;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.overview-item {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 18px 22px;
+    border-right: 1px solid #edf2f7;
+}
+
+.overview-item:last-child {
+    border-right: none;
+}
+
+/* 图标锚点：统一色，强化视觉起点 */
+.overview-icon {
+    display: flex;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    background: #eef4f8;
+    color: #2E5870;
+}
+
+.overview-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.overview-body {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+/* 主层：大数值 */
+.overview-value {
+    color: #1f2321;
+    font-size: 25px;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+}
+
+.overview-value .unit {
+    margin-left: 1px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* 次层：指标名 */
+.overview-label {
+    color: #6b7780;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+/* 第三层：补充说明 */
+.overview-sub {
+    color: #a8b1b8;
+    font-size: 11px;
+}
+
+/* 指标名 + 补充说明 同处一行 */
+.overview-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 767.98px) {
+    .overview-card {
+        grid-template-columns: 1fr;
+    }
+
+    .overview-item {
+        padding: 14px 16px;
+        border-right: none;
+        border-bottom: 1px solid #edf2f7;
+    }
+
+    .overview-item:last-child {
+        border-bottom: none;
+    }
+
+    .overview-value {
+        font-size: 22px;
+    }
+}
+
+/* 业绩概览：等级晋升时间轴（仿消费者端物流轨迹） */
+.promo-timeline { display: flex; flex-direction: column; }
+
+.promo-timeline-item {
+    position: relative;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 14px;
+    padding-bottom: 20px;
+}
+
+.promo-timeline-item:last-child { padding-bottom: 0; }
+
+/* 节点之间的竖向连线 */
+.promo-timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 18px;
+    top: 42px;
+    bottom: 6px;
+    width: 2px;
+    background: #e2e8f0;
+}
+
+.promo-timeline-item.achieved:not(:last-child)::before { background: #b9e3c6; }
+
+.promo-timeline-marker {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #dfe6ec;
+    border-radius: 50%;
+    background: #fff;
+    color: #a8b1b8;
+}
+
+.promo-timeline-marker svg { width: 18px; height: 18px; }
+
+/* 未达成节点：空心圆 + 中心小灰点（仿物流未到达节点） */
+.promo-timeline-item:not(.achieved) .promo-timeline-marker::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #cbd5e0;
+}
+
+.promo-timeline-item.achieved .promo-timeline-marker {
+    border-color: #2B96C9;
+    background: #2B96C9;
+    color: #fff;
+}
+
+/* 当前等级：圆点用更深的深蓝 + 更粗的对勾，让状态更醒目 */
+.promo-timeline-item.current .promo-timeline-marker {
+    border-color: #2E5870;
+    background: #2E5870;
+    box-shadow: 0 0 0 4px rgba(46, 88, 112, 0.22);
+}
+
+.promo-timeline-item.current .promo-timeline-marker svg {
+    stroke-width: 3.4;
+}
+
+.promo-timeline-body {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 5px;
+    padding-top: 3px;
+}
+
+/* 第一层：等级名 */
+.promo-timeline-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    color: #1f2321;
+    font-size: 15px;
+    font-weight: 650;
+}
+
+.promo-timeline-tag {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.promo-timeline-tag.current { background: #2B96C9; color: #fff; }
+.promo-timeline-tag.achieved { background: #eef4f8; color: #2E5870; }
+
+/* 第二层：区间 / 佣金 / 奖励 */
+.promo-timeline-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    color: #6b7780;
+    font-size: 12px;
+}
+
+.promo-timeline-meta strong { color: #2E5870; }
+
+.promo-timeline-reward {
+    padding: 1px 8px;
+    border-radius: 6px;
+    background: #eef4f8;
+    color: #2E5870;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.promo-timeline-reward.alt { background: #fdf3e6; color: #b06b00; }
+
+/* 第三层：进度补充说明 */
+.promo-timeline-note { color: #a8b1b8; font-size: 11px; line-height: 1.6; }
+
+.promo-timeline .tier-progress-wrap { margin: 8px 0 2px; }
+
+/* 规则说明：两个说明框合并，层次化排版 */
+.rule-section + .rule-section {
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.rule-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    color: #2E5870;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.rule-section-title::before {
+    content: '';
+    width: 3px;
+    height: 14px;
+    border-radius: 2px;
+    background: #2B96C9;
+}
+
+.rule-hint { margin: 0 0 12px; color: #a8b1b8; font-size: 11px; line-height: 1.6; }
+
+.rule-list { padding-left: 18px; color: #6b7780; font-size: 12px; line-height: 1.9; }
+
+/* 商品上架：商品卡片（对齐「我的消费者」方框卡片风格） */
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+    padding: 20px;
+}
+
+.product-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #e7e7e7;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 4px 18px rgba(15, 17, 17, 0.06);
+    transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease-in-out;
+}
+
+.product-card:hover {
+    border-color: #d5d5d5;
+    box-shadow: 0 8px 24px rgba(15, 17, 17, 0.1);
+    transform: translateY(-2px);
+}
+
+.product-card.is-inactive { background: #fbfbfb; }
+
+.product-card-head {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 16px;
+}
+
+.product-thumb-lg {
+    display: flex;
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid #e7e7e7;
+    border-radius: 11px;
+    background: #f4f6f7;
+    object-fit: cover;
+}
+
+.product-thumb-lg.is-empty { color: #a8b1b8; }
+
+.product-thumb-lg svg {
+    width: 22px;
+    height: 22px;
+}
+
+.product-card-identity {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+}
+
+.product-card-title {
+    overflow: hidden;
+    color: #1f2321;
+    font-size: 15px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.product-card-sub {
+    margin-top: 3px;
+    overflow: hidden;
+    color: #777d7a;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.product-status-badge {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.product-status-badge svg { width: 12px; height: 12px; }
+.product-status-badge.is-active { background: #e9f7ef; color: #25a96b; }
+.product-status-badge.is-inactive { background: #fdeceb; color: #b23b30; }
+
+.product-card-divider {
+    height: 1px;
+    background: #ededed;
+}
+
+.product-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 15px 16px 16px;
+}
+
+.product-desc {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: #242826;
+    font-size: 13px;
+    line-height: 1.6;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.product-desc.is-empty { color: #a0aec0; }
+
+.product-price-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding-top: 12px;
+    border-top: 1px dashed #edf2f7;
+}
+
+.product-price-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+}
+
+.product-price-label { color: #979c99; }
+.product-price-value { color: #223B46; font-weight: 600; }
+.product-price-value.is-muted { color: #a0aec0; font-weight: 500; }
+.product-price-value.is-current { color: #2B96C9; font-size: 16px; font-weight: 700; }
+
+.product-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.product-card-actions form {
+    display: flex;
+    flex: 1;
+    margin: 0;
+}
+
+.product-card-actions .btn {
+    flex: 1;
+    width: 100%;
+}
+
+.product-grid-note {
+    padding: 0 20px 18px;
+    color: #979c99;
+    font-size: 12px;
+}
+
+@media (max-width: 767.98px) {
+    .product-grid {
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .product-card-head { padding: 13px 14px; }
+    .product-card-body { padding: 13px 14px; }
+    .product-grid-note { padding: 0 14px 14px; }
+}
+
+/* 供应商 / 管理员端横幅底纹：与团长端一致的图片叠底
+   图片取自 ../../tmppic/{supplier,admin}/，已复制到 wwwroot/images/{supplier,admin}/。
+   具体用哪张由各门户外壳在 .portal-content 上以 --hero-photo 变量下发，实现不同页面不同底图。 */
+.role-supplier .page-hero,
+.role-supplier .dashboard-hero,
+.role-admin .page-hero,
+.role-admin .dashboard-hero {
+    position: relative;
+    overflow: hidden;
+}
+
+.role-supplier .page-hero::before,
+.role-supplier .dashboard-hero::before,
+.role-admin .page-hero::before,
+.role-admin .dashboard-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    opacity: 0.14;
+    pointer-events: none;
+}
+
+.role-supplier .page-hero::before,
+.role-supplier .dashboard-hero::before {
+    background-image: var(--hero-photo, url('../images/supplier/page-hero-1.jpg'));
+}
+
+.role-admin .page-hero::before,
+.role-admin .dashboard-hero::before {
+    background-image: var(--hero-photo, url('../images/admin/page-hero-1.jpg'));
+}
+
+/* 文字与按钮浮在底纹之上 */
+.role-supplier .page-hero > *,
+.role-supplier .dashboard-hero > *,
+.role-admin .page-hero > *,
+.role-admin .dashboard-hero > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* 供应商首页：大图 + 白色半透明方框 + 白字 */
+/* 内容区去掉内边距并纵向弹性布局：首页大图整块铺满，欢迎框与快捷入口浮于图上 */
+.portal-shell .portal-content:has(> .welcome-banner) {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
+.welcome-banner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 620px;
+    align-items: center;
+    justify-content: center;
+    gap: 34px;
+    overflow: hidden;
+}
+
+.welcome-banner-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* 轻微压暗，保证白字在任何底图上都清晰 */
+.welcome-banner::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(18, 38, 50, 0.28), rgba(18, 38, 50, 0.48));
+}
+
+.welcome-glass {
+    position: relative;
+    z-index: 1;
+    width: min(780px, calc(100% - 64px));
+    margin: 0;
+    padding: 38px 46px;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+    color: #fff;
+    text-align: center;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.welcome-title {
+    margin-bottom: 12px;
+    color: #fff;
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.welcome-quick {
+    position: relative;
+    z-index: 1;
+    width: min(1220px, calc(100% - 64px));
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 22px;
+}
+
+.quick-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    padding: 2rem 1.5rem 1.75rem;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(0, 113, 133, 0.15);
+    border-radius: 1rem;
+    box-shadow: 0 4px 18px rgba(0, 113, 133, 0.10);
+    text-decoration: none;
+    text-align: center;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+}
+
+.quick-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 14px 30px rgba(0, 113, 133, 0.18);
+    border-color: #007185;
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.quick-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: rgba(0, 113, 133, 0.08);
+    color: #007185;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.1rem;
+}
+
+.quick-icon svg { width: 27px; height: 27px; }
+
+.quick-card:hover .quick-icon {
+    background: rgba(0, 113, 133, 0.16);
+    transform: scale(1.06);
+}
+
+.quick-card h5 {
+    margin-bottom: 0.5rem;
+    color: #1a2b33;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.quick-card p {
+    margin-bottom: 1rem;
+    color: #6b7a80;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    flex-grow: 1;
+}
+
+.quick-more {
+    color: #007185;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.welcome-text {
+    margin: 0;
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.9;
+    opacity: 0.94;
+}
+
+@media (max-width: 1199.98px) {
+    .welcome-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767.98px) {
+    .welcome-banner { min-height: 520px; }
+    .welcome-glass { width: calc(100% - 32px); padding: 26px 22px; }
+    .welcome-title { font-size: 22px; }
+    .welcome-quick { width: calc(100% - 32px); grid-template-columns: 1fr; gap: 14px; }
+}
+
+/* 同一行内两栏之间的竖向分隔线（仅桌面端显示，移动端堆叠时自动隐藏） */
+@media (min-width: 768px) {
+    .divider-v-start {
+        position: relative;
+    }
+
+    .divider-v-start::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: calc(-0.5 * var(--bs-gutter-x, 1.5rem));
+        width: 1px;
+        background: #ededed;
+    }
+}

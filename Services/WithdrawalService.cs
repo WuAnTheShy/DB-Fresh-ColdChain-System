@@ -23,12 +23,10 @@ namespace FreshColdChain.Services
             _logManager = logManager;
         }
 
-        /// <summary>
-        /// 发起提现申请
-        /// </summary>
-        /// <param name="operatorId">操作者ID（通常为平台管理员）</param>
-        /// <param name="request">提现请求</param>
-        /// <returns>(是否成功, 错误信息)</returns>
+        // 发起提现申请
+        // <param name="operatorId">操作者ID（通常为平台管理员）</param>
+        // <param name="request">提现请求</param>
+        // <returns>(是否成功, 错误信息)</returns>
         public async Task<Result> ApplyWithdrawal(string operatorId, GroupC_WithdrawalRequest request)
         {
             await _uow.BeginAsync();
@@ -62,8 +60,6 @@ namespace FreshColdChain.Services
                     throw new Exception($"请先绑定{PromoterPayAccounts.Label(platform)}收款账户后再申请提现");
                 }
 
-                var accountInfo = PromoterPayAccounts.FormatAccountInfo(platform, boundAccount);
-
                 // 2. 防重检验：是否已有正在审核的申请（Pending；Approved 表示已打款完成，允许再次提现）
                 var exists = await _iwithdrawalRepository.GroupC_HasPendingWithdrawalAsync(request.PromoterId, _uow.Transaction);
                 if (exists)
@@ -88,7 +84,8 @@ namespace FreshColdChain.Services
                     WithdrawalId = "Wd_" + Guid.NewGuid().ToString("N"),
                     PromoterId = request.PromoterId,
                     ApplyAmount = request.ApplyAmount,
-                    AccountInfo = accountInfo,
+                    AccountPlatform = platform,
+                    AccountNo = boundAccount,
                     ApplyTime = DateTime.Now,
                     AuditStatus = "Pending",
                     AuditorUserId = string.Empty,
@@ -147,9 +144,7 @@ namespace FreshColdChain.Services
             
         }
 
-        /// <summary>
-        /// 审核通过提现申请（打款）
-        /// </summary>
+        // 审核通过提现申请（打款）
         public async Task<Result> ApproveWithdrawal(string operatorId,GroupC_WithdrawApproved approved)
         {
             await _uow.BeginAsync();
@@ -234,9 +229,7 @@ namespace FreshColdChain.Services
             
         }
 
-        /// <summary>
-        /// 驳回提现申请
-        /// </summary>
+        // 驳回提现申请
         public async Task<Result> RejectWithdrawal(string operatorId, GroupC_WithdrawRejected rejected)
         {
             await _uow.BeginAsync();

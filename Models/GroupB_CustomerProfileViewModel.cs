@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 消费者中心页面数据。
-/// </summary>
+// 消费者中心页面数据。
 public sealed class CustomerProfileViewModel
 {
     public required CrmCustomer Customer { get; init; }

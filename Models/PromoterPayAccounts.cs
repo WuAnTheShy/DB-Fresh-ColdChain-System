@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace FreshColdChain.Models
 {
-    /// <summary>团长收款账户平台常量与校验。</summary>
+    // 团长收款账户平台常量与校验。
     public static class PromoterPayAccounts
     {
         public const string WeChat = "WeChat";
@@ -57,7 +57,8 @@ namespace FreshColdChain.Models
             return (true, string.Empty);
         }
 
-        public static string FormatAccountInfo(string? platform, string accountNo) =>
-            $"{Label(platform)}：{accountNo.Trim()}";
+        // 平台 + 账号 拼成展示串（账号为空时只显示平台标签）。
+        public static string FormatAccountInfo(string? platform, string? accountNo) =>
+            $"{Label(platform)}：{(accountNo ?? string.Empty).Trim()}";
     }
 }

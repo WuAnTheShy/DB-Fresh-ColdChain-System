@@ -1,24 +1,61 @@
+@inject FreshColdChain.Services.PromoterPortalDataProvider PromoterData
+@using FreshColdChain.Services
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - 团长工作台</title>
+    <title>鲜邻团·生鲜冷链直销系统工作台</title>
+    <link rel="icon" type="image/png" href="~/images/favicon.png" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/promoter-portal.css" asp-append-version="true" />
 </head>
-<body class="promoter-portal role-promoter">
+<body class="promoter-portal portal-shell role-promoter">
     @{
         var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+        var promoterId = Context.Session.GetString("PromoterId");
+        var promoterName = Context.Session.GetString("PromoterName") ?? "团长";
+        var promoterAvatar = string.Empty;
+        var levelName = "普通团长";
+        var baseCommissionRate = 0m;
+        var totalSales = 0m;
+        if (!string.IsNullOrEmpty(promoterId))
+        {
+            var promoter = PromoterData.GetPromoter(promoterId);
+            promoterAvatar = promoter.Avatar ?? string.Empty;
+            levelName = PromoterPortalDataProvider.ResolveLevelName(promoter.TotalSales);
+            baseCommissionRate = PromoterPortalDataProvider.ResolveCommissionRatePercent(promoter.BaseCommissionRate);
+            totalSales = promoter.TotalSales;
+        }
     }
     <div class="portal-wrapper">
         <aside class="portal-sidebar">
             <div class="sidebar-brand">
-                <span class="brand-icon">团</span>
-                <div>
-                    <div class="brand-title">团长工作台</div>
-                    <div class="brand-sub">生鲜冷链团购</div>
+                @if (!string.IsNullOrWhiteSpace(promoterAvatar))
+                {
+                    <img class="brand-avatar" src="@Url.Content("~/images/avatars/" + promoterAvatar + ".png")" alt="@promoterName 头像" />
+                }
+                else
+                {
+                    <span class="brand-icon">@promoterName.FirstOrDefault('团')</span>
+                }
+                <div class="brand-info">
+                    <div class="brand-title-row">
+                        <span class="brand-title">@promoterName</span>
+                        <span class="level-badge">@levelName</span>
+                    </div>
+                    <div class="brand-metrics">
+                        <div class="metric-row">
+                            <span class="metric-label">基础佣金</span>
+                            <span class="metric-value">@baseCommissionRate.ToString("0.##")%</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">累计销售额</span>
+                            <span class="metric-value">¥@totalSales.ToString("N2")</span>
+                        </div>
+                    </div>
                 </div>
             </div>
             <nav class="sidebar-nav">
@@ -57,8 +94,23 @@
         </aside>
         <main class="portal-main">
             <header class="portal-header d-flex align-items-center justify-content-between">
-                <h1 class="page-title mb-0">@ViewData["Title"]</h1>
-                <span class="header-date text-muted small">@DateTime.Now.ToString("yyyy年MM月dd日 dddd")</span>
+                <div class="portal-header-left">
+                    <span class="portal-brand" aria-label="鲜邻团">
+                        <span class="pb-word">鲜邻团<i class="pb-smile" aria-hidden="true"></i></span>
+                        <small>fresh</small>
+                    </span>
+                    <span class="portal-header-sep" aria-hidden="true"></span>
+                    <h1 class="page-title mb-0">@ViewData["Title"]</h1>
+                </div>
+                <div class="portal-header-right">
+                    <span class="portal-header-sep" aria-hidden="true"></span>
+                    <div id="clock" class="portal-clock" title="当前时间">
+                        <span>
+                            <small id="clock-date"></small>
+                            <strong id="clock-time"></strong>
+                        </span>
+                    </div>
+                </div>
             </header>
             <div class="portal-content">
                 @RenderBody()
@@ -69,5 +121,28 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
+    <script>
+        (function () {
+            function updateClock() {
+                var elDate = document.getElementById('clock-date');
+                var elTime = document.getElementById('clock-time');
+                if (!elDate || !elTime) {
+                    return;
+                }
+                var now = new Date();
+                var weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+                var year = now.getFullYear();
+                var month = String(now.getMonth() + 1).padStart(2, '0');
+                var day = String(now.getDate()).padStart(2, '0');
+                var hours = String(now.getHours()).padStart(2, '0');
+                var minutes = String(now.getMinutes()).padStart(2, '0');
+                var seconds = String(now.getSeconds()).padStart(2, '0');
+                elDate.textContent = '星期' + weekdays[now.getDay()] + ' ' + year + '年' + month + '月' + day + '日';
+                elTime.textContent = hours + ':' + minutes + ':' + seconds;
+            }
+            updateClock();
+            setInterval(updateClock, 1000);
+        })();
+    </script>
 </body>
 </html>

@@ -5,9 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FreshColdChain.Controllers
 {
-    /// <summary>
-    /// 消费者端退款申请入口。退款审核与资金操作由 C 组 IRefundService 完成。
-    /// </summary>
+    // 消费者端退款申请入口。退款审核与资金操作由 C 组 IRefundService 完成。
     public class RefundController : Controller
     {
         private readonly IRefundService _refundService;

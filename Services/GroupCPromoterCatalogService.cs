@@ -5,7 +5,7 @@ using FreshColdChain.Models.DTOs;
 
 namespace FreshColdChain.Services;
 
-/// <summary>C 组团长目录、合作供应商和带货商品关系的正式只读适配。</summary>
+// C 组团长目录、合作供应商和带货商品关系的正式只读适配。
 public sealed class GroupCPromoterCatalogService(
     PromoterService promoterService,
     PromoterIntroStore introStore) : IGroupCPromoterCatalogService

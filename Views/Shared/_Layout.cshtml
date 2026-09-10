@@ -2,13 +2,18 @@
     // 账号相关页面（角色选择/登录/注册等）导航栏右侧不显示“你好，请登录”
     var controllerName = (ViewContext.RouteData.Values["controller"] as string) ?? "";
     var hideLoginEntry = controllerName.ToLowerInvariant() == "account";
+    // 前台入口（首页、账号相关）用门户标题；其余业务页面（消费者中心/订单/退款等）归入工作台
+    var siteTitle = controllerName.ToLowerInvariant() is "home" or "account"
+        ? "鲜邻团·生鲜冷链直销系统首页"
+        : "鲜邻团·生鲜冷链直销系统工作台";
 }
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - 生鲜冷链团购平台</title>
+    <title>@siteTitle</title>
+    <link rel="icon" type="image/png" href="~/images/favicon.png" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/layoutsite.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/FreshColdChain.styles.css" asp-append-version="true" />

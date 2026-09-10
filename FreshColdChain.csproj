@@ -33,9 +33,6 @@
     <Content Remove="tests\**\*" />
 
     <None Remove="tests\**\*" />
-    <Compile Remove="CarrierSimulator\**\*.cs" />
-    <Content Remove="CarrierSimulator\**\*" />
-    <None Remove="CarrierSimulator\**\*" />
 
     <Content Remove="$(SpaRoot)**" />
 

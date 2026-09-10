@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// Crm_Customers - 消费者
-/// </summary>
+// Crm_Customers - 消费者
 public class CrmCustomer
 {
     public string CustomerId { get; set; } = string.Empty;

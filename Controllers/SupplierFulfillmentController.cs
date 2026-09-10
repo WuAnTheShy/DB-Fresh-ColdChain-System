@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FreshColdChain.Controllers;
 
-/// <summary>B 组供应商履约入口；所有数据范围均由当前供应商会话决定。</summary>
+// B 组供应商履约入口；所有数据范围均由当前供应商会话决定。
 [ServiceFilter(typeof(GroupBSupplierSessionAuthorizationFilter))]
 public sealed class SupplierFulfillmentController(
     ISupplierFulfillmentService fulfillmentService,
@@ -14,7 +14,7 @@ public sealed class SupplierFulfillmentController(
     private string SupplierId =>
         HttpContext.Session.GetString("SupplierId")!;
 
-    /// <summary>下拉展示顺序：正常运输链路优先，异常/退回排在后面；最终是否可选由状态机裁决。</summary>
+    // 下拉展示顺序：正常运输链路优先，异常/退回排在后面；最终是否可选由状态机裁决。
     private static readonly string[] NextStatusCandidateCodes =
     [
         LogisticsStatusCodes.InTransit,

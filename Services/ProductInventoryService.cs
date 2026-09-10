@@ -30,7 +30,7 @@ public class ProductInventoryService : IProductInventoryService
         _uow = uow;
     }
 
-    // ========== 产品 ==========
+    // 产品
 
     public async Task<ApiResponse<PagedResult<ProductDto>>> GetProductsAsync(int pageIndex, int pageSize, string? keyword = null)
     {
@@ -110,7 +110,7 @@ public class ProductInventoryService : IProductInventoryService
         }
     }
 
-    /// <summary>为产品 DTO 批量附加商品图片（按商品分组，取展示顺序前 3 张）</summary>
+    // 为产品 DTO 批量附加商品图片（按商品分组，取展示顺序前 3 张）
     private async Task AttachProductImagesAsync(IEnumerable<ProductDto> dtos)
     {
         var imageMap = (await _productRepo.GetAllProductImagesAsync())
@@ -176,11 +176,9 @@ public class ProductInventoryService : IProductInventoryService
         return ApiResponse.Success("物品已删除");
     }
 
-    /// <summary>
-    /// 为商品批量追加图片（平台通用图）：二进制 BLOB 写入 Inv_ProductImages，
-    /// 对外地址统一为 /images/product/{ImageID}，供应商门户 / 团长 / 消费者端均通过该接口展示。
-    /// 图片紧随该商品现有平台图之后排序（第一张新增图会成为商品主图）。
-    /// </summary>
+    // 为商品批量追加图片（平台通用图）：二进制 BLOB 写入 Inv_ProductImages，
+    // 对外地址统一为 /images/product/{ImageID}，供应商门户 / 团长 / 消费者端均通过该接口展示。
+    // 图片紧随该商品现有平台图之后排序（第一张新增图会成为商品主图）。
     public async Task<ApiResponse> AddProductImagesAsync(string productId, IReadOnlyList<ProductImageUploadDto> images)
     {
         if (images == null || images.Count == 0)
@@ -221,7 +219,7 @@ public class ProductInventoryService : IProductInventoryService
         }
     }
 
-    // ========== 跨组接口（供 C 组调用）==========
+    // 跨组接口（供 C 组调用）
 
     public async Task<ApiResponse<int>> GetProductStockAsync(string productId)
     {
@@ -268,7 +266,7 @@ public class ProductInventoryService : IProductInventoryService
         }
     }
 
-    // ========== 分类 ==========
+    // 分类
 
     public async Task<ApiResponse<List<CategoryDto>>> GetAllCategoriesAsync()
     {
@@ -289,7 +287,7 @@ public class ProductInventoryService : IProductInventoryService
         }, "分类创建成功");
     }
 
-    // ========== 库存 ==========
+    // 库存
 
     public async Task<ApiResponse<InventoryDto>> GetInventoryAsync(string productId)
     {
@@ -316,7 +314,7 @@ public class ProductInventoryService : IProductInventoryService
         }).ToList());
     }
 
-    /// <summary>入库可选供应商下拉：该产品所有已建立货物（即供货）的供应商，进价显示其货物售价</summary>
+    // 入库可选供应商下拉：该产品所有已建立货物（即供货）的供应商，进价显示其货物售价
     public async Task<ApiResponse<List<SupplierQuoteOptionDto>>> GetStockInSupplierOptionsAsync(string productId)
     {
         try
@@ -382,14 +380,13 @@ public class ProductInventoryService : IProductInventoryService
                 st = new InvStockSummary
                 {
                     ProductID = dto.ProductID,
-                    TotalQty = dto.Quantity, LockedQty = 0, AvailableQty = dto.Quantity
+                    TotalQty = dto.Quantity, LockedQty = 0
                 };
                 await _stockRepo.AddAsync(st);
             }
             else
             {
                 st.TotalQty += dto.Quantity;
-                st.AvailableQty = st.TotalQty - st.LockedQty;
                 st.UpdateTime = DateTime.Now;
                 _stockRepo.Update(st);
             }
@@ -456,7 +453,6 @@ public class ProductInventoryService : IProductInventoryService
                 }
                 // 汇总数据不准时自动修正：修正必须提交（回滚会撤销修正），故此处提交修正后返回失败
                 st.TotalQty = batchTotal;
-                st.AvailableQty = st.TotalQty - st.LockedQty;
                 st.UpdateTime = DateTime.Now;
                 _stockRepo.Update(st);
                 await _uow.CommitAsync();
@@ -481,7 +477,6 @@ public class ProductInventoryService : IProductInventoryService
 
             // 扣减汇总（基于实际扣减量 = dto.Quantity - remaining）
             st.TotalQty -= dto.Quantity;
-            st.AvailableQty = st.TotalQty - st.LockedQty;
             st.UpdateTime = DateTime.Now;
             _stockRepo.Update(st);
 
@@ -495,7 +490,7 @@ public class ProductInventoryService : IProductInventoryService
         }
     }
 
-    // ========== 批次 ==========
+    // 批次
 
     public async Task<ApiResponse<List<StockBatchDto>>> GetBatchesAsync(string productId)
     {
@@ -523,7 +518,6 @@ public class ProductInventoryService : IProductInventoryService
             if (st.TotalQty != total)
             {
                 st.TotalQty = total;
-                st.AvailableQty = Math.Max(0, st.TotalQty - st.LockedQty);
                 st.UpdateTime = DateTime.Now;
                 _stockRepo.Update(st);
             }
@@ -559,7 +553,6 @@ public class ProductInventoryService : IProductInventoryService
             if (st != null)
             {
                 st.TotalQty += dto.InitialQty;
-                st.AvailableQty = st.TotalQty - st.LockedQty;
                 st.UpdateTime = DateTime.Now;
                 _stockRepo.Update(st);
             }
@@ -580,7 +573,7 @@ public class ProductInventoryService : IProductInventoryService
         }
     }
 
-    // ========== 映射 ==========
+    // 映射
 
     private async Task<ProductDto> MapToDtoAsync(InvProduct p)
     {

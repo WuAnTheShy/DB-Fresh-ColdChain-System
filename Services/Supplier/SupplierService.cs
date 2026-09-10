@@ -9,6 +9,9 @@ namespace FreshColdChain.Services.Supplier;
 
 public class SupplierService : ISupplierService
 {
+    // 新增供应商的初始信用分：不由管理员填写，由后台统一生成
+    private const int DefaultCreditLevel = 30;
+
     private readonly ISupplierRepository _repo;
     private readonly IProductRepository _productRepo;
     private readonly IGoodsRepository _goodsRepo;
@@ -47,11 +50,13 @@ public class SupplierService : ISupplierService
             var s = new InvSupplier
             {
                 SupplierName = dto.SupplierName, LicenseNo = dto.LicenseNo,
-                ExpiryDate = dto.ExpiryDate, CreditLevel = dto.CreditLevel,
+                ExpiryDate = dto.ExpiryDate,
+                // 新增时信用分留空，由后台统一生成初始值 30（传入合法值时沿用传入值）
+                CreditLevel = dto.CreditLevel is > 0 and <= 100 ? dto.CreditLevel : DefaultCreditLevel,
                 ContactPhone = dto.ContactPhone, LoginAccount = dto.LoginAccount,
                 LoginPassword = string.IsNullOrEmpty(dto.LoginPassword) ? null : HashPassword(dto.LoginPassword),
-                // 管理员代建与后台登记均直接生效；自助入驻若走此接口也按已审核处理
-                Status = "Active"
+                // 管理员代建与后台登记直接生效（Active）；供应商自助入驻传 Pending，需账号管理员审核
+                Status = string.IsNullOrWhiteSpace(dto.Status) ? "Active" : dto.Status
             };
             await _repo.AddAsync(s);
             return ApiResponse<SupplierDto>.Success(MapToDto(s), "供应商创建成功");
@@ -101,9 +106,9 @@ public class SupplierService : ISupplierService
         }
     }
 
-    // ========== 供货价（进价由供应商决定，统一以「我的货物」售价为准）==========
+    // 供货价（进价由供应商决定，统一以「我的货物」售价为准）
 
-    /// <summary>供应商详情页用：该供应商已建立货物的所有商品（多供应商模式下，货物即供货关系）</summary>
+    // 供应商详情页用：该供应商已建立货物的所有商品（多供应商模式下，货物即供货关系）
     public async Task<ApiResponse<List<SupplierProductQuoteDto>>> GetSupplierProductQuotesAsync(string supplierId)
     {
         try
@@ -137,10 +142,8 @@ public class SupplierService : ISupplierService
         }
     }
 
-    /// <summary>
-    /// 加载商品图片并按商品分组：该供应商自己上传的在前，平台通用图（SupplierID 为空）在后，
-    /// 每商品最多取前 3 张用于展示。
-    /// </summary>
+    // 加载商品图片并按商品分组：该供应商自己上传的在前，平台通用图（SupplierID 为空）在后，
+    // 每商品最多取前 3 张用于展示。
     private async Task<Dictionary<string, List<SupplierProductImageDto>>> LoadProductImageMapAsync(string supplierId)
     {
         return (await _productRepo.GetAllProductImagesAsync())
@@ -162,9 +165,9 @@ public class SupplierService : ISupplierService
                       .ToList());
     }
 
-    // ========== 供应商维护商品图文（文字介绍 + 图片，前提是已对该物品建立货物）==========
+    // 供应商维护商品图文（文字介绍 + 图片，前提是已对该物品建立货物）
 
-    /// <summary>供应商对该物品是否已建立货物；未建立返回 null（货物即供货关系）</summary>
+    // 供应商对该物品是否已建立货物；未建立返回 null（货物即供货关系）
     private async Task<InvGoods?> ResolveSuppliedProductAsync(string supplierId, string productId)
     {
         return await _goodsRepo.GetAsync(productId, supplierId);
@@ -250,13 +253,13 @@ public class SupplierService : ISupplierService
         }
     }
 
-    // ========== 供应商登录（供应商门户用）==========
+    // 供应商登录（供应商门户用）
 
-    /// <summary>密码 MD5 哈希（库中已有供应商密码即为此格式）</summary>
+    // 密码 MD5 哈希（库中已有供应商密码即为此格式）
     private static string HashPassword(string password)
         => Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(password)));
 
-    // ========== 跨组接口（供 C 组调用）==========
+    // 跨组接口（供 C 组调用）
 
     public async Task<ApiResponse<List<SupplierAccountDto>>> FindSupplierAccountAsync(
         string? supplierId = null,
@@ -305,13 +308,11 @@ public class SupplierService : ISupplierService
         return ApiResponse<bool>.Success(valid, valid ? "验证通过" : "密码错误");
     }
 
-    // ========== 商品上架搜索（C 组团长“商品上架”模块用）==========
+    // 商品上架搜索（C 组团长“商品上架”模块用）
 
-    /// <summary>
-    /// 搜索供应商提供的商品：按供应商（名称/ID）或商品名称（两种命中合并去重）。
-    /// 供应商的“可提供商品”由其货物记录（Inv_Goods）决定：货物即该供应商的上架供货，
-    /// 售价、保质期与上下架状态均以“我的货物”中维护的数据为准。
-    /// </summary>
+    // 搜索供应商提供的商品：按供应商（名称/ID）或商品名称（两种命中合并去重）。
+    // 供应商的“可提供商品”由其货物记录（Inv_Goods）决定：货物即该供应商的上架供货，
+    // 售价、保质期与上下架状态均以“我的货物”中维护的数据为准。
     public async Task<ApiResponse<List<SupplierProductEntryDto>>> SearchSupplierProductEntriesAsync(string? keyword)
     {
         try
@@ -439,9 +440,9 @@ public class SupplierService : ISupplierService
         }
     }
 
-    // ========== 管理端（管理员角色管理用）==========
+    // 管理端（管理员角色管理用）
 
-    /// <summary>全部供应商列表（含状态），供管理员启禁用管理</summary>
+    // 全部供应商列表（含状态），供管理员启禁用管理
     public async Task<ApiResponse<List<SupplierDto>>> GetAllSuppliersAsync()
     {
         var all = await _repo.GetAllAsync();
@@ -462,7 +463,7 @@ public class SupplierService : ISupplierService
         return ApiResponse<List<SupplierDto>>.Success(list);
     }
 
-    /// <summary>按状态查询供应商（如 Pending 待审核列表）</summary>
+    // 按状态查询供应商（如 Pending 待审核列表）
     public async Task<ApiResponse<List<SupplierDto>>> GetSuppliersByStatusAsync(string status)
     {
         var all = await _repo.GetAllAsync();
@@ -471,8 +472,9 @@ public class SupplierService : ISupplierService
         return ApiResponse<List<SupplierDto>>.Success(list);
     }
 
-    /// <summary>变更供应商状态，含状态流转校验（Active/Pending/Disabled/Rejected）</summary>
-    public async Task<ApiResponse> SetSupplierStatusAsync(string supplierId, string targetStatus)
+    // 变更供应商状态，含状态流转校验（Active/Pending/Disabled/Rejected）；
+    // creditLevel 不为 null 时同时登记信用分（审核通过时由管理员填写）
+    public async Task<ApiResponse> SetSupplierStatusAsync(string supplierId, string targetStatus, int? creditLevel = null)
     {
         var allowedTargets = new[] { "Active", "Pending", "Disabled", "Rejected" };
         if (!allowedTargets.Contains(targetStatus))
@@ -498,6 +500,8 @@ public class SupplierService : ISupplierService
                 return ApiResponse.Fail($"不允许从 {supplier.Status} 变更为 {targetStatus}");
 
             supplier.Status = targetStatus;
+            // 信用分由管理员填写：审核通过（或重新启用）时一并登记
+            if (creditLevel.HasValue) supplier.CreditLevel = creditLevel.Value;
             _repo.Update(supplier);
             return ApiResponse.Success("状态已更新");
         }

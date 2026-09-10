@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// Mkt_Coupons - 优惠券模板
-/// </summary>
+// Mkt_Coupons - 优惠券模板
 public class MktCoupon
 {
     public string CouponId { get; set; } = string.Empty;

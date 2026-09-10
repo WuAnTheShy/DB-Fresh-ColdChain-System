@@ -6,11 +6,9 @@ using Microsoft.Extensions.Logging;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// A组冷链物流服务：阶梯运费报价 + FEFO批次发货 + 精准溯源
-/// 负责三张 Log_* 表（Log_FreightTemplates / Log_ExpressDeliveries / Log_FulfillmentBatchItems）
-/// 发货时需同步扣减共享表 Inv_StockSummary（库存汇总），保证数据一致性
-/// </summary>
+// A组冷链物流服务：阶梯运费报价 + FEFO批次发货 + 精准溯源
+// 负责三张 Log_* 表（Log_FreightTemplates / Log_ExpressDeliveries / Log_FulfillmentBatchItems）
+// 发货时需同步扣减共享表 Inv_StockSummary（库存汇总），保证数据一致性
 public class ColdChainLogisticsService : IColdChainLogisticsService
 {
     private readonly IProductRepository _products;
@@ -46,15 +44,13 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         _logger = logger;
     }
 
-    /// <summary>
-    /// 冷链阶梯运费报价
-    /// 计费逻辑：
-    ///   1. 根据商品 StorageReq（温区）和目的地（省→市→区三级匹配）查找运费模板
-    ///   2. 模板匹配优先级：精确到区(4分) > 精确到市(2分) > 精确到省(1分) > 通配符*(0分)
-    ///   3. 按供应商、温区和模板合并重量，每组只收一次首重费和包装费
-    ///      费用 = 首重费 + 续重费 × ceil((总重-首重)/续重单位) + 包装费
-    ///   4. 单笔订单货值达到免运费阈值时免收运费
-    /// </summary>
+    // 冷链阶梯运费报价
+    // 计费逻辑：
+    //   1. 根据商品 StorageReq（温区）和目的地（省→市→区三级匹配）查找运费模板
+    //   2. 模板匹配优先级：精确到区(4分) > 精确到市(2分) > 精确到省(1分) > 通配符*(0分)
+    //   3. 按供应商、温区和模板合并重量，每组只收一次首重费和包装费
+    //      费用 = 首重费 + 续重费 × ceil((总重-首重)/续重单位) + 包装费
+    //   4. 单笔订单货值达到免运费阈值时免收运费
     public async Task<ApiResponse<FreightQuoteDto>> QuoteFreightAsync(FreightQuoteRequest request)
     {
         try
@@ -167,10 +163,8 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         });
     }
 
-    /// <summary>
-    /// 冷链发货履约：一个订单按供应商拆分一张发货单，FEFO 扣减批次 + 写入溯源映射。
-    /// 使用 FOR UPDATE 行级锁防止并发超卖，事务内同步更新 Inv_StockSummary 保证库存一致性。
-    /// </summary>
+    // 冷链发货履约：一个订单按供应商拆分一张发货单，FEFO 扣减批次 + 写入溯源映射。
+    // 使用 FOR UPDATE 行级锁防止并发超卖，事务内同步更新 Inv_StockSummary 保证库存一致性。
     public async Task<ApiResponse<LogExpressDelivery>> CreateShipmentAsync(ShipmentRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.OrderID)
@@ -248,7 +242,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
                 // 3e. 同步更新库存汇总 — 扣减总量并释放已锁定的预留量
                 stock.TotalQty -= item.Quantity;
                 stock.LockedQty = Math.Max(0, stock.LockedQty - item.Quantity);
-                stock.AvailableQty = stock.TotalQty - stock.LockedQty;
+                // AvailableQty 恒等于「总量 - 锁定」（数据库端为虚拟列），不再手工维护
                 stock.UpdateTime = DateTime.Now;
                 _stockSummary.Update(stock);
             }
@@ -266,11 +260,9 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         }
     }
 
-    // ========== 精准溯源查询 ==========
+    // 精准溯源查询
 
-    /// <summary>
-    /// 按订单 ID 查询溯源链路：该订单 → 所有发货单 → 每单用了哪些批次
-    /// </summary>
+    // 按订单 ID 查询溯源链路：该订单 → 所有发货单 → 每单用了哪些批次
     public async Task<ApiResponse<List<DeliveryTraceDto>>> GetTraceabilityByOrderAsync(string orderId)
     {
         var deliveries = await _deliveries.GetByOrderIdAsync(orderId);
@@ -287,9 +279,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         return ApiResponse<List<DeliveryTraceDto>>.Success(result);
     }
 
-    /// <summary>
-    /// 按发货单 ID 查询单张发货单的批次溯源明细
-    /// </summary>
+    // 按发货单 ID 查询单张发货单的批次溯源明细
     public async Task<ApiResponse<DeliveryTraceDto>> GetTraceabilityByDeliveryAsync(string deliveryId)
     {
         var delivery = await _deliveries.GetByIdAsync(deliveryId);
@@ -300,9 +290,7 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         return ApiResponse<DeliveryTraceDto>.Success(trace);
     }
 
-    /// <summary>
-    /// 反向溯源：按批次 ID 查询该批次被哪些发货单使用
-    /// </summary>
+    // 反向溯源：按批次 ID 查询该批次被哪些发货单使用
     public async Task<ApiResponse<BatchTraceDto>> GetBatchTraceAsync(string batchId)
     {
         var batch = await _batches.GetByIdAsync(batchId);
@@ -349,15 +337,13 @@ public class ColdChainLogisticsService : IColdChainLogisticsService
         });
     }
 
-    // ========== 溯源辅助方法 ==========
+    // 溯源辅助方法
 
-    /// <summary>判断地区字段是否为通配符（* 或空或 NULL）</summary>
+    // 判断地区字段是否为通配符（* 或空或 NULL）
     private static bool IsWildcard(string? val)
         => string.IsNullOrWhiteSpace(val) || val == "*";
 
-    /// <summary>
-    /// 构建一张发货单的完整溯源链路：发货单信息 + 每件商品从哪些批次扣减
-    /// </summary>
+    // 构建一张发货单的完整溯源链路：发货单信息 + 每件商品从哪些批次扣减
     private async Task<DeliveryTraceDto> BuildDeliveryTraceAsync(LogExpressDelivery delivery)
     {
         var items = await _allocations.GetByDeliveryIdAsync(delivery.DeliveryID);

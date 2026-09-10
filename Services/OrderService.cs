@@ -7,9 +7,7 @@ using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// 订单服务 - 负责下单事务、服务端计价、优惠券核销和积分资产闭环。
-/// </summary>
+// 订单服务 - 负责下单事务、服务端计价、优惠券核销和积分资产闭环。
 public sealed class OrderService : IOrderService
 {
     private const decimal MaxOrderAmount = 99_999_999.99m;
@@ -243,7 +241,7 @@ public sealed class OrderService : IOrderService
         });
     }
 
-    /// <summary>后台主动关闭已超过15分钟未支付的整个结算批次，并归还冻结积分。</summary>
+    // 后台主动关闭已超过15分钟未支付的整个结算批次，并归还冻结积分。
     public async Task<int> ExpirePendingCheckoutBatchesAsync(CancellationToken cancellationToken = default)
     {
         var batchIds = await _orderRepo.GetExpiredPendingCheckoutBatchIdsAsync(DateTime.Now);
@@ -287,7 +285,7 @@ public sealed class OrderService : IOrderService
         return closed;
     }
 
-    /// <summary>发货满七天且全部包裹已签收后，自动确认商品收货并完成订单。</summary>
+    // 发货满七天且全部包裹已签收后，自动确认商品收货并完成订单。
     public async Task<int> AutoConfirmShippedOrdersAsync(CancellationToken cancellationToken = default)
     {
         var candidates = await _orderRepo.GetShippedOrdersBeforeAsync(DateTime.Now.AddDays(-7));
@@ -326,10 +324,8 @@ public sealed class OrderService : IOrderService
         return completed;
     }
 
-    /// <summary>
-    /// 将一次消费者结算按团长拆成多个待支付子订单。库存校验和全部子订单写入
-    /// 共用一个事务，任一商品缺货时整个批次回滚。
-    /// </summary>
+    // 将一次消费者结算按团长拆成多个待支付子订单。库存校验和全部子订单写入
+    // 共用一个事务，任一商品缺货时整个批次回滚。
     public async Task<CreateCheckoutBatchResult> CreateCheckoutBatchAsync(
         CreateOrderRequest request,
         CancellationToken cancellationToken = default)
@@ -470,7 +466,10 @@ public sealed class OrderService : IOrderService
                     AddressId = request.AddressId,
                     ReceiverName = address.ReceiverName,
                     ReceiverPhone = address.Phone,
-                    ShippingAddress = CreateShippingAddress(address),
+                    ReceiverProvince = address.Province,
+                    ReceiverCity = address.City,
+                    ReceiverDistrict = address.District,
+                    ReceiverDetailAddress = address.DetailAddress,
                     TotalAmount = groupGoodsAmount,
                     DiscountAmount = groupDiscount,
                     FreightAmount = freightAmount,
@@ -568,9 +567,7 @@ public sealed class OrderService : IOrderService
         });
     }
 
-    /// <summary>
-    /// 创建订单。所有金额和商品快照均由服务端生成，客户端提交的只有标识和数量。
-    /// </summary>
+    // 创建订单。所有金额和商品快照均由服务端生成，客户端提交的只有标识和数量。
     public async Task<CreateOrderResult> CreateOrderAsync(
         CreateOrderRequest request,
         CancellationToken cancellationToken = default)
@@ -643,7 +640,10 @@ public sealed class OrderService : IOrderService
                 AddressId = request.AddressId,
                 ReceiverName = address.ReceiverName,
                 ReceiverPhone = address.Phone,
-                ShippingAddress = CreateShippingAddress(address),
+                ReceiverProvince = address.Province,
+                ReceiverCity = address.City,
+                ReceiverDistrict = address.District,
+                ReceiverDetailAddress = address.DetailAddress,
                 TotalAmount = goodsAmount,
                 DiscountAmount = discountAmount,
                 FreightAmount = freightAmount,
@@ -950,10 +950,8 @@ public sealed class OrderService : IOrderService
         });
     }
 
-    /// <summary>
-    /// 取消整个待支付结算批次：归还冻结积分与核销的用户券，并将批次内所有
-    /// 待支付子订单一并置为已取消。任一步失败整体回滚。
-    /// </summary>
+    // 取消整个待支付结算批次：归还冻结积分与核销的用户券，并将批次内所有
+    // 待支付子订单一并置为已取消。任一步失败整体回滚。
     private async Task CancelPendingCheckoutBatchAsync(
         LockedOrderContext context,
         IDbTransaction transaction,
@@ -1018,9 +1016,7 @@ public sealed class OrderService : IOrderService
         }
     }
 
-    /// <summary>
-    /// 退款时扣回积分 - 供 C 组调用。
-    /// </summary>
+    // 退款时扣回积分 - 供 C 组调用。
     public async Task DeductPointsForRefundAsync(
         string customerId,
         string orderId,
@@ -1051,13 +1047,14 @@ public sealed class OrderService : IOrderService
                 OrderStatus.Paid or
                 OrderStatus.Shipped or
                 OrderStatus.Completed or
-                OrderStatus.Refunding))
+                OrderStatus.Refunding or
+                OrderStatus.RefundReviewing))
             {
                 throw new OrderBusinessException("订单状态无效，无法完成退款");
             }
 
-            // 订单处于"退款中"说明此前发生过部分退款，允许继续整单退款并扣回剩余积分
-            if (currentStatus != OrderStatus.Refunding &&
+            // 订单处于"退款中/退款审核中"说明此前发生过部分退款，允许继续整单退款并扣回剩余积分
+            if (currentStatus is not (OrderStatus.Refunding or OrderStatus.RefundReviewing) &&
                 await _pointRepo.HasPointLogAsync(
                     customerId,
                     orderId,
@@ -1126,8 +1123,8 @@ public sealed class OrderService : IOrderService
         });
     }
 
-    /// 部分退款时按比例扣回积分并将订单置为"退款中" - 供 C 组调用。
-    /// </summary>
+    // 部分退款时按比例扣回积分并将订单置为"退款中" - 供 C 组调用。
+    // </summary>
     public async Task DeductPointsForPartialRefundAsync(
         string customerId,
         string orderId,
@@ -1157,7 +1154,8 @@ public sealed class OrderService : IOrderService
                 OrderStatus.Paid or
                 OrderStatus.Shipped or
                 OrderStatus.Completed or
-                OrderStatus.Refunding))
+                OrderStatus.Refunding or
+                OrderStatus.RefundReviewing))
             {
                 throw new OrderBusinessException("订单状态无效，无法部分退款");
             }
@@ -1195,9 +1193,43 @@ public sealed class OrderService : IOrderService
         });
     }
 
-    /// <summary>
-    /// 根据累计消费金额动态查询消费者应处的最高会员等级。
-    /// </summary>
+    // 消费者提交退款申请后订单进入"退款审核中"，并记录申请前状态 - 供 C 组调用。
+    // 未支付/已取消/已退款的订单（如未支付结算批次的退款申请）不参与审核，
+    // 保持原状态且不抛错，避免影响退款申请单本身的提交。
+    public async Task EnterRefundReviewAsync(
+        string orderId,
+        CancellationToken cancellationToken = default,
+        IDbTransaction? externalTransaction = null)
+    {
+        if (!GroupBIds.IsValid(orderId))
+            throw new OrderBusinessException("订单ID格式不正确");
+
+        await ExecuteRefundOperationAsync(externalTransaction, async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            // 已在审核中的订单重复调用不会覆盖最初记录的回退状态（幂等）
+            _ = await _orderRepo.TryEnterRefundReviewAsync(orderId, transaction);
+        });
+    }
+
+    // 退款申请被驳回或消费者取消申请、且订单已无待审核申请时，订单回退到申请前状态 - 供 C 组调用。
+    // 订单已离开"退款审核中"（例如审核通过已转为退款中/已退款）时不做任何改动。
+    public async Task ExitRefundReviewAsync(
+        string orderId,
+        CancellationToken cancellationToken = default,
+        IDbTransaction? externalTransaction = null)
+    {
+        if (!GroupBIds.IsValid(orderId))
+            throw new OrderBusinessException("订单ID格式不正确");
+
+        await ExecuteRefundOperationAsync(externalTransaction, async transaction =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _ = await _orderRepo.TryRestoreStatusBeforeRefundAsync(orderId, transaction);
+        });
+    }
+
+    // 根据累计消费金额动态查询消费者应处的最高会员等级。
     public async Task<CrmMemberLevel?> GetCustomerLevelAsync(string customerId)
     {
         var customer = await _customerRepo.GetByIdAsync(customerId);
@@ -1339,7 +1371,7 @@ public sealed class OrderService : IOrderService
         });
     }
 
-    /// <summary>退款由 C 组发起时复用其事务，B 组不提交、回滚或释放调用方事务。</summary>
+    // 退款由 C 组发起时复用其事务，B 组不提交、回滚或释放调用方事务。
     private Task ExecuteRefundOperationAsync(
         IDbTransaction? externalTransaction,
         Func<IDbTransaction, Task> operation)
@@ -1838,19 +1870,6 @@ public sealed class OrderService : IOrderService
                 OrderStatus = order.OrderStatus
             }).ToList()
         };
-    }
-
-    private static string CreateShippingAddress(CrmUserAddress address)
-    {
-        return string.Join(
-            " ",
-            new[]
-            {
-                address.Province,
-                address.City,
-                address.District,
-                address.DetailAddress
-            }.Where(part => !string.IsNullOrWhiteSpace(part)));
     }
 
     private static IReadOnlyList<FulfillmentOrderItem> CreateFulfillmentItems(

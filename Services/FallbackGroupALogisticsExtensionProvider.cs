@@ -6,10 +6,8 @@ using Microsoft.Extensions.Options;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// A 组高级物流接口未就绪时的隔离兜底。
-/// 数据只保存在当前进程内并显式标记为 FALLBACK，不写 A/B/C 任一业务表。
-/// </summary>
+// A 组高级物流接口未就绪时的隔离兜底。
+// 数据只保存在当前进程内并显式标记为 FALLBACK，不写 A/B/C 任一业务表。
 public sealed class FallbackGroupALogisticsExtensionProvider(
     IOptions<GroupALogisticsFallbackOptions> options) : IGroupALogisticsExtensionProvider
 {

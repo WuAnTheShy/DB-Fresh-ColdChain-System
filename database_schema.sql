@@ -1,0 +1,892 @@
+-- ============================================================================
+-- 生鲜冷链团购分销供应链系统 —— 数据库结构定义（DDL）
+-- 数据库：Oracle 18c        模式：COLDCHAIN
+-- ----------------------------------------------------------------------------
+-- 覆盖 A / B / C 三组共 34 张表，仅含结构、不含任何业务数据。
+-- 包含：表、列、默认值、非空、主键、唯一约束、检查约束、索引、注释、外键。
+--
+-- 执行说明：可整体顺序执行。表间外键统一收敛到文件末尾，故建表先后互不依赖。
+-- 标识符按 Oracle 默认规则大写且不加引号。
+-- ============================================================================
+
+-- ============================================================================
+-- A 组：供应商、商品与库存
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- INV_CATEGORY
+-- ----------------------------------------------------------------------------
+CREATE TABLE INV_CATEGORY
+(
+    CATEGORYID   VARCHAR2(36)  NOT NULL,
+    CATEGORYNAME VARCHAR2(100) NOT NULL,
+    PARENTID     VARCHAR2(36),
+    CONSTRAINT SYS_C007308 PRIMARY KEY (CATEGORYID)
+);
+
+-- ----------------------------------------------------------------------------
+-- INV_PRODUCTS
+-- ----------------------------------------------------------------------------
+CREATE TABLE INV_PRODUCTS
+(
+    PRODUCTID    VARCHAR2(36)   NOT NULL,
+    CATEGORYID   VARCHAR2(36),
+    SUPPLIERID   VARCHAR2(36),
+    PRODUCTNAME  VARCHAR2(100)  NOT NULL,
+    UNIT         VARCHAR2(20),
+    WEIGHTKG     NUMBER(10,2),
+    VOLUMELITRE  NUMBER(10,2),
+    EXPIRYHOURS  NUMBER(10),
+    STORAGEREQ   VARCHAR2(20),
+    DEFAULTPRICE NUMBER(10,2),
+    STATUS       VARCHAR2(20)   DEFAULT 'ACTIVE',
+    DESCRIPTION  VARCHAR2(2000),
+    CONSTRAINT SYS_C007322 PRIMARY KEY (PRODUCTID),
+    CONSTRAINT CK_INV_PRODUCTS_ZONE CHECK (STORAGEREQ IS NULL OR STORAGEREQ IN ('CHILLED', 'FROZEN', 'AMBIENT'))
+);
+
+COMMENT ON COLUMN INV_PRODUCTS.DESCRIPTION IS '商品文字介绍（供应商维护，团长可参考或重写）';
+
+-- ----------------------------------------------------------------------------
+-- INV_PRODUCTIMAGES
+-- ----------------------------------------------------------------------------
+CREATE TABLE INV_PRODUCTIMAGES
+(
+    IMAGEID    VARCHAR2(36)  NOT NULL,
+    PRODUCTID  VARCHAR2(36)  NOT NULL,
+    IMAGEURL   VARCHAR2(500) NOT NULL,
+    SORTORDER  NUMBER(5)     DEFAULT 0 NOT NULL,
+    CREATETIME DATE          DEFAULT SYSDATE NOT NULL,
+    IMAGEDATA  BLOB,
+    IMAGETYPE  VARCHAR2(20),
+    SUPPLIERID VARCHAR2(36),
+    CONSTRAINT PK_INV_PRODUCTIMAGES PRIMARY KEY (IMAGEID)
+);
+
+CREATE INDEX IX_PRODUCTIMAGES_PRODUCT
+    ON INV_PRODUCTIMAGES (PRODUCTID);
+
+COMMENT ON TABLE INV_PRODUCTIMAGES IS '商品图片表：一个商品对应多张图片';
+
+COMMENT ON COLUMN INV_PRODUCTIMAGES.IMAGEID IS '图片ID（主键）';
+COMMENT ON COLUMN INV_PRODUCTIMAGES.PRODUCTID IS '商品ID（关联 Inv_Products.ProductID）';
+COMMENT ON COLUMN INV_PRODUCTIMAGES.IMAGEURL IS '图片地址';
+COMMENT ON COLUMN INV_PRODUCTIMAGES.SORTORDER IS '展示顺序（升序，对外取前3张）';
+COMMENT ON COLUMN INV_PRODUCTIMAGES.CREATETIME IS '创建时间';
+COMMENT ON COLUMN INV_PRODUCTIMAGES.IMAGEDATA IS '图片二进制数据（BLOB，供应商上传，避免多机部署时文件丢失）';
+COMMENT ON COLUMN INV_PRODUCTIMAGES.IMAGETYPE IS '图片 MIME 类型（如 image/webp）';
+COMMENT ON COLUMN INV_PRODUCTIMAGES.SUPPLIERID IS '上传图片的供应商ID；NULL=平台通用图（所有供应商可见，不可删）';
+
+-- ----------------------------------------------------------------------------
+-- INV_SUPPLIERS
+-- ----------------------------------------------------------------------------
+CREATE TABLE INV_SUPPLIERS
+(
+    SUPPLIERID    VARCHAR2(36)  NOT NULL,
+    SUPPLIERNAME  VARCHAR2(100) NOT NULL,
+    LICENSENO     VARCHAR2(100),
+    EXPIRYDATE    DATE,
+    CREDITLEVEL   NUMBER(5),
+    CONTACTPHONE  VARCHAR2(20),
+    LOGINACCOUNT  VARCHAR2(50),
+    LOGINPASSWORD VARCHAR2(255),
+    STATUS        VARCHAR2(20)  DEFAULT 'Active' NOT NULL,
+    CONSTRAINT SYS_C007302 PRIMARY KEY (SUPPLIERID)
+);
+
+-- ----------------------------------------------------------------------------
+-- INV_SUPPLIERPRICES
+-- ----------------------------------------------------------------------------
+CREATE TABLE INV_SUPPLIERPRICES
+(
+    PRICEID        VARCHAR2(36)   NOT NULL,
+    SUPPLIERID     VARCHAR2(36)   NOT NULL,
+    PRODUCTID      VARCHAR2(36)   NOT NULL,
+    SUPPLYPRICE    NUMBER(10,2)   NOT NULL,
+    UPDATETIME     DATE           NOT NULL,
+    SHELFLIFEHOURS NUMBER(22),
+    DESCRIPTION    VARCHAR2(2000),
+    CONSTRAINT PK_INVSUPPLIERPRICES PRIMARY KEY (PRICEID),
+    CONSTRAINT UK_SUPPLIERPRICE UNIQUE (SUPPLIERID, PRODUCTID)
+);
+
+COMMENT ON TABLE INV_SUPPLIERPRICES IS '供应商供货价：供应商对其供应的每个产品的报价（进价）';
+
+COMMENT ON COLUMN INV_SUPPLIERPRICES.UPDATETIME IS '最近一次报价时间';
+COMMENT ON COLUMN INV_SUPPLIERPRICES.SUPPLYPRICE IS '供应商报价（元），入库时作为批次进价';
+COMMENT ON COLUMN INV_SUPPLIERPRICES.DESCRIPTION IS '该供应商对该商品的文字介绍（团长可参考/复制/改写）；NULL 时兜底 Inv_Products.Description';
+
+-- ----------------------------------------------------------------------------
+-- INV_GOODS
+-- ----------------------------------------------------------------------------
+CREATE TABLE INV_GOODS
+(
+    PRODUCTID      VARCHAR2(36)   NOT NULL,
+    SUPPLIERID     VARCHAR2(36)   NOT NULL,
+    SALEPRICE      NUMBER(10,2)   DEFAULT 0,
+    STATUS         VARCHAR2(20)   DEFAULT 'ACTIVE',
+    SHELFLIFEHOURS NUMBER(10),
+    DESCRIPTION    VARCHAR2(2000),
+    CREATETIME     DATE,
+    UPDATETIME     DATE,
+    CONSTRAINT PK_INV_GOODS PRIMARY KEY (PRODUCTID, SUPPLIERID)
+);
+
+-- ----------------------------------------------------------------------------
+-- INV_STOCKSUMMARY
+-- ----------------------------------------------------------------------------
+CREATE TABLE INV_STOCKSUMMARY
+(
+    STOCKID      VARCHAR2(36) NOT NULL,
+    PRODUCTID    VARCHAR2(36),
+    TOTALQTY     NUMBER(10)   DEFAULT 0,
+    LOCKEDQTY    NUMBER(10)   DEFAULT 0,
+    UPDATETIME   DATE,
+    AVAILABLEQTY NUMBER       DEFAULT GREATEST(NVL("TOTALQTY",0)-NVL("LOCKEDQTY",0),0),
+    CONSTRAINT SYS_C007327 PRIMARY KEY (STOCKID),
+    CONSTRAINT SYS_C007328 UNIQUE (PRODUCTID)
+);
+
+-- ----------------------------------------------------------------------------
+-- INV_STOCKBATCHES
+-- ----------------------------------------------------------------------------
+CREATE TABLE INV_STOCKBATCHES
+(
+    BATCHID        VARCHAR2(36) NOT NULL,
+    PRODUCTID      VARCHAR2(36),
+    SUPPLIERID     VARCHAR2(36),
+    BATCHNO        VARCHAR2(50) NOT NULL,
+    PRODUCTIONDATE DATE,
+    EXPIRYDATE     DATE,
+    INPRICE        NUMBER(10,2),
+    INITIALQTY     NUMBER(10),
+    CURRENTQTY     NUMBER(10),
+    STATUS         VARCHAR2(20) DEFAULT 'ACTIVE',
+    CONSTRAINT SYS_C007331 PRIMARY KEY (BATCHID)
+);
+
+CREATE INDEX IX_STOCKBATCHES_PRODUCT_SUPPLIER
+    ON INV_STOCKBATCHES (PRODUCTID, SUPPLIERID);
+
+-- ============================================================================
+-- A 组：定价规则与冷链物流
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- BIZ_PRICERULES
+-- ----------------------------------------------------------------------------
+CREATE TABLE BIZ_PRICERULES
+(
+    RULEID        VARCHAR2(36)  NOT NULL,
+    PRODUCTID     VARCHAR2(36),
+    RULENAME      VARCHAR2(100),
+    TIMEWINDOW    VARCHAR2(50),
+    DISCOUNTRATE  NUMBER(5,2),
+    TRIGGERTYPE   VARCHAR2(50),
+    MANUALPRICE   NUMBER(10,2),
+    MINQUANTITY   NUMBER,
+    MAXQUANTITY   NUMBER,
+    PRIORITY      NUMBER,
+    ISACTIVE      NUMBER(1),
+    EFFECTIVEFROM DATE,
+    EFFECTIVETO   DATE,
+    SUPPLIERID    VARCHAR2(36),
+    CONSTRAINT SYS_C007336 PRIMARY KEY (RULEID)
+);
+
+-- ----------------------------------------------------------------------------
+-- LOG_FREIGHTTEMPLATES
+-- ----------------------------------------------------------------------------
+CREATE TABLE LOG_FREIGHTTEMPLATES
+(
+    TEMPLATEID            VARCHAR2(36)  NOT NULL,
+    TEMPLATENAME          VARCHAR2(100),
+    DESTINATIONPROVINCE   VARCHAR2(50),
+    BASEWEIGHT            NUMBER(10,2),
+    BASEFEE               NUMBER(10,2),
+    EXTRAWEIGHTFEE        NUMBER(10,2),
+    PACKAGINGFEE          NUMBER(10,2),
+    DESTINATIONCITY       VARCHAR2(50),
+    DESTINATIONDISTRICT   VARCHAR2(50),
+    TEMPERATUREZONE       VARCHAR2(20),
+    EXTRAWEIGHTUNIT       NUMBER(10,2),
+    FREESHIPPINGTHRESHOLD NUMBER(10,2),
+    ISENABLED             NUMBER(1),
+    CONSTRAINT SYS_C007311 PRIMARY KEY (TEMPLATEID),
+    CONSTRAINT CK_LFT_TEMPERATUREZONE CHECK (TEMPERATUREZONE IS NULL OR TEMPERATUREZONE IN ('CHILLED', 'FROZEN', 'AMBIENT', '*'))
+);
+
+-- ----------------------------------------------------------------------------
+-- LOG_EXPRESSDELIVERIES
+-- ----------------------------------------------------------------------------
+CREATE TABLE LOG_EXPRESSDELIVERIES
+(
+    DELIVERYID         VARCHAR2(36)       NOT NULL,
+    ORDERID            VARCHAR2(36),
+    TRACKINGNO         VARCHAR2(100),
+    PACKAGETEMP        VARCHAR2(20),
+    LOGISTICSSTATUS    VARCHAR2(20),
+    SUPPLIERID         VARCHAR2(36),
+    SHIPPEDAT          DATE,
+    CARRIERCODE        VARCHAR2(30 CHAR),
+    CARRIERNAME        VARCHAR2(100 CHAR),
+    CARRIERTRACKINGKEY VARCHAR2(64),
+    ESTIMATEDARRIVALAT TIMESTAMP(7),
+    REMARK             VARCHAR2(300 CHAR),
+    ISREGISTERED       NUMBER(1)          DEFAULT 0 NOT NULL,
+    CONSTRAINT SYS_C007343 PRIMARY KEY (DELIVERYID),
+    CONSTRAINT UQ_LED_ORDER_SUPPLIER UNIQUE (ORDERID, SUPPLIERID),
+    CONSTRAINT UQ_LED_TRACKING UNIQUE (CARRIERTRACKINGKEY),
+    CONSTRAINT CK_LED_ZONE CHECK (PACKAGETEMP IN ('CHILLED','FROZEN','AMBIENT'))
+);
+
+-- ----------------------------------------------------------------------------
+-- LOG_LOGISTICSEVENTS
+-- ----------------------------------------------------------------------------
+CREATE TABLE LOG_LOGISTICSEVENTS
+(
+    EVENTID                VARCHAR2(36)       NOT NULL,
+    DELIVERYID             VARCHAR2(36)       NOT NULL,
+    REQUESTHASH            VARCHAR2(64)       NOT NULL,
+    SEQUENCENO             NUMBER(10)         NOT NULL,
+    STATUSCODE             VARCHAR2(30)       NOT NULL,
+    LOCATION               VARCHAR2(200 CHAR),
+    DESCRIPTION            VARCHAR2(500 CHAR) NOT NULL,
+    OCCURREDAT             TIMESTAMP(7)       NOT NULL,
+    TEMPERATURECELSIUS     NUMBER,
+    ISTEMPERATUREEXCEPTION NUMBER(1)          DEFAULT 0 NOT NULL,
+    CONSTRAINT PK_LLE PRIMARY KEY (EVENTID),
+    CONSTRAINT UQ_LLE_SEQUENCE UNIQUE (DELIVERYID, SEQUENCENO),
+    CONSTRAINT CK_LLE_SEQUENCE CHECK (SequenceNo >= 0),
+    CONSTRAINT CK_LLE_STATUS CHECK (StatusCode IN (                     'SHIPPED','IN_TRANSIT','OUT_FOR_DELIVERY','DELIVERED','EXCEPTION','RETURNING','RETURNED')),
+    CONSTRAINT CK_LLE_TEMP CHECK (IsTemperatureException IN (0,1))
+);
+
+-- ----------------------------------------------------------------------------
+-- LOG_FULFILLMENTBATCHITEMS
+-- ----------------------------------------------------------------------------
+CREATE TABLE LOG_FULFILLMENTBATCHITEMS
+(
+    ALLOCATIONID VARCHAR2(36) NOT NULL,
+    DELIVERYID   VARCHAR2(36),
+    PRODUCTID    VARCHAR2(36),
+    BATCHID      VARCHAR2(36),
+    QUANTITY     NUMBER       DEFAULT '0',
+    CONSTRAINT NEW_TABLE_PK PRIMARY KEY (ALLOCATIONID)
+);
+
+-- ============================================================================
+-- B 组：会员、地址与营销资产
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- CRM_MEMBERLEVELS
+-- ----------------------------------------------------------------------------
+CREATE TABLE CRM_MEMBERLEVELS
+(
+    LEVELID          VARCHAR2(36) NOT NULL,
+    LEVELNAME        VARCHAR2(50),
+    MEMBERLEVELID    VARCHAR2(36),
+    MINSPENT         NUMBER(10,2),
+    DISCOUNTRATE     NUMBER(4,3)  DEFAULT 1,
+    POINTSMULTIPLIER NUMBER       DEFAULT 1,
+    CONSTRAINT SYS_C007309 PRIMARY KEY (LEVELID)
+);
+
+CREATE UNIQUE INDEX UX_GB_MEMBERLEVEL_NEWID
+    ON CRM_MEMBERLEVELS (MEMBERLEVELID);
+
+-- ----------------------------------------------------------------------------
+-- CRM_CUSTOMERS
+-- ----------------------------------------------------------------------------
+CREATE TABLE CRM_CUSTOMERS
+(
+    CUSTOMERID     VARCHAR2(36)  NOT NULL,
+    OPENID         VARCHAR2(100),
+    PHONE          VARCHAR2(20),
+    GROWTHVALUE    NUMBER(10)    DEFAULT 0,
+    BINDEXPIRETIME DATE,
+    CUSTOMERNAME   VARCHAR2(100),
+    EMAIL          VARCHAR2(100),
+    PASSWORDHASH   VARCHAR2(255),
+    PROMOTERID     VARCHAR2(36),
+    MEMBERLEVELID  VARCHAR2(36),
+    TOTALSPENT     NUMBER(10,2)  DEFAULT 0,
+    POINTS         NUMBER        DEFAULT 0,
+    CREATEDAT      DATE          DEFAULT SYSDATE,
+    UPDATEDAT      DATE,
+    AVATAR         VARCHAR2(50),
+    CONSTRAINT SYS_C007318 PRIMARY KEY (CUSTOMERID),
+    CONSTRAINT SYS_C007319 UNIQUE (OPENID)
+);
+
+COMMENT ON COLUMN CRM_CUSTOMERS.AVATAR IS '预制头像标识（cat/rabbit/panda/fox/carrot/broccoli/tomato/corn）';
+
+-- ----------------------------------------------------------------------------
+-- CRM_USERADDRESSES
+-- ----------------------------------------------------------------------------
+CREATE TABLE CRM_USERADDRESSES
+(
+    ADDRESSID     VARCHAR2(36)  NOT NULL,
+    CUSTOMERID    VARCHAR2(36),
+    RECEIVERNAME  VARCHAR2(50),
+    PHONE         VARCHAR2(20),
+    PROVINCE      VARCHAR2(50),
+    CITY          VARCHAR2(50),
+    DISTRICT      VARCHAR2(50),
+    DETAILADDRESS VARCHAR2(200),
+    ISDEFAULT     NUMBER(1),
+    CREATEDAT     DATE          DEFAULT SYSDATE,
+    CONSTRAINT SYS_C007334 PRIMARY KEY (ADDRESSID)
+);
+
+-- ----------------------------------------------------------------------------
+-- CRM_MEMBERLEVELHISTORIES
+-- ----------------------------------------------------------------------------
+CREATE TABLE CRM_MEMBERLEVELHISTORIES
+(
+    HISTORYID       VARCHAR2(36) NOT NULL,
+    CUSTOMERID      VARCHAR2(36) NOT NULL,
+    MEMBERLEVELID   VARCHAR2(36) NOT NULL,
+    QUALIFIEDSPENT  NUMBER(12,2) NOT NULL,
+    SETTLEMENTMONTH DATE         NOT NULL,
+    CREATEDAT       DATE         DEFAULT SYSDATE NOT NULL,
+    CONSTRAINT SYS_C0015609 PRIMARY KEY (HISTORYID),
+    CONSTRAINT UQ_MLH_CUSTOMER_MONTH UNIQUE (CUSTOMERID, SETTLEMENTMONTH)
+);
+
+CREATE INDEX IX_MLH_CUSTOMER_MONTH
+    ON CRM_MEMBERLEVELHISTORIES (CUSTOMERID, SETTLEMENTMONTH DESC);
+
+-- ----------------------------------------------------------------------------
+-- CRM_POINTLOGS
+-- ----------------------------------------------------------------------------
+CREATE TABLE CRM_POINTLOGS
+(
+    LOGID        VARCHAR2(36) NOT NULL,
+    CUSTOMERID   VARCHAR2(36),
+    CHANGETYPE   VARCHAR2(30),
+    BALANCEAFTER NUMBER(10),
+    POINTLOGID   VARCHAR2(36),
+    CHANGEAMOUNT NUMBER,
+    ORDERID      VARCHAR2(36),
+    CREATEDAT    DATE         DEFAULT SYSDATE,
+    CONSTRAINT SYS_C007356 PRIMARY KEY (LOGID)
+);
+
+CREATE UNIQUE INDEX UX_GB_POINTLOG_NEWID
+    ON CRM_POINTLOGS (POINTLOGID);
+
+-- ----------------------------------------------------------------------------
+-- MKT_COUPONS
+-- ----------------------------------------------------------------------------
+CREATE TABLE MKT_COUPONS
+(
+    COUPONID          VARCHAR2(36)  NOT NULL,
+    COUPONTYPE        VARCHAR2(20),
+    COUPONNAME        VARCHAR2(100),
+    MINORDERAMOUNT    NUMBER(10,2)  DEFAULT 0,
+    DISCOUNTAMOUNT    NUMBER(10,2),
+    TOTALQUANTITY     NUMBER        DEFAULT 999999,
+    REMAININGQUANTITY NUMBER        DEFAULT 999999,
+    STARTTIME         DATE,
+    ENDTIME           DATE,
+    STATUS            NUMBER(1)     DEFAULT 1,
+    CONSTRAINT SYS_C007310 PRIMARY KEY (COUPONID)
+);
+
+-- ----------------------------------------------------------------------------
+-- MKT_COUPONRECORDS
+-- ----------------------------------------------------------------------------
+CREATE TABLE MKT_COUPONRECORDS
+(
+    RECORDID   VARCHAR2(36) NOT NULL,
+    COUPONID   VARCHAR2(36),
+    CUSTOMERID VARCHAR2(36),
+    STATUS     VARCHAR2(20),
+    ORDERID    VARCHAR2(36),
+    USEDAT     DATE,
+    CREATEDAT  DATE         DEFAULT SYSDATE,
+    CONSTRAINT SYS_C007352 PRIMARY KEY (RECORDID)
+);
+
+-- ============================================================================
+-- B 组：订单与评价
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- BIZ_ORDERS
+-- ----------------------------------------------------------------------------
+CREATE TABLE BIZ_ORDERS
+(
+    ORDERID               VARCHAR2(36)  NOT NULL,
+    ORDERNO               VARCHAR2(50),
+    CUSTOMERID            VARCHAR2(36),
+    PROMOTERID            VARCHAR2(36),
+    ADDRESSID             VARCHAR2(36),
+    FREIGHTAMOUNT         NUMBER(10,2),
+    FINALAMOUNT           NUMBER(10,2),
+    COMMBASEAMOUNT        NUMBER(10,2),
+    COMMBONUSAMOUNT       NUMBER(10,2),
+    COMMSETTLEMENTDATE    DATE,
+    RECEIVERNAME          VARCHAR2(50),
+    RECEIVERPHONE         VARCHAR2(20),
+    TOTALAMOUNT           NUMBER(10,2),
+    DISCOUNTAMOUNT        NUMBER(10,2)  DEFAULT 0,
+    POINTSEARNED          NUMBER        DEFAULT 0,
+    ORDERSTATUS           VARCHAR2(20),
+    CREATEDAT             DATE          DEFAULT SYSDATE,
+    UPDATEDAT             DATE,
+    CHECKOUTBATCHID       VARCHAR2(36),
+    PAYMENTEXPIRESAT      DATE,
+    POINTSUSED            NUMBER        DEFAULT 0 NOT NULL,
+    POINTSDISCOUNTAMOUNT  NUMBER(10,2)  DEFAULT 0 NOT NULL,
+    FREIGHTQUOTESNAPSHOT  CLOB,
+    STATUSBEFOREREFUND    VARCHAR2(20),
+    RECEIVERPROVINCE      VARCHAR2(50),
+    RECEIVERCITY          VARCHAR2(50),
+    RECEIVERDISTRICT      VARCHAR2(50),
+    RECEIVERDETAILADDRESS VARCHAR2(200),
+    CONSTRAINT SYS_C007338 PRIMARY KEY (ORDERID),
+    CONSTRAINT SYS_C007339 UNIQUE (ORDERNO),
+    CONSTRAINT CK_ORDER_STATUS CHECK (OrderStatus IN (          'PENDING_PAYMENT', 'PAID', 'SHIPPED', 'COMPLETED',          'CANCELLED', 'REFUNDING', 'REFUNDED', 'REFUND_REVIEWING'      ))
+);
+
+CREATE INDEX IX_GB_ORDER_CUSTOMER_CREATED
+    ON BIZ_ORDERS (CUSTOMERID, CREATEDAT);
+
+CREATE INDEX IX_GB_ORDER_STATUS_CREATED
+    ON BIZ_ORDERS (ORDERSTATUS, CREATEDAT);
+
+CREATE INDEX IX_ORDER_CHECKOUTBATCH
+    ON BIZ_ORDERS (CHECKOUTBATCHID, CUSTOMERID);
+
+COMMENT ON COLUMN BIZ_ORDERS.FREIGHTQUOTESNAPSHOT IS 'A组运费报价结果JSON快照，包含目的地、规则摘要、商品计费项和计算时间';
+COMMENT ON COLUMN BIZ_ORDERS.STATUSBEFOREREFUND IS '退款申请提交前的订单状态（仅 OrderStatus = REFUND_REVIEWING 时有值），驳回/取消申请时回退';
+COMMENT ON COLUMN BIZ_ORDERS.RECEIVERPROVINCE IS '收件地址-省（下单时快照）';
+COMMENT ON COLUMN BIZ_ORDERS.RECEIVERCITY IS '收件地址-市（下单时快照）';
+COMMENT ON COLUMN BIZ_ORDERS.RECEIVERDISTRICT IS '收件地址-区/县（下单时快照）';
+COMMENT ON COLUMN BIZ_ORDERS.RECEIVERDETAILADDRESS IS '收件地址-详细门牌（下单时快照）';
+
+-- ----------------------------------------------------------------------------
+-- BIZ_ORDERDETAILS
+-- ----------------------------------------------------------------------------
+CREATE TABLE BIZ_ORDERDETAILS
+(
+    DETAILID      VARCHAR2(36)  NOT NULL,
+    ORDERID       VARCHAR2(36),
+    PRODUCTID     VARCHAR2(36),
+    QUANTITY      NUMBER(10),
+    UNITPRICE     NUMBER(10,2),
+    SUBTOTAL      NUMBER(10,2),
+    ORDERDETAILID VARCHAR2(36),
+    PRODUCTNAME   VARCHAR2(200),
+    SUPPLIERID    VARCHAR2(36),
+    RECEIPTSTATUS VARCHAR2(20)  DEFAULT 'PENDING' NOT NULL,
+    RECEIVEDAT    DATE,
+    CONSTRAINT SYS_C007345 PRIMARY KEY (DETAILID)
+);
+
+CREATE INDEX IX_ORDERDETAIL_RECEIPT
+    ON BIZ_ORDERDETAILS (ORDERID, RECEIPTSTATUS);
+
+CREATE UNIQUE INDEX UX_GB_ORDERDETAIL_NEWID
+    ON BIZ_ORDERDETAILS (ORDERDETAILID);
+
+-- ----------------------------------------------------------------------------
+-- BIZ_PRODUCTEVALUATIONS
+-- ----------------------------------------------------------------------------
+CREATE TABLE BIZ_PRODUCTEVALUATIONS
+(
+    EVALUATIONID     VARCHAR2(36) NOT NULL,
+    ORDERDETAILID    VARCHAR2(36) NOT NULL,
+    ORDERID          VARCHAR2(36) NOT NULL,
+    PRODUCTID        VARCHAR2(36) NOT NULL,
+    PROMOTERID       VARCHAR2(36) NOT NULL,
+    CUSTOMERID       VARCHAR2(36) NOT NULL,
+    HIGHQUALITY      NUMBER(1)    DEFAULT 0 NOT NULL,
+    FASTSHIPPING     NUMBER(1)    DEFAULT 0 NOT NULL,
+    GOODPACKAGING    NUMBER(1)    DEFAULT 0 NOT NULL,
+    COSTEFFECTIVE    NUMBER(1)    DEFAULT 0 NOT NULL,
+    AFFORDABLE       NUMBER(1)    DEFAULT 0 NOT NULL,
+    RELIABLEPROMOTER NUMBER(1)    DEFAULT 0 NOT NULL,
+    CREATEDAT        DATE         DEFAULT SYSDATE NOT NULL,
+    CONSTRAINT SYS_C0016475 PRIMARY KEY (EVALUATIONID),
+    CONSTRAINT UQ_EVAL_ORDERDETAIL UNIQUE (ORDERDETAILID),
+    CONSTRAINT CK_EVAL_FLAGS CHECK (HighQuality IN (0, 1) AND FastShipping IN (0, 1)         AND GoodPackaging IN (0, 1) AND CostEffective IN (0, 1)         AND Affordable IN (0, 1) AND ReliablePromoter IN (0, 1)),
+    CONSTRAINT CK_EVAL_SELECTED CHECK (HighQuality + FastShipping + GoodPackaging + CostEffective + Affordable + ReliablePromoter >= 1)
+);
+
+CREATE INDEX IX_EVAL_PROMOTER
+    ON BIZ_PRODUCTEVALUATIONS (PROMOTERID, CREATEDAT DESC);
+
+-- ============================================================================
+-- C 组：团长与商品入团
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- CRM_PROMOTERS
+-- ----------------------------------------------------------------------------
+CREATE TABLE CRM_PROMOTERS
+(
+    PROMOTERID         VARCHAR2(36)  NOT NULL,
+    PROMOTERNAME       VARCHAR2(50)  NOT NULL,
+    PHONE              VARCHAR2(20)  NOT NULL,
+    BASECOMMISSIONRATE NUMBER(5,2),
+    INVITECODE         VARCHAR2(50),
+    CURRENTBALANCE     NUMBER(10,2)  DEFAULT 0,
+    PENDINGBALANCE     NUMBER(10,2)  DEFAULT 0,
+    TOTALSALES         NUMBER(12,2)  DEFAULT 0,
+    TOTALORDERCOUNT    NUMBER(10)    DEFAULT 0,
+    LASTSETTLEMENTTIME DATE,
+    REGISTERTIME       DATE,
+    LOGINACCOUNT       VARCHAR2(20),
+    LOGINPASSWORD      VARCHAR2(64),
+    REMARK             VARCHAR2(50),
+    STATUS             VARCHAR2(20)  DEFAULT 'Enable',
+    FROZENAMOUNT       NUMBER(10,2),
+    AVATAR             VARCHAR2(50),
+    WECHATACCOUNT      VARCHAR2(100),
+    ALIPAYACCOUNT      VARCHAR2(100),
+    BANKCARDACCOUNT    VARCHAR2(100),
+    CONSTRAINT SYS_C007305 PRIMARY KEY (PROMOTERID),
+    CONSTRAINT SYS_C007306 UNIQUE (INVITECODE)
+);
+
+COMMENT ON COLUMN CRM_PROMOTERS.REGISTERTIME IS '入驻时间';
+COMMENT ON COLUMN CRM_PROMOTERS.AVATAR IS '预制头像标识（cat/rabbit/panda/fox/carrot/broccoli/tomato/corn）';
+
+-- ----------------------------------------------------------------------------
+-- CRM_PRODUCT_ENTRIES
+-- ----------------------------------------------------------------------------
+CREATE TABLE CRM_PRODUCT_ENTRIES
+(
+    PROMOTERID    VARCHAR2(36)   NOT NULL,
+    PRODUCTID     VARCHAR2(36)   NOT NULL,
+    SUPPLIERID    VARCHAR2(36)   NOT NULL,
+    STATUS        VARCHAR2(20)   DEFAULT 'Active',
+    CREATETIME    DATE           DEFAULT SYSDATE,
+    UPDATETIME    DATE,
+    PROMOTERPRICE NUMBER(10,2),
+    PROMOTERDESC  VARCHAR2(2000),
+    SUPPLYPRICE   NUMBER(10,2),
+    DEFAULTPRICE  NUMBER(10,2),
+    CONSTRAINT PK_PRODUCT_ENTRIES PRIMARY KEY (PROMOTERID, PRODUCTID, SUPPLIERID),
+    CONSTRAINT CK_PE_STATUS CHECK (STATUS IN ('Active', 'Inactive'))
+);
+
+CREATE INDEX IX_PE_PRODUCTSUPPLIER
+    ON CRM_PRODUCT_ENTRIES (PRODUCTID, SUPPLIERID, STATUS);
+
+CREATE INDEX IX_PE_SUPPLIER
+    ON CRM_PRODUCT_ENTRIES (SUPPLIERID, STATUS);
+
+COMMENT ON TABLE CRM_PRODUCT_ENTRIES IS '商品入团表：记录团长可售的（商品，供应商）组合，团长-商品多对多';
+
+COMMENT ON COLUMN CRM_PRODUCT_ENTRIES.STATUS IS 'Active=已入团 Inactive=已移除';
+COMMENT ON COLUMN CRM_PRODUCT_ENTRIES.PROMOTERPRICE IS '团长定价：团长对（商品，供应商）组合的自定售价，未填写则默认推荐价';
+COMMENT ON COLUMN CRM_PRODUCT_ENTRIES.PROMOTERDESC IS '团长带货介绍文字（给消费者端展示；入团时默认复制 Inv_Products.Description，团长可修改/重写）';
+COMMENT ON COLUMN CRM_PRODUCT_ENTRIES.SUPPLYPRICE IS '动态报价快照：入团时刻按供应商动态定价(规则引擎)计算的最终报价/团长进价';
+COMMENT ON COLUMN CRM_PRODUCT_ENTRIES.DEFAULTPRICE IS '推荐价快照：入团时刻动态报价 × 1.2（倍率与历史一致）';
+
+-- ----------------------------------------------------------------------------
+-- CRM_PSRELATION
+-- ----------------------------------------------------------------------------
+CREATE TABLE CRM_PSRELATION
+(
+    PROMOTERID VARCHAR2(36) NOT NULL,
+    SUPPLIERID VARCHAR2(36) NOT NULL,
+    STATUS     VARCHAR2(20) DEFAULT 'Active' NOT NULL,
+    CREATETIME DATE         DEFAULT SYSDATE NOT NULL,
+    UPDATETIME DATE,
+    CONSTRAINT PK_CRM_PSRELATION PRIMARY KEY (PROMOTERID, SUPPLIERID)
+);
+
+COMMENT ON TABLE CRM_PSRELATION IS '团长-供应商合作关系表';
+
+COMMENT ON COLUMN CRM_PSRELATION.PROMOTERID IS '团长ID';
+COMMENT ON COLUMN CRM_PSRELATION.SUPPLIERID IS '供应商ID';
+COMMENT ON COLUMN CRM_PSRELATION.STATUS IS '合作状态: Active/Inactive';
+COMMENT ON COLUMN CRM_PSRELATION.CREATETIME IS '建立合作时间';
+COMMENT ON COLUMN CRM_PSRELATION.UPDATETIME IS '更新时间';
+
+-- ----------------------------------------------------------------------------
+-- CRM_PCR
+-- ----------------------------------------------------------------------------
+CREATE TABLE CRM_PCR
+(
+    CONSUMERID VARCHAR2(64) NOT NULL,
+    PROMOTERID VARCHAR2(36) NOT NULL,
+    CONSTRAINT PK_CRM_PCR PRIMARY KEY (CONSUMERID, PROMOTERID)
+);
+
+CREATE INDEX IDX_CRM_PCR_PROMOTERID
+    ON CRM_PCR (PROMOTERID);
+
+-- ============================================================================
+-- C 组：资金、佣金与结算
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- FIN_PAYMENTRECORDS
+-- ----------------------------------------------------------------------------
+CREATE TABLE FIN_PAYMENTRECORDS
+(
+    PAYID         VARCHAR2(36)  NOT NULL,
+    ORDERID       VARCHAR2(36),
+    PAYMETHOD     VARCHAR2(50),
+    TRANSACTIONNO VARCHAR2(100),
+    PAYAMOUNT     NUMBER(10,2),
+    STATUS        VARCHAR2(20),
+    PAYTIME       DATE,
+    REMARK        VARCHAR2(20),
+    CONSTRAINT SYS_C007361 PRIMARY KEY (PAYID)
+);
+
+-- ----------------------------------------------------------------------------
+-- FIN_PROCOMRECORDS
+-- ----------------------------------------------------------------------------
+CREATE TABLE FIN_PROCOMRECORDS
+(
+    RECORDID           VARCHAR2(36) NOT NULL,
+    PROMOTERID         VARCHAR2(36),
+    ORDERID            VARCHAR2(36),
+    FINALAMOUNT        NUMBER(10,2),
+    COMMBASEAMOUNT     NUMBER(10,2),
+    COMMBONUSAMOUNT    NUMBER(10,2),
+    TOTALCOMMISSION    NUMBER(10,2),
+    SIGNDATE           DATE,
+    EXPECTEDSETTLEDATE DATE,
+    STATUS             VARCHAR2(20),
+    REFUNDEDAMOUNT     NUMBER(10,2),
+    CONSTRAINT FIN_PROCOMRECORDS_PK PRIMARY KEY (RECORDID)
+);
+
+-- ----------------------------------------------------------------------------
+-- FIN_REFUND
+-- ----------------------------------------------------------------------------
+CREATE TABLE FIN_REFUND
+(
+    REFUNDID      VARCHAR2(36)  NOT NULL,
+    ORDERID       VARCHAR2(36),
+    DETAILID      VARCHAR2(36),
+    SUPPLIERID    VARCHAR2(36),
+    REFUNDQTY     NUMBER(10),
+    REFUNDAMOUNT  NUMBER(10,2),
+    LIABILITYTYPE VARCHAR2(50),
+    APPLYTIME     DATE,
+    REMARK        VARCHAR2(200),
+    STATUS        VARCHAR2(20)  DEFAULT 'Pending' NOT NULL,
+    AUDITTIME     DATE,
+    AUDITORID     VARCHAR2(64),
+    CONSTRAINT SYS_C007358 PRIMARY KEY (REFUNDID)
+);
+
+-- ----------------------------------------------------------------------------
+-- FIN_WITHDRAWALRECORDS
+-- ----------------------------------------------------------------------------
+CREATE TABLE FIN_WITHDRAWALRECORDS
+(
+    WITHDRAWALID    VARCHAR2(36)  NOT NULL,
+    PROMOTERID      VARCHAR2(36),
+    APPLYAMOUNT     NUMBER(10,2),
+    APPLYTIME       DATE,
+    AUDITTIME       DATE,
+    AUDITSTATUS     VARCHAR2(20),
+    AUDITORUSERID   VARCHAR2(20),
+    REJECTREASON    VARCHAR2(200),
+    TRANSFERTIME    DATE,
+    ACCOUNTPLATFORM VARCHAR2(20),
+    ACCOUNTNO       VARCHAR2(100),
+    CONSTRAINT SYS_C007325 PRIMARY KEY (WITHDRAWALID)
+);
+
+COMMENT ON COLUMN FIN_WITHDRAWALRECORDS.ACCOUNTPLATFORM IS '收款平台：WeChat / Alipay / BankCard';
+COMMENT ON COLUMN FIN_WITHDRAWALRECORDS.ACCOUNTNO IS '收款账号（申请时快照；空表示当时未绑定）';
+
+-- ============================================================================
+-- C 组：系统权限与审计
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- SYS_ROLES
+-- ----------------------------------------------------------------------------
+CREATE TABLE SYS_ROLES
+(
+    ROLEID      VARCHAR2(36)  NOT NULL,
+    ROLENAME    VARCHAR2(50)  NOT NULL,
+    DESCRIPTION VARCHAR2(200),
+    ROLECODE    VARCHAR2(50),
+    STATUS      VARCHAR2(20)  DEFAULT 'Enabled',
+    CREATETIME  DATE,
+    CONSTRAINT SYS_C007300 PRIMARY KEY (ROLEID)
+);
+
+-- ----------------------------------------------------------------------------
+-- SYS_USERS
+-- ----------------------------------------------------------------------------
+CREATE TABLE SYS_USERS
+(
+    USERID       VARCHAR2(36)  NOT NULL,
+    USERNAME     VARCHAR2(50)  NOT NULL,
+    PASSWORDHASH VARCHAR2(255) NOT NULL,
+    ROLEID       VARCHAR2(36),
+    REALNAME     VARCHAR2(50),
+    STATUS       VARCHAR2(20),
+    PHONE        VARCHAR2(20),
+    CREATETIME   DATE,
+    ADMIN_KIND   VARCHAR2(30)  DEFAULT 'ACCOUNT',
+    CONSTRAINT SYS_C007315 PRIMARY KEY (USERID),
+    CONSTRAINT SYS_C007316 UNIQUE (USERNAME),
+    CONSTRAINT CK_SYS_USERS_STATUS CHECK (STATUS IS NULL OR STATUS IN ('Enabled', 'Disabled', 'Locked', 'Pending'))
+);
+
+-- ----------------------------------------------------------------------------
+-- LOG_AUDITTRAILS
+-- ----------------------------------------------------------------------------
+CREATE TABLE LOG_AUDITTRAILS
+(
+    LOGID        VARCHAR2(36)   NOT NULL,
+    TABLENAME    VARCHAR2(50),
+    RECORDID     VARCHAR2(36),
+    ACTIONTYPE   VARCHAR2(20),
+    OLDVALUE     VARCHAR2(1000),
+    NEWVALUE     VARCHAR2(1000),
+    OPERATORTYPE VARCHAR2(20),
+    OPERATORID   VARCHAR2(36),
+    OPTIME       DATE,
+    CONSTRAINT SYS_C007312 PRIMARY KEY (LOGID)
+);
+
+-- ============================================================================
+-- 外键约束（建表完成后统一补充，避免表间依赖顺序问题）
+-- ============================================================================
+
+ALTER TABLE BIZ_ORDERDETAILS ADD CONSTRAINT SYS_C007346
+    FOREIGN KEY (ORDERID)
+    REFERENCES BIZ_ORDERS (ORDERID);
+
+ALTER TABLE BIZ_ORDERDETAILS ADD CONSTRAINT SYS_C007348
+    FOREIGN KEY (PRODUCTID)
+    REFERENCES INV_PRODUCTS (PRODUCTID);
+
+ALTER TABLE BIZ_ORDERS ADD CONSTRAINT SYS_C007340
+    FOREIGN KEY (CUSTOMERID)
+    REFERENCES CRM_CUSTOMERS (CUSTOMERID);
+
+ALTER TABLE BIZ_ORDERS ADD CONSTRAINT SYS_C007341
+    FOREIGN KEY (PROMOTERID)
+    REFERENCES CRM_PROMOTERS (PROMOTERID);
+
+ALTER TABLE BIZ_ORDERS ADD CONSTRAINT SYS_C007342
+    FOREIGN KEY (ADDRESSID)
+    REFERENCES CRM_USERADDRESSES (ADDRESSID);
+
+ALTER TABLE BIZ_PRICERULES ADD CONSTRAINT SYS_C007337
+    FOREIGN KEY (PRODUCTID)
+    REFERENCES INV_PRODUCTS (PRODUCTID);
+
+ALTER TABLE BIZ_PRODUCTEVALUATIONS ADD CONSTRAINT FK_EVAL_CUSTOMER
+    FOREIGN KEY (CUSTOMERID)
+    REFERENCES CRM_CUSTOMERS (CUSTOMERID);
+
+ALTER TABLE BIZ_PRODUCTEVALUATIONS ADD CONSTRAINT FK_EVAL_ORDER
+    FOREIGN KEY (ORDERID)
+    REFERENCES BIZ_ORDERS (ORDERID);
+
+ALTER TABLE BIZ_PRODUCTEVALUATIONS ADD CONSTRAINT FK_EVAL_ORDERDETAIL
+    FOREIGN KEY (ORDERDETAILID)
+    REFERENCES BIZ_ORDERDETAILS (DETAILID);
+
+ALTER TABLE CRM_CUSTOMERS ADD CONSTRAINT FK_CUSTOMER_PROMOTER
+    FOREIGN KEY (PROMOTERID)
+    REFERENCES CRM_PROMOTERS (PROMOTERID);
+
+ALTER TABLE CRM_MEMBERLEVELHISTORIES ADD CONSTRAINT FK_MLH_CUSTOMER
+    FOREIGN KEY (CUSTOMERID)
+    REFERENCES CRM_CUSTOMERS (CUSTOMERID);
+
+ALTER TABLE CRM_POINTLOGS ADD CONSTRAINT SYS_C007357
+    FOREIGN KEY (CUSTOMERID)
+    REFERENCES CRM_CUSTOMERS (CUSTOMERID);
+
+ALTER TABLE CRM_USERADDRESSES ADD CONSTRAINT SYS_C007335
+    FOREIGN KEY (CUSTOMERID)
+    REFERENCES CRM_CUSTOMERS (CUSTOMERID);
+
+ALTER TABLE FIN_PAYMENTRECORDS ADD CONSTRAINT SYS_C007362
+    FOREIGN KEY (ORDERID)
+    REFERENCES BIZ_ORDERS (ORDERID);
+
+ALTER TABLE FIN_REFUND ADD CONSTRAINT SYS_C007359
+    FOREIGN KEY (ORDERID)
+    REFERENCES BIZ_ORDERS (ORDERID);
+
+ALTER TABLE FIN_REFUND ADD CONSTRAINT SYS_C007360
+    FOREIGN KEY (DETAILID)
+    REFERENCES BIZ_ORDERDETAILS (DETAILID);
+
+ALTER TABLE FIN_WITHDRAWALRECORDS ADD CONSTRAINT SYS_C007326
+    FOREIGN KEY (PROMOTERID)
+    REFERENCES CRM_PROMOTERS (PROMOTERID);
+
+ALTER TABLE INV_GOODS ADD CONSTRAINT FK_INV_GOODS_PRODUCT
+    FOREIGN KEY (PRODUCTID)
+    REFERENCES INV_PRODUCTS (PRODUCTID);
+
+ALTER TABLE INV_GOODS ADD CONSTRAINT FK_INV_GOODS_SUPPLIER
+    FOREIGN KEY (SUPPLIERID)
+    REFERENCES INV_SUPPLIERS (SUPPLIERID);
+
+ALTER TABLE INV_PRODUCTS ADD CONSTRAINT SYS_C007323
+    FOREIGN KEY (CATEGORYID)
+    REFERENCES INV_CATEGORY (CATEGORYID);
+
+ALTER TABLE INV_PRODUCTS ADD CONSTRAINT SYS_C007324
+    FOREIGN KEY (SUPPLIERID)
+    REFERENCES INV_SUPPLIERS (SUPPLIERID);
+
+ALTER TABLE INV_STOCKBATCHES ADD CONSTRAINT SYS_C007332
+    FOREIGN KEY (PRODUCTID)
+    REFERENCES INV_PRODUCTS (PRODUCTID);
+
+ALTER TABLE INV_STOCKBATCHES ADD CONSTRAINT SYS_C007333
+    FOREIGN KEY (SUPPLIERID)
+    REFERENCES INV_SUPPLIERS (SUPPLIERID);
+
+ALTER TABLE INV_STOCKSUMMARY ADD CONSTRAINT SYS_C007329
+    FOREIGN KEY (PRODUCTID)
+    REFERENCES INV_PRODUCTS (PRODUCTID);
+
+ALTER TABLE INV_SUPPLIERPRICES ADD CONSTRAINT FK_SUPPLIERPRICE_PRODUCT
+    FOREIGN KEY (PRODUCTID)
+    REFERENCES INV_PRODUCTS (PRODUCTID);
+
+ALTER TABLE INV_SUPPLIERPRICES ADD CONSTRAINT FK_SUPPLIERPRICE_SUPPLIER
+    FOREIGN KEY (SUPPLIERID)
+    REFERENCES INV_SUPPLIERS (SUPPLIERID);
+
+ALTER TABLE LOG_EXPRESSDELIVERIES ADD CONSTRAINT SYS_C007344
+    FOREIGN KEY (ORDERID)
+    REFERENCES BIZ_ORDERS (ORDERID);
+
+ALTER TABLE LOG_LOGISTICSEVENTS ADD CONSTRAINT FK_LLE_DELIVERY
+    FOREIGN KEY (DELIVERYID)
+    REFERENCES LOG_EXPRESSDELIVERIES (DELIVERYID);
+
+ALTER TABLE MKT_COUPONRECORDS ADD CONSTRAINT SYS_C007353
+    FOREIGN KEY (COUPONID)
+    REFERENCES MKT_COUPONS (COUPONID);
+
+ALTER TABLE MKT_COUPONRECORDS ADD CONSTRAINT SYS_C007354
+    FOREIGN KEY (CUSTOMERID)
+    REFERENCES CRM_CUSTOMERS (CUSTOMERID);
+
+ALTER TABLE MKT_COUPONRECORDS ADD CONSTRAINT SYS_C007355
+    FOREIGN KEY (ORDERID)
+    REFERENCES BIZ_ORDERS (ORDERID);
+
+ALTER TABLE SYS_USERS ADD CONSTRAINT SYS_C007317
+    FOREIGN KEY (ROLEID)
+    REFERENCES SYS_ROLES (ROLEID);
+

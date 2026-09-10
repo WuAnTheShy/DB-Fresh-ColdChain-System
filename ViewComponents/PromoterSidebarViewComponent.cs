@@ -21,19 +21,14 @@ namespace FreshColdChain.ViewComponents
             var promoter = _dataProvider.GetPromoter(promoterId);
             return View(new PromoterSidebarModel
             {
-                PromoterName = HttpContext.Session.GetString("PromoterName") ?? promoter.PromoterName,
-                CurrentBalance = promoter.CurrentBalance,
-                LevelName = PromoterPortalDataProvider.ResolveLevelName(promoter.TotalSales),
-                Avatar = promoter.Avatar ?? string.Empty
+                CurrentBalance = promoter.CurrentBalance
             });
         }
     }
 
     public class PromoterSidebarModel
     {
-        public string PromoterName { get; set; } = string.Empty;
+        // 可提现余额（团长身份 / 基础佣金 / 累计销售额已移至侧栏顶部身份卡）
         public decimal CurrentBalance { get; set; }
-        public string LevelName { get; set; } = string.Empty;
-        public string Avatar { get; set; } = string.Empty;
     }
 }

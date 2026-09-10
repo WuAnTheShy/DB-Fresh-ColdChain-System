@@ -2,7 +2,7 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Interfaces;
 
-/// <summary>A 组提供的只读商品目录适配契约。</summary>
+// A 组提供的只读商品目录适配契约。
 public interface IGroupAProductCatalogService
 {
     Task<GroupAProductSearchResult> SearchSellableProductsAsync(
@@ -14,7 +14,7 @@ public interface IGroupAProductCatalogService
         CancellationToken cancellationToken = default);
 }
 
-/// <summary>C 组提供的只读团长及合作范围适配契约。</summary>
+// C 组提供的只读团长及合作范围适配契约。
 public interface IGroupCPromoterCatalogService
 {
     Task<GroupCPromoterSearchResult> SearchAvailablePromotersAsync(
@@ -40,7 +40,7 @@ public interface IGroupCPromoterCatalogService
             CancellationToken cancellationToken = default);
 }
 
-/// <summary>B 组消费者端商品目录聚合契约。</summary>
+// B 组消费者端商品目录聚合契约。
 public interface IConsumerCatalogService
 {
     Task<ConsumerCatalogResult> GetCatalogAsync(

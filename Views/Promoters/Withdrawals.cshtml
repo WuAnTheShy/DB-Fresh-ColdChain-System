@@ -5,48 +5,66 @@
 
 <partial name="_Alerts" />
 
-<div class="page-hero page-hero-green">
+<div class="page-hero page-hero-purple hero-photo hero-photo-3">
     <div>
         <div class="hero-greeting">提现管理</div>
-        <div class="hero-meta text-white-50">@Model.PromoterName · 可提现 ¥@Model.CurrentBalance.ToString("N2")</div>
+        <div class="hero-meta">
+            <span class="text-white-50">@Model.PromoterName</span>
+            <span class="text-white-50">· 审核中 @Model.PendingCount 笔</span>
+            <span class="text-white-50">· 累计已提现 ¥@Model.TotalWithdrawn.ToString("N2")</span>
+        </div>
     </div>
-    @if (Model.CanApply)
-    {
-        <a href="#withdrawForm" class="btn btn-light btn-sm">立即申请</a>
-    }
+    <div class="d-flex align-items-center gap-3">
+        <div class="hero-stat-pill">
+            <div class="pill-label">可提现余额</div>
+            <div class="pill-value">¥@Model.CurrentBalance.ToString("N2")</div>
+            <div class="pill-sub">冻结中 ¥@Model.FrozenAmount.ToString("N2")</div>
+        </div>
+        @if (Model.CanApply)
+        {
+            <a href="#withdrawForm" class="btn btn-light btn-sm">立即申请</a>
+        }
+    </div>
 </div>
 
-<div class="stat-grid">
-    <div class="stat-card">
-        <div class="stat-card-top">
-            <span class="stat-icon bg-success-subtle text-success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span>
-            <span class="stat-label">可提现余额</span>
+<!-- 提现指标（三框合一，突出文字层次） -->
+<div class="overview-card">
+    <div class="overview-item">
+        <span class="overview-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span>
+        <div class="overview-body">
+            <div class="overview-value text-success">¥@Model.CurrentBalance.ToString("N2")</div>
+            <div class="overview-meta">
+                <span class="overview-label">可提现余额</span>
+                <span class="overview-sub">随时可申请提现</span>
+            </div>
         </div>
-        <div class="stat-value text-success">@Model.CurrentBalance.ToString("N2")</div>
-        <div class="stat-sub">随时可申请提现</div>
     </div>
-    <div class="stat-card frozen">
-        <div class="stat-card-top">
-            <span class="stat-icon bg-info-subtle text-info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-            <span class="stat-label">冻结中</span>
+    <div class="overview-item">
+        <span class="overview-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <div class="overview-body">
+            <div class="overview-value text-warning">¥@Model.FrozenAmount.ToString("N2")</div>
+            <div class="overview-meta">
+                <span class="overview-label">冻结中</span>
+                <span class="overview-sub">@Model.PendingCount 笔审核中</span>
+            </div>
         </div>
-        <div class="stat-value text-info">@Model.FrozenAmount.ToString("N2")</div>
-        <div class="stat-sub">@Model.PendingCount 笔审核中</div>
     </div>
-    <div class="stat-card sales">
-        <div class="stat-card-top">
-            <span class="stat-icon bg-purple-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="M6 11l6 6 6-6"/><path d="M4 21h16"/></svg></span>
-            <span class="stat-label">累计已提现</span>
+    <div class="overview-item">
+        <span class="overview-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V10"/><path d="M9 20V4"/><path d="M15 20v-8"/><path d="M21 20V7"/></svg></span>
+        <div class="overview-body">
+            <div class="overview-value">¥@Model.TotalWithdrawn.ToString("N2")</div>
+            <div class="overview-meta">
+                <span class="overview-label">累计已提现</span>
+                <span class="overview-sub">历史成功提现总额</span>
+            </div>
         </div>
-        <div class="stat-value">@Model.TotalWithdrawn.ToString("N2")</div>
-        <div class="stat-sub">历史成功提现总额</div>
     </div>
 </div>
 
 <div class="row g-3">
     <div class="col-lg-5">
         <div class="content-card" id="withdrawForm">
-            <div class="content-card-header"><h5>申请提现</h5></div>
+            <div class="content-card-header"><h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M4 19h16"/></svg> 申请提现</h5></div>
             <div class="content-card-body">
                 @if (!Model.CanApply)
                 {
@@ -87,7 +105,7 @@
                             <label class="form-label">收款账户信息</label>
                             <input asp-for="Form.AccountInfo" class="form-control" id="accountInfo"
                                    placeholder="请先绑定收款账户" readonly required />
-                            <div class="form-text text-danger d-none" id="accountBindHint">请先绑定该收款账户后再提交提现。</div>
+                            <div class="form-text text-danger d-none" id="accountBindHint">请先在「<a asp-action="Profile">个人资料</a> → 收款账户绑定」中绑定该账户，再提交提现。</div>
                         </div>
                         <button type="submit" class="btn btn-success w-100 btn-lg" id="submitWithdrawBtn">提交提现申请</button>
                     </form>
@@ -95,17 +113,8 @@
             </div>
         </div>
 
-        @{
-            var withdrawBindModel = new PromoterPayAccountBindModel
-            {
-                ReturnAction = "Withdrawals",
-                Accounts = Model.PayAccounts
-            };
-        }
-        <partial name="_PayAccountBind" model="withdrawBindModel" />
-
         <div class="content-card">
-            <div class="content-card-header"><h5>提现流程</h5></div>
+            <div class="content-card-header"><h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg> 提现流程</h5></div>
             <div class="content-card-body">
                 <div class="flow-steps">
                     <div class="flow-step"><span class="flow-num">1</span>提交申请，余额转入冻结</div>
@@ -120,7 +129,7 @@
     <div class="col-lg-7">
         <div class="content-card">
             <div class="content-card-header">
-                <h5>提现记录</h5>
+                <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg> 提现记录</h5>
                 <span class="text-muted small">共 @Model.Records.Count 条</span>
             </div>
             <div class="content-card-body p-0">
@@ -221,7 +230,7 @@
                     if (!account) {
                         e.preventDefault();
                         syncAccount();
-                        alert('收款账户不能为空，请先绑定微信 / 支付宝 / 银行卡。');
+                        alert('收款账户不能为空，请先到「个人资料 → 收款账户绑定」绑定微信 / 支付宝 / 银行卡。');
                         return;
                     }
                     if (!amount || amount <= 0) {
@@ -233,5 +242,4 @@
             syncAccount();
         })();
     </script>
-    <partial name="_PayAccountBindScripts" />
 }

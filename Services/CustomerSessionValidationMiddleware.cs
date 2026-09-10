@@ -1,6 +1,6 @@
 namespace FreshColdChain.Services;
 
-/// <summary>在密码重置后阻止旧消费者 Session 继续访问受保护 API。</summary>
+// 在密码重置后阻止旧消费者 Session 继续访问受保护 API。
 public sealed class CustomerSessionValidationMiddleware(RequestDelegate next)
 {
     private const string CustomerIdSessionKey = "CustomerId";

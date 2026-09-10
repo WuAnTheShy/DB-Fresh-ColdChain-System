@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace FreshColdChain.Services;
 
-/// <summary>B 组仅向 C 组请求授权，不把管理员名称当作权限。</summary>
+// B 组仅向 C 组请求授权，不把管理员名称当作权限。
 public sealed class GroupBAdminSessionAuthorizationFilter(IGroupCAuthorizationService authorization,
     ILogger<GroupBAdminSessionAuthorizationFilter> logger) : IAsyncAuthorizationFilter
 {
@@ -15,7 +15,7 @@ public sealed class GroupBAdminSessionAuthorizationFilter(IGroupCAuthorizationSe
         GroupBAuthorizationFilterHelper.AuthorizeAsync(context, authorization, logger, "AdminId", "管理员", false);
 }
 
-/// <summary>供应商操作权限与账号状态由 C 组验证，履约服务继续检查具体订单归属。</summary>
+// 供应商操作权限与账号状态由 C 组验证，履约服务继续检查具体订单归属。
 public sealed class GroupBSupplierSessionAuthorizationFilter(IGroupCAuthorizationService authorization,
     ILogger<GroupBSupplierSessionAuthorizationFilter> logger) : IAsyncAuthorizationFilter
 {

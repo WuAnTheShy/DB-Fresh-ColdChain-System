@@ -12,8 +12,12 @@ public sealed class OrdersApiController(
     IOrderService orderService,
     ICustomerService customerService,
     IColdChainLogisticsService coldChainLogisticsService,
-    IProductEvaluationService productEvaluationService) : GroupBApiController
+    IProductEvaluationService productEvaluationService,
+    IRefundService refundService) : GroupBApiController
 {
+    // 退款申请状态取值（FIN_REFUND.STATUS，C 组职责，此处仅用于展示映射）
+    private const string RefundStatusPending = "Pending";
+
     [HttpGet]
     public async Task<IActionResult> GetOrders([FromQuery] OrderQueryRequest request)
     {
@@ -21,7 +25,17 @@ public sealed class OrdersApiController(
         if (string.IsNullOrWhiteSpace(signedInCustomerId)) return ApiUnauthorized();
         request.CustomerId = signedInCustomerId;
 
+        // 「退款售后」列表 = 处于退款流程中的订单（退款审核中 / 退款中）；
+        // 另外把“存在待审核申请但订单状态未进入审核中”的历史申请单按订单号兜底纳入，
+        // 保证消费者提交申请后立刻能查到
+        if (request.Status == OrderStatus.Refunding)
+        {
+            request.OrderStatuses = [OrderStatus.RefundReviewing, OrderStatus.Refunding];
+            request.OrderIds = await refundService.GetOrderIdsWithPendingRefundAsync();
+        }
+
         var result = await orderService.GetOrdersAsync(request);
+        await ApplyRefundDisplayStatusAsync(result.Orders);
         return Ok(new
         {
             result.Query,
@@ -102,6 +116,15 @@ public sealed class OrdersApiController(
             return ApiForbidden();
 
         var order = detail.Order;
+        // 提交退款申请后订单真实状态即为“退款审核中”，此处对改造前提交、订单状态未进入
+        // 审核中的历史申请单做同样的展示兜底
+        var refunds = await refundService.GetOrderRefundsAsync(orderId);
+        if (refunds.Any(refund => string.Equals(refund.Status, RefundStatusPending, StringComparison.Ordinal)))
+        {
+            detail.DisplayStatusCode = OrderStatusCodes.RefundReviewing;
+            detail.StatusName = OrderStatusNames.GetName(OrderStatus.RefundReviewing);
+        }
+
         var evaluations = await productEvaluationService.GetByOrderDetailIdsAsync(
             detail.Details.Select(item => item.OrderDetailId));
         var evaluationsByDetailId = evaluations.ToDictionary(
@@ -224,7 +247,22 @@ public sealed class OrdersApiController(
             detail.CanComplete,
             detail.CanCancel,
             detail.DisplayStatusCode,
-            detail.StatusName
+            detail.StatusName,
+            refunds = refunds
+                .OrderByDescending(refund => refund.ApplyTime)
+                .Select(refund => new
+                {
+                    refund.RefundId,
+                    refund.DetailId,
+                    refund.SupplierId,
+                    refund.RefundQty,
+                    refund.RefundAmount,
+                    refund.Status,
+                    statusName = GetRefundStatusName(refund.Status),
+                    refund.ApplyTime,
+                    refund.AuditTime,
+                    refund.Remark
+                })
         });
     }
 
@@ -361,6 +399,46 @@ public sealed class OrdersApiController(
         await orderService.ConfirmOrderReceiptAsync(orderId, customerId, cancellationToken);
         return NoContent();
     }
+
+    // 订单列表叠加退款展示状态：一次批量查询当前页订单的退款申请，
+    // 存在待审核申请即展示为“退款审核中”（新申请单的订单真实状态已是 REFUND_REVIEWING，
+    // 此叠加主要覆盖改造前提交的历史申请单）
+    private async Task ApplyRefundDisplayStatusAsync(IReadOnlyCollection<OrderListItem> orders)
+    {
+        if (orders.Count == 0)
+        {
+            return;
+        }
+
+        var refunds = await refundService.GetOrderRefundsAsync(
+            orders.Select(order => order.OrderId).ToArray());
+        var pendingOrderIds = refunds
+            .Where(refund => string.Equals(refund.Status, RefundStatusPending, StringComparison.Ordinal))
+            .Select(refund => refund.OrderId)
+            .Where(orderId => !string.IsNullOrWhiteSpace(orderId))
+            .Select(orderId => orderId!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var order in orders)
+        {
+            if (!pendingOrderIds.Contains(order.OrderId))
+            {
+                continue;
+            }
+
+            order.DisplayStatusCode = OrderStatusCodes.RefundReviewing;
+            order.DisplayStatusName = OrderStatusNames.GetName(OrderStatus.RefundReviewing);
+        }
+    }
+
+    private static string GetRefundStatusName(string? status) => status switch
+    {
+        RefundStatusPending => "退款审核中",
+        "Approved" => "退款已通过",
+        "Rejected" => "退款已驳回",
+        "Cancelled" => "已取消申请",
+        _ => status ?? string.Empty
+    };
 
     private static IReadOnlyList<string> GetSelectedEvaluationDimensions(ProductEvaluation? evaluation)
     {

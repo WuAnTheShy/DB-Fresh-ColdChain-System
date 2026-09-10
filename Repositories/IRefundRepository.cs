@@ -18,6 +18,9 @@ namespace FreshColdChain.Repositories
         //查询某订单的全部退款申请记录
         Task<List<FinRefund>> GetByOrderIdAsync(string orderId, IDbTransaction? transaction = null);
 
+        //批量查询多个订单的退款申请记录（订单列表展示退款状态用，避免逐单往返查询）
+        Task<List<FinRefund>> GetByOrderIdsAsync(IReadOnlyCollection<string> orderIds, IDbTransaction? transaction = null);
+
         //该订单是否存在待审核的退款申请（防重复申请）
         Task<bool> HasPendingApplicationAsync(string orderId, IDbTransaction? transaction = null);
 

@@ -2,7 +2,7 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Services;
 
-/// <summary>B 组履约编排使用的物流状态机；A 组正式实现应执行同等或更严格校验。</summary>
+// B 组履约编排使用的物流状态机；A 组正式实现应执行同等或更严格校验。
 public static class LogisticsStateMachine
 {
     public static bool CanTransition(string? current, string? target)

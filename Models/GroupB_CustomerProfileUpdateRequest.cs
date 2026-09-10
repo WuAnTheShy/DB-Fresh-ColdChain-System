@@ -2,9 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 消费者资料编辑请求，不允许从页面修改密码、积分、累计消费和会员等级。
-/// </summary>
+// 消费者资料编辑请求，不允许从页面修改密码、积分、累计消费和会员等级。
 public sealed class CustomerProfileUpdateRequest
 {
     [Required(ErrorMessage = "消费者ID不能为空")]
@@ -24,7 +22,7 @@ public sealed class CustomerProfileUpdateRequest
     [EmailAddress(ErrorMessage = "请输入有效的邮箱地址")]
     public string? Email { get; set; }
 
-    /// <summary>预制头像标识，可选，仅允许系统预置集合中的值。</summary>
+    // 预制头像标识，可选，仅允许系统预置集合中的值。
     [StringLength(50, ErrorMessage = "头像标识不能超过50个字符")]
     public string? Avatar { get; set; }
 }

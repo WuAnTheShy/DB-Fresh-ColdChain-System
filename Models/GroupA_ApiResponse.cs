@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 统一 API 返回格式
-/// </summary>
+// 统一 API 返回格式
 public class ApiResponse<T>
 {
     public int Code { get; set; }

@@ -5,7 +5,7 @@ using Oracle.ManagedDataAccess.Client;
 
 namespace FreshColdChain.Repositories;
 
-/// <summary>A 组物流表仓储，不新建写连接、不提交或释放调用方事务。</summary>
+// A 组物流表仓储，不新建写连接、不提交或释放调用方事务。
 public sealed class GroupALogisticsRepository(IUnitOfWork unitOfWork) : IGroupALogisticsRepository
 {
     public Task<LogExpressDelivery?> GetDeliveryAsync(string orderId, string supplierId, bool forUpdate,
@@ -17,15 +17,6 @@ public sealed class GroupALogisticsRepository(IUnitOfWork unitOfWork) : IGroupAL
         if (forUpdate) sql += " FOR UPDATE";
         return ReadConnection(transaction).QuerySingleOrDefaultAsync<LogExpressDelivery>(new CommandDefinition(
             sql, new { OrderId = orderId, SupplierId = supplierId }, transaction, cancellationToken: cancellationToken));
-    }
-
-    public Task<LogLogisticsDetail?> GetDetailAsync(string deliveryId, IDbTransaction? transaction = null,
-        CancellationToken cancellationToken = default)
-    {
-        transaction ??= unitOfWork.Transaction;
-        return ReadConnection(transaction).QuerySingleOrDefaultAsync<LogLogisticsDetail>(new CommandDefinition(
-            "SELECT * FROM Log_LogisticsDetails WHERE DeliveryId = :DeliveryId", new { DeliveryId = deliveryId },
-            transaction, cancellationToken: cancellationToken));
     }
 
     public async Task<IReadOnlyList<LogLogisticsEvent>> GetEventsAsync(string deliveryId, IDbTransaction? transaction = null,
@@ -43,22 +34,25 @@ public sealed class GroupALogisticsRepository(IUnitOfWork unitOfWork) : IGroupAL
             "SELECT * FROM Log_LogisticsEvents WHERE EventId = :EventId", new { EventId = eventId },
             transaction, cancellationToken: cancellationToken));
 
-    public async Task InsertDetailAsync(LogLogisticsDetail detail, IDbTransaction transaction,
+    public async Task UpdateDetailAsync(LogExpressDelivery detail, IDbTransaction transaction,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            await WriteConnection(transaction).ExecuteAsync(new CommandDefinition("""
-                INSERT INTO Log_LogisticsDetails
-                    (DeliveryId, CarrierCode, CarrierName, TrackingNo, PackageTemperature, EstimatedArrivalAt, CarrierTrackingKey, Remark)
-                VALUES (:DeliveryId, :CarrierCode, :CarrierName, :TrackingNo, :PackageTemperature, :EstimatedArrivalAt, :CarrierTrackingKey, :Remark)
-                """, new { detail.DeliveryId, detail.CarrierCode, detail.CarrierName, detail.TrackingNo,
-                    detail.PackageTemperature, EstimatedArrivalAt = new OracleTimestamp(detail.EstimatedArrivalAt),
+            var affected = await WriteConnection(transaction).ExecuteAsync(new CommandDefinition("""
+                UPDATE Log_ExpressDeliveries
+                   SET CarrierCode = :CarrierCode, CarrierName = :CarrierName, TrackingNo = :TrackingNo,
+                       PackageTemp = :PackageTemp, EstimatedArrivalAt = :EstimatedArrivalAt,
+                       CarrierTrackingKey = :CarrierTrackingKey, Remark = :Remark, IsRegistered = 1
+                 WHERE DeliveryID = :DeliveryID
+                """, new { detail.DeliveryID, detail.CarrierCode, detail.CarrierName, detail.TrackingNo,
+                    detail.PackageTemp, EstimatedArrivalAt = new OracleTimestamp(detail.EstimatedArrivalAt),
                     detail.CarrierTrackingKey, detail.Remark }, transaction, cancellationToken: cancellationToken));
+            if (affected != 1) throw new InvalidOperationException("发货扩展信息登记失败：基础发货单不存在");
         }
         catch (OracleException exception) when (exception.Number == 1)
         {
-            throw new LogisticsWriteConflictException("承运商运单号已被其他发货单使用，或发货扩展记录已存在", exception);
+            throw new LogisticsWriteConflictException("承运商运单号已被其他发货单使用", exception);
         }
     }
 

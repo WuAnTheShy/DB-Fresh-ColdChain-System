@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FreshColdChain.Models;
 
@@ -23,7 +24,21 @@ public sealed class SupplierFulfillmentOrderListItem
     public string CustomerName { get; init; } = string.Empty;
     public string ReceiverName { get; init; } = string.Empty;
     public string ReceiverPhone { get; init; } = string.Empty;
-    public string ShippingAddress { get; init; } = string.Empty;
+
+    // 收货地址的 4 个原子列（投影直接取 Biz_Orders 的对应列）
+    public string? ReceiverProvince { get; init; }
+    public string? ReceiverCity { get; init; }
+    public string? ReceiverDistrict { get; init; }
+    public string? ReceiverDetailAddress { get; init; }
+
+    // 收货地址展示串（省 市 区 详址）。
+    [NotMapped]
+    public string ShippingAddress => ReceiverAddress.Format(
+        ReceiverProvince,
+        ReceiverCity,
+        ReceiverDistrict,
+        ReceiverDetailAddress);
+
     public string OrderStatus { get; init; } = OrderStatusCodes.Paid;
     public int ItemCount { get; init; }
     public int TotalQuantity { get; init; }

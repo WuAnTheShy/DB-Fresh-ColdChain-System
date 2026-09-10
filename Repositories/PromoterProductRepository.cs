@@ -4,9 +4,7 @@ using System.Data;
 
 namespace FreshColdChain.Repositories;
 
-/// <summary>
-/// 商品入团表（CRM_PRODUCT_ENTRIES）仓库实现。
-/// </summary>
+// 商品入团表（CRM_PRODUCT_ENTRIES）仓库实现。
 public class PromoterProductRepository : IPromoterProductRepository
 {
     private readonly IUnitOfWork _uow;

@@ -5,9 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FreshColdChain.Controllers;
 
-/// <summary>
-/// 订单 Controller，负责查询、创建和状态流转入口。
-/// </summary>
+// 订单 Controller，负责查询、创建和状态流转入口。
 [ServiceFilter(typeof(GroupBAdminSessionAuthorizationFilter))]
 public sealed class OrderController : Controller
 {

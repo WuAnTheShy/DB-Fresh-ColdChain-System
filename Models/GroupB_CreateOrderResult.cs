@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 创建订单结果。
-/// </summary>
+// 创建订单结果。
 public sealed class CreateOrderResult
 {
     public string OrderId { get; init; } = string.Empty;
@@ -18,7 +16,7 @@ public sealed class CreateOrderResult
     public IReadOnlyList<SupplierOrderGroupResult> SupplierGroups { get; init; } = [];
 }
 
-/// <summary>消费者一次结算批次的拆单结果。</summary>
+// 消费者一次结算批次的拆单结果。
 public sealed class CreateCheckoutBatchResult
 {
     public string CheckoutBatchId { get; init; } = string.Empty;
@@ -51,9 +49,7 @@ public sealed class OrderPriceChangeResult
     public decimal LatestPrice { get; init; }
 }
 
-/// <summary>
-/// 按供应商形成的订单明细分组。
-/// </summary>
+// 按供应商形成的订单明细分组。
 public sealed class SupplierOrderGroupResult
 {
     public string SupplierId { get; init; } = string.Empty;
@@ -61,9 +57,7 @@ public sealed class SupplierOrderGroupResult
     public IReadOnlyList<OrderItemResult> Items { get; init; } = [];
 }
 
-/// <summary>
-/// 服务端生成的订单商品快照。
-/// </summary>
+// 服务端生成的订单商品快照。
 public sealed class OrderItemResult
 {
     public string ProductId { get; init; } = string.Empty;

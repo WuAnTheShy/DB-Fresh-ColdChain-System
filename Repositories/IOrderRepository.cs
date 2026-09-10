@@ -75,6 +75,16 @@ public interface IOrderRepository
         OrderStatus targetStatus,
         IDbTransaction transaction);
 
+    // 进入“退款审核中”并记录回退状态（重复调用幂等）
+    Task<bool> TryEnterRefundReviewAsync(
+        string orderId,
+        IDbTransaction transaction);
+
+    // 退出“退款审核中”，回退到申请前状态（订单已不在审核中时不做改动）
+    Task<bool> TryRestoreStatusBeforeRefundAsync(
+        string orderId,
+        IDbTransaction transaction);
+
     Task<bool> TryUpdateCommissionSettlementAsync(
         string orderId,
         decimal? commBaseAmount,

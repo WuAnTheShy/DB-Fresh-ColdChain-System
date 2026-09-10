@@ -1,10 +1,13 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 订单详情页面模型。
-/// </summary>
+// 订单详情页面模型。
 public sealed class OrderDetailViewModel
 {
+    private string? _displayStatusCode;
+    private string? _displayStatusName;
+
     public string OrderId { get; init; } = string.Empty;
     public BizOrder? Order { get; init; }
     public string CustomerName { get; init; } = string.Empty;
@@ -17,22 +20,28 @@ public sealed class OrderDetailViewModel
     public bool CanComplete { get; init; }
     public bool CanCancel { get; init; }
 
-    public string DisplayStatusCode => Order == null
-        ? string.Empty
-        : OrderDisplayStatus.GetCode(
-            Order.OrderStatus,
-            SupplierGroups.Select(group => group.Logistics));
+    public string DisplayStatusCode
+    {
+        get => _displayStatusCode ?? (Order == null
+            ? string.Empty
+            : OrderDisplayStatus.GetCode(
+                Order.OrderStatus,
+                SupplierGroups.Select(group => group.Logistics)));
+        set => _displayStatusCode = value;
+    }
 
-    public string StatusName => Order == null
-        ? string.Empty
-        : OrderDisplayStatus.GetName(
-            Order.OrderStatus,
-            SupplierGroups.Select(group => group.Logistics));
+    public string StatusName
+    {
+        get => _displayStatusName ?? (Order == null
+            ? string.Empty
+            : OrderDisplayStatus.GetName(
+                Order.OrderStatus,
+                SupplierGroups.Select(group => group.Logistics)));
+        set => _displayStatusName = value;
+    }
 }
 
-/// <summary>
-/// 按供应商聚合的订单履约展示单元。
-/// </summary>
+// 按供应商聚合的订单履约展示单元。
 public sealed class OrderSupplierGroupViewModel
 {
     public string SupplierId { get; init; } = string.Empty;
@@ -43,9 +52,7 @@ public sealed class OrderSupplierGroupViewModel
     public IReadOnlyList<BizOrderDetail> Items { get; init; } = [];
 }
 
-/// <summary>
-/// Repository 查询订单和消费者名称的投影。
-/// </summary>
+// Repository 查询订单和消费者名称的投影。
 public sealed class OrderDetailHeader
 {
     public string OrderId { get; init; } = string.Empty;
@@ -58,7 +65,21 @@ public sealed class OrderDetailHeader
     public string CustomerName { get; init; } = string.Empty;
     public string ReceiverName { get; init; } = string.Empty;
     public string ReceiverPhone { get; init; } = string.Empty;
-    public string ShippingAddress { get; init; } = string.Empty;
+
+    // 收货地址的 4 个原子列（投影直接取 Biz_Orders 的对应列）
+    public string? ReceiverProvince { get; init; }
+    public string? ReceiverCity { get; init; }
+    public string? ReceiverDistrict { get; init; }
+    public string? ReceiverDetailAddress { get; init; }
+
+    // 收货地址展示串（省 市 区 详址）。
+    [NotMapped]
+    public string ShippingAddress => ReceiverAddress.Format(
+        ReceiverProvince,
+        ReceiverCity,
+        ReceiverDistrict,
+        ReceiverDetailAddress);
+
     public decimal TotalAmount { get; init; }
     public decimal DiscountAmount { get; init; }
     public decimal FreightAmount { get; init; }
@@ -68,6 +89,7 @@ public sealed class OrderDetailHeader
     public int PointsUsed { get; init; }
     public decimal PointsDiscountAmount { get; init; }
     public string OrderStatus { get; init; } = OrderStatusCodes.PendingPayment;
+    public string? StatusBeforeRefund { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime? PaymentExpiresAt { get; init; }
     public DateTime? UpdatedAt { get; init; }
@@ -84,7 +106,10 @@ public sealed class OrderDetailHeader
             AddressId = AddressId,
             ReceiverName = ReceiverName,
             ReceiverPhone = ReceiverPhone,
-            ShippingAddress = ShippingAddress,
+            ReceiverProvince = ReceiverProvince,
+            ReceiverCity = ReceiverCity,
+            ReceiverDistrict = ReceiverDistrict,
+            ReceiverDetailAddress = ReceiverDetailAddress,
             TotalAmount = TotalAmount,
             DiscountAmount = DiscountAmount,
             FreightAmount = FreightAmount,
@@ -94,6 +119,7 @@ public sealed class OrderDetailHeader
             PointsUsed = PointsUsed,
             PointsDiscountAmount = PointsDiscountAmount,
             OrderStatus = OrderStatus,
+            StatusBeforeRefund = StatusBeforeRefund,
             PaymentExpiresAt = PaymentExpiresAt,
             CreatedAt = CreatedAt,
             UpdatedAt = UpdatedAt

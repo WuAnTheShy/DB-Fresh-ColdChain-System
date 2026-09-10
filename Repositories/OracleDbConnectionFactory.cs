@@ -3,9 +3,7 @@ using Oracle.ManagedDataAccess.Client;
 
 namespace FreshColdChain.Repositories;
 
-/// <summary>
-/// Oracle 数据库连接工厂实现
-/// </summary>
+// Oracle 数据库连接工厂实现
 public class OracleDbConnectionFactory : IDbConnectionFactory
 {
     private readonly string _connectionString;

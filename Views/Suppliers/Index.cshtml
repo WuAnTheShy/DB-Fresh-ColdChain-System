@@ -2,35 +2,63 @@
 @{
     ViewData["Title"] = "供应商管理";
 }
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h3>供应商列表</h3>
-    <a class="btn btn-success" asp-action="Create">新增供应商</a>
+
+<div class="page-hero">
+    <div>
+        <div class="hero-greeting">供应商列表</div>
+        <div class="hero-meta">
+            <span class="text-white-50">维护供应商资质、信用等级与登录账号；供货价由供应商在「我的货物」自行维护</span>
+        </div>
+    </div>
+    <div class="hero-actions">
+        <a class="btn btn-light btn-sm" asp-action="Create">新增供应商</a>
+    </div>
 </div>
-<table class="table table-striped table-hover">
-    <thead class="table-dark"><tr><th>编号</th><th>名称</th><th>资质号</th><th>信用等级</th><th>电话</th><th>供货商品数</th><th>操作</th></tr></thead>
-    <tbody>
-    @if (Model.Items.Any())
-    {
-        @foreach (var s in Model.Items)
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l5 4V9l5 4V9l8-5v17H3z"/><path d="M3 21h18"/></svg> 供应商清单</h5>
+        <span class="text-muted small">共 @Model.TotalCount 家</span>
+    </div>
+    <div class="content-card-body p-0">
+        @if (Model.Items.Any())
         {
-            <tr>
-                <td>@s.SupplierID[..8]</td><td>@s.SupplierName</td><td>@s.LicenseNo</td>
-                <td>@s.CreditLevel</td><td>@s.ContactPhone</td><td>@s.ProductCount</td>
-                <td>
-                    <a class="btn btn-sm btn-info" asp-action="Details" asp-route-id="@s.SupplierID">详情</a>
-                    <a class="btn btn-sm btn-warning" asp-action="Edit" asp-route-id="@s.SupplierID">编辑</a>
-                    <form asp-action="Delete" asp-route-id="@s.SupplierID" method="post" style="display:inline">
-                        @Html.AntiForgeryToken()
-                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定删除？')">删除</button>
-                    </form>
-                </td>
-            </tr>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light"><tr><th>编号</th><th>名称</th><th>资质号</th><th>信用等级</th><th>电话</th><th>供货商品数</th><th>操作</th></tr></thead>
+                    <tbody>
+                    @foreach (var s in Model.Items)
+                    {
+                        <tr>
+                            <td><code class="order-id">@s.SupplierID[..8]</code></td>
+                            <td class="fw-semibold">@s.SupplierName</td>
+                            <td>@s.LicenseNo</td>
+                            <td>@s.CreditLevel</td>
+                            <td>@s.ContactPhone</td>
+                            <td>@s.ProductCount</td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@s.SupplierID">详情</a>
+                                    <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@s.SupplierID">编辑</a>
+                                    <form asp-action="Delete" asp-route-id="@s.SupplierID" method="post" style="display:inline">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除？')">删除</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
         }
-    }
-    else
-    {
-        <tr><td colspan="7" class="text-center">暂无数据</td></tr>
-    }
-    </tbody>
-</table>
+        else
+        {
+            <div class="empty-state">
+                <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l5 4V9l5 4V9l8-5v17H3z"/><path d="M3 21h18"/></svg></div>
+                <p>暂无供应商</p>
+            </div>
+        }
+    </div>
+</div>
 @await Html.PartialAsync("_Pagination", Model)

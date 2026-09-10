@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace FreshColdChain.Services;
 
-/// <summary>B 组数据访问、业务服务、跨组适配器和后台任务的统一初始化入口。</summary>
+// B 组数据访问、业务服务、跨组适配器和后台任务的统一初始化入口。
 public static class GroupBServiceCollectionExtensions
 {
     public static IServiceCollection AddGroupBModule(

@@ -2,9 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 创建订单请求。客户端只提交标识和数量，价格等可信数据由服务端获取。
-/// </summary>
+// 创建订单请求。客户端只提交标识和数量，价格等可信数据由服务端获取。
 public sealed class CreateOrderRequest
 {
     [Required(ErrorMessage = "消费者ID不能为空")]
@@ -28,9 +26,7 @@ public sealed class CreateOrderRequest
     public List<CreateOrderItemRequest> Items { get; set; } = [new()];
 }
 
-/// <summary>
-/// 创建订单时的商品请求。
-/// </summary>
+// 创建订单时的商品请求。
 public sealed class CreateOrderItemRequest
 {
     [Required(ErrorMessage = "商品ID不能为空")]
@@ -41,10 +37,8 @@ public sealed class CreateOrderItemRequest
     [StringLength(36, ErrorMessage = "团长ID不能超过36个字符")]
     public string PromoterId { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 供货供应商ID。同一商品可能由多个供应商分别供货，
-    /// 交易身份 = (商品, 供应商)，缺省时后端将拒绝下单。
-    /// </summary>
+    // 供货供应商ID。同一商品可能由多个供应商分别供货，
+    // 交易身份 = (商品, 供应商)，缺省时后端将拒绝下单。
     [Required(ErrorMessage = "供应商ID不能为空")]
     [StringLength(36, ErrorMessage = "供应商ID不能超过36个字符")]
     public string SupplierId { get; set; } = string.Empty;
@@ -56,9 +50,7 @@ public sealed class CreateOrderItemRequest
     public int Quantity { get; set; } = 1;
 }
 
-/// <summary>
-/// 确认订单页的运费预估请求。最终运费仍以下单时服务端重新计算的结果为准。
-/// </summary>
+// 确认订单页的运费预估请求。最终运费仍以下单时服务端重新计算的结果为准。
 public sealed class CheckoutFreightQuoteRequest
 {
     [Required(ErrorMessage = "消费者ID不能为空")]

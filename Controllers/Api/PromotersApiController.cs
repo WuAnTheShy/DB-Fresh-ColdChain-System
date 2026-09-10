@@ -3,17 +3,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FreshColdChain.Controllers.Api;
 
-/// <summary>
-/// 消费者端：查看团长信息与团长带货商品（公开浏览，无需登录）。
-/// </summary>
+// 消费者端：查看团长信息与团长带货商品（公开浏览，无需登录）。
 [ApiController]
 [Route("api/promoters")]
 public sealed class PromotersApiController(
     PromoterService promoterService) : ControllerBase
 {
-    /// <summary>
-    /// 团长列表（仅启用状态），供消费者端浏览/选择团长。
-    /// </summary>
+    // 团长列表（仅启用状态），供消费者端浏览/选择团长。
     [HttpGet]
     public async Task<IActionResult> GetPromoters(CancellationToken cancellationToken)
     {
@@ -39,9 +35,7 @@ public sealed class PromotersApiController(
         return Ok(list);
     }
 
-    /// <summary>
-    /// 查看团长基本信息（含头像）。
-    /// </summary>
+    // 查看团长基本信息（含头像）。
     [HttpGet("{promoterId}")]
     public async Task<IActionResult> GetPromoter(string promoterId, CancellationToken cancellationToken)
     {
@@ -59,10 +53,8 @@ public sealed class PromotersApiController(
         });
     }
 
-    /// <summary>
-    /// 查看团长带货商品列表：返回（商品文字介绍、价格、商品图片等）。
-    /// 文字介绍为团长写的介绍（未写时兜底为供应商商品文字）。
-    /// </summary>
+    // 查看团长带货商品列表：返回（商品文字介绍、价格、商品图片等）。
+    // 文字介绍为团长写的介绍（未写时兜底为供应商商品文字）。
     [HttpGet("{promoterId}/featured-products")]
     public async Task<IActionResult> GetFeaturedProducts(string promoterId, CancellationToken cancellationToken)
     {
@@ -98,10 +90,8 @@ public sealed class PromotersApiController(
         });
     }
 
-    /// <summary>
-    /// 查看某团长对某商品的「团长推文」（图文介绍）：返回标题与顺序段落，段落图片为相对站点路径。
-    /// 商品不是该团长的在售入团商品时返回 404；无图文内容时返回 hasIntro=false。
-    /// </summary>
+    // 查看某团长对某商品的「团长推文」（图文介绍）：返回标题与顺序段落，段落图片为相对站点路径。
+    // 商品不是该团长的在售入团商品时返回 404；无图文内容时返回 hasIntro=false。
     [HttpGet("{promoterId}/featured-products/{productId}/intro")]
     public async Task<IActionResult> GetFeaturedProductIntro(string promoterId, string productId, CancellationToken cancellationToken)
     {

@@ -5,9 +5,7 @@ using Microsoft.AspNetCore.Server.HttpSys;
 
 namespace FreshColdChain.Services
 {
-    /// <summary>
-    /// 团长端页面数据提供者。优先读库，失败时回退演示数据，便于前端联调。
-    /// </summary>
+    // 团长端页面数据提供者。优先读库，失败时回退演示数据，便于前端联调。
     public class PromoterPortalDataProvider
     {
         private readonly IPromoterRepository? _promoterRepository;
@@ -308,11 +306,11 @@ namespace FreshColdChain.Services
             _ => (status, "secondary")
         };
 
-        /// <summary>将平台设定的基础佣金比例换算为百分数（如 0.05 → 5）</summary>
-        private static decimal ResolveCommissionRatePercent(decimal baseRate) =>
+        // 将平台设定的基础佣金比例换算为百分数（如 0.05 → 5）
+        public static decimal ResolveCommissionRatePercent(decimal baseRate) =>
             baseRate < 1 ? baseRate * 100 : baseRate;
 
-        /// <summary>计算下一等级信息（里程碑奖励与 GroupC_CommissionBonusPolicy 跨档奖励一致）</summary>
+        // 计算下一等级信息（里程碑奖励与 GroupC_CommissionBonusPolicy 跨档奖励一致）
         private static (string NextName, decimal NextThreshold, decimal NextBonus, bool IsMax) ResolveNextTier(decimal totalSales)
         {
             if (totalSales >= 5000) return ("", 0, 0, true);
@@ -359,7 +357,7 @@ namespace FreshColdChain.Services
                 ApplyTime = new DateTime(2026, 8, 5, 14, 30, 0),
                 AuditStatus = "Approved",
                 AuditStatusLabel = "已通过",
-                AuditStatusBadgeClass = "info",
+                AuditStatusBadgeClass = "success",
                 TransferTime = new DateTime(2026, 8, 6, 10, 0, 0)
             },
             new()
@@ -395,7 +393,7 @@ namespace FreshColdChain.Services
             AuditStatusBadgeClass = r.AuditStatus switch
             {
                 "Pending" => "warning",
-                "Approved" => "info",
+                "Approved" => "success",
                 "Rejected" => "danger",
                 "Paid" => "success",
                 "Cancelled" => "secondary",

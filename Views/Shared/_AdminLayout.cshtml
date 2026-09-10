@@ -3,24 +3,44 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - 管理员工作台</title>
+    <title>鲜邻团·生鲜冷链直销系统工作台</title>
+    <link rel="icon" type="image/png" href="~/images/favicon.png" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/promoter-portal.css" asp-append-version="true" />
 </head>
-<body class="promoter-portal role-admin">
+@{
+    // 管理员端横幅底图：图片来自 ../../tmppic/admin/，已复制到 wwwroot/images/admin/
+    var heroController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    var heroAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
+    var heroKey = heroController switch
+    {
+        "Goods" => 9,
+        "Products" => 8,
+        "Prices" => 7,
+        "ColdChainLogistics" => 6,
+        "Suppliers" => 5,
+        _ => heroAction switch
+        {
+            "AccountReview" or "PendingPromoters" or "PendingSuppliers" => 2,
+            "AccountCreate" or "AddPromoter" => 3,
+            "AccountManage" or "ManagePromoters" or "ManageSuppliers" => 4,
+            "PendingWithdrawals" => 5,
+            "PendingRefunds" => 6,
+            "PaymentRecords" => 7,
+            "OperationLogs" => 8,
+            _ => 1
+        }
+    };
+    var heroPhoto = Url.Content($"~/images/admin/page-hero-{heroKey}.jpg");
+}
+<body class="promoter-portal portal-shell role-admin">
     <div class="portal-wrapper">
         <aside class="portal-sidebar">
-            <div class="sidebar-brand">
-                <span class="brand-icon">管</span>
-                <div>
-                    <div class="brand-title">管理后台</div>
-                    <div class="brand-sub">生鲜冷链团购</div>
-                </div>
-            </div>
             @{
                 var adminKind = FreshColdChain.Filters.AdminSession.GetKind(Context.Session);
                 var adminKindName = FreshColdChain.Filters.AdminSession.KindName(adminKind);
+                var adminName = Context.Session.GetString("AdminName") ?? "管理员";
                 var adminAction = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
                 var adminController = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
                 // 商品管理员会进入 A 组页面（Goods/Products/Prices/ColdChainLogistics），导航需按 controller 高亮
@@ -29,6 +49,14 @@
                 var isManageModule = new[] { "AccountManage", "ManagePromoters", "ManageSuppliers" }.Contains(adminAction);
                 var isLogModule = adminAction == "OperationLogs";
             }
+            <!-- 顶部身份卡（与团长端一致：头像 + 姓名 + 角色） -->
+            <div class="sidebar-brand">
+                <span class="brand-icon">@adminKindName.Substring(0, 1)</span>
+                <div class="brand-info">
+                    <div class="brand-title">@adminName</div>
+                    <div class="brand-sub">@adminKindName · 生鲜冷链团购</div>
+                </div>
+            </div>
             <nav class="sidebar-nav">
                 @if (adminKind == FreshColdChain.Filters.AdminSession.LogKind)
                 {
@@ -112,16 +140,31 @@
                 }
             </nav>
             <div class="sidebar-footer">
-                <div class="user-chip">@adminKindName: @Context.Session.GetString("AdminName")</div>
+                <div class="user-chip">鲜邻团 · 管理后台</div>
                 <a asp-controller="Account" asp-action="Logout" class="btn btn-outline-light btn-sm w-100 mt-2">退出登录</a>
             </div>
         </aside>
         <main class="portal-main">
             <header class="portal-header d-flex align-items-center justify-content-between">
-                <h1 class="page-title mb-0">@ViewData["Title"]</h1>
-                <span class="header-date text-muted small">@DateTime.Now.ToString("yyyy年MM月dd日 dddd")</span>
+                <div class="portal-header-left">
+                    <span class="portal-brand" aria-label="鲜邻团">
+                        <span class="pb-word">鲜邻团<i class="pb-smile" aria-hidden="true"></i></span>
+                        <small>fresh</small>
+                    </span>
+                    <span class="portal-header-sep" aria-hidden="true"></span>
+                    <h1 class="page-title mb-0">@ViewData["Title"]</h1>
+                </div>
+                <div class="portal-header-right">
+                    <span class="portal-header-sep" aria-hidden="true"></span>
+                    <div id="clock" class="portal-clock" title="当前时间">
+                        <span>
+                            <small id="clock-date"></small>
+                            <strong id="clock-time"></strong>
+                        </span>
+                    </div>
+                </div>
             </header>
-            <div class="portal-content">
+            <div class="portal-content" style="--hero-photo: url('@heroPhoto')">
                 @RenderBody()
             </div>
         </main>
@@ -130,5 +173,28 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
+    <script>
+        (function () {
+            function updateClock() {
+                var elDate = document.getElementById('clock-date');
+                var elTime = document.getElementById('clock-time');
+                if (!elDate || !elTime) {
+                    return;
+                }
+                var now = new Date();
+                var weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+                var year = now.getFullYear();
+                var month = String(now.getMonth() + 1).padStart(2, '0');
+                var day = String(now.getDate()).padStart(2, '0');
+                var hours = String(now.getHours()).padStart(2, '0');
+                var minutes = String(now.getMinutes()).padStart(2, '0');
+                var seconds = String(now.getSeconds()).padStart(2, '0');
+                elDate.textContent = '星期' + weekdays[now.getDay()] + ' ' + year + '年' + month + '月' + day + '日';
+                elTime.textContent = hours + ':' + minutes + ':' + seconds;
+            }
+            updateClock();
+            setInterval(updateClock, 1000);
+        })();
+    </script>
 </body>
 </html>

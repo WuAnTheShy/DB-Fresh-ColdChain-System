@@ -2,12 +2,10 @@ using System.Data;
 
 namespace FreshColdChain.Repositories;
 
-/// <summary>
-/// 工作单元实现：一次 HTTP 请求内共享同一个连接和事务
-///
-/// 内部事务：Connection 惰性打开 → BeginAsync 开启事务
-/// 外部事务：B 组调用 AttachExternalTransaction 挂载后，所有操作走 B 组的事务
-/// </summary>
+// 工作单元实现：一次 HTTP 请求内共享同一个连接和事务
+// 
+// 内部事务：Connection 惰性打开 → BeginAsync 开启事务
+// 外部事务：B 组调用 AttachExternalTransaction 挂载后，所有操作走 B 组的事务
 public class UnitOfWork : IUnitOfWork
 {
     private readonly IDbConnectionFactory _connectionFactory;
@@ -43,10 +41,8 @@ public class UnitOfWork : IUnitOfWork
         _connectionFactory = connectionFactory;
     }
 
-    /// <summary>
-    /// 挂载外部事务 — B 组调用 A 组接口时使用。
-    /// 挂载后 Connection 和 Transaction 都由外部管理，BeginAsync/CommitAsync/RollbackAsync 变为空操作。
-    /// </summary>
+    // 挂载外部事务 — B 组调用 A 组接口时使用。
+    // 挂载后 Connection 和 Transaction 都由外部管理，BeginAsync/CommitAsync/RollbackAsync 变为空操作。
     public void AttachExternalTransaction(IDbTransaction externalTransaction)
     {
         ArgumentNullException.ThrowIfNull(externalTransaction);
@@ -58,9 +54,7 @@ public class UnitOfWork : IUnitOfWork
         _transaction = externalTransaction;
     }
 
-    /// <summary>
-    /// 开启内部事务 — A 组自己的写操作使用
-    /// </summary>
+    // 开启内部事务 — A 组自己的写操作使用
     public async Task BeginAsync()
     {
         if (_externalMode) return; // 外部模式不自己开事务

@@ -2,6 +2,20 @@
 @{
     ViewData["Title"] = "产品管理";
 }
+
+<div class="page-hero">
+    <div>
+        <div class="hero-greeting">产品管理</div>
+        <div class="hero-meta">
+            <span class="text-white-50">维护平台商品品类信息；保质期、温区与图文由各供应商上架时自行填写</span>
+        </div>
+    </div>
+    <div class="hero-actions">
+        <a class="btn btn-light btn-sm" asp-action="Create">新增产品</a>
+        <a class="btn btn-outline-light btn-sm" asp-action="LowStock">低库存预警</a>
+    </div>
+</div>
+
 @if (TempData["Success"] is string successMsg)
 {
     <div class="alert alert-success alert-dismissible fade show" role="alert" data-auto-dismiss>@successMsg</div>
@@ -10,72 +24,94 @@
 {
     <div class="alert alert-danger alert-dismissible fade show" role="alert" data-auto-dismiss>@errorMsg</div>
 }
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h3>产品列表</h3>
-    <div>
-        <a class="btn btn-success" asp-action="Create">新增产品</a>
-        <a class="btn btn-outline-warning" asp-action="LowStock">低库存预警</a>
+
+<div class="content-card">
+    <div class="content-card-header">
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> 产品列表</h5>
+        <form method="get" class="d-flex gap-2">
+            <input type="text" name="keyword" class="form-control form-control-sm" placeholder="搜索产品名称..." value="@ViewBag.Keyword" style="width:220px" />
+            <button class="btn btn-sm btn-primary">搜索</button>
+            <a class="btn btn-sm btn-outline-secondary" asp-action="Index">清除</a>
+        </form>
+    </div>
+    <div class="content-card-body p-0">
+        @if (Model.Items.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>图片</th>
+                            <th>名称</th>
+                            <th>分类</th>
+                            <th>库存</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model.Items)
+                        {
+                            <tr>
+                                <td>
+                                    @if (p.Images.Any())
+                                    {
+                                        <img src="@p.Images[0]" alt="@p.ProductName" class="product-thumb" onerror="this.style.display='none'" />
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">无图</span>
+                                    }
+                                </td>
+                                <td class="fw-semibold">@p.ProductName</td>
+                                <td>@p.CategoryName</td>
+                                <td>
+                                    @if (p.AvailableStock > 10)
+                                    {
+                                        <span class="badge bg-success">@p.AvailableStock</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark">@p.AvailableStock</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap align-items-center gap-1">
+                                        <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@p.ProductID">详情</a>
+                                        <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@p.ProductID">编辑</a>
+                                        <a class="btn btn-sm btn-outline-secondary" asp-action="Inventory" asp-route-productId="@p.ProductID">库存</a>
+                                        <span class="d-inline-flex align-items-center gap-1 ms-1" title="按商品整体下架/上架：连带该物品下所有供应商的货物一起处理，保证不残留个别供应商仍在售">
+                                            <form asp-controller="Goods" asp-action="AdminSetProductGoodsStatus" method="post" style="display:inline"
+                                                  onsubmit="return confirm('确定整体下架该商品吗？\n将连带下架所有供应商对该商品的上架货物，团长端立即停售。');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="productId" value="@p.ProductID" />
+                                                <input type="hidden" name="status" value="INACTIVE" />
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">整体下架</button>
+                                            </form>
+                                            <form asp-controller="Goods" asp-action="AdminSetProductGoodsStatus" method="post" style="display:inline"
+                                                  onsubmit="return confirm('确定整体上架该商品吗？\n将把该物品下所有供应商的货物重新置为上架。');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="productId" value="@p.ProductID" />
+                                                <input type="hidden" name="status" value="ACTIVE" />
+                                                <button type="submit" class="btn btn-sm btn-outline-success">整体上架</button>
+                                            </form>
+                                        </span>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h12a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2V4a2 2 0 0 1 2-2z"/><path d="M8 8h8M8 12h8"/></svg></div>
+                <p>暂无数据</p>
+            </div>
+        }
     </div>
 </div>
-<form method="get" class="row g-2 mb-3">
-    <div class="col-md-6">
-        <input type="text" name="keyword" class="form-control" placeholder="搜索产品名称..." value="@ViewBag.Keyword" />
-    </div>
-    <div class="col-auto">
-        <button class="btn btn-primary">搜索</button>
-        <a class="btn btn-outline-secondary" asp-action="Index">清除</a>
-    </div>
-</form>
-<table class="table table-striped table-hover">
-    <thead class="table-dark"><tr><th>图片</th><th>名称</th><th>分类</th><th>库存</th><th>操作</th></tr></thead>
-    <tbody>
-    @if (Model.Items.Any())
-    {
-        @foreach (var p in Model.Items)
-        {
-            <tr>
-                <td>
-                    @if (p.Images.Any())
-                    {
-                        <img src="@p.Images[0]" alt="@p.ProductName" class="product-thumb" onerror="this.style.display='none'" />
-                    }
-                    else
-                    {
-                        <span class="text-muted small">无图</span>
-                    }
-                </td>
-                <td>@p.ProductName</td><td>@p.CategoryName</td>
-                <td>@(p.AvailableStock > 10 ? "✅" : "⚠️") @p.AvailableStock</td>
-                <td>
-                    <a class="btn btn-sm btn-info" asp-action="Details" asp-route-id="@p.ProductID">详情</a>
-                    <a class="btn btn-sm btn-warning" asp-action="Edit" asp-route-id="@p.ProductID">编辑</a>
-                    <a class="btn btn-sm btn-secondary" asp-action="Inventory" asp-route-productId="@p.ProductID">库存</a>
-                    <span class="d-inline-flex align-items-center gap-1 ms-1" title="按商品整体下架/上架：连带该物品下所有供应商的货物一起处理，保证不残留个别供应商仍在售">
-                        <form asp-controller="Goods" asp-action="AdminSetProductGoodsStatus" method="post" style="display:inline"
-                              onsubmit="return confirm('确定整体下架该商品吗？\n将连带下架所有供应商对该商品的上架货物，团长端立即停售。');">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="productId" value="@p.ProductID" />
-                            <input type="hidden" name="status" value="INACTIVE" />
-                            <button type="submit" class="btn btn-sm btn-outline-danger">整体下架</button>
-                        </form>
-                        <form asp-controller="Goods" asp-action="AdminSetProductGoodsStatus" method="post" style="display:inline"
-                              onsubmit="return confirm('确定整体上架该商品吗？\n将把该物品下所有供应商的货物重新置为上架。');">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="productId" value="@p.ProductID" />
-                            <input type="hidden" name="status" value="ACTIVE" />
-                            <button type="submit" class="btn btn-sm btn-outline-success">整体上架</button>
-                        </form>
-                    </span>
-                </td>
-            </tr>
-        }
-    }
-    else
-    {
-        <tr><td colspan="6" class="text-center">暂无数据</td></tr>
-    }
-    </tbody>
-</table>
 @await Html.PartialAsync("_Pagination", Model)
 
 @section Scripts {

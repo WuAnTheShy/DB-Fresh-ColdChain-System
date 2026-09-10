@@ -18,26 +18,26 @@ public class ProductDto
     public string Status { get; set; } = "ACTIVE";
     public string? SupplierName { get; set; }
 
-    /// <summary>商品文字介绍（供应商维护）</summary>
+    // 商品文字介绍（供应商维护）
     public string? Description { get; set; }
 
-    /// <summary>商品图片（按展示顺序，最多 3 张）</summary>
+    // 商品图片（按展示顺序，最多 3 张）
     public List<string> Images { get; set; } = new();
 }
 
-/// <summary>产品详情页"供应商图文"区块数据：报价该商品的供应商选项 + 选中供应商的简介与图片</summary>
+// 产品详情页"供应商图文"区块数据：报价该商品的供应商选项 + 选中供应商的简介与图片
 public class ProductSupplierMediaDto
 {
-    /// <summary>报价该商品的全部供应商（下拉选项）</summary>
+    // 报价该商品的全部供应商（下拉选项）
     public List<SupplierMediaOptionDto> Suppliers { get; set; } = new();
 
     public string? SelectedSupplierID { get; set; }
     public string? SelectedSupplierName { get; set; }
 
-    /// <summary>选中供应商的简介（该供应商未写时为商品通用介绍；未选择供应商时为 null）</summary>
+    // 选中供应商的简介（该供应商未写时为商品通用介绍；未选择供应商时为 null）
     public string? Description { get; set; }
 
-    /// <summary>选中供应商的图片：自己上传的在前，平台通用图在后，最多 3 张</summary>
+    // 选中供应商的图片：自己上传的在前，平台通用图在后，最多 3 张
     public List<string> Images { get; set; } = new();
 }
 
@@ -71,15 +71,13 @@ public class UpdateProductDto
     public string? Description { get; set; }
 }
 
-/// <summary>
-/// 商品图片上传内容（新增/编辑商品时随表单提交，服务层将二进制写入
-/// Inv_ProductImages.ImageData，对外地址统一为 /images/product/{ImageID}，
-/// 供供应商门户 / 团长商品上架 / 消费者前端展示）。
-/// </summary>
+// 商品图片上传内容（新增/编辑商品时随表单提交，服务层将二进制写入
+// Inv_ProductImages.ImageData，对外地址统一为 /images/product/{ImageID}，
+// 供供应商门户 / 团长商品上架 / 消费者前端展示）。
 public class ProductImageUploadDto
 {
     public byte[] Data { get; set; } = Array.Empty<byte>();
 
-    /// <summary>MIME 类型（如 image/jpeg）</summary>
+    // MIME 类型（如 image/jpeg）
     public string ContentType { get; set; } = "image/jpeg";
 }

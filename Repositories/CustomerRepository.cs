@@ -4,9 +4,7 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Repositories;
 
-/// <summary>
-/// 消费者数据访问层 - Crm_Customers, Crm_UserAddresses
-/// </summary>
+// 消费者数据访问层 - Crm_Customers, Crm_UserAddresses
 public class CustomerRepository : B_BaseRepository, ICustomerRepository
 {
     public CustomerRepository(IConfiguration configuration) : base(configuration) { }
@@ -95,7 +93,7 @@ public class CustomerRepository : B_BaseRepository, ICustomerRepository
         });
     }
 
-    /// <summary>锁定消费者行，防止并发订单覆盖积分余额</summary>
+    // 锁定消费者行，防止并发订单覆盖积分余额
     public async Task<CrmCustomer?> GetByIdForUpdateAsync(
         string customerId,
         IDbTransaction transaction)
@@ -185,7 +183,7 @@ public class CustomerRepository : B_BaseRepository, ICustomerRepository
             (await connection.QueryAsync<CrmCustomer>("SELECT * FROM Crm_Customers", transaction: transaction)).ToList());
     }
 
-    /// <summary>只更新消费者允许自行维护的资料</summary>
+    // 只更新消费者允许自行维护的资料
     public async Task<bool> UpdateProfileAsync(
         CustomerProfileUpdateRequest request,
         IDbTransaction? transaction = null)

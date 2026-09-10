@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 下单事务中锁定的优惠券使用信息。
-/// </summary>
+// 下单事务中锁定的优惠券使用信息。
 public sealed class MktCouponUsage
 {
     public string RecordId { get; set; } = string.Empty;

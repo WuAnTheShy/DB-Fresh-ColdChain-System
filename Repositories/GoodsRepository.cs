@@ -3,9 +3,7 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Repositories;
 
-/// <summary>
-/// 货物仓储（复合主码，直接使用 Dapper，不继承单主码的 BaseRepository）。
-/// </summary>
+// 货物仓储（复合主码，直接使用 Dapper，不继承单主码的 BaseRepository）。
 public class GoodsRepository : IGoodsRepository
 {
     private readonly IUnitOfWork _uow;
@@ -16,7 +14,7 @@ public class GoodsRepository : IGoodsRepository
     }
 
     private const string SelectWithDetails = """
-        SELECT g.ProductID, g.SupplierID, g.SalePrice, g.Status, g.StorageReq, g.ShelfLifeHours,
+        SELECT g.ProductID, g.SupplierID, g.SalePrice, g.Status, p.StorageReq, g.ShelfLifeHours,
                g.Description, g.CreateTime, g.UpdateTime,
                p.ProductName, s.SupplierName
         FROM Inv_Goods g
@@ -67,8 +65,8 @@ public class GoodsRepository : IGoodsRepository
     public async Task AddAsync(InvGoods goods)
     {
         var sql = """
-            INSERT INTO Inv_Goods (ProductID, SupplierID, SalePrice, Status, StorageReq, ShelfLifeHours, Description, CreateTime, UpdateTime)
-            VALUES (:ProductID, :SupplierID, :SalePrice, :Status, :StorageReq, :ShelfLifeHours, :Description, :CreateTime, :UpdateTime)
+            INSERT INTO Inv_Goods (ProductID, SupplierID, SalePrice, Status, ShelfLifeHours, Description, CreateTime, UpdateTime)
+            VALUES (:ProductID, :SupplierID, :SalePrice, :Status, :ShelfLifeHours, :Description, :CreateTime, :UpdateTime)
             """;
         // 显式参数字典，避免把导航属性（Product/Supplier）交给 Dapper 导致绑定失败
         await _uow.Connection.ExecuteAsync(sql, ToParams(goods), _uow.Transaction);
@@ -78,7 +76,7 @@ public class GoodsRepository : IGoodsRepository
     {
         var sql = """
             UPDATE Inv_Goods
-            SET SalePrice = :SalePrice, Status = :Status, StorageReq = :StorageReq,
+            SET SalePrice = :SalePrice, Status = :Status,
                 ShelfLifeHours = :ShelfLifeHours, Description = :Description, UpdateTime = :UpdateTime
             WHERE ProductID = :ProductID AND SupplierID = :SupplierID
             """;
@@ -91,7 +89,6 @@ public class GoodsRepository : IGoodsRepository
         ["SupplierID"] = g.SupplierID,
         ["SalePrice"] = g.SalePrice,
         ["Status"] = g.Status,
-        ["StorageReq"] = g.StorageReq,
         ["ShelfLifeHours"] = g.ShelfLifeHours,
         ["Description"] = g.Description,
         ["CreateTime"] = g.CreateTime,

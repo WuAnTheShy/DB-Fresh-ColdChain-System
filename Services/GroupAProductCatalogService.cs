@@ -4,10 +4,8 @@ using FreshColdChain.Models.DTOs;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// 将 A 组公开商品与供应商服务适配为 B 组只读目录契约。
-/// B 组不直接访问 A 组 Repository 或数据表。
-/// </summary>
+// 将 A 组公开商品与供应商服务适配为 B 组只读目录契约。
+// B 组不直接访问 A 组 Repository 或数据表。
 public sealed class GroupAProductCatalogService(
     IProductInventoryService productInventoryService,
     ISupplierService supplierService) : IGroupAProductCatalogService

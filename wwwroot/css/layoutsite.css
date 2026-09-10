@@ -29,7 +29,7 @@ body {
     border-bottom: 0;
     box-shadow: 0 4px 12px rgba(34, 59, 70, 0.3);
 }
-/* ===== 导航栏平台标语：纯白加粗，字号大于旁边菜单链接 ===== */
+/* 导航栏平台标语：纯白加粗，字号大于旁边菜单链接 */
 .navbar .platform-word {
     color: #fff;
     font-size: 1.25rem;
@@ -142,7 +142,7 @@ body {
             display: none;
         }
 }
-/* ===== 仿消费者商城导航栏 header-account 的“你好，请登录”双行样式 ===== */
+/* 仿消费者商城导航栏 header-account 的“你好，请登录”双行样式 */
 .admin-account {
     color: #fff;
     background: transparent;
@@ -175,7 +175,7 @@ body {
     font-weight: 700;
 }
 
-/* ===== 导航栏时钟：仿“你好，请登录”双行样式 ===== */
+/* 导航栏时钟：仿“你好，请登录”双行样式 */
 .header-clock {
     color: #fff;
     display: inline-flex;
@@ -200,7 +200,7 @@ body {
     letter-spacing: 0.5px;
 }
 
-/* ===== 页脚：深色品牌区（仿 B 组消费者商城页脚；服务承诺条已上移至首页横幅下方） ===== */
+/* 页脚：深色品牌区（仿 B 组消费者商城页脚；服务承诺条已上移至首页横幅下方） */
 footer.footer {
     border-top: none;
     background: #f4f7f9;
@@ -241,7 +241,7 @@ footer.footer {
     font-size: 12px;
 }
 
-/* ===== Bootstrap 5.2 text-bg-* 徽章工具类兼容补丁（本项目 Bootstrap 为 5.1，badge 默认白字无底，导致徽章不可见） ===== */
+/* Bootstrap 5.2 text-bg-* 徽章工具类兼容补丁（本项目 Bootstrap 为 5.1，badge 默认白字无底，导致徽章不可见） */
 .text-bg-primary   { color: #fff !important; background-color: #2E5870 !important; }
 .text-bg-secondary { color: #fff !important; background-color: #6c757d !important; }
 .text-bg-success   { color: #fff !important; background-color: #2B96C9 !important; }

@@ -6,16 +6,14 @@ using Microsoft.AspNetCore.Identity;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// 消费者服务，负责资料、地址和默认地址不变量。
-/// </summary>
+// 消费者服务，负责资料、地址和默认地址不变量。
 public sealed class CustomerService : ICustomerService
 {
     private static readonly Regex MainlandPhonePattern = new(
         @"^1\d{10}$",
         RegexOptions.CultureInvariant);
 
-    /// <summary>系统预置头像标识集合（与前端 ClientApp/src/assets/avatars 目录一致）。</summary>
+    // 系统预置头像标识集合（与前端 ClientApp/src/assets/avatars 目录一致）。
     private static readonly HashSet<string> AllowedAvatars = new(StringComparer.OrdinalIgnoreCase)
     {
         "cat", "rabbit", "panda", "fox",

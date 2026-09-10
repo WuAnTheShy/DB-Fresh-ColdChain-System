@@ -228,7 +228,7 @@ namespace FreshColdChain.Services
             return Convert.ToBase64String(hash);
         }
         //管理员功能：审核团长注册信息
-        /// 审核通过团长申请
+        // 审核通过团长申请
         public async Task<Result> ApprovePromoterAsync(string promoterId, string adminId)
         {
             var result = new Result();
@@ -332,25 +332,25 @@ namespace FreshColdChain.Services
             }
         }
 
-        // ========== 管理员种类与管理员账号审核 ==========
+        // 管理员种类与管理员账号审核
 
-        /// <summary>把未填/填错的类型规范化为账号管理员。</summary>
+        // 把未填/填错的类型规范化为账号管理员。
         private static string NormalizeAdminKind(string? kind)
             => AdminSession.IsValidKind(kind) ? kind! : AdminSession.AccountKind;
 
-        /// <summary>待审核管理员列表（注册后状态 Pending，需账号管理员审核）。</summary>
+        // 待审核管理员列表（注册后状态 Pending，需账号管理员审核）。
         public async Task<List<GroupC_SysUser>> GetPendingAdminsAsync()
         {
             return await _iSysAdminRepository.GetUsersByStatusAsync("Pending");
         }
 
-        /// <summary>全部管理员（用于账号管理）。</summary>
+        // 全部管理员（用于账号管理）。
         public async Task<List<GroupC_SysUser>> GetAllAdminsAsync()
         {
             return await _iSysAdminRepository.GetAllUsersAsync();
         }
 
-        /// <summary>管理员注册审核通过：Pending -&gt; Enabled。</summary>
+        // 管理员注册审核通过：Pending -&gt; Enabled。
         public async Task<Result> ApproveAdminAsync(string userId, string operatorId)
         {
             var result = new Result();
@@ -394,7 +394,7 @@ namespace FreshColdChain.Services
             }
         }
 
-        /// <summary>管理员注册审核拒绝：Pending -&gt; Disabled（保留记录可追溯）。</summary>
+        // 管理员注册审核拒绝：Pending -&gt; Disabled（保留记录可追溯）。
         public async Task<Result> RejectAdminAsync(string userId, string operatorId, string? reason = null)
         {
             var result = new Result();
@@ -438,7 +438,7 @@ namespace FreshColdChain.Services
             }
         }
 
-        /// <summary>管理员启用/禁用（仅 Enabled &lt;-&gt; Disabled 互转；Pending 需走注册审核）。</summary>
+        // 管理员启用/禁用（仅 Enabled &lt;-&gt; Disabled 互转；Pending 需走注册审核）。
         public async Task<Result> SetAdminStatus(string operatorId, string userId, string targetStatus)
         {
             var result = new Result();

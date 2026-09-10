@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// Biz_OrderDetails - 订单明细
-/// </summary>
+// Biz_OrderDetails - 订单明细
 public class BizOrderDetail
 {
     public string OrderDetailId { get; set; } = string.Empty;

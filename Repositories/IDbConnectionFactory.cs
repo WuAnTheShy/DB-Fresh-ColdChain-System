@@ -4,9 +4,7 @@ using System.Data;
 
 namespace FreshColdChain.Repositories;
 
-/// <summary>
-/// 数据库连接工厂接口
-/// </summary>
+// 数据库连接工厂接口
 public interface IDbConnectionFactory
 {
     IDbConnection CreateConnection();

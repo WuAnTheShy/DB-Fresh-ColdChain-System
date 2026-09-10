@@ -20,6 +20,10 @@ const statusMap = {
   CANCELLED: ['已取消', 'text-bg-dark'],
   REFUNDING: ['退款中', 'text-bg-warning'],
   REFUNDED: ['已退款', 'text-bg-light'],
+  REFUND_REVIEWING: ['退款审核中', 'text-bg-warning'],
+  REFUND_APPROVED: ['退款已通过', 'text-bg-success'],
+  REFUND_REJECTED: ['退款已驳回', 'text-bg-secondary'],
+  REFUND_CANCELLED: ['已取消申请', 'text-bg-dark'],
 }
 </script>
 

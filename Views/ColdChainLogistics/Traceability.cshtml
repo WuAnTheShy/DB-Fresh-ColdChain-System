@@ -9,20 +9,28 @@
     var batchOptions = ViewBag.BatchOptions as List<OptionItemDto> ?? new List<OptionItemDto>();
 }
 
-<h3>🔍 精准溯源查询</h3>
-<p class="text-muted">支持按订单、发货单、批次多维度追溯冷链商品流向</p>
+<div class="page-hero">
+    <div>
+        <div class="hero-greeting">精准溯源查询</div>
+        <div class="hero-meta">
+            <span class="text-white-50">支持按订单、发货单、批次多维度追溯冷链商品流向</span>
+        </div>
+    </div>
+</div>
 
 @if (!string.IsNullOrWhiteSpace(ViewBag.Error))
 {
-    <div class="alert alert-danger">@ViewBag.Error</div>
+    <div class="alert alert-danger" data-auto-dismiss>@ViewBag.Error</div>
 }
 
-<div class="row mb-4">
+<div class="row g-3 mb-3">
     <!-- 按订单查询 -->
     <div class="col-md-4">
-        <div class="card">
-            <div class="card-header fw-bold">📋 按订单查询</div>
-            <div class="card-body">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg> 按订单查询</h5>
+            </div>
+            <div class="content-card-body">
                 <form asp-action="TraceByOrder" method="get">
                     <div class="mb-2">
                         <select name="orderId" class="form-select" required>
@@ -37,7 +45,7 @@
                             <div class="alert alert-warning py-1 small mt-1 mb-0">暂无已发货订单，请先在"发货管理"创建发货单</div>
                         }
                     </div>
-                    <button type="submit" class="btn btn-primary btn-sm">查询溯源链路</button>
+                    <button type="submit" class="btn btn-dark btn-sm">查询溯源链路</button>
                 </form>
             </div>
         </div>
@@ -45,9 +53,11 @@
 
     <!-- 按发货单查询 -->
     <div class="col-md-4">
-        <div class="card">
-            <div class="card-header fw-bold">📦 按发货单查询</div>
-            <div class="card-body">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h2a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H8"/><path d="M4 6h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-2"/><circle cx="7" cy="17" r="3"/><path d="M3 6V4a1 1 0 0 1 1-1h4"/></svg> 按发货单查询</h5>
+            </div>
+            <div class="content-card-body">
                 <form asp-action="TraceByDelivery" method="get">
                     <div class="mb-2">
                         <select name="deliveryId" class="form-select" required>
@@ -62,7 +72,7 @@
                             <div class="alert alert-warning py-1 small mt-1 mb-0">暂无发货单，请先在"发货管理"创建发货单</div>
                         }
                     </div>
-                    <button type="submit" class="btn btn-success btn-sm">查询批次明细</button>
+                    <button type="submit" class="btn btn-dark btn-sm">查询批次明细</button>
                 </form>
             </div>
         </div>
@@ -70,9 +80,11 @@
 
     <!-- 按批次反向溯源 -->
     <div class="col-md-4">
-        <div class="card">
-            <div class="card-header fw-bold">🔬 按批次反向溯源</div>
-            <div class="card-body">
+        <div class="content-card h-100">
+            <div class="content-card-header">
+                <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> 按批次反向溯源</h5>
+            </div>
+            <div class="content-card-body">
                 <form asp-action="TraceByBatch" method="get">
                     <div class="mb-2">
                         <select name="batchId" class="form-select" required>
@@ -87,48 +99,55 @@
                             <div class="alert alert-warning py-1 small mt-1 mb-0">暂无库存批次，请先入库</div>
                         }
                     </div>
-                    <button type="submit" class="btn btn-warning btn-sm">查询批次去向</button>
+                    <button type="submit" class="btn btn-dark btn-sm">查询批次去向</button>
                 </form>
             </div>
         </div>
     </div>
+
 </div>
 
 <!-- 正向溯源结果：订单 / 发货单 -->
 @if (ViewBag.TraceResult is List<DeliveryTraceDto> traces)
 {
-    <h5 class="mt-3">
-        @(ViewBag.QueryType == "order" ? $"订单" : "发货单") <code>@ViewBag.QueryKey</code> 的溯源结果
-    </h5>
+    <div class="content-card mb-3">
+        <div class="content-card-header">
+            <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h7a4 4 0 0 0 0-8H9a4 4 0 0 1 0-8h5"/></svg> @(ViewBag.QueryType == "order" ? "订单" : "发货单") <code class="order-id">@ViewBag.QueryKey</code> 的溯源结果</h5>
+            <span class="text-muted small">共 @traces.Count 张发货单</span>
+        </div>
+    </div>
 
     @foreach (var trace in traces)
     {
-        <div class="card mb-3 border-info">
-            <div class="card-header bg-info text-white d-flex justify-content-between">
-                <span>📮 发货单：@trace.TrackingNo</span>
-                <span>状态：@trace.LogisticsStatus | @trace.ShippedAt.ToString("yyyy-MM-dd HH:mm")</span>
+        <div class="content-card mb-3">
+            <div class="content-card-header">
+                <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h2a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H8"/><path d="M4 6h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-2"/><circle cx="7" cy="17" r="3"/><path d="M3 6V4a1 1 0 0 1 1-1h4"/></svg> 发货单：@trace.TrackingNo</h5>
+                <span class="badge bg-info">状态：@trace.LogisticsStatus | @trace.ShippedAt.ToString("yyyy-MM-dd HH:mm")</span>
             </div>
-            <div class="card-body">
-                <p><strong>DeliveryID：</strong>@trace.DeliveryID | <strong>SupplierID：</strong>@trace.SupplierID</p>
-                <h6>批次扣减明细（@trace.Allocations.Count 条）：</h6>
-                <table class="table table-sm table-bordered">
-                    <thead class="table-light">
-                        <tr>
-                            <th>产品名称</th><th>批次号</th><th>批次过期日</th><th>扣减数量</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var a in trace.Allocations)
-                        {
+            <div class="content-card-body">
+                <div class="info-row"><div class="info-label">DeliveryID</div><div class="info-value"><code class="order-id">@trace.DeliveryID</code></div></div>
+                <div class="info-row"><div class="info-label">SupplierID</div><div class="info-value"><code class="order-id">@trace.SupplierID</code></div></div>
+                <h6 class="mt-3">批次扣减明细（@trace.Allocations.Count 条）</h6>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light">
                             <tr>
-                                <td>@a.ProductName</td>
-                                <td>@a.BatchNo</td>
-                                <td>@(a.ExpiryDate?.ToString("yyyy-MM-dd") ?? "无")</td>
-                                <td>@a.Quantity</td>
+                                <th>产品名称</th><th>批次号</th><th>批次过期日</th><th>扣减数量</th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach (var a in trace.Allocations)
+                            {
+                                <tr>
+                                    <td>@a.ProductName</td>
+                                    <td><code class="order-id">@a.BatchNo</code></td>
+                                    <td>@(a.ExpiryDate?.ToString("yyyy-MM-dd") ?? "无")</td>
+                                    <td>@a.Quantity</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     }
@@ -137,35 +156,33 @@
 <!-- 反向溯源结果：批次 -->
 @if (ViewBag.BatchTrace is BatchTraceDto batchTrace)
 {
-    <h5 class="mt-3">
-        批次 <code>@ViewBag.QueryKey</code> 的去向
-    </h5>
-    <div class="card mb-3 border-warning">
-        <div class="card-header bg-warning">
-            <span>🔬 批次号：<strong>@batchTrace.BatchNo</strong></span>
-            <span class="ms-3">产品：@batchTrace.ProductName</span>
-            <span class="ms-3">过期日：@(batchTrace.ExpiryDate?.ToString("yyyy-MM-dd") ?? "无")</span>
+    <div class="content-card mb-3">
+        <div class="content-card-header">
+            <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> 批次 <code class="order-id">@ViewBag.QueryKey</code> 的去向</h5>
+            <span class="badge bg-warning text-dark">批次 @batchTrace.BatchNo · @batchTrace.ProductName · 过期 @(batchTrace.ExpiryDate?.ToString("yyyy-MM-dd") ?? "无")</span>
         </div>
-        <div class="card-body">
-            <h6>被以下发货单使用（@batchTrace.Allocations.Count 条）：</h6>
-            <table class="table table-sm table-bordered">
-                <thead class="table-light">
-                    <tr>
-                        <th>发货单 ID</th><th>运单号</th><th>产品名称</th><th>发货数量</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var a in batchTrace.Allocations)
-                    {
+        <div class="content-card-body">
+            <h6>被以下发货单使用（@batchTrace.Allocations.Count 条）</h6>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
                         <tr>
-                            <td><code>@a.DeliveryID[..8]</code></td>
-                            <td>@a.TrackingNo</td>
-                            <td>@a.ProductName</td>
-                            <td>@a.Quantity</td>
+                            <th>发货单 ID</th><th>运单号</th><th>产品名称</th><th>发货数量</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in batchTrace.Allocations)
+                        {
+                            <tr>
+                                <td><code class="order-id">@a.DeliveryID[..8]</code></td>
+                                <td>@a.TrackingNo</td>
+                                <td>@a.ProductName</td>
+                                <td>@a.Quantity</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 }

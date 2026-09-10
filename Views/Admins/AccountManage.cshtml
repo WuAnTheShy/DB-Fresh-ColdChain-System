@@ -78,32 +78,34 @@
                                         <td class="small text-muted">@item.RegisterTime.ToString("yyyy-MM-dd")</td>
                                         <td><span class="badge @badge">@text</span></td>
                                         <td>
-                                            <button type="button" class="btn btn-sm btn-outline-primary mb-1" data-bs-toggle="modal"
-                                                    data-bs-target="#rateModal"
-                                                    data-id="@item.PromoterId" data-name="@item.PromoterName" data-rate="@item.BaseCommissionRate">改比例</button>
-                                            @if (item.IsEnabledAccount)
-                                            {
-                                                <form asp-action="SetPromoterStatus" method="post" style="display:inline-block;"
-                                                      onsubmit="return confirm('确认禁用该团长？禁用后其无法登录。');">
-                                                    @Html.AntiForgeryToken()
-                                                    <input type="hidden" name="promoterId" value="@item.PromoterId" />
-                                                    <input type="hidden" name="targetStatus" value="Disable" />
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">禁用</button>
-                                                </form>
-                                            }
-                                            else if (item.Status is "Disable" or "Disabled" or "Frozen")
-                                            {
-                                                <form asp-action="SetPromoterStatus" method="post" style="display:inline-block;">
-                                                    @Html.AntiForgeryToken()
-                                                    <input type="hidden" name="promoterId" value="@item.PromoterId" />
-                                                    <input type="hidden" name="targetStatus" value="Enable" />
-                                                    <button type="submit" class="btn btn-sm btn-outline-success">重新启用</button>
-                                                </form>
-                                            }
-                                            else
-                                            {
-                                                <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去审核</a>
-                                            }
+                                            <div class="d-flex flex-wrap align-items-center gap-1">
+                                                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                                        data-bs-target="#rateModal"
+                                                        data-id="@item.PromoterId" data-name="@item.PromoterName" data-rate="@item.BaseCommissionRate">改比例</button>
+                                                @if (item.IsEnabledAccount)
+                                                {
+                                                    <form asp-action="SetPromoterStatus" method="post" class="d-inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="promoterId" value="@item.PromoterId" />
+                                                        <input type="hidden" name="targetStatus" value="Disable" />
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                                onclick="return confirm('确认禁用该团长？禁用后其无法登录。');">禁用</button>
+                                                    </form>
+                                                }
+                                                else if (item.Status is "Disable" or "Disabled" or "Frozen")
+                                                {
+                                                    <form asp-action="SetPromoterStatus" method="post" class="d-inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="promoterId" value="@item.PromoterId" />
+                                                        <input type="hidden" name="targetStatus" value="Enable" />
+                                                        <button type="submit" class="btn btn-sm btn-outline-success">重新启用</button>
+                                                    </form>
+                                                }
+                                                else
+                                                {
+                                                    <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去审核</a>
+                                                }
+                                            </div>
                                         </td>
                                     </tr>
                                 }
@@ -167,29 +169,31 @@
                                         </td>
                                         <td><span class="badge @badge">@text</span></td>
                                         <td>
-                                            @if (item.IsActiveAccount)
-                                            {
-                                                <form asp-action="SetSupplierStatus" method="post" style="display:inline-block;"
-                                                      onsubmit="return confirm('确认禁用该供应商？禁用后其无法登录门户。');">
-                                                    @Html.AntiForgeryToken()
-                                                    <input type="hidden" name="supplierId" value="@item.SupplierID" />
-                                                    <input type="hidden" name="targetStatus" value="Disabled" />
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">禁用</button>
-                                                </form>
-                                            }
-                                            else if (item.Status is "Disabled" or "Rejected")
-                                            {
-                                                <form asp-action="SetSupplierStatus" method="post" style="display:inline-block;">
-                                                    @Html.AntiForgeryToken()
-                                                    <input type="hidden" name="supplierId" value="@item.SupplierID" />
-                                                    <input type="hidden" name="targetStatus" value="Active" />
-                                                    <button type="submit" class="btn btn-sm btn-outline-success">重新启用</button>
-                                                </form>
-                                            }
-                                            else
-                                            {
-                                                <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去审核</a>
-                                            }
+                                            <div class="d-flex flex-wrap align-items-center gap-1">
+                                                @if (item.IsActiveAccount)
+                                                {
+                                                    <form asp-action="SetSupplierStatus" method="post" class="d-inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                                                        <input type="hidden" name="targetStatus" value="Disabled" />
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                                onclick="return confirm('确认禁用该供应商？禁用后其无法登录门户。');">禁用</button>
+                                                    </form>
+                                                }
+                                                else if (item.Status is "Disabled" or "Rejected")
+                                                {
+                                                    <form asp-action="SetSupplierStatus" method="post" class="d-inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="supplierId" value="@item.SupplierID" />
+                                                        <input type="hidden" name="targetStatus" value="Active" />
+                                                        <button type="submit" class="btn btn-sm btn-outline-success">重新启用</button>
+                                                    </form>
+                                                }
+                                                else
+                                                {
+                                                    <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去审核</a>
+                                                }
+                                            </div>
                                         </td>
                                     </tr>
                                 }
@@ -246,35 +250,37 @@
                                         <td class="small text-muted">@item.CreateTime.ToString("yyyy-MM-dd")</td>
                                         <td><span class="badge @badge">@text</span></td>
                                         <td>
-                                            @if (item.IsPendingAccount)
-                                            {
-                                                <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去审核</a>
-                                            }
-                                            else if (item.IsEnabledAccount)
-                                            {
-                                                @if (!isSelf)
+                                            <div class="d-flex flex-wrap align-items-center gap-1">
+                                                @if (item.IsPendingAccount)
                                                 {
-                                                    <form asp-action="SetAdminStatus" method="post" style="display:inline-block;"
-                                                          onsubmit="return confirm('确认禁用该管理员？禁用后其无法登录。');">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="userId" value="@item.UserId" />
-                                                        <input type="hidden" name="targetStatus" value="Disabled" />
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger">禁用</button>
-                                                    </form>
+                                                    <a asp-action="AccountReview" class="btn btn-sm btn-outline-primary">去审核</a>
                                                 }
-                                            }
-                                            else if (item.Status == "Disabled")
-                                            {
-                                                @if (!isSelf)
+                                                else if (item.IsEnabledAccount)
                                                 {
-                                                    <form asp-action="SetAdminStatus" method="post" style="display:inline-block;">
-                                                        @Html.AntiForgeryToken()
-                                                        <input type="hidden" name="userId" value="@item.UserId" />
-                                                        <input type="hidden" name="targetStatus" value="Enabled" />
-                                                        <button type="submit" class="btn btn-sm btn-outline-success">重新启用</button>
-                                                    </form>
+                                                    @if (!isSelf)
+                                                    {
+                                                        <form asp-action="SetAdminStatus" method="post" class="d-inline">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="userId" value="@item.UserId" />
+                                                            <input type="hidden" name="targetStatus" value="Disabled" />
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                                    onclick="return confirm('确认禁用该管理员？禁用后其无法登录。');">禁用</button>
+                                                        </form>
+                                                    }
                                                 }
-                                            }
+                                                else if (item.Status == "Disabled")
+                                                {
+                                                    @if (!isSelf)
+                                                    {
+                                                        <form asp-action="SetAdminStatus" method="post" class="d-inline">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="userId" value="@item.UserId" />
+                                                            <input type="hidden" name="targetStatus" value="Enabled" />
+                                                            <button type="submit" class="btn btn-sm btn-outline-success">重新启用</button>
+                                                        </form>
+                                                    }
+                                                }
+                                            </div>
                                         </td>
                                     </tr>
                                 }

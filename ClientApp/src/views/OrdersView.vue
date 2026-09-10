@@ -18,6 +18,7 @@ const tabs = [
   { value: 'Shipped', label: '配送中' },
   { value: 'Completed', label: '已完成' },
   { value: 'Refunding', label: '退款售后' },
+  { value: 'Refunded', label: '已退款' },
 ]
 
 function money(value) { return `¥${Number(value ?? 0).toFixed(2)}` }
@@ -54,11 +55,13 @@ function handleImageError(event) {
   event.target.classList.add('fallback-photo-tint')
 }
 function primaryAction(order) {
+  const displayStatus = order.displayStatusCode || order.orderStatus
+  if (displayStatus === 'REFUND_REVIEWING') return { label: '查看退款', to: `/orders/${order.orderId}`, prominent: true }
   if (order.orderStatus === 'PENDING_PAYMENT' && order.checkoutBatchId) {
     return { label: '立即支付', to: `/payment/${order.checkoutBatchId}`, prominent: true }
   }
   if (order.orderStatus === 'SHIPPED') return { label: '查看物流', to: `/orders/${order.orderId}`, prominent: false }
-  if (order.orderStatus === 'COMPLETED') return { label: '评价', to: `/orders/${order.orderId}`, prominent: true }
+  if (displayStatus === 'COMPLETED') return { label: '评价', to: `/orders/${order.orderId}`, prominent: true }
   return { label: '查看详情', to: `/orders/${order.orderId}`, prominent: false }
 }
 

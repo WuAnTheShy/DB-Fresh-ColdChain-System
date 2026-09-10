@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 分页结果
-/// </summary>
+// 分页结果
 public class PagedResult<T>
 {
     public int PageIndex { get; set; }

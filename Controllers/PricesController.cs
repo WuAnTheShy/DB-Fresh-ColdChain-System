@@ -5,9 +5,7 @@ using FreshColdChain.Models.DTOs;
 
 namespace FreshColdChain.Controllers;
 
-/// <summary>
-/// 动态定价引擎 — 价格规则管理与实时价格计算
-/// </summary>
+// 动态定价引擎 — 价格规则管理与实时价格计算
 [RequireSupplier]
 public class PricesController : Controller
 {
@@ -20,7 +18,7 @@ public class PricesController : Controller
         _listedPriceSync = listedPriceSync;
     }
 
-    // ========== 规则列表 ==========
+    // 规则列表
 
     [HttpGet]
     public async Task<IActionResult> Index(int pageIndex = 1, int pageSize = 15)
@@ -29,7 +27,7 @@ public class PricesController : Controller
         return View(r.Data);
     }
 
-    // ========== 创建规则 ==========
+    // 创建规则
 
     [HttpGet]
     public async Task<IActionResult> Create()
@@ -37,7 +35,7 @@ public class PricesController : Controller
         var dto = new SavePriceRuleDto();
         if (ScopedSupplierId() is { } supplierId)
             dto.SupplierID = supplierId; // 平台管理员不预设，需在下拉中选定所属供应商
-        await LoadGoodsOptionsAsync(dto, ScopedSupplierId());
+        await LoadGoodsOptionsAsync(ScopedSupplierId());
         return View(dto);
     }
 
@@ -52,14 +50,14 @@ public class PricesController : Controller
         if (!r.IsSuccess)
         {
             ModelState.AddModelError("", r.Message);
-            await LoadGoodsOptionsAsync(dto, ScopedSupplierId());
+            await LoadGoodsOptionsAsync(ScopedSupplierId());
             return View(dto);
         }
         TempData["Success"] = r.Message + await BuildSyncSuffixAsync(new[] { (dto.SupplierID, dto.ProductID) });
         return RedirectToAction(nameof(Index));
     }
 
-    // ========== 编辑规则 ==========
+    // 编辑规则
 
     [HttpGet]
     public async Task<IActionResult> Edit(string id)
@@ -88,7 +86,7 @@ public class PricesController : Controller
             EffectiveFrom = rule.EffectiveFrom,
             EffectiveTo = rule.EffectiveTo
         };
-        await LoadGoodsOptionsAsync(dto, ScopedSupplierId());
+        await LoadGoodsOptionsAsync(ScopedSupplierId());
         return View(dto);
     }
 
@@ -105,7 +103,7 @@ public class PricesController : Controller
         if (!r.IsSuccess)
         {
             ModelState.AddModelError("", r.Message);
-            await LoadGoodsOptionsAsync(dto, ScopedSupplierId());
+            await LoadGoodsOptionsAsync(ScopedSupplierId());
             return View(dto);
         }
         var scopes = new List<(string? SupplierId, string ProductId)> { (dto.SupplierID, dto.ProductID) };
@@ -118,7 +116,7 @@ public class PricesController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // ========== 删除规则 ==========
+    // 删除规则
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -134,10 +132,14 @@ public class PricesController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // ========== 实时价格计算 ==========
+    // 实时价格计算
 
     [HttpGet]
-    public IActionResult Calculate() => View(new PriceCalculationRequest());
+    public async Task<IActionResult> Calculate()
+    {
+        await LoadGoodsOptionsAsync(ScopedSupplierId());
+        return View(new PriceCalculationRequest());
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -146,6 +148,7 @@ public class PricesController : Controller
         // 普通供应商算自己货物售价；平台管理员（原供应商管理员，现商品管理员）需在表单指定供应商
         if (!SupplierSession.IsPlatformAdmin(HttpContext.Session))
             request.SupplierID = SupplierSession.GetSupplierId(HttpContext.Session) ?? "";
+        await LoadGoodsOptionsAsync(ScopedSupplierId());
         var r = await _pricing.CalculatePriceAsync(request);
         if (!r.IsSuccess)
         {
@@ -156,25 +159,21 @@ public class PricesController : Controller
         return View(request);
     }
 
-    /// <summary>当前供应商 ID：平台管理员返回 null（可操作全部），普通供应商返回自己的 ID</summary>
+    // 当前供应商 ID：平台管理员返回 null（可操作全部），普通供应商返回自己的 ID
     private string? ScopedSupplierId()
         => SupplierSession.IsPlatformAdmin(HttpContext.Session) ? null : SupplierSession.GetSupplierId(HttpContext.Session);
 
-    /// <summary>
-    /// 加载「货物商品」下拉选项到 ViewData。
-    /// dto.SupplierID：普通供应商为当前供应商；平台管理员为表单提交/选中的所属供应商。
-    /// </summary>
-    private async Task LoadGoodsOptionsAsync(SavePriceRuleDto dto, string? scopedSupplierId)
+    // 加载「货物商品」下拉选项到 ViewData（新建/编辑规则与实时试算共用）。
+    // scopedSupplierId：普通供应商传自己，平台管理员传 null 可选全部货物。
+    private async Task LoadGoodsOptionsAsync(string? scopedSupplierId)
     {
         ViewData["GoodsOptions"] = await _pricing.GetGoodsOptionsAsync(scopedSupplierId);
         // 平台管理员（无固定供应商）需要在下拉里体现供应商归属
         ViewData["IsAdminScope"] = scopedSupplierId == null;
     }
 
-    /// <summary>
-    /// 规则增删改成功后，同步重算对应（供应商×商品）下所有团长已上架条目的动态定价快照，
-    /// 并返回“已同步更新 N 个……”的中文提示后缀；同步失败不阻断规则保存，只给出提示。
-    /// </summary>
+    // 规则增删改成功后，同步重算对应（供应商×商品）下所有团长已上架条目的动态定价快照，
+    // 并返回“已同步更新 N 个……”的中文提示后缀；同步失败不阻断规则保存，只给出提示。
     private async Task<string> BuildSyncSuffixAsync(IEnumerable<(string? SupplierId, string ProductId)> scopes)
     {
         var total = 0;

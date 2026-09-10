@@ -19,13 +19,11 @@ public class PriceRuleRepository : BaseRepository<BizPriceRule>, IPriceRuleRepos
             new { Id = productId, SupplierId = supplierId }, _uow.Transaction)).ToList();
     }
 
-    /// <summary>
-    /// 查询某商品+供应商当前启用的规则：
-    ///   IsActive = 1
-    ///   AND (EffectiveFrom IS NULL OR EffectiveFrom <= 参考时间)
-    ///   AND (EffectiveTo IS NULL OR EffectiveTo >= 参考时间)
-    /// 按 Priority 升序（数字越小越优先）
-    /// </summary>
+    // 查询某商品+供应商当前启用的规则：
+    //   IsActive = 1
+    //   AND (EffectiveFrom IS NULL OR EffectiveFrom <= 参考时间)
+    //   AND (EffectiveTo IS NULL OR EffectiveTo >= 参考时间)
+    // 按 Priority 升序（数字越小越优先）
     public async Task<List<BizPriceRule>> GetActiveByProductAsync(string productId, string supplierId, DateTime? referenceTime = null)
     {
         var now = referenceTime ?? DateTime.Now;

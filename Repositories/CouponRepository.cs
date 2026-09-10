@@ -4,14 +4,12 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Repositories;
 
-/// <summary>
-/// 优惠券数据访问层 - Mkt_Coupons, Mkt_CouponRecords
-/// </summary>
+// 优惠券数据访问层 - Mkt_Coupons, Mkt_CouponRecords
 public class CouponRepository : B_BaseRepository, ICouponRepository
 {
     public CouponRepository(IConfiguration configuration) : base(configuration) { }
 
-    /// <summary>查询用户可用优惠券列表</summary>
+    // 查询用户可用优惠券列表
     public async Task<List<MktCouponRecord>> GetUserCouponsAsync(
         string customerId,
         IDbTransaction? transaction = null)
@@ -26,7 +24,7 @@ public class CouponRepository : B_BaseRepository, ICouponRepository
                 transaction)).ToList());
     }
 
-    /// <summary>查询优惠券模板详情</summary>
+    // 查询优惠券模板详情
     public async Task<MktCoupon?> GetCouponTemplateAsync(
         string couponId,
         IDbTransaction? transaction = null)
@@ -38,7 +36,7 @@ public class CouponRepository : B_BaseRepository, ICouponRepository
                 transaction));
     }
 
-    /// <summary>锁定券模板，保证领券检查期间库存和状态不漂移</summary>
+    // 锁定券模板，保证领券检查期间库存和状态不漂移
     public async Task<MktCoupon?> GetCouponTemplateForUpdateAsync(
         string couponId,
         IDbTransaction transaction)
@@ -52,7 +50,7 @@ public class CouponRepository : B_BaseRepository, ICouponRepository
                 transaction));
     }
 
-    /// <summary>查询当前有效、尚有库存的券模板，并标记消费者是否已领取</summary>
+    // 查询当前有效、尚有库存的券模板，并标记消费者是否已领取
     public async Task<List<ClaimableCouponItem>> GetClaimableCouponsAsync(
         string customerId,
         IDbTransaction? transaction = null)
@@ -80,7 +78,7 @@ public class CouponRepository : B_BaseRepository, ICouponRepository
                 transaction)).ToList());
     }
 
-    /// <summary>查询消费者已领取、未使用且仍在有效期内的优惠券</summary>
+    // 查询消费者已领取、未使用且仍在有效期内的优惠券
     public async Task<List<AvailableCouponItem>> GetAvailableCouponsAsync(
         string customerId,
         IDbTransaction? transaction = null)
@@ -143,7 +141,7 @@ public class CouponRepository : B_BaseRepository, ICouponRepository
         });
     }
 
-    /// <summary>锁定并读取本次订单可用的用户券</summary>
+    // 锁定并读取本次订单可用的用户券
     public async Task<MktCouponUsage?> GetUsableCouponForUpdateAsync(
         string recordId,
         string customerId,
@@ -172,7 +170,7 @@ public class CouponRepository : B_BaseRepository, ICouponRepository
                 transaction));
     }
 
-    /// <summary>以条件更新方式原子核销优惠券</summary>
+    // 以条件更新方式原子核销优惠券
     public async Task<bool> TryUseCouponAsync(
         string recordId,
         string customerId,
@@ -198,7 +196,7 @@ public class CouponRepository : B_BaseRepository, ICouponRepository
         });
     }
 
-    /// <summary>取消订单时归还该订单核销的用户券</summary>
+    // 取消订单时归还该订单核销的用户券
     public async Task<int> RestoreCouponForCancelledOrderAsync(
         string orderId,
         string customerId,
@@ -215,7 +213,7 @@ public class CouponRepository : B_BaseRepository, ICouponRepository
                 transaction));
     }
 
-    /// <summary>减少券模板剩余数量(防超发)</summary>
+    // 减少券模板剩余数量(防超发)
     public async Task<bool> DecrementCouponStockAsync(string couponId, IDbTransaction? transaction = null)
     {
         return await WithConnectionAsync(transaction, async connection =>

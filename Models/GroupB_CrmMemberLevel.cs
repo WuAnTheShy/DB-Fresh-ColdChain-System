@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// Crm_MemberLevels - 会员等级定义
-/// </summary>
+// Crm_MemberLevels - 会员等级定义
 public class CrmMemberLevel
 {
     public string MemberLevelId { get; set; } = string.Empty;

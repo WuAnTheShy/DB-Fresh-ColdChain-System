@@ -3,7 +3,7 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Repositories;
 
-/// <summary>由 B 组订单持久记录生成消费者长期可查消息，不跨组读取 C 组表。</summary>
+// 由 B 组订单持久记录生成消费者长期可查消息，不跨组读取 C 组表。
 public sealed class ConsumerMessageRepository(IConfiguration configuration) : B_BaseRepository(configuration), IConsumerMessageRepository
 {
     public async Task<List<ConsumerMessage>> GetOrderMessagesAsync(string customerId, int take = 100)

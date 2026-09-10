@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace FreshColdChain.Models;
 
-/// <summary>B 组调用 A 组商品目录时使用的查询条件。</summary>
+// B 组调用 A 组商品目录时使用的查询条件。
 public sealed class GroupAProductSearchRequest
 {
     public IReadOnlyList<string> SupplierIds { get; init; } = [];
@@ -17,7 +17,7 @@ public sealed class GroupAProductSearchRequest
     public int PageSize { get; init; } = 20;
 }
 
-/// <summary>A 组返回给 B 组后端的消费者可售商品。</summary>
+// A 组返回给 B 组后端的消费者可售商品。
 public sealed class GroupAConsumerProduct
 {
     public string ProductId { get; init; } = string.Empty;
@@ -43,7 +43,7 @@ public sealed class GroupAProductSearchResult
     public int PageSize { get; init; }
 }
 
-/// <summary>结算和下单前由 A 组提供的可信商品信息。</summary>
+// 结算和下单前由 A 组提供的可信商品信息。
 public sealed class GroupATrustedProduct
 {
     public string ProductId { get; init; } = string.Empty;
@@ -57,7 +57,7 @@ public sealed class GroupATrustedProduct
     public string? StorageRequirement { get; init; }
 }
 
-/// <summary>B 组调用 C 组团长目录时使用的查询条件。</summary>
+// B 组调用 C 组团长目录时使用的查询条件。
 public sealed class GroupCPromoterSearchRequest
 {
     public string? Keyword { get; init; }
@@ -84,7 +84,7 @@ public sealed class GroupCPromoterSearchResult
     public int PageSize { get; init; }
 }
 
-/// <summary>B 组后端提交给 C 组的团长带货关系校验项。</summary>
+// B 组后端提交给 C 组的团长带货关系校验项。
 public sealed class GroupCPromoterProductCandidate
 {
     public string ProductId { get; init; } = string.Empty;
@@ -95,7 +95,7 @@ public sealed class GroupCPromoterProductValidation
 {
     public string ProductId { get; init; } = string.Empty;
 
-    /// <summary>供货供应商 ID：同一商品不同供应商分别校验在团与报价。</summary>
+    // 供货供应商 ID：同一商品不同供应商分别校验在团与报价。
     public string SupplierId { get; init; } = string.Empty;
 
     public bool IsAllowed { get; init; }
@@ -104,7 +104,7 @@ public sealed class GroupCPromoterProductValidation
     public IReadOnlyList<string> ImageUrls { get; init; } = [];
 }
 
-/// <summary>C 组返回给 B 组后端的团长在团商品。</summary>
+// C 组返回给 B 组后端的团长在团商品。
 public sealed class GroupCPromoterFeaturedProduct
 {
     public string ProductId { get; init; } = string.Empty;
@@ -113,7 +113,7 @@ public sealed class GroupCPromoterFeaturedProduct
     [JsonIgnore]
     public string SupplierId { get; init; } = string.Empty;
 
-    /// <summary>供货供应商名称，消费者端用于区分同一商品的不同供货来源。</summary>
+    // 供货供应商名称，消费者端用于区分同一商品的不同供货来源。
     [JsonIgnore]
     public string? SupplierName { get; init; }
 
@@ -123,7 +123,7 @@ public sealed class GroupCPromoterFeaturedProduct
     public IReadOnlyList<string> ImageUrls { get; init; } = [];
 }
 
-/// <summary>B 组消费者端使用的真实在团商品，只包含可公开字段。</summary>
+// B 组消费者端使用的真实在团商品，只包含可公开字段。
 public sealed class ConsumerCatalogProduct
 {
     public string CatalogItemId { get; init; } = string.Empty;
@@ -133,10 +133,10 @@ public sealed class ConsumerCatalogProduct
     public string? Unit { get; init; }
     public string? StorageRequirement { get; init; }
 
-    /// <summary>供货供应商 ID。同一商品可能由多个供应商分别上架，供消费者端区分。</summary>
+    // 供货供应商 ID。同一商品可能由多个供应商分别上架，供消费者端区分。
     public string SupplierId { get; init; } = string.Empty;
 
-    /// <summary>供货供应商名称，消费者端展示用。</summary>
+    // 供货供应商名称，消费者端展示用。
     public string? SupplierName { get; init; }
 
     public decimal SalePrice { get; init; }

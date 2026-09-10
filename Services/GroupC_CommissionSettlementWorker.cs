@@ -4,10 +4,8 @@ using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services
 {
-    /// <summary>
-    /// 佣金二段结算定时任务：每小时扫描一次已过14天退款期、仍为 Pending 的佣金记录，
-    /// 逐条调用 ActivatePromoterMoney 完成激活（待结算余额 → 可提现余额）。
-    /// </summary>
+    // 佣金二段结算定时任务：每小时扫描一次已过14天退款期、仍为 Pending 的佣金记录，
+    // 逐条调用 ActivatePromoterMoney 完成激活（待结算余额 → 可提现余额）。
     public class GroupC_CommissionSettlementWorker : BackgroundService
     {
         private static readonly TimeSpan ScanInterval = TimeSpan.FromHours(1);

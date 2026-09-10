@@ -1,9 +1,7 @@
-/* =========================================================
-   全局样式: 设计变量 + 跨组件/跨视图共享的基础样式
-   组件/页面专属样式请在各 .vue 的 <style scoped> 中维护
-   ========================================================= */
+/* 全局样式: 设计变量 + 跨组件/跨视图共享的基础样式
+   组件/页面专属样式请在各 .vue 的 <style scoped> 中维护 */
 
-/* ---------- 设计变量 ---------- */
+/* 设计变量 */
 :root {
   font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
   color: #0f1111;
@@ -21,7 +19,7 @@
   --danger: #b12704;
 }
 
-/* ---------- 基础重置 ---------- */
+/* 基础重置 */
 * { box-sizing: border-box; letter-spacing: 0; }
 html, body, #app { min-height: 100%; margin: 0; }
 body { min-width: 320px; background: var(--canvas); color: var(--ink); font-size: 14px; }
@@ -33,7 +31,7 @@ img { display: block; max-width: 100%; }
 body { font-family: Arial, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif; }
 a:hover { color: #c7511f; }
 
-/* ---------- Bootstrap 覆盖 ---------- */
+/* Bootstrap 覆盖 */
 .btn { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 7px; border-radius: 999px; font-weight: 600; }
 .btn-buy { --bs-btn-color: #0f1111; --bs-btn-bg: #ffd814; --bs-btn-border-color: #fcd200; --bs-btn-hover-color: #0f1111; --bs-btn-hover-bg: #f7ca00; --bs-btn-hover-border-color: #f2c200; }
 .btn-cart { --bs-btn-color: #0f1111; --bs-btn-bg: #ffa41c; --bs-btn-border-color: #ff8f00; --bs-btn-hover-color: #0f1111; --bs-btn-hover-bg: #fa8900; --bs-btn-hover-border-color: #f08804; }
@@ -41,11 +39,11 @@ a:hover { color: #c7511f; }
 .form-control:focus, .form-select:focus { border-color: #3a896c; box-shadow: 0 0 0 3px rgba(23, 107, 77, .13); }
 .alert { border-radius: 6px; }
 
-/* ---------- 应用外壳(App.vue) ---------- */
+/* 应用外壳(App.vue) */
 .store-shell { min-height: 100vh; }
 .store-main { padding-bottom: 42px; }
 
-/* ---------- 共享布局容器(所有页面 + AppHeader + ShopFooter) ---------- */
+/* 共享布局容器(所有页面 + AppHeader + ShopFooter) */
 .store-container {
   width: min(1500px, calc(100% - 30px));
   margin-right: auto;
@@ -54,14 +52,14 @@ a:hover { color: #c7511f; }
 .header-inner { width: 100%; max-width: none; margin-right: auto; margin-left: auto; padding-right: 16px; padding-left: 16px; }
 .page-space { padding-top: 16px; }
 
-/* ---------- 共享品牌(AppHeader / ShopFooter 共用) ---------- */
+/* 共享品牌(AppHeader / ShopFooter 共用) */
 .store-brand { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 9px; color: #fff; text-decoration: none; position: relative; min-width: 112px; height: 48px; justify-content: center; padding: 5px 8px 8px; border: 1px solid transparent; border-radius: 2px; }
 .brand-word { position: relative; z-index: 1; color: #fff; font-size: 25px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
 .brand-smile { position: absolute; left: 27px; bottom: 8px; width: 56px; height: 14px; transform: rotate(-3deg); border-bottom: 3px solid #ff9900; border-radius: 0 0 55% 55%; }
 .brand-smile::after { position: absolute; right: -4px; bottom: -4px; width: 0; height: 0; transform: rotate(12deg); border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 7px solid #ff9900; content: ""; }
 .store-brand > small { align-self: flex-start; margin: 4px 0 0 1px; color: #fff; font-size: 10px; }
 
-/* ---------- 共享区块(首页 / 团长详情 / 商品详情 / 领券中心共用) ---------- */
+/* 共享区块(首页 / 团长详情 / 商品详情 / 领券中心共用) */
 .home-section { padding: 30px 0 4px; }
 .section-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; margin-bottom: 15px; }
 .section-title-row h2 { margin: 0; font-size: 21px; font-weight: 700; }
@@ -91,7 +89,7 @@ a:hover { color: #c7511f; }
   content: "";
 }
 
-/* ---------- 页面头部(搜索 / 订单 / 关注 / 地址 / 领券共用) ---------- */
+/* 页面头部(搜索 / 订单 / 关注 / 地址 / 领券共用) */
 .listing-header, .account-page-header, .cart-title { margin-top: 4px; }
 .listing-header, .account-page-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
 .listing-header > div, .account-page-header > div { display: flex; min-width: 0; align-items: center; gap: 11px; }
@@ -105,7 +103,7 @@ a:hover { color: #c7511f; }
 .cart-title > span { color: var(--muted); font-size: 11px; }
 .title-icon { display: inline-flex; width: 42px; height: 42px; flex: 0 0 42px; align-items: center; justify-content: center; border-radius: 6px; background: #e6f1ec; color: var(--brand); }
 
-/* ---------- 空态 / 加载态(多视图共用) ---------- */
+/* 空态 / 加载态(多视图共用) */
 .store-empty { display: flex; min-height: 330px; flex-direction: column; align-items: center; justify-content: center; gap: 9px; border: 1px solid #d5d9d9; border-radius: 8px; background: #fff; color: var(--muted); text-align: center; }
 .store-empty strong { color: var(--ink); font-size: 16px; }
 .store-empty.compact { min-height: 150px; }
@@ -113,7 +111,7 @@ a:hover { color: #c7511f; }
 .inline-empty { padding: 13px; background: #f5f7f6; color: var(--muted); font-size: 11px; }
 .inline-empty a { color: var(--brand); font-weight: 700; }
 
-/* ---------- 统一设计语言(Amazon 风格圆角 / 边框 / 背景) ---------- */
+/* 统一设计语言(Amazon 风格圆角 / 边框 / 背景) */
 .listing-layout, .cart-layout, .checkout-layout, .order-detail-layout { gap: 16px; }
 .filter-panel, .sort-bar, .product-detail-main, .cart-leader-group, .consumer-order-card, .order-detail-head, .order-timeline, .order-consumer-section, .order-side-section, .account-section, .coupon-section, .consumer-address-list, .address-editor, .store-empty { border-color: #d5d9d9; border-radius: 8px; }
 .filter-panel, .sort-bar, .cart-leader-group, .consumer-order-card, .order-detail-head, .order-timeline, .order-consumer-section, .order-side-section, .account-section, .coupon-section, .consumer-address-list, .address-editor, .store-empty { background: #fff; }
@@ -126,7 +124,7 @@ a:hover { color: #c7511f; }
 .order-tabs { border-radius: 8px 8px 0 0; }
 .order-tabs button.active { border-bottom-color: #e47911; color: #0f1111; }
 
-/* ---------- 响应式(共享) ---------- */
+/* 响应式(共享) */
 @media (max-width: 1199.98px) {
   .store-container, .header-inner { width: min(100% - 36px, 1200px); }
   .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

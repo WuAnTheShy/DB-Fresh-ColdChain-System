@@ -36,7 +36,7 @@ namespace FreshColdChain.Repositories
             return await _uow.Connection.ExecuteAsync(sql, new { RecordId = recordId, NewStatus = newStatus }, transaction) > 0;
         }
 
-        /// <summary>带旧状态条件的原子状态更新（乐观锁），仅当当前状态为 expectedStatus 时才更新</summary>
+        // 带旧状态条件的原子状态更新（乐观锁），仅当当前状态为 expectedStatus 时才更新
         public async Task<bool> TryUpdateStatusAsync(string recordId, string expectedStatus, string newStatus, IDbTransaction? transaction = null)
         {
             var sql = @"UPDATE FIN_PROCOMRECORDS SET STATUS = :NewStatus
@@ -44,7 +44,7 @@ namespace FreshColdChain.Repositories
             return await _uow.Connection.ExecuteAsync(sql, new { RecordId = recordId, ExpectedStatus = expectedStatus, NewStatus = newStatus }, transaction) > 0;
         }
 
-        /// <summary>查询已过退款期（到达预计结算时间）仍未结算的佣金记录</summary>
+        // 查询已过退款期（到达预计结算时间）仍未结算的佣金记录
         public async Task<List<CommissionRecord>> GetDueSettlementsAsync(DateTime now, IDbTransaction? transaction = null)
         {
             var sql = @"SELECT * FROM FIN_PROCOMRECORDS

@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FreshColdChain.Models;
 
-/// <summary>A 组物流状态在 B 组履约编排中的稳定代码。</summary>
+// A 组物流状态在 B 组履约编排中的稳定代码。
 public static class LogisticsStatusCodes
 {
     public const string Pending = "PENDING";
@@ -66,7 +66,7 @@ public static class LogisticsDataSources
     public const string Fallback = "FALLBACK";
 }
 
-/// <summary>供应商发货时由 B 组传给 A 组的履约补充信息。</summary>
+// 供应商发货时由 B 组传给 A 组的履约补充信息。
 public sealed class SupplierShipmentCommand
 {
     [Required, StringLength(36)]
@@ -90,7 +90,7 @@ public sealed class SupplierShipmentCommand
     public string? Remark { get; init; }
 }
 
-/// <summary>跨组登记发货扩展信息时使用的可信快照。</summary>
+// 跨组登记发货扩展信息时使用的可信快照。
 public sealed class LogisticsShipmentRegistration
 {
     public string DeliveryId { get; init; } = string.Empty;
@@ -102,7 +102,7 @@ public sealed class LogisticsShipmentRegistration
     public SupplierShipmentCommand Command { get; init; } = new();
 }
 
-/// <summary>A 组基础物流记录与扩展 Provider 组合时的输入。</summary>
+// A 组基础物流记录与扩展 Provider 组合时的输入。
 public sealed class LogisticsTraceSeed
 {
     public string OrderId { get; init; } = string.Empty;
@@ -113,7 +113,7 @@ public sealed class LogisticsTraceSeed
     public DateTime? ShippedAt { get; init; }
 }
 
-/// <summary>标准化物流轨迹事件。</summary>
+// 标准化物流轨迹事件。
 public sealed class LogisticsTrackingEventSnapshot
 {
     public string EventId { get; init; } = string.Empty;
@@ -126,7 +126,7 @@ public sealed class LogisticsTrackingEventSnapshot
     public bool IsTemperatureException { get; init; }
 }
 
-/// <summary>供应商级完整履约快照；B 组不重复持久化 A 组物流表。</summary>
+// 供应商级完整履约快照；B 组不重复持久化 A 组物流表。
 public sealed class SupplierLogisticsSnapshot
 {
     public string OrderId { get; init; } = string.Empty;
@@ -148,7 +148,7 @@ public sealed class SupplierLogisticsSnapshot
     public IReadOnlyList<LogisticsTrackingEventSnapshot> Events { get; init; } = [];
 }
 
-/// <summary>新增轨迹事件命令；由 A 组校验幂等载荷并参与调用方事务持久化。</summary>
+// 新增轨迹事件命令；由 A 组校验幂等载荷并参与调用方事务持久化。
 public sealed class LogisticsTrackingEventCommand
 {
     [Required, StringLength(36)]
@@ -173,7 +173,7 @@ public sealed class LogisticsTrackingEventCommand
     public decimal? TemperatureCelsius { get; init; }
 }
 
-/// <summary>配置化兜底 Provider 的运行参数。</summary>
+// 配置化兜底 Provider 的运行参数。
 public sealed class GroupALogisticsFallbackOptions
 {
     public const string SectionName = "GroupB:LogisticsFallback";

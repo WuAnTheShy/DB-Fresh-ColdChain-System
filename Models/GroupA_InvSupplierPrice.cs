@@ -3,10 +3,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 供应商供货价（文档表名：Inv_SupplierPrices）
-/// 一行 = 某供应商对某产品的报价，进价由供应商决定，入库时自动带出。
-/// </summary>
+// 供应商供货价（文档表名：Inv_SupplierPrices）
+// 一行 = 某供应商对某产品的报价，进价由供应商决定，入库时自动带出。
 [Table("Inv_SupplierPrices")]
 public class InvSupplierPrice
 {
@@ -26,11 +24,11 @@ public class InvSupplierPrice
     [Column("SupplyPrice")]
     public decimal SupplyPrice { get; set; }
 
-    /// <summary>供应商声明的该产品保质期（小时），未声明时用产品典型保质期</summary>
+    // 供应商声明的该产品保质期（小时），未声明时用产品典型保质期
     [Column("ShelfLifeHours")]
     public int? ShelfLifeHours { get; set; }
 
-    /// <summary>该供应商对该商品的文字介绍；null 时兜底展示 Inv_Products.Description</summary>
+    // 该供应商对该商品的文字介绍；null 时兜底展示 Inv_Products.Description
     [Column("Description")]
     [MaxLength(2000)]
     public string? Description { get; set; }

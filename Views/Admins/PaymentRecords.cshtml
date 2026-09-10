@@ -3,6 +3,7 @@
     ViewData["Title"] = "支付流水与退款记录";
     var successAmount = Model.Payments.Where(p => p.Status == "Success").Sum(p => p.PayAmount);
     var approvedAmount = Model.Refunds.Where(r => r.Status == "Approved").Sum(r => r.RefundAmount);
+    var adminName = Context.Session.GetString("AdminName") ?? "财务管理员";
 }
 
 <style>
@@ -17,23 +18,43 @@
 </style>
 <partial name="_Alerts" />
 
-<!-- 汇总卡片 -->
-<div class="stat-grid">
-    <div class="stat-card">
-        <div class="stat-card-top">
-            <span class="stat-icon bg-primary-subtle text-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></span>
-            <span class="stat-label">支付流水</span>
+<!-- 页头横幅（与团长端页面头部一致） -->
+<div class="page-hero">
+    <div>
+        <div class="hero-greeting">支付流水</div>
+        <div class="hero-meta">
+            <span class="text-white-50">@adminName</span>
+            <span class="level-badge level-badge-admin">财务管理员</span>
+            <span class="text-white-50">· 支付 @Model.Payments.Count 笔 · 退款 @Model.Refunds.Count 笔</span>
         </div>
-        <div class="stat-value text-primary">@Model.Payments.Count 笔</div>
-        <div class="stat-sub">成功金额 ¥@successAmount.ToString("N2")</div>
     </div>
-    <div class="stat-card sales">
-        <div class="stat-card-top">
-            <span class="stat-icon bg-purple-subtle text-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 2.6-6.4L3 9"/></svg></span>
-            <span class="stat-label">退款记录</span>
+    <div class="d-flex align-items-center gap-3">
+        <div class="hero-stat-pill">
+            <div class="pill-label">支付成功金额</div>
+            <div class="pill-value">¥@successAmount.ToString("N2")</div>
+            <div class="pill-sub">已退 ¥@approvedAmount.ToString("N2")</div>
         </div>
-        <div class="stat-value text-dark">@Model.Refunds.Count 笔</div>
-        <div class="stat-sub">已退金额 ¥@approvedAmount.ToString("N2")</div>
+        <a asp-action="PendingRefunds" class="btn btn-light btn-sm">去退款审核</a>
+    </div>
+</div>
+
+<!-- 汇总指标（支付 / 退款合并为一个框） -->
+<div class="overview-card">
+    <div class="overview-item">
+        <span class="overview-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></span>
+        <div class="overview-body">
+            <div class="overview-value text-primary">@Model.Payments.Count <span class="unit">笔</span></div>
+            <div class="overview-label">支付流水</div>
+            <div class="overview-sub">成功金额 ¥@successAmount.ToString("N2")</div>
+        </div>
+    </div>
+    <div class="overview-item">
+        <span class="overview-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 2.6-6.4L3 9"/></svg></span>
+        <div class="overview-body">
+            <div class="overview-value text-dark">@Model.Refunds.Count <span class="unit">笔</span></div>
+            <div class="overview-label">退款记录</div>
+            <div class="overview-sub">已退金额 ¥@approvedAmount.ToString("N2")</div>
+        </div>
     </div>
 </div>
 

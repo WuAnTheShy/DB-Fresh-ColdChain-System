@@ -23,7 +23,7 @@ public class ProductsController : Controller
         _productRepo = productRepo;
     }
 
-    // ========== 产品 ==========
+    // 产品
 
     [HttpGet]
     public async Task<IActionResult> Index(int pageIndex = 1, int pageSize = 10, string? keyword = null)
@@ -152,10 +152,8 @@ public class ProductsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    /// <summary>
-    /// 商品管理员删除商品的一张平台通用图片（仅 SupplierID 为空的平台图；
-    /// 供应商自己在「我的货物」上传的图需由对应供应商删除，不在商品编辑页管理）。
-    /// </summary>
+    // 商品管理员删除商品的一张平台通用图片（仅 SupplierID 为空的平台图；
+    // 供应商自己在「我的货物」上传的图需由对应供应商删除，不在商品编辑页管理）。
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequireAdmin]
@@ -186,7 +184,7 @@ public class ProductsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // ========== 库存 ==========
+    // 库存
 
     [HttpGet]
     public async Task<IActionResult> Inventory(string productId)
@@ -244,9 +242,9 @@ public class ProductsController : Controller
         return RedirectToAction(nameof(Inventory), new { productId = dto.ProductID });
     }
 
-    // ========== 表单辅助 ==========
+    // 表单辅助
 
-    /// <summary>填充分类下拉选项（按名称排序，供新增/编辑商品选择，避免手输分类 ID）</summary>
+    // 填充分类下拉选项（按名称排序，供新增/编辑商品选择，避免手输分类 ID）
     private async Task LoadCategoriesAsync()
     {
         var r = await _service.GetAllCategoriesAsync();
@@ -255,17 +253,15 @@ public class ProductsController : Controller
             .ToList() ?? new List<CategoryDto>();
     }
 
-    /// <summary>读取该商品的平台通用图（SupplierID 为空；供应商各自上传的货物图不在此编辑页管理）</summary>
+    // 读取该商品的平台通用图（SupplierID 为空；供应商各自上传的货物图不在此编辑页管理）
     private async Task<List<InvProductImage>> LoadPlatformImagesAsync(string productId)
     {
         var all = await _productRepo.GetProductImagesAsync(productId);
         return all.Where(i => string.IsNullOrEmpty(i.SupplierID)).ToList();
     }
 
-    /// <summary>
-    /// 图片队列入参校验：仅接受 jpg/png/webp/gif，单张 ≤ 5MB，最多 9 张。
-    /// 任一文件不合法即整体失败并返回错误信息（避免部分上传造成排序空洞）。
-    /// </summary>
+    // 图片队列入参校验：仅接受 jpg/png/webp/gif，单张 ≤ 5MB，最多 9 张。
+    // 任一文件不合法即整体失败并返回错误信息（避免部分上传造成排序空洞）。
     private static async Task<(List<ProductImageUploadDto> Images, string? Error)> ReadValidImagesAsync(IFormFile[]? files)
     {
         var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)

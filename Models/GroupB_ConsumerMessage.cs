@@ -1,6 +1,6 @@
 namespace FreshColdChain.Models;
 
-/// <summary>消费者消息中心的持久业务事件投影。</summary>
+// 消费者消息中心的持久业务事件投影。
 public sealed class ConsumerMessage
 {
     public string MessageId { get; init; } = string.Empty;

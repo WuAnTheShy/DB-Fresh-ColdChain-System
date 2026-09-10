@@ -28,9 +28,34 @@ const evaluationDimensions = [
 ]
 const timeline = computed(() => {
   const status = detail.value?.order?.orderStatus
+  const displayStatus = detail.value?.displayStatusCode || status
   const progress = { PENDING_PAYMENT: 0, PAID: 1, SHIPPED: 2, COMPLETED: 3 }[status] ?? 0
+
+  // 退款流程：提交退款申请后订单进入“退款审核中”，流程在退款节点收束
+  if (displayStatus === 'REFUND_REVIEWING' || status === 'REFUNDING' || status === 'REFUNDED') {
+    const steps = [{ label: '订单已提交', done: true }]
+    if (progress >= 1) steps.push({ label: '商家备货', done: true })
+    if (progress >= 2) steps.push({ label: '冷链配送', done: true })
+    steps.push({
+      label: displayStatus === 'REFUND_REVIEWING'
+        ? '退款审核中'
+        : (status === 'REFUNDED' ? '已退款' : '退款处理中'),
+      done: true,
+    })
+    return steps
+  }
+
   return [{ label: '订单已提交', done: true }, { label: '商家备货', done: progress >= 1 }, { label: '冷链配送', done: progress >= 2 }, { label: '订单完成', done: progress === 3 }]
 })
+const refundRecords = computed(() => detail.value?.refunds ?? [])
+function refundBadgeStatus(status) {
+  return {
+    Pending: 'REFUND_REVIEWING',
+    Approved: 'REFUND_APPROVED',
+    Rejected: 'REFUND_REJECTED',
+    Cancelled: 'REFUND_CANCELLED',
+  }[status] ?? 'REFUND_REVIEWING'
+}
 const receivableItems = computed(() => detail.value?.details?.filter((item) => item.canConfirmReceipt) ?? [])
 const evaluatableItems = computed(() => detail.value?.details?.filter((item) => item.canEvaluate) ?? [])
 const evaluatedItems = computed(() => detail.value?.details?.filter((item) => item.isEvaluated) ?? [])
@@ -171,10 +196,22 @@ onMounted(loadOrder)
         </div>
         <StatusBadge :status="detail.displayStatusCode || detail.order.orderStatus" :label="detail.statusName" />
       </section>
-      <section class="order-timeline">
+      <section class="order-timeline" :style="{ '--timeline-columns': timeline.length }">
         <div v-for="(step, index) in timeline" :key="step.label" :class="{ done: step.done }"><span>
             <Check v-if="step.done" :size="15" :stroke-width="3.2" />
           </span><strong>{{ step.label }}</strong></div>
+      </section>
+
+      <section v-if="refundRecords.length" class="order-refund-records">
+        <h2>退款记录</h2>
+        <ul>
+          <li v-for="refund in refundRecords" :key="refund.refundId">
+            <StatusBadge :status="refundBadgeStatus(refund.status)" :label="refund.statusName" />
+            <span>退款金额 {{ money(refund.refundAmount) }} · 退款数量 {{ refund.refundQty }}</span>
+            <time :datetime="refund.applyTime">{{ date(refund.applyTime) }}</time>
+            <p v-if="refund.remark">{{ refund.remark }}</p>
+          </li>
+        </ul>
       </section>
 
       <div class="order-detail-layout">
@@ -323,7 +360,7 @@ onMounted(loadOrder)
               class="btn btn-buy" :to="`/payment/${detail.order.checkoutBatchId}`">
               <CreditCard :size="17" />支付整个结算批次
             </RouterLink>
-            <RouterLink v-if="['PAID', 'SHIPPED', 'COMPLETED', 'REFUNDING'].includes(detail.order.orderStatus)"
+            <RouterLink v-if="['PAID', 'SHIPPED', 'COMPLETED', 'REFUNDING', 'REFUND_REVIEWING'].includes(detail.order.orderStatus)"
               class="btn btn-outline-danger" :to="`/orders/${id}/refund`">
               <RotateCcw :size="16" />申请退款
             </RouterLink><button v-if="detail.order.orderStatus === 'PENDING_PAYMENT'" class="btn btn-outline-danger"
@@ -450,12 +487,57 @@ onMounted(loadOrder)
 
 .order-timeline {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(var(--timeline-columns, 4), 1fr);
   margin: 12px 0;
   padding: 18px;
   border: 1px solid var(--line);
   background: #fff;
   --timeline-green: #3ba35e;
+}
+
+.order-refund-records {
+  margin: 12px 0;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.order-refund-records h2 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.order-refund-records ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.order-refund-records li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid #eef1ef;
+  font-size: 10px;
+  color: #58645e;
+}
+
+.order-refund-records li:first-child {
+  border-top: 0;
+}
+
+.order-refund-records time {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.order-refund-records p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--muted);
 }
 
 .order-timeline>div {

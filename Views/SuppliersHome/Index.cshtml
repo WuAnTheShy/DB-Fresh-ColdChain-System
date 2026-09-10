@@ -1,21 +1,58 @@
 @{
     Layout = "_SupplierPortalLayout";
     ViewData["Title"] = "供应商首页";
+    var supplierName = Context.Session.GetString("SupplierName");
+    var isAdmin = Context.Session.GetString("IsSupplierAdmin") == "true";
 }
 
 @if (!string.IsNullOrEmpty(Context.Session.GetString("SupplierId")))
 {
-    <div class="text-center py-4">
-        <div class="display-6 mb-2">欢迎，@Context.Session.GetString("SupplierName")</div>
-        <p class="text-muted">左侧菜单可管理货物、定价规则与物流发货。供货价统一在「我的货物」维护（售价 = 团长进价），入库与商品图文在货物行内操作。</p>
+    <div class="welcome-banner">
+        <img class="welcome-banner-img" src="~/images/supplier/page-hero-1.jpg" alt="生鲜冷链团购" />
+        <div class="welcome-glass">
+            <div class="welcome-title">欢迎，@supplierName</div>
+            <p class="welcome-text">
+                感谢您使用鲜邻团生鲜冷链供销平台
+            </p>
+        </div>
+        <div class="welcome-quick">
+            <a class="quick-card" asp-controller="Goods" asp-action="@(isAdmin ? "AdminIndex" : "MyGoods")">
+                <span class="quick-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5"/></svg></span>
+                <h5>@(isAdmin ? "全部货物" : "我的货物")</h5>
+                <p>维护商品图文、供货价与上下架</p>
+                <span class="quick-more">去维护 →</span>
+            </a>
+            <a class="quick-card" asp-controller="Prices" asp-action="Index">
+                <span class="quick-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h9l7 7-9 9-7-7z"/></svg></span>
+                <h5>定价规则</h5>
+                <p>配置时段折扣，实时试算售价</p>
+                <span class="quick-more">去配置 →</span>
+            </a>
+            <a class="quick-card" asp-controller="ColdChainLogistics" asp-action="Quote">
+                <span class="quick-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 7h11v9H2z"/><path d="M13 10h4l3 3v3h-7z"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span>
+                <h5>计算运费</h5>
+                <p>按模板智能计费，随单锁定运费</p>
+                <span class="quick-more">去试算 →</span>
+            </a>
+            <a class="quick-card" asp-controller="ColdChainLogistics" asp-action="Shipments">
+                <span class="quick-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h10v11H4z"/><circle cx="7" cy="18" r="2"/></svg></span>
+                <h5>发货记录</h5>
+                <p>跟踪发货单与批次扣减</p>
+                <span class="quick-more">去查看 →</span>
+            </a>
+        </div>
     </div>
 }
 else
 {
-    <div class="alert alert-info text-center mx-auto mt-4" style="max-width: 560px;">
-        供应商门户需要先登录。请以「供应商」身份登录后，在「我的货物」中统一维护供货价、上下架与商品图文。
-        <div class="mt-2">
-            <a class="btn btn-primary" asp-controller="Account" asp-action="Login" asp-route-role="供应商">供应商登录</a>
+    <div class="welcome-banner">
+        <img class="welcome-banner-img" src="~/images/supplier/page-hero-1.jpg" alt="生鲜冷链团购" />
+        <div class="welcome-glass">
+            <div class="welcome-title">供应商门户</div>
+            <p class="welcome-text">
+                请以「供应商」身份登录后，在「我的货物」中统一维护供货价、上下架与商品图文。
+            </p>
+            <a class="btn btn-light mt-3" asp-controller="Account" asp-action="Login" asp-route-role="供应商">供应商登录</a>
         </div>
     </div>
 }

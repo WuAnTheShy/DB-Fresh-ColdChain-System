@@ -4,9 +4,7 @@ using Oracle.ManagedDataAccess.Client;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// Oracle 订单事务执行器。事务的提交和回滚权只属于 B 组业务服务。
-/// </summary>
+// Oracle 订单事务执行器。事务的提交和回滚权只属于 B 组业务服务。
 public sealed class OracleOrderTransactionManager : IOrderTransactionManager
 {
     private readonly string _connectionString;

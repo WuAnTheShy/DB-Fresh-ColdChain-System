@@ -12,7 +12,7 @@ namespace FreshColdChain.Services
 {
     public class PromoterService: IPromoterService
     {
-        /// <summary>系统预置头像标识集合（与消费者端 Crm_Customers.Avatar 白名单、前端 ClientApp/src/assets/avatars 一致）。</summary>
+        // 系统预置头像标识集合（与消费者端 Crm_Customers.Avatar 白名单、前端 ClientApp/src/assets/avatars 一致）。
         private static readonly HashSet<string> AllowedPromoterAvatars = new(StringComparer.OrdinalIgnoreCase)
         {
             "cat", "rabbit", "panda", "fox",
@@ -98,12 +98,10 @@ namespace FreshColdChain.Services
             };
         }
 
-        /// <summary>
-        /// 查询团长带货商品（消费者端查看团长带货接口）：
-        /// 返回已入团商品的（团长带货介绍存储值、售价、商品图片等）。
-        /// 介绍存储值语义：空=无介绍；/uploads/promoter-desc/*.json=图文内容文件相对路径（图文介绍改造后格式）；
-        /// 未填写时兜底为供应商商品文字（Description，兼容消费者端纯文本简介）。
-        /// </summary>
+        // 查询团长带货商品（消费者端查看团长带货接口）：
+        // 返回已入团商品的（团长带货介绍存储值、售价、商品图片等）。
+        // 介绍存储值语义：空=无介绍；/uploads/promoter-desc/*.json=图文内容文件相对路径（图文介绍改造后格式）；
+        // 未填写时兜底为供应商商品文字（Description，兼容消费者端纯文本简介）。
         public async Task<List<GroupC_FeaturedProductDto>> GetPromoterFeaturedProductsAsync(string promoterId)
         {
             var items = await GetProductEntryDetailsAsync(promoterId);
@@ -126,7 +124,7 @@ namespace FreshColdChain.Services
 
 
 
-        // ========== 新增功能：团长注册、登录、管理员直接添加 ==========
+        // 新增功能：团长注册、登录、管理员直接添加
 
         // 团长注册（首次注册，待管理员审核激活）
         //团长注册
@@ -530,7 +528,7 @@ namespace FreshColdChain.Services
             }
         }
 
-        //============================团长-供应商合作服务===================================
+        // 团长-供应商合作服务
         public async Task<List<string>> GetActiveSupplierIdsAsync(string promoterId)
         {
             var fromRelation = await _ipsRepository.GetActiveSupplierIdsByPromoterAsync(promoterId, _uow.Transaction);
@@ -582,14 +580,12 @@ namespace FreshColdChain.Services
             }
         }
 
-        //============================团长-商品入团服务（商品入团表 CRM_PRODUCT_ENTRIES）===================================
+        // 团长-商品入团服务（商品入团表 CRM_PRODUCT_ENTRIES）
         // 说明：入团商品 =（团长，商品，供应商）三元组。团长与商品为多对多，
         //       同一商品可由不同供应商供货，故以“商品+供应商”组合为绑定单位。
 
-        /// <summary>
-        /// 更新已入团（商品，供应商）组合的团长定价。
-        /// 校验规则同入团：|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2；未填写则默认取推荐价。
-        /// </summary>
+        // 更新已入团（商品，供应商）组合的团长定价。
+        // 校验规则同入团：|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2；未填写则默认取推荐价。
         public async Task<bool> UpdateEntryPriceAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, decimal supplyPrice, decimal defaultPrice)
         {
             var price = promoterPrice ?? defaultPrice;
@@ -615,7 +611,7 @@ namespace FreshColdChain.Services
             }
         }
 
-        /// <summary>查询团长已入团商品详情列表（含商品名、供应商名、报价、推荐价、团长定价、文字介绍、图片）</summary>
+        // 查询团长已入团商品详情列表（含商品名、供应商名、报价、推荐价、团长定价、文字介绍、图片）
         public async Task<List<PromoterProductEntryDetailDto>> GetProductEntryDetailsAsync(string promoterId)
         {
             var items = await _iproductRepository.GetActiveEntriesDetailAsync(promoterId, _uow.Transaction);
@@ -623,10 +619,8 @@ namespace FreshColdChain.Services
             return items;
         }
 
-        /// <summary>
-        /// 为已入团商品详情批量附加商品图片：按（供应商×商品）过滤——
-        /// 该供应商自己上传的图在前，平台通用图在后，取前 3 张。
-        /// </summary>
+        // 为已入团商品详情批量附加商品图片：按（供应商×商品）过滤——
+        // 该供应商自己上传的图在前，平台通用图在后，取前 3 张。
         private async Task AttachProductImagesAsync(IEnumerable<PromoterProductEntryDetailDto> items)
         {
             var allImages = (await _productRepository.GetAllProductImagesAsync())
@@ -647,13 +641,13 @@ namespace FreshColdChain.Services
             }
         }
 
-        /// <summary>查询团长当前所有已入团的（商品，供应商，团长定价）组合</summary>
+        // 查询团长当前所有已入团的（商品，供应商，团长定价）组合
         public async Task<List<(string ProductId, string SupplierId, decimal? PromoterPrice)>> GetActiveProductEntriesAsync(string promoterId)
         {
             return await _iproductRepository.GetActiveEntriesByPromoterAsync(promoterId, _uow.Transaction);
         }
 
-        /// <summary>查询指定（商品，供应商）入团组合的详情（含商品图）；不存在或非上架状态返回 null</summary>
+        // 查询指定（商品，供应商）入团组合的详情（含商品图）；不存在或非上架状态返回 null
         public async Task<PromoterProductEntryDetailDto?> GetProductEntryDetailAsync(string promoterId, string productId, string supplierId)
         {
             var item = await _iproductRepository.GetActiveEntryDetailAsync(promoterId, productId, supplierId, _uow.Transaction);
@@ -662,16 +656,14 @@ namespace FreshColdChain.Services
             return item;
         }
 
-        /// <summary>
-        /// 将（商品，供应商）加入团长入团商品（重复加入则自动恢复 Active）。
-        /// promoterPrice 为团长定价：未填写（null）时默认取推荐价；
-        /// 填写时须满足定价规则 |团长价 - 推荐价| &lt; |推荐价 - 报价| / 2，否则抛异常。
-        /// 供应商报价 = 供应商动态定价：入团时刻调用 A 组规则引擎
-        /// （商品×供应商×数量1×当前时间）计算最终报价，无规则命中即货物售价；
-        /// 推荐价 = 报价 × 1.2（倍率不变）。两者随入团快照落库到
-        /// CRM_PRODUCT_ENTRIES.SUPPLYPRICE / DEFAULTPRICE，团长端/消费者端此后读取快照。
-        /// description 为供应商商品文字：作为团长带货介绍默认值（默认复制供应商文字，团长可自行修改）。
-        /// </summary>
+        // 将（商品，供应商）加入团长入团商品（重复加入则自动恢复 Active）。
+        // promoterPrice 为团长定价：未填写（null）时默认取推荐价；
+        // 填写时须满足定价规则 |团长价 - 推荐价| &lt; |推荐价 - 报价| / 2，否则抛异常。
+        // 供应商报价 = 供应商动态定价：入团时刻调用 A 组规则引擎
+        // （商品×供应商×数量1×当前时间）计算最终报价，无规则命中即货物售价；
+        // 推荐价 = 报价 × 1.2（倍率不变）。两者随入团快照落库到
+        // CRM_PRODUCT_ENTRIES.SUPPLYPRICE / DEFAULTPRICE，团长端/消费者端此后读取快照。
+        // description 为供应商商品文字：作为团长带货介绍默认值（默认复制供应商文字，团长可自行修改）。
         public async Task<bool> AddProductEntryAsync(string promoterId, string productId, string supplierId, decimal? promoterPrice, string? description = null)
         {
             // 该供应商已下架该货物（Inv_Goods.Status != 'ACTIVE'）或未建立货物时不允许入团
@@ -732,12 +724,10 @@ namespace FreshColdChain.Services
             }
         }
 
-        /// <summary>
-        /// 更新已入团（商品，供应商）组合的团长带货介绍。
-        /// 团长端提交的是富文本 JSON（title + 多段 text/images）：
-        /// 保存时把图文内容写入 wwwroot/uploads/promoter-desc/ 下 JSON 文件，
-        /// 数据库 PROMOTERDESC 仅存该文件的相对路径；内容为空时删除文件并置空。
-        /// </summary>
+        // 更新已入团（商品，供应商）组合的团长带货介绍。
+        // 团长端提交的是富文本 JSON（title + 多段 text/images）：
+        // 保存时把图文内容写入 wwwroot/uploads/promoter-desc/ 下 JSON 文件，
+        // 数据库 PROMOTERDESC 仅存该文件的相对路径；内容为空时删除文件并置空。
         public async Task<bool> UpdateEntryDescriptionAsync(string promoterId, string productId, string supplierId, string? contentJson)
         {
             // 解析（非法 JSON 会返回错误信息并抛异常），空内容代表“清除介绍”
@@ -760,10 +750,8 @@ namespace FreshColdChain.Services
             }
         }
 
-        /// <summary>
-        /// 查询“该供应商上传的该商品”的全部图片（一次全量返回，供团长编辑图文介绍时选择插入）。
-        /// 商品图片按商品维度存放于 Inv_ProductImages，不截取数量限制。
-        /// </summary>
+        // 查询“该供应商上传的该商品”的全部图片（一次全量返回，供团长编辑图文介绍时选择插入）。
+        // 商品图片按商品维度存放于 Inv_ProductImages，不截取数量限制。
         public async Task<List<string>> GetSupplierProductImagesAsync(string productId)
         {
             var images = await _productRepository.GetAllProductImagesAsync();
@@ -777,11 +765,9 @@ namespace FreshColdChain.Services
                 .ToList();
         }
 
-        /// <summary>
-        /// 消费者端读取「团长推文」：团长对某商品的图文介绍（标题 + 段落）。
-        /// 仅返回该团长有效入团且平台在售（IsProductActive）的商品；
-        /// 商品不在该团长在售列表返回 null；无介绍内容返回 HasIntro=false。
-        /// </summary>
+        // 消费者端读取「团长推文」：团长对某商品的图文介绍（标题 + 段落）。
+        // 仅返回该团长有效入团且平台在售（IsProductActive）的商品；
+        // 商品不在该团长在售列表返回 null；无介绍内容返回 HasIntro=false。
         public async Task<GroupC_PromoterIntroResult?> GetProductIntroAsync(string promoterId, string productId)
         {
             if (string.IsNullOrWhiteSpace(promoterId) || string.IsNullOrWhiteSpace(productId)) return null;
@@ -803,7 +789,7 @@ namespace FreshColdChain.Services
             };
         }
 
-        /// <summary>将（商品，供应商）从团长入团商品中移除（软删除）</summary>
+        // 将（商品，供应商）从团长入团商品中移除（软删除）
         public async Task<bool> RemoveProductEntryAsync(string promoterId, string productId, string supplierId)
         {
             await _uow.BeginAsync();
@@ -819,7 +805,7 @@ namespace FreshColdChain.Services
                 throw;
             }
         }
-//============================团长-消费者绑定服务===================================
+// 团长-消费者绑定服务
         public async Task<Result> BindCustomerToPromoterAsync(
             string customerId,
             string promoterId,
@@ -932,7 +918,7 @@ namespace FreshColdChain.Services
             return await _pcrRepository.GetRelationsByPromoterAsync(promoterId.Trim(), _uow.Transaction);
         }
 
-        // ========== 私有辅助方法 ==========
+        // 私有辅助方法
         private string GenerateInviteCode()
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";

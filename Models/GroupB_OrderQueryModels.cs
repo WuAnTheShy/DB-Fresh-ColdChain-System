@@ -1,10 +1,10 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 订单列表查询条件。
-/// </summary>
+// 订单列表查询条件。
 public sealed class OrderQueryRequest
 {
     [StringLength(36, ErrorMessage = "消费者ID不能超过36个字符")]
@@ -20,11 +20,23 @@ public sealed class OrderQueryRequest
 
     [Range(1, 50, ErrorMessage = "每页数量必须在1到50之间")]
     public int PageSize { get; set; } = 10;
+
+    // 仅服务端内部使用的附加过滤：与 <see cref="Status"/> 取并集的订单号集合。
+    // 消费者端「退款售后」列表用（改造前提交、订单状态未进入审核中的历史退款申请单也要列出），
+    // 不接受外部查询串传入。
+    [BindNever]
+    [JsonIgnore]
+    public IReadOnlyCollection<string>? OrderIds { get; set; }
+
+    // 仅服务端内部使用的状态集合过滤（优先于 <see cref="Status"/>）。
+    // 消费者端「退款售后」列表需要同时覆盖“退款审核中”和“退款中”两种状态，
+    // 不接受外部查询串传入。
+    [BindNever]
+    [JsonIgnore]
+    public IReadOnlyCollection<OrderStatus>? OrderStatuses { get; set; }
 }
 
-/// <summary>
-/// 订单列表行。
-/// </summary>
+// 订单列表行。
 public sealed class OrderListItem
 {
     private string? _displayStatusCode;
@@ -60,7 +72,7 @@ public sealed class OrderListItem
     public string StatusName => DisplayStatusName ?? OrderStatusNames.GetName(Status);
 }
 
-/// <summary>订单列表卡片中的商品行。</summary>
+// 订单列表卡片中的商品行。
 public sealed class OrderCardProductItem
 {
     public string OrderId { get; init; } = string.Empty;
@@ -74,9 +86,7 @@ public sealed class OrderCardProductItem
     public decimal SubTotal { get; init; }
 }
 
-/// <summary>
-/// 带分页信息的订单列表页面模型。
-/// </summary>
+// 带分页信息的订单列表页面模型。
 public sealed class OrderListViewModel
 {
     public OrderQueryRequest Query { get; init; } = new();

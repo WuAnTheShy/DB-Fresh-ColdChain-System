@@ -4,53 +4,96 @@
     ViewData["BackController"] = "Prices";
     ViewData["BackAction"] = "Index";
     ViewData["BackText"] = "返回定价规则";
+
+    var goodsOptions = (ViewData["GoodsOptions"] as List<PriceRuleGoodsOptionDto>)
+        ?? new List<PriceRuleGoodsOptionDto>();
+    var isAdminScope = ViewData["IsAdminScope"] is true;
 }
 
-<h3>🧮 实时价格试算</h3>
-<p class="text-muted">输入商品 ID 和数量，动态计算当前应售价格</p>
+<div class="page-hero">
+    <div>
+        <div class="hero-greeting">实时价格试算</div>
+        <div class="hero-meta">
+            <span class="text-white-50">选择商品并填写数量，动态计算当前应售价格</span>
+        </div>
+    </div>
+</div>
 
-<form asp-action="Calculate" method="post" class="row g-3 mb-4">
-    @Html.AntiForgeryToken()
-    <div class="col-md-4">
-        <label class="form-label">商品 ID</label>
-        <input asp-for="ProductID" class="form-control" required placeholder="输入产品编号" />
+<div class="content-card">
+    <div class="content-card-header">
+        <h5><svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> 试算参数</h5>
     </div>
-    <div class="col-md-2">
-        <label class="form-label">数量</label>
-        <input asp-for="Quantity" class="form-control" type="number" step="1" min="1" value="1" />
+    <div class="content-card-body">
+        <form asp-action="Calculate" method="post" class="row g-3">
+            @Html.AntiForgeryToken()
+            <div class="col-md-6">
+                <label class="form-label">商品</label>
+                <input asp-for="SupplierID" type="hidden" id="calcSupplierId" />
+                <select asp-for="ProductID" class="form-select" id="calcProductSelect" required>
+                    <option value="">@(goodsOptions.Count == 0 ? "-- 暂无可用货物，请先到「我的货物」建立货物 --" : "-- 请选择商品 --")</option>
+                    @foreach (var o in goodsOptions)
+                    {
+                        var unitLabel = string.IsNullOrWhiteSpace(o.Unit) ? "" : $"（{o.Unit}）";
+                        var statusNote = string.Equals(o.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase) ? "" : "（已下架）";
+                        var label = isAdminScope
+                            ? $"[{(string.IsNullOrWhiteSpace(o.SupplierName) ? o.SupplierID : o.SupplierName)}] {o.ProductName}{unitLabel} 售价 ¥{o.SalePrice:0.##}{statusNote}"
+                            : $"{o.ProductName}{unitLabel} 售价 ¥{o.SalePrice:0.##}{statusNote}";
+                        <option value="@o.ProductID" data-supplier="@o.SupplierID" selected="@(Model.ProductID == o.ProductID)">@label</option>
+                    }
+                </select>
+                @if (goodsOptions.Count > 0)
+                {
+                    <div class="form-text">仅可选自己已建立货物的商品，售价即规则打折的基准价</div>
+                }
+                @if (isAdminScope)
+                {
+                    <div class="form-text text-warning">平台管理员视图：选中商品后按其归属供应商试算</div>
+                }
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">数量</label>
+                <input asp-for="Quantity" class="form-control" type="number" step="1" min="1" value="1" />
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary">计算价格</button>
+            </div>
+        </form>
     </div>
-    <div class="col-md-2 d-flex align-items-end">
-        <button type="submit" class="btn btn-primary">计算价格</button>
-    </div>
-</form>
+</div>
 
 @if (ViewBag.Result is PriceCalculationResult result)
 {
-    <div class="card @(result.MatchedRuleName != null ? "border-success" : "border-secondary")">
-        <div class="card-header @(result.MatchedRuleName != null ? "bg-success text-white" : "bg-secondary text-white")">
+    <div class="content-card mt-3">
+        <div class="content-card-header">
+            <h5>
+                <svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8"/><path d="M8 11h2M14 11h2M8 15h2M14 15h2M8 19h2M14 19h2"/></svg>
+                @if (result.MatchedRuleName != null)
+                {
+                    <span>命中规则：@result.MatchedRuleName</span>
+                }
+                else
+                {
+                    <span>无规则命中，使用默认价格</span>
+                }
+            </h5>
             @if (result.MatchedRuleName != null)
             {
-                <span>✅ 命中规则：<strong>@result.MatchedRuleName</strong></span>
-                <span class="ms-3">类型：@result.TriggerType</span>
-            }
-            else
-            {
-                <span>📋 无规则命中，使用默认价格</span>
+                <span class="badge @(result.MatchedRuleName != null ? "bg-success" : "bg-secondary")">类型：@result.TriggerType</span>
             }
         </div>
-        <div class="card-body">
-            <div class="row text-center">
-                <div class="col-md-4">
-                    <h6 class="text-muted">默认价格</h6>
-                    <h3 class="text-decoration-line-through">¥@result.DefaultPrice.ToString("F2")</h3>
+        <div class="content-card-body">
+            <div class="stat-grid">
+                <div class="stat-card">
+                    <div class="stat-label">默认价格</div>
+                    <div class="stat-value text-decoration-line-through">¥@result.DefaultPrice.ToString("F2")</div>
                 </div>
-                <div class="col-md-4">
-                    <h6 class="text-muted">折扣金额</h6>
-                    <h3 class="text-danger">-¥@result.DiscountAmount.ToString("F2")</h3>
+                <div class="stat-card">
+                    <div class="stat-label">折扣金额</div>
+                    <div class="stat-value text-danger">-¥@result.DiscountAmount.ToString("F2")</div>
                 </div>
-                <div class="col-md-4">
-                    <h6 class="text-muted">最终售价</h6>
-                    <h3 class="text-success fw-bold">¥@result.FinalPrice.ToString("F2")</h3>
+                <div class="stat-card">
+                    <div class="stat-label">最终售价</div>
+                    <div class="stat-value text-success">¥@result.FinalPrice.ToString("F2")</div>
                 </div>
             </div>
         </div>
@@ -58,5 +101,22 @@
 }
 
 <div class="mt-3">
-    <a asp-action="Index" class="btn btn-outline-secondary">← 返回规则列表</a>
+    <a asp-action="Index" class="btn btn-outline-secondary">返回规则列表</a>
 </div>
+
+@section Scripts {
+    <script>
+        // 商品下拉：把所选货物归属的供应商同步到 SupplierID（平台管理员视图尤为关键）
+        (function () {
+            const productSelect = document.getElementById('calcProductSelect');
+            const supplierIdValue = document.getElementById('calcSupplierId');
+            if (!productSelect || !supplierIdValue) return;
+            function syncSupplierId() {
+                const opt = productSelect.options[productSelect.selectedIndex];
+                if (opt && opt.dataset.supplier) supplierIdValue.value = opt.dataset.supplier;
+            }
+            productSelect.addEventListener('change', syncSupplierId);
+            syncSupplierId();
+        })();
+    </script>
+}

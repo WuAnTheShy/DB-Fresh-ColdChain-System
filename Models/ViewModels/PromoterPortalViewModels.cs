@@ -10,14 +10,14 @@ namespace FreshColdChain.Models.ViewModels
         public List<PromoterWithdrawalRecordViewModel> RecentWithdrawals { get; set; } = new();
         public bool HasPendingWithdrawal { get; set; }
 
-        /// <summary>已上架商品速览（工作台左下角）</summary>
+        // 已上架商品速览（工作台左下角）
         public List<PromoterProductEntryDetailDto> ListedProducts { get; set; } = new();
 
-        /// <summary>团内消费者速览（工作台左下角）</summary>
+        // 团内消费者速览（工作台左下角）
         public List<GroupC_CrmPCRelation> BoundCustomers { get; set; } = new();
 
         public string LevelName { get; set; } = string.Empty;
-        /// <summary>当前佣金比例（百分数，= 平台设定的基础佣金比例）</summary>
+        // 当前佣金比例（百分数，= 平台设定的基础佣金比例）
         public decimal CurrentTierRate { get; set; }
         public decimal NextTierThreshold { get; set; }
         public string NextTierName { get; set; } = string.Empty;
@@ -38,7 +38,7 @@ namespace FreshColdChain.Models.ViewModels
         public decimal TotalSales { get; set; }
         public int TotalOrderCount { get; set; }
         public string LevelName { get; set; } = string.Empty;
-        /// <summary>当前佣金比例（百分数，= 平台设定的基础佣金比例）</summary>
+        // 当前佣金比例（百分数，= 平台设定的基础佣金比例）
         public decimal CurrentTierRate { get; set; }
         public decimal NextTierThreshold { get; set; }
         public string NextTierName { get; set; } = string.Empty;
@@ -55,10 +55,10 @@ namespace FreshColdChain.Models.ViewModels
     {
         public string LevelName { get; set; } = string.Empty;
         public string SalesRange { get; set; } = string.Empty;
-        /// <summary>达成该等级的里程碑奖励金额</summary>
+        // 达成该等级的里程碑奖励金额
         public decimal Bonus { get; set; }
         public decimal Threshold { get; set; }
-        /// <summary>该等级对应的佣金比例（百分数，如 3 表示 3%）</summary>
+        // 该等级对应的佣金比例（百分数，如 3 表示 3%）
         public decimal RatePercent { get; set; }
         public bool IsCurrent { get; set; }
         public bool IsAchieved { get; set; }

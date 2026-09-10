@@ -11,7 +11,9 @@ using Microsoft.Extensions.Options;
 
 namespace FreshColdChain.Services;
 
-/// <summary>A 组数据库物流实现。基础记录、元数据与事件参与调用方事务，不持有进程内业务缓存。</summary>
+// A 组数据库物流实现。基础发货单、承运商扩展信息与事件均参与调用方事务，
+// 不持有进程内业务缓存。原一对一表 Log_LogisticsDetails 已并入 Log_ExpressDeliveries，
+// 因此扩展信息直接读写基础发货单行。
 public sealed class OracleGroupALogisticsExtensionProvider(IGroupALogisticsRepository repository,
     IOptions<GroupALogisticsOptions> options) : IGroupALogisticsExtensionProvider
 {
@@ -28,8 +30,8 @@ public sealed class OracleGroupALogisticsExtensionProvider(IGroupALogisticsRepos
             true, transaction, cancellationToken) ?? throw new OrderBusinessException("基础发货单不存在");
         if (delivery.DeliveryID != registration.DeliveryId)
             throw new OrderBusinessException("发货登记与基础发货单不一致");
-        var state = await LoadAsync(delivery, transaction, cancellationToken);
-        if (state.HasDetail) return Snapshot(delivery, state.Detail, WithDelay(delivery, state.Detail, state.Events));
+        var (hasDetail, events, persistedCount) = await LoadAsync(delivery, transaction, cancellationToken);
+        if (hasDetail) return Snapshot(delivery, WithDelay(delivery, events));
 
         var command = registration.Command;
         var zone = command.PackageTemperature.Trim().ToUpperInvariant();
@@ -38,22 +40,22 @@ public sealed class OracleGroupALogisticsExtensionProvider(IGroupALogisticsRepos
         if (command.EstimatedArrivalAt.HasValue && LocalTime(command.EstimatedArrivalAt.Value) <= delivery.ShippedAt)
             throw new OrderBusinessException("预计送达时间必须晚于发货时间");
         var carrierCode = Clean(command.CarrierCode);
-        var carrierName = Clean(command.CarrierName) ?? Clean(delivery.LogisticsCompany);
+        var carrierName = Clean(command.CarrierName) ?? Clean(delivery.CarrierName);
         var trackingNo = Clean(command.TrackingNo) ?? delivery.TrackingNo;
         if (!string.IsNullOrWhiteSpace(command.TrackingNo) && carrierCode == null && carrierName == null)
             throw new OrderBusinessException("填写外部运单号时必须同时填写承运商");
-        var detail = new LogLogisticsDetail
-        {
-            DeliveryId = delivery.DeliveryID, CarrierCode = carrierCode, CarrierName = carrierName,
-            TrackingNo = trackingNo, PackageTemperature = zone, Remark = Clean(command.Remark),
-            EstimatedArrivalAt = command.EstimatedArrivalAt.HasValue ? LocalTime(command.EstimatedArrivalAt.Value) : null,
-            CarrierTrackingKey = (carrierCode ?? carrierName) is { } carrier && !string.IsNullOrWhiteSpace(trackingNo)
-                ? Hash(JsonSerializer.Serialize(new[] { carrier.ToUpperInvariant(), trackingNo.ToUpperInvariant() })) : null
-        };
-        await PersistAsync(() => repository.InsertDetailAsync(detail, transaction, cancellationToken));
-        foreach (var item in state.Events.Skip(state.PersistedCount))
+        delivery.CarrierCode = carrierCode;
+        delivery.CarrierName = carrierName;
+        delivery.TrackingNo = trackingNo;
+        delivery.PackageTemp = zone;
+        delivery.Remark = Clean(command.Remark);
+        delivery.EstimatedArrivalAt = command.EstimatedArrivalAt.HasValue ? LocalTime(command.EstimatedArrivalAt.Value) : null;
+        delivery.CarrierTrackingKey = (carrierCode ?? carrierName) is { } carrier && !string.IsNullOrWhiteSpace(trackingNo)
+            ? Hash(JsonSerializer.Serialize(new[] { carrier.ToUpperInvariant(), trackingNo.ToUpperInvariant() })) : null;
+        await PersistAsync(() => repository.UpdateDetailAsync(delivery, transaction, cancellationToken));
+        foreach (var item in events.Skip(persistedCount))
             await PersistAsync(() => repository.InsertEventAsync(item, transaction, cancellationToken));
-        return Snapshot(delivery, detail, WithDelay(delivery, detail, state.Events));
+        return Snapshot(delivery, WithDelay(delivery, events));
     }
 
     public async Task<SupplierLogisticsSnapshot> GetSnapshotAsync(LogisticsTraceSeed seed,
@@ -65,9 +67,9 @@ public sealed class OracleGroupALogisticsExtensionProvider(IGroupALogisticsRepos
             cancellationToken: cancellationToken);
         if (delivery == null)
             return new() { OrderId = seed.OrderId, SupplierId = seed.SupplierId, DataSource = LogisticsDataSources.GroupA };
-        var state = await LoadAsync(delivery, null, cancellationToken);
+        var (_, events, _) = await LoadAsync(delivery, null, cancellationToken);
         // 读取不落库。延误事件使用稳定编号和时间，下一次轨迹写入时随事务持久化。
-        return Snapshot(delivery, state.Detail, WithDelay(delivery, state.Detail, state.Events));
+        return Snapshot(delivery, WithDelay(delivery, events));
     }
 
     public async Task<SupplierLogisticsSnapshot> AppendTrackingEventAsync(LogisticsTrackingEventCommand command,
@@ -81,7 +83,7 @@ public sealed class OracleGroupALogisticsExtensionProvider(IGroupALogisticsRepos
             throw new OrderBusinessException("物流事件编号或状态代码无效");
         var delivery = await repository.GetDeliveryAsync(command.OrderId, command.SupplierId, true,
             transaction, cancellationToken) ?? throw new OrderBusinessException("供应商尚未发货");
-        var state = await LoadAsync(delivery, transaction, cancellationToken);
+        var (hasDetail, loadedEvents, persistedCount) = await LoadAsync(delivery, transaction, cancellationToken);
         var occurredAt = LocalTime(command.OccurredAt);
         var requestedStatus = LogisticsStatusCodes.Normalize(command.StatusCode);
         var requestHash = Hash(JsonSerializer.Serialize(new
@@ -96,18 +98,18 @@ public sealed class OracleGroupALogisticsExtensionProvider(IGroupALogisticsRepos
         {
             if (existing.DeliveryId != delivery.DeliveryID || existing.RequestHash != requestHash)
                 throw new OrderBusinessException("同一物流事件编号不能使用不同内容或归属");
-            return Snapshot(delivery, state.Detail, WithDelay(delivery, state.Detail, state.Events));
+            return Snapshot(delivery, WithDelay(delivery, loadedEvents));
         }
-        var events = WithDelay(delivery, state.Detail, state.Events);
+        var events = WithDelay(delivery, loadedEvents);
         var current = events[^1];
         if (occurredAt < current.OccurredAt || occurredAt > DateTime.Now.AddMinutes(5))
             throw new OrderBusinessException("物流事件时间不能早于最新轨迹或晚于当前时间");
         LogisticsStateMachine.EnsureTransition(current.StatusCode, requestedStatus);
-        var temperatureException = IsTemperatureException(state.Detail.PackageTemperature, command.TemperatureCelsius);
+        var temperatureException = IsTemperatureException(delivery.PackageTemp, command.TemperatureCelsius);
         var effectiveStatus = temperatureException ? LogisticsStatusCodes.Exception : requestedStatus;
         LogisticsStateMachine.EnsureTransition(current.StatusCode, effectiveStatus);
-        if (!state.HasDetail) await PersistAsync(() => repository.InsertDetailAsync(state.Detail, transaction, cancellationToken));
-        foreach (var item in events.Skip(state.PersistedCount))
+        if (!hasDetail) await PersistAsync(() => repository.UpdateDetailAsync(delivery, transaction, cancellationToken));
+        foreach (var item in events.Skip(persistedCount))
             await PersistAsync(() => repository.InsertEventAsync(item, transaction, cancellationToken));
         var next = new LogLogisticsEvent
         {
@@ -119,13 +121,12 @@ public sealed class OracleGroupALogisticsExtensionProvider(IGroupALogisticsRepos
         await PersistAsync(() => repository.InsertEventAsync(next, transaction, cancellationToken));
         await repository.UpdateBaseStatusAsync(delivery.DeliveryID, effectiveStatus, transaction, cancellationToken);
         events.Add(next);
-        return Snapshot(delivery, state.Detail, events);
+        return Snapshot(delivery, events);
     }
 
-    private async Task<(LogLogisticsDetail Detail, List<LogLogisticsEvent> Events, bool HasDetail, int PersistedCount)>
+    private async Task<(bool HasDetail, List<LogLogisticsEvent> Events, int PersistedCount)>
         LoadAsync(LogExpressDelivery delivery, IDbTransaction? transaction, CancellationToken cancellationToken)
     {
-        var detail = await repository.GetDetailAsync(delivery.DeliveryID, transaction, cancellationToken);
         var events = (await repository.GetEventsAsync(delivery.DeliveryID, transaction, cancellationToken)).ToList();
         var persistedCount = events.Count;
         if (events.Count == 0)
@@ -140,19 +141,14 @@ public sealed class OracleGroupALogisticsExtensionProvider(IGroupALogisticsRepos
                 Description = "基础发货记录（时间为原发货时间）", OccurredAt = LocalTime(delivery.ShippedAt)
             });
         }
-        return (detail ?? new()
-        {
-            DeliveryId = delivery.DeliveryID, CarrierName = delivery.LogisticsCompany,
-            TrackingNo = delivery.TrackingNo, PackageTemperature = delivery.PackageTemp
-        }, events, detail != null, persistedCount);
+        return (delivery.IsRegistered == 1, events, persistedCount);
     }
 
-    private static List<LogLogisticsEvent> WithDelay(LogExpressDelivery delivery, LogLogisticsDetail detail,
-        List<LogLogisticsEvent> events)
+    private static List<LogLogisticsEvent> WithDelay(LogExpressDelivery delivery, List<LogLogisticsEvent> events)
     {
         var delayId = Hash("DELAY:" + delivery.DeliveryID)[..32];
         var current = events[^1];
-        if (detail.EstimatedArrivalAt is not { } expected || expected >= DateTime.Now ||
+        if (delivery.EstimatedArrivalAt is not { } expected || expected >= DateTime.Now ||
             current.StatusCode is LogisticsStatusCodes.Delivered or LogisticsStatusCodes.Returned or LogisticsStatusCodes.Exception ||
             events.Any(item => item.EventId == delayId)) return events;
         events.Add(new()
@@ -165,16 +161,15 @@ public sealed class OracleGroupALogisticsExtensionProvider(IGroupALogisticsRepos
         return events;
     }
 
-    private static SupplierLogisticsSnapshot Snapshot(LogExpressDelivery delivery, LogLogisticsDetail detail,
-        IReadOnlyList<LogLogisticsEvent> events)
+    private static SupplierLogisticsSnapshot Snapshot(LogExpressDelivery delivery, IReadOnlyList<LogLogisticsEvent> events)
     {
         var latest = events[^1];
         return new()
         {
             DeliveryId = delivery.DeliveryID, OrderId = delivery.OrderID, SupplierId = delivery.SupplierID,
-            CarrierCode = detail.CarrierCode, CarrierName = detail.CarrierName, TrackingNo = detail.TrackingNo,
-            PackageTemperature = detail.PackageTemperature, StatusCode = latest.StatusCode,
-            ShippedAt = delivery.ShippedAt, EstimatedArrivalAt = detail.EstimatedArrivalAt,
+            CarrierCode = delivery.CarrierCode, CarrierName = delivery.CarrierName, TrackingNo = delivery.TrackingNo,
+            PackageTemperature = delivery.PackageTemp, StatusCode = latest.StatusCode,
+            ShippedAt = delivery.ShippedAt, EstimatedArrivalAt = delivery.EstimatedArrivalAt,
             DeliveredAt = events.FirstOrDefault(item => item.StatusCode == LogisticsStatusCodes.Delivered && item.EventId != SeedId(delivery))?.OccurredAt,
             HasException = latest.StatusCode == LogisticsStatusCodes.Exception,
             ExceptionMessage = latest.StatusCode != LogisticsStatusCodes.Exception ? null

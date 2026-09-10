@@ -2,9 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 收货地址新增和编辑请求。
-/// </summary>
+// 收货地址新增和编辑请求。
 public sealed class AddressUpsertRequest
 {
     [StringLength(36, ErrorMessage = "地址ID不能超过36个字符")]

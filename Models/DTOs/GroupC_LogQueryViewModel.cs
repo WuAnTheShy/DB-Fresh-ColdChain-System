@@ -1,8 +1,6 @@
 namespace FreshColdChain.Models.DTOs
 {
-    /// <summary>
-    /// 管理端"操作日志"查询页视图模型
-    /// </summary>
+    // 管理端"操作日志"查询页视图模型
     public class GroupC_LogQueryViewModel
     {
         // 查询条件（回显用）

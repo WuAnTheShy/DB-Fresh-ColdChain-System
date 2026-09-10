@@ -95,8 +95,7 @@ namespace FreshColdChain.Controllers
             {
                 PromoterId = promoterId,
                 ApplyAmount = form.ApplyAmount,
-                AccountPlatform = platform,
-                AccountInfo = PromoterPayAccounts.FormatAccountInfo(platform, boundAccount)
+                AccountPlatform = platform
             };
 
             var result = await _withdrawalService.ApplyWithdrawal(promoterId, request);
@@ -150,9 +149,7 @@ namespace FreshColdChain.Controllers
             return View(_dataProvider.BuildProfile(GetPromoterId()!));
         }
 
-        /// <summary>
-        /// 团长自助更换预置头像（avatar 传空则恢复默认文字头像）。
-        /// </summary>
+        // 团长自助更换预置头像（avatar 传空则恢复默认文字头像）。
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateAvatar(string avatar)
@@ -193,13 +190,11 @@ namespace FreshColdChain.Controllers
         }
 
 
-        // ========= 商品上架（原“供应商绑定”模块改造）：搜索供应商→其商品 / 搜索商品→跨供应商，入团/移除 =========
+        // 商品上架（原“供应商绑定”模块改造）：搜索供应商→其商品 / 搜索商品→跨供应商，入团/移除
 
-        /// <summary>
-        /// 商品上架页：关键词为供应商名称/ID → 返回该供应商提供的全部商品；
-        /// 关键词为商品名称 → 返回所有供货该商品的（供应商×商品）组合。
-        /// 无关键词时仅展示空搜索框（并附当前已入团商品数）。
-        /// </summary>
+        // 商品上架页：关键词为供应商名称/ID → 返回该供应商提供的全部商品；
+        // 关键词为商品名称 → 返回所有供货该商品的（供应商×商品）组合。
+        // 无关键词时仅展示空搜索框（并附当前已入团商品数）。
         [HttpGet]
         public async Task<IActionResult> ProductListing(string? keyword)
         {
@@ -234,9 +229,7 @@ namespace FreshColdChain.Controllers
             return View(model);
         }
 
-        /// <summary>
-        /// 提交搜索（PRG 模式，重定向回 ProductListing 并携带关键词统一渲染）
-        /// </summary>
+        // 提交搜索（PRG 模式，重定向回 ProductListing 并携带关键词统一渲染）
         [HttpPost]
         public IActionResult SearchProducts(string keyword)
         {
@@ -245,10 +238,8 @@ namespace FreshColdChain.Controllers
             return RedirectToAction("ProductListing", new { keyword });
         }
 
-        /// <summary>
-        /// 已上架商品独立详情页：展示该（商品 × 供应商）组合的商品图、报价/推荐价/定价范围与商品介绍，
-        /// 并允许团长在此修改团长定价与带货介绍（模仿消费者端商品详情页的独立页面样式）。
-        /// </summary>
+        // 已上架商品独立详情页：展示该（商品 × 供应商）组合的商品图、报价/推荐价/定价范围与商品介绍，
+        // 并允许团长在此修改团长定价与带货介绍（模仿消费者端商品详情页的独立页面样式）。
         [HttpGet]
         public async Task<IActionResult> EntryDetail(string productId, string supplierId, string? keyword)
         {
@@ -279,12 +270,10 @@ namespace FreshColdChain.Controllers
             });
         }
 
-        /// <summary>
-        /// 将（商品，供应商）加入/移出团长入团商品（商品入团表 CRM_PRODUCT_ENTRIES）。
-        /// 入团时携带团长定价 price（留空则默认推荐价）；报价/推荐价不再信任客户端，
-        /// 由服务层调用供应商动态定价引擎计算（报价=动态价，推荐价=报价×1.2）并随入团快照落库。
-        /// description 为供应商商品文字，入团时默认复制为团长带货介绍。
-        /// </summary>
+        // 将（商品，供应商）加入/移出团长入团商品（商品入团表 CRM_PRODUCT_ENTRIES）。
+        // 入团时携带团长定价 price（留空则默认推荐价）；报价/推荐价不再信任客户端，
+        // 由服务层调用供应商动态定价引擎计算（报价=动态价，推荐价=报价×1.2）并随入团快照落库。
+        // description 为供应商商品文字，入团时默认复制为团长带货介绍。
         [HttpPost]
         public async Task<IActionResult> ToggleProductEntry(string productId, string supplierId, string action, string? keyword,
             decimal? price, string? description = null)
@@ -318,10 +307,8 @@ namespace FreshColdChain.Controllers
             return RedirectToAction("ProductListing", new { keyword });
         }
 
-        /// <summary>
-        /// 更新已入团（商品，供应商）组合的团长定价（仅已入团商品可定价）。
-        /// 定价规则由服务层校验：|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2，未填写则默认推荐价。
-        /// </summary>
+        // 更新已入团（商品，供应商）组合的团长定价（仅已入团商品可定价）。
+        // 定价规则由服务层校验：|团长价 - 推荐价| &lt; |推荐价 - 报价| / 2，未填写则默认推荐价。
         [HttpPost]
         public async Task<IActionResult> UpdateEntryPrice(string productId, string supplierId, string? keyword,
             decimal? price, decimal supplyPrice, decimal defaultPrice)
@@ -344,10 +331,8 @@ namespace FreshColdChain.Controllers
             return RedirectToAction("EntryDetail", new { productId, supplierId, keyword });
         }
 
-        /// <summary>
-        /// 更新已入团（商品，供应商）组合的团长带货介绍文字（团长主动书写/改写商品介绍）。
-        /// 给消费者端展示的始终是团长的文字。
-        /// </summary>
+        // 更新已入团（商品，供应商）组合的团长带货介绍文字（团长主动书写/改写商品介绍）。
+        // 给消费者端展示的始终是团长的文字。
         [HttpPost]
         public async Task<IActionResult> UpdateEntryDescription(string productId, string supplierId, string? keyword, string? contentJson)
         {
@@ -371,10 +356,8 @@ namespace FreshColdChain.Controllers
             return RedirectToAction("EntryDetail", new { productId, supplierId, keyword });
         }
 
-        /// <summary>
-        /// 团长端图文介绍编辑器上传本地图片：保存到 wwwroot/uploads/promoter-img/，
-        /// 返回可访问的相对路径；校验扩展名与大小（5MB），文件名随机生成。
-        /// </summary>
+        // 团长端图文介绍编辑器上传本地图片：保存到 wwwroot/uploads/promoter-img/，
+        // 返回可访问的相对路径；校验扩展名与大小（5MB），文件名随机生成。
         [HttpPost]
         public async Task<IActionResult> UploadPromoterImage(IFormFile? file)
         {

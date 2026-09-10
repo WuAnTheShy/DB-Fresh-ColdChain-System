@@ -4,7 +4,7 @@ using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services;
 
-/// <summary>通过 B 组订单仓储和 C 组退款服务组合消费者消息，不直接跨组访问数据表。</summary>
+// 通过 B 组订单仓储和 C 组退款服务组合消费者消息，不直接跨组访问数据表。
 public sealed class ConsumerMessageService(
     IConsumerMessageRepository repository,
     IRefundService refundService) : IConsumerMessageService

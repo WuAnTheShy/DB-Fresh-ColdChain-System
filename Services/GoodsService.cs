@@ -5,10 +5,8 @@ using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// 货物服务 — 供应商对自己货物（售价/上下架/温区/保质期/描述）的维护，
-/// 以及平台管理员查看全部货物。所有供应商侧写操作均校验货物归属（SupplierID == 当前供应商）。
-/// </summary>
+// 货物服务 — 供应商对自己货物（售价/上下架/温区/保质期/描述）的维护，
+// 以及平台管理员查看全部货物。所有供应商侧写操作均校验货物归属（SupplierID == 当前供应商）。
 public class GoodsService : IGoodsService
 {
     private readonly IGoodsRepository _goodsRepo;
@@ -25,7 +23,7 @@ public class GoodsService : IGoodsService
         _supplierRepo = supplierRepo;
     }
 
-    /// <summary>供应商查看自己的货物（SupplierID = 自己）</summary>
+    // 供应商查看自己的货物（SupplierID = 自己）
     public async Task<ApiResponse<List<GoodsDto>>> GetSupplierGoodsAsync(string supplierId)
     {
         try
@@ -39,7 +37,7 @@ public class GoodsService : IGoodsService
         }
     }
 
-    /// <summary>平台管理员查看全部货物（含归属供应商）</summary>
+    // 平台管理员查看全部货物（含归属供应商）
     public async Task<ApiResponse<List<GoodsDto>>> GetAllGoodsAsync(string? keyword = null)
     {
         try
@@ -53,7 +51,7 @@ public class GoodsService : IGoodsService
         }
     }
 
-    /// <summary>供应商对现有物品建立自己的货物（不设数量，数量后续走进货）</summary>
+    // 供应商对现有物品建立自己的货物（不设数量，数量后续走进货）
     public async Task<ApiResponse<GoodsDto>> AddGoodsAsync(string supplierId, CreateGoodsDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.ProductID))
@@ -79,7 +77,6 @@ public class GoodsService : IGoodsService
                 SupplierID = supplierId,
                 SalePrice = dto.SalePrice,
                 Status = "ACTIVE",
-                StorageReq = dto.StorageReq ?? product.StorageReq,
                 ShelfLifeHours = dto.ShelfLifeHours ?? product.ExpiryHours,
                 Description = dto.Description,
                 CreateTime = DateTime.Now,
@@ -87,6 +84,8 @@ public class GoodsService : IGoodsService
             };
             await _goodsRepo.AddAsync(goods);
 
+            // 温区跟随物品，不落库；这里只是把物品的温区带出来供返回展示
+            goods.StorageReq = product.StorageReq;
             goods.Product = product;
             goods.Supplier = supplier;
             return ApiResponse<GoodsDto>.Success(MapToDto(goods), "货物已建立");
@@ -97,7 +96,7 @@ public class GoodsService : IGoodsService
         }
     }
 
-    /// <summary>供应商维护自己货物：改售价/温区/保质期/描述/上下架</summary>
+    // 供应商维护自己货物：改售价/温区/保质期/描述/上下架
     public async Task<ApiResponse> UpdateGoodsAsync(string supplierId, string productId, UpdateGoodsDto dto)
     {
         try
@@ -111,8 +110,6 @@ public class GoodsService : IGoodsService
                 if (dto.SalePrice.Value < 0) return ApiResponse.Fail("售价不能为负数");
                 goods.SalePrice = dto.SalePrice.Value;
             }
-            if (dto.StorageReq != null)
-                goods.StorageReq = string.IsNullOrWhiteSpace(dto.StorageReq) ? null : dto.StorageReq.Trim();
             if (dto.ShelfLifeHours.HasValue)
             {
                 if (dto.ShelfLifeHours.Value <= 0) return ApiResponse.Fail("保质期必须大于 0 小时");
@@ -132,16 +129,14 @@ public class GoodsService : IGoodsService
         }
     }
 
-    /// <summary>供应商上下架自己货物</summary>
+    // 供应商上下架自己货物
     public async Task<ApiResponse> SetGoodsStatusAsync(string supplierId, string productId, string status)
     {
         return await UpdateGoodsAsync(supplierId, productId, new UpdateGoodsDto { Status = status });
     }
 
-    /// <summary>
-    /// 商品管理员对“商品（物品）”整体下架/上架：连带该物品所有供应商的货物统一置为目标状态，
-    /// 保证商品下架时不会残留个别供应商仍在上架的货物，数据始终一致。
-    /// </summary>
+    // 商品管理员对“商品（物品）”整体下架/上架：连带该物品所有供应商的货物统一置为目标状态，
+    // 保证商品下架时不会残留个别供应商仍在上架的货物，数据始终一致。
     public async Task<ApiResponse<int>> AdminSetProductGoodsStatusAsync(string productId, string status)
     {
         var st = status?.Trim().ToUpperInvariant();

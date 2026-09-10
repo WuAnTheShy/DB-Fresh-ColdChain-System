@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace FreshColdChain.Services;
 
-/// <summary>C 组读取自身用户/角色，通过 A 组服务验证供应商，不让 B 组直读跨组表。</summary>
+// C 组读取自身用户/角色，通过 A 组服务验证供应商，不让 B 组直读跨组表。
 public sealed class GroupCAuthorizationService(ISysAdminRepository admins, ISupplierService suppliers,
     IOptionsSnapshot<GroupCAuthorizationOptions> options) : IGroupCAuthorizationService
 {

@@ -319,7 +319,10 @@ internal sealed class FakeOrderRepository : IOrderRepository
                     CustomerName = "测试消费者",
                     ReceiverName = order.ReceiverName,
                     ReceiverPhone = order.ReceiverPhone,
-                    ShippingAddress = order.ShippingAddress,
+                    ReceiverProvince = order.ReceiverProvince,
+                    ReceiverCity = order.ReceiverCity,
+                    ReceiverDistrict = order.ReceiverDistrict,
+                    ReceiverDetailAddress = order.ReceiverDetailAddress,
                     OrderStatus = order.OrderStatus,
                     ItemCount = details.Count,
                     TotalQuantity = details.Sum(detail => detail.Quantity),
@@ -347,7 +350,10 @@ internal sealed class FakeOrderRepository : IOrderRepository
                 CustomerName = "测试消费者",
                 ReceiverName = order.ReceiverName,
                 ReceiverPhone = order.ReceiverPhone,
-                ShippingAddress = order.ShippingAddress,
+                ReceiverProvince = order.ReceiverProvince,
+                ReceiverCity = order.ReceiverCity,
+                ReceiverDistrict = order.ReceiverDistrict,
+                ReceiverDetailAddress = order.ReceiverDetailAddress,
                 TotalAmount = order.TotalAmount,
                 DiscountAmount = order.DiscountAmount,
                 FreightAmount = order.FreightAmount,
@@ -357,6 +363,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
                 PointsUsed = order.PointsUsed,
                 PointsDiscountAmount = order.PointsDiscountAmount,
                 OrderStatus = order.OrderStatus,
+                StatusBeforeRefund = order.StatusBeforeRefund,
                 CreatedAt = order.CreatedAt,
                 UpdatedAt = order.UpdatedAt
             });
@@ -388,6 +395,52 @@ internal sealed class FakeOrderRepository : IOrderRepository
         Stage(transaction, () =>
         {
             order.OrderStatus = OrderStatusCodes.ToCode(targetStatus);
+            // 与真实仓储一致：状态变更即离开“退款审核中”，清除回退状态
+            order.StatusBeforeRefund = null;
+            order.UpdatedAt = DateTime.Now;
+        });
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> TryEnterRefundReviewAsync(
+        string orderId,
+        IDbTransaction transaction)
+    {
+        var order = Orders.SingleOrDefault(item => item.OrderId == orderId);
+        var enterable = new[]
+        {
+            OrderStatusCodes.Paid,
+            OrderStatusCodes.Shipped,
+            OrderStatusCodes.Completed,
+            OrderStatusCodes.Refunding,
+            OrderStatusCodes.RefundReviewing
+        };
+        if (order == null || !enterable.Contains(order.OrderStatus, StringComparer.Ordinal))
+            return Task.FromResult(false);
+
+        Stage(transaction, () =>
+        {
+            order.StatusBeforeRefund ??= order.OrderStatus;
+            order.OrderStatus = OrderStatusCodes.RefundReviewing;
+            order.UpdatedAt = DateTime.Now;
+        });
+        return Task.FromResult(true);
+    }
+
+    public Task<bool> TryRestoreStatusBeforeRefundAsync(
+        string orderId,
+        IDbTransaction transaction)
+    {
+        var order = Orders.SingleOrDefault(item => item.OrderId == orderId);
+        if (order == null ||
+            order.OrderStatus != OrderStatusCodes.RefundReviewing ||
+            string.IsNullOrWhiteSpace(order.StatusBeforeRefund))
+            return Task.FromResult(false);
+
+        Stage(transaction, () =>
+        {
+            order.OrderStatus = order.StatusBeforeRefund!;
+            order.StatusBeforeRefund = null;
             order.UpdatedAt = DateTime.Now;
         });
         return Task.FromResult(true);
@@ -487,7 +540,10 @@ internal sealed class FakeOrderRepository : IOrderRepository
             AddressId = order.AddressId,
             ReceiverName = order.ReceiverName,
             ReceiverPhone = order.ReceiverPhone,
-            ShippingAddress = order.ShippingAddress,
+            ReceiverProvince = order.ReceiverProvince,
+            ReceiverCity = order.ReceiverCity,
+            ReceiverDistrict = order.ReceiverDistrict,
+            ReceiverDetailAddress = order.ReceiverDetailAddress,
             TotalAmount = order.TotalAmount,
             DiscountAmount = order.DiscountAmount,
             FreightAmount = order.FreightAmount,
@@ -500,6 +556,7 @@ internal sealed class FakeOrderRepository : IOrderRepository
             PointsUsed = order.PointsUsed,
             PointsDiscountAmount = order.PointsDiscountAmount,
             OrderStatus = order.OrderStatus,
+            StatusBeforeRefund = order.StatusBeforeRefund,
             PaymentExpiresAt = order.PaymentExpiresAt,
             CreatedAt = order.CreatedAt,
             UpdatedAt = order.UpdatedAt
@@ -508,11 +565,20 @@ internal sealed class FakeOrderRepository : IOrderRepository
 
     private IEnumerable<BizOrder> FilterOrders(OrderQueryRequest request)
     {
+        // 与真实仓储一致：状态集合与退款订单号集合取并集（均未指定时不限制状态）
+        var statuses = request.OrderStatuses is { Count: > 0 }
+            ? request.OrderStatuses.Select(OrderStatusCodes.ToCode).ToHashSet(StringComparer.Ordinal)
+            : request.Status.HasValue
+                ? [OrderStatusCodes.ToCode(request.Status.Value)]
+                : null;
+        var refundOrderIds = request.OrderIds?.ToHashSet(StringComparer.Ordinal);
+
         return Orders.Where(order =>
             (request.CustomerId == null ||
              order.CustomerId == request.CustomerId) &&
-            (!request.Status.HasValue ||
-             order.OrderStatus == OrderStatusCodes.ToCode(request.Status.Value)) &&
+            ((statuses == null && refundOrderIds == null) ||
+             (statuses != null && statuses.Contains(order.OrderStatus)) ||
+             (refundOrderIds != null && refundOrderIds.Contains(order.OrderId))) &&
             (request.Keyword == null ||
              order.OrderNo.Contains(
                  request.Keyword,

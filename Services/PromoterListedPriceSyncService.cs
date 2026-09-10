@@ -4,15 +4,13 @@ using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// 供应商动态定价规则变更 → 同步已上架条目快照 的实现。
-/// 定价口径与入团（PromoterService.AddProductEntryAsync）保持一致：
-///   动态定价 = 规则引擎按（商品×供应商×数量1×当前时间）计算，无规则命中时=货物售价；
-///   推荐价 = 动态定价 × 1.2；
-///   允许范围：|团长价 - 推荐价| &lt; |推荐价 - 动态定价| / 2。
-/// 超出范围的原团长定价按“两端向内缩至分”钳制到最近合法值，避免边界等于 allowedDiff
-/// （原校验为严格小于），保证日后再次提交时同样通过校验。
-/// </summary>
+// 供应商动态定价规则变更 → 同步已上架条目快照 的实现。
+// 定价口径与入团（PromoterService.AddProductEntryAsync）保持一致：
+//   动态定价 = 规则引擎按（商品×供应商×数量1×当前时间）计算，无规则命中时=货物售价；
+//   推荐价 = 动态定价 × 1.2；
+//   允许范围：|团长价 - 推荐价| &lt; |推荐价 - 动态定价| / 2。
+// 超出范围的原团长定价按“两端向内缩至分”钳制到最近合法值，避免边界等于 allowedDiff
+// （原校验为严格小于），保证日后再次提交时同样通过校验。
 public class PromoterListedPriceSyncService : IPromoterListedPriceSyncService
 {
     private readonly IPromoterProductRepository _productRepository;
@@ -89,11 +87,9 @@ public class PromoterListedPriceSyncService : IPromoterListedPriceSyncService
         }
     }
 
-    /// <summary>
-    /// 团长定价越界钳制：合法区间为 (推荐价 - allowedDiff, 推荐价 + allowedDiff)，
-    /// 其中 allowedDiff = |推荐价 - 动态定价| / 2，端点不合法（原校验为严格小于）。
-    /// 取保留两位小数且严格落在区间内的最大偏移作为边界，退回默认时取推荐价。
-    /// </summary>
+    // 团长定价越界钳制：合法区间为 (推荐价 - allowedDiff, 推荐价 + allowedDiff)，
+    // 其中 allowedDiff = |推荐价 - 动态定价| / 2，端点不合法（原校验为严格小于）。
+    // 取保留两位小数且严格落在区间内的最大偏移作为边界，退回默认时取推荐价。
     private static decimal ClampToListedRange(decimal price, decimal defaultPrice, decimal supplyPrice)
     {
         var allowedDiff = Math.Abs(defaultPrice - supplyPrice) / 2m;

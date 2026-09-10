@@ -4,10 +4,8 @@ using FreshColdChain.Models;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// 保存模拟短信验证码和消费者登录版本。当前项目的 Session 也使用进程内存，
-/// 因此进程重启时二者会同步失效，不需要新增数据库表。
-/// </summary>
+// 保存模拟短信验证码和消费者登录版本。当前项目的 Session 也使用进程内存，
+// 因此进程重启时二者会同步失效，不需要新增数据库表。
 public sealed class CustomerAuthenticationStateService
 {
     private static readonly TimeSpan CodeLifetime = TimeSpan.FromMinutes(5);

@@ -7,11 +7,9 @@ using System.Text.RegularExpressions;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// 团长带货「图文介绍」的文件存取与图片上传服务。
-/// 图文介绍以 JSON 文件存放在 <c>wwwroot/uploads/promoter-desc/</c>，数据库仅存相对路径；
-/// 团长自行上传的介绍插图存放在 <c>wwwroot/uploads/promoter-img/</c>。
-/// </summary>
+// 团长带货「图文介绍」的文件存取与图片上传服务。
+// 图文介绍以 JSON 文件存放在 <c>wwwroot/uploads/promoter-desc/</c>，数据库仅存相对路径；
+// 团长自行上传的介绍插图存放在 <c>wwwroot/uploads/promoter-img/</c>。
 public sealed class PromoterIntroStore
 {
     public const string DescFolder = "uploads/promoter-desc";
@@ -34,14 +32,14 @@ public sealed class PromoterIntroStore
         _webRoot = Path.GetFullPath(env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot"));
     }
 
-    /// <summary>判断某存储值是否为“图文内容文件相对路径”。</summary>
+    // 判断某存储值是否为“图文内容文件相对路径”。
     public static bool LooksLikeIntroPath(string value) =>
         value.StartsWith(DescUrlPrefix, StringComparison.OrdinalIgnoreCase) &&
         value.EndsWith(".json", StringComparison.OrdinalIgnoreCase) &&
         !value.Contains("..", StringComparison.Ordinal) &&
         !value.Contains('\\');
 
-    /// <summary>根据（团长、商品、供应商）生成图文内容文件的相对路径（无扩展外拼接风险）。</summary>
+    // 根据（团长、商品、供应商）生成图文内容文件的相对路径（无扩展外拼接风险）。
     public string BuildRelativePath(string promoterId, string productId, string supplierId) =>
         $"{DescUrlPrefix}desc_{Sanitize(promoterId)}_{Sanitize(productId)}_{Sanitize(supplierId)}.json";
 
@@ -51,9 +49,7 @@ public sealed class PromoterIntroStore
         return Regex.Replace(s, "[^0-9A-Za-z._-]", "_");
     }
 
-    /// <summary>
-    /// 解析团长端提交的介绍 JSON。返回 (null,null) 表示“无内容（清空）”，(null,error) 表示格式错误。
-    /// </summary>
+    // 解析团长端提交的介绍 JSON。返回 (null,null) 表示“无内容（清空）”，(null,error) 表示格式错误。
     public static (PromoterRichContent? Content, string? Error) TryParse(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return (null, null);
@@ -70,11 +66,9 @@ public sealed class PromoterIntroStore
         }
     }
 
-    /// <summary>
-    /// 读取“存储值”（PROMOTERDESC）为图文内容：
-    /// 空 → null；相对路径 → 读取 JSON 文件；其它字符串（历史纯文字介绍）→ 自动包装为单段文字。
-    /// 任何读取异常均返回 null，避免影响页面。
-    /// </summary>
+    // 读取“存储值”（PROMOTERDESC）为图文内容：
+    // 空 → null；相对路径 → 读取 JSON 文件；其它字符串（历史纯文字介绍）→ 自动包装为单段文字。
+    // 任何读取异常均返回 null，避免影响页面。
     public async Task<PromoterRichContent?> LoadAsync(string? stored)
     {
         try
@@ -104,9 +98,7 @@ public sealed class PromoterIntroStore
         }
     }
 
-    /// <summary>
-    /// 保存图文内容到相对路径文件并返回相对路径；内容为空（或 null）时删除已有文件并返回 null（表示清除介绍）。
-    /// </summary>
+    // 保存图文内容到相对路径文件并返回相对路径；内容为空（或 null）时删除已有文件并返回 null（表示清除介绍）。
     public async Task<string?> SaveAsync(string promoterId, string productId, string supplierId, PromoterRichContent? content)
     {
         content?.Normalize();
@@ -125,7 +117,7 @@ public sealed class PromoterIntroStore
         return rel;
     }
 
-    /// <summary>取图文内容的纯文本摘要（供跨组消费者端“简介”字段使用；路径指向内容文件时读取后再拼接）。</summary>
+    // 取图文内容的纯文本摘要（供跨组消费者端“简介”字段使用；路径指向内容文件时读取后再拼接）。
     public async Task<string?> ToPlainTextAsync(string? stored, int maxLength = 2000)
     {
         var content = await LoadAsync(stored);
@@ -137,7 +129,7 @@ public sealed class PromoterIntroStore
         return text;
     }
 
-    /// <summary>保存团长上传的介绍插图，返回可访问的相对路径。文件名为随机生成，杜绝覆盖/穿越。</summary>
+    // 保存团长上传的介绍插图，返回可访问的相对路径。文件名为随机生成，杜绝覆盖/穿越。
     public async Task<(bool Ok, string? Url, string? Message)> UploadImageAsync(IFormFile? file)
     {
         if (file == null || file.Length == 0)
@@ -162,7 +154,7 @@ public sealed class PromoterIntroStore
         return (true, $"/uploads/promoter-img/{name}", null);
     }
 
-    /// <summary>将内容文件相对路径解析为 wwwroot 下的物理路径；防止越出 wwwroot 的路径穿越返回 null。</summary>
+    // 将内容文件相对路径解析为 wwwroot 下的物理路径；防止越出 wwwroot 的路径穿越返回 null。
     private string? ResolveFile(string rel)
     {
         var relative = rel.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);

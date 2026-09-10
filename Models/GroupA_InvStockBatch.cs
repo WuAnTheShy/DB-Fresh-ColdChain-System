@@ -3,9 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 库存批次 — 实现 FEFO 先进先出（文档表名：Inv_StockBatches）
-/// </summary>
+// 库存批次 — 实现 FEFO 先进先出（文档表名：Inv_StockBatches）
 [Table("Inv_StockBatches")]
 public class InvStockBatch
 {

@@ -7,6 +7,13 @@ namespace FreshColdChain.Repositories
 {
     public class RefundRepository : IRefundRepository
     {
+        // FIN_REFUND.REMARK 列宽（迁移时已扩到 200），
+        // 追加审核意见时必须按此长度截断，否则 Oracle 报 ORA-12899: value too large
+        private const int RemarkMaxLength = 200;
+
+        // 批量 IN 查询的订单号上限（订单列表一页最多 50 单，此处留足余量并防 IN 列表过长）
+        private const int MaxOrderIdFilterCount = 500;
+
         private readonly IUnitOfWork _uow;
 
         public RefundRepository(IUnitOfWork uow)
@@ -54,6 +61,38 @@ namespace FreshColdChain.Repositories
             return result.ToList();
         }
 
+        // 批量查询多个订单的退款申请记录：参数化拼 IN 列表，避免逐单查询造成 N 次往返
+        public async Task<List<FinRefund>> GetByOrderIdsAsync(IReadOnlyCollection<string> orderIds,
+            IDbTransaction? transaction = null)
+        {
+            var ids = orderIds
+                .Where(orderId => !string.IsNullOrWhiteSpace(orderId))
+                .Select(orderId => orderId.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .Take(MaxOrderIdFilterCount)
+                .ToList();
+            if (ids.Count == 0)
+            {
+                return new List<FinRefund>();
+            }
+
+            var parameters = new DynamicParameters();
+            var placeholders = new List<string>(ids.Count);
+            for (var index = 0; index < ids.Count; index++)
+            {
+                var name = $"OrderId{index}";
+                placeholders.Add($":{name}");
+                parameters.Add(name, ids[index]);
+            }
+
+            var sql = $@"
+            SELECT * FROM FIN_REFUND
+            WHERE ORDERID IN ({string.Join(", ", placeholders)})
+            ORDER BY APPLYTIME DESC";
+            var result = await _uow.Connection.QueryAsync<FinRefund>(sql, parameters, transaction);
+            return result.ToList();
+        }
+
         public async Task<bool> HasPendingApplicationAsync(string orderId, IDbTransaction? transaction = null)
         {
             const string sql = "SELECT COUNT(1) FROM FIN_REFUND WHERE ORDERID = :OrderId AND STATUS = 'Pending'";
@@ -83,18 +122,23 @@ namespace FreshColdChain.Repositories
             return result.ToList();
         }
 
-        /// <summary>带旧状态条件的审核状态更新（乐观锁）；Oracle 中 || NULL 等价于拼接空串，审核意见可空</summary>
+        // 带旧状态条件的审核状态更新（乐观锁）；Oracle 中 || NULL 等价于拼接空串，审核意见可空
         public async Task<bool> TryUpdateStatusAsync(string refundId, string expectedStatus, string newStatus,
             string? auditorId, string? auditRemark, IDbTransaction? transaction = null)
         {
-            const string sql = @"
+            // 审核意见追加到原备注之后：先按上限给原备注让位，再拼上审核意见，
+            // 这样总长度恒不超过 RemarkMaxLength（REMARK 列宽），且审核意见本身不会被截断。
+            var sql = $@"
             UPDATE FIN_REFUND
             SET STATUS = :NewStatus,
                 AUDITTIME = SYSDATE,
                 AUDITORID = :AuditorId,
-                REMARK = REMARK || :RemarkSuffix
+                REMARK = SUBSTR(REMARK, 1, {RemarkMaxLength} - NVL(LENGTH(:RemarkSuffix), 0)) || :RemarkSuffix
             WHERE REFUNDID = :RefundId AND STATUS = :ExpectedStatus";
             var remarkSuffix = string.IsNullOrEmpty(auditRemark) ? null : $" [审核意见: {auditRemark}]";
+            // 审核意见本身超长时截断，保证「让位长度」不为负、拼接结果不超列宽
+            if (remarkSuffix is { Length: > RemarkMaxLength })
+                remarkSuffix = remarkSuffix[..RemarkMaxLength];
             return await _uow.Connection.ExecuteAsync(sql, new
             {
                 RefundId = refundId,

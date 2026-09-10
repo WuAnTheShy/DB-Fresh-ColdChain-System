@@ -2,9 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace FreshColdChain.Models;
 
-/// <summary>
-/// 新增消费者请求，原始密码仅用于生成哈希，不进入持久化模型。
-/// </summary>
+// 新增消费者请求，原始密码仅用于生成哈希，不进入持久化模型。
 public sealed class CustomerCreateRequest
 {
     [Required(ErrorMessage = "请输入消费者姓名")]
@@ -20,7 +18,7 @@ public sealed class CustomerCreateRequest
     [EmailAddress(ErrorMessage = "请输入有效的邮箱地址")]
     public string? Email { get; set; }
 
-    /// <summary>预制头像标识，可选，仅允许系统预置集合中的值。</summary>
+    // 预制头像标识，可选，仅允许系统预置集合中的值。
     [StringLength(50, ErrorMessage = "头像标识不能超过50个字符")]
     public string? Avatar { get; set; }
 

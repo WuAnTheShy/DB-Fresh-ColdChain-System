@@ -4,9 +4,7 @@ using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// 优惠券服务，负责可用券查询和防重复、防超发领取。
-/// </summary>
+// 优惠券服务，负责可用券查询和防重复、防超发领取。
 public sealed class CouponService : ICouponService
 {
     private readonly ICouponRepository _couponRepo;

@@ -6,10 +6,8 @@ using FreshColdChain.Repositories;
 
 namespace FreshColdChain.Services;
 
-/// <summary>
-/// 将 A 组公开的冷链服务适配为 B 组订单履约契约。
-/// 运费、FEFO 扣减、发货单与溯源查询全部由 A 组服务完成。
-/// </summary>
+// 将 A 组公开的冷链服务适配为 B 组订单履约契约。
+// 运费、FEFO 扣减、发货单与溯源查询全部由 A 组服务完成。
 public sealed class GroupALogisticsServiceAdapter(
     IUnitOfWork unitOfWork,
     IColdChainLogisticsService coldChainLogisticsService,
