@@ -29,8 +29,15 @@ namespace FreshColdChain.Services
             _ipromoterRepository = ipromoterRepositor;
             _logManager = logManager;
         }
-        //管理员注册
-        public async Task<Result> RegisterAdmin(GroupC_AdminRegisterInfo registerInfo,
+        //管理员注册（自助注册默认 Pending，须审核；管理员代建可直接 Enabled）
+        public Task<Result> RegisterAdmin(GroupC_AdminRegisterInfo registerInfo,
+            IDbTransaction? transaction = null, CancellationToken cancellationToken = default)
+            => CreateAdminAsync(registerInfo, requireReview: true, transaction, cancellationToken);
+
+        public Task<Result> AddAdminByAdmin(GroupC_AdminRegisterInfo registerInfo)
+            => CreateAdminAsync(registerInfo, requireReview: false);
+
+        private async Task<Result> CreateAdminAsync(GroupC_AdminRegisterInfo registerInfo, bool requireReview,
             IDbTransaction? transaction = null, CancellationToken cancellationToken = default)
         {
             var result = new Result();
@@ -68,7 +75,7 @@ namespace FreshColdChain.Services
                     Phone = registerInfo.Phone,
                     RoleId = "r_admin",
                     AdminKind = adminKind,
-                    Status = "Pending",
+                    Status = requireReview ? "Pending" : "Enabled",
                     CreateTime = DateTime.Now
                 };
 
@@ -82,7 +89,7 @@ namespace FreshColdChain.Services
                 {
                     TableName = "SYS_USERS",
                     ActionType = "Create",
-                    OperatorType = "Platform",
+                    OperatorType = requireReview ? "Platform" : "Admin",
                     OperatorId = "\\",
                     OldValue = string.Empty,
                     NewValue = JsonConvert.SerializeObject(new {
@@ -97,7 +104,6 @@ namespace FreshColdChain.Services
                         CreateTime = admin.CreateTime})
                 };
                 await _logManager.WriteTableChangeLog(log);
-                // 所有业务操作成功，提交事务
                 if (ownTransaction)
                     await _uow.CommitAsync();
                 result.IsSuccess = true;
@@ -135,7 +141,7 @@ namespace FreshColdChain.Services
                 {
                     throw new Exception("团长不存在");
                 }
-                if (promoter.Status == "Pending")
+                if (GroupC_CrmPromoter.IsPendingStatus(promoter.Status))
                 {
                     throw new Exception("待审核的团长请先到注册审核中处理");
                 }
@@ -448,7 +454,7 @@ namespace FreshColdChain.Services
                 var user = await _iSysAdminRepository.GetUserByIdAsync(userId, _uow.Transaction);
                 if (user == null)
                     throw new Exception("该管理员账号不存在");
-                if (user.Status == "Pending")
+                if (user.IsPendingAccount)
                     throw new Exception("待审核的管理员请先到注册审核中处理");
                 if (user.Status == targetStatus)
                     throw new Exception("该账号已处于目标状态，无需变更");

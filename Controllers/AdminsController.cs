@@ -382,10 +382,11 @@ namespace FreshColdChain.Controllers
             return View();
         }
 
-        // 账号新增：团长新增 + 供应商新增（两个标签页）
+        // 账号新增：团长 + 供应商 + 管理员（均免审核直接生效）
         public IActionResult AccountCreate()
         {
             ViewBag.NewPromoter = new GroupC_PromoterAddInfo { BaseCommissionRate = 0.03m };
+            ViewBag.AdminKinds = AdminSession.Kinds;
             return View();
         }
 
@@ -403,6 +404,22 @@ namespace FreshColdChain.Controllers
             TempData[result.IsSuccess ? "SuccessMessage" : "ErrorMessage"] =
                 result.IsSuccess ? "供应商已创建（直接生效）" : result.Message;
             return RedirectToAction(nameof(AccountManage));
+        }
+
+        // 管理员新增管理员账号（免审核，直接 Enabled）
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddAdmin(GroupC_AdminRegisterInfo registerInfo)
+        {
+            if (registerInfo == null || string.IsNullOrWhiteSpace(registerInfo.LoginAccount))
+            {
+                TempData["ErrorMessage"] = "登录账号不能为空";
+                return RedirectToAction(nameof(AccountCreate));
+            }
+            var result = await _systemAdminService.AddAdminByAdmin(registerInfo);
+            TempData[result.IsSuccess ? "SuccessMessage" : "ErrorMessage"] =
+                result.IsSuccess ? "管理员已创建（免审核，直接生效）" : result.ErrorMessage;
+            return RedirectToAction(result.IsSuccess ? nameof(AccountManage) : nameof(AccountCreate));
         }
 
         // 管理员注册审核通过（账号管理员操作）

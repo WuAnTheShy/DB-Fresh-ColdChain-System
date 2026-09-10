@@ -37,13 +37,11 @@
                     <tbody>
                         @foreach (var item in Model)
                         {
-                            var (badge, text) = item.Status switch
-                            {
-                                "Enable" => ("text-bg-success", "正常"),
-                                "Disable" => ("text-bg-secondary", "已禁用"),
-                                "Frozen" => ("text-bg-danger", "已冻结"),
-                                _ => ("text-bg-warning", "待审核")
-                            };
+                            var (badge, text) =
+                                item.IsEnabledAccount ? ("text-bg-success", "正常") :
+                                item.Status is "Disable" or "Disabled" ? ("text-bg-secondary", "已禁用") :
+                                item.Status == "Frozen" ? ("text-bg-danger", "已冻结") :
+                                ("text-bg-warning", "待审核");
                             <tr>
                                 <td>
                                     @item.PromoterName
@@ -60,7 +58,7 @@
                                     <button type="button" class="btn btn-sm btn-outline-primary mb-1" data-bs-toggle="modal"
                                             data-bs-target="#rateModal"
                                             data-id="@item.PromoterId" data-name="@item.PromoterName" data-rate="@item.BaseCommissionRate">改比例</button>
-                                    @if (item.Status == "Enable")
+                                    @if (item.IsEnabledAccount)
                                     {
                                         <form asp-action="SetPromoterStatus" method="post" style="display:inline-block;"
                                               onsubmit="return confirm('确认禁用该团长？禁用后其无法登录。');">
@@ -70,7 +68,7 @@
                                             <button type="submit" class="btn btn-sm btn-outline-danger">禁用</button>
                                         </form>
                                     }
-                                    else if (item.Status is "Disable" or "Frozen")
+                                    else if (item.Status is "Disable" or "Disabled" or "Frozen")
                                     {
                                         <form asp-action="SetPromoterStatus" method="post" style="display:inline-block;">
                                             @Html.AntiForgeryToken()

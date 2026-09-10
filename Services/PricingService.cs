@@ -310,7 +310,7 @@ public class PricingService : IPricingService
             Priority = dto.Priority,
             IsActive = dto.IsActive ? 1 : 0,
             EffectiveFrom = dto.EffectiveFrom,
-            EffectiveTo = dto.EffectiveTo
+            EffectiveTo = NormalizeEffectiveTo(dto.EffectiveTo)
         };
 
         try
@@ -355,7 +355,7 @@ public class PricingService : IPricingService
         rule.Priority = dto.Priority;
         rule.IsActive = dto.IsActive ? 1 : 0;
         rule.EffectiveFrom = dto.EffectiveFrom;
-        rule.EffectiveTo = dto.EffectiveTo;
+        rule.EffectiveTo = NormalizeEffectiveTo(dto.EffectiveTo);
 
         try
         {
@@ -407,9 +407,6 @@ public class PricingService : IPricingService
         }
     }
 
-<<<<<<< Updated upstream
-    // ==================== 映射 ====================
-=======
     // 规则页面的商品下拉选项
 
     public async Task<List<PriceRuleGoodsOptionDto>> GetGoodsOptionsAsync(string? supplierId)
@@ -446,8 +443,7 @@ public class PricingService : IPricingService
             ? d.Date.AddDays(1).AddTicks(-1)
             : value;
 
-    // 映射
->>>>>>> Stashed changes
+    // ==================== 映射 ====================
 
     private static PriceRuleDto MapToDto(BizPriceRule r, InvProduct? product) => new()
     {

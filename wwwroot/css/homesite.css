@@ -30,10 +30,6 @@
 /* 服务承诺条：位于欢迎横幅正下方（青色图标 + 放大文字）
    四项等分铺满整条宽度，任意视口宽度下都均匀分布，不会聚拢“缩”在中间 */
 .promise-strip {
-<<<<<<< Updated upstream
-    --strip-gap: 13rem; /* 组间距（竖线自动定位在两组正中，与 --strip-gap 联动） */
-=======
->>>>>>> Stashed changes
     display: flex;
     align-items: center;
     margin: 1rem auto 2.5rem; /* 与 hero 拉开间距，整体下移 */
@@ -69,16 +65,11 @@
 
 @media (max-width: 767.98px) {
     .promise-strip {
-<<<<<<< Updated upstream
-        flex-wrap: wrap; /* 超窄屏（移动端）才允许换行 */
-        --strip-gap: 2rem;
-=======
         flex-wrap: wrap; /* 超窄屏（移动端）允许换行 */
         row-gap: 1rem;
     }
     .promise-strip > div {
         flex: 1 1 40%; /* 移动端每行放两个，避免文字过挤 */
->>>>>>> Stashed changes
     }
 }
 

@@ -14,6 +14,11 @@ public class SupplierDto
     public List<string> ProductNames { get; set; } = new();
     /// <summary>状态: Pending / Active / Disabled / Rejected</summary>
     public string Status { get; set; } = "Active";
+
+    public bool IsActiveAccount =>
+        string.Equals(Status?.Trim(), "Active", StringComparison.OrdinalIgnoreCase);
+    public bool IsPendingAccount =>
+        string.Equals(Status?.Trim(), "Pending", StringComparison.OrdinalIgnoreCase);
 }
 
 public class CreateSupplierDto
@@ -80,4 +85,5 @@ public class SupplierAccountDto
     public int CreditLevel { get; set; }
     public string? ContactPhone { get; set; }
     public string? LoginAccount { get; set; }
+    public string Status { get; set; } = "Active";
 }

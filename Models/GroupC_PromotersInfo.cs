@@ -23,6 +23,20 @@ namespace FreshColdChain.Models
         public string? AlipayAccount { get; set; }                   // 绑定的支付宝账号
         public string? BankCardAccount { get; set; }                 // 绑定的银行卡号
 
+        public bool IsEnabledAccount => IsEnabledStatus(Status);
+        public bool IsPendingAccount => IsPendingStatus(Status);
+
+        public static bool IsEnabledStatus(string? status)
+        {
+            var value = status?.Trim();
+            return string.Equals(value, "Enable", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "Enabled", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(value, "Active", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool IsPendingStatus(string? status)
+            => string.Equals(status?.Trim(), "Pending", StringComparison.OrdinalIgnoreCase);
+
         public string? GetBoundPayAccount(string? platform) => PromoterPayAccounts.Normalize(platform) switch
         {
             PromoterPayAccounts.Alipay => AlipayAccount,

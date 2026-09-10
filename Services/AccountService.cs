@@ -47,9 +47,17 @@ namespace FreshColdChain.Services
             var verifyResponse = await _isupplierService.VerifySupplierPasswordAsync(loginAccount, password);
             if (!verifyResponse.IsSuccess || !verifyResponse.Data)
                 return new SupplierLoginResult { IsSuccess = false, Message = "账号或密码错误" };
-            var expiryDate = (DateTime)(supplier.ExpiryDate != null ? supplier.ExpiryDate : DateTime.MinValue);
-            // 检查状态
-            if (DateTime.Compare(expiryDate, DateTime.Now) < 0)
+
+            var status = supplier.Status?.Trim();
+            if (string.Equals(status, "Pending", StringComparison.OrdinalIgnoreCase))
+                return new SupplierLoginResult { IsSuccess = false, Message = "账号尚未审核，请耐心等待" };
+            if (string.Equals(status, "Disabled", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(status, "Rejected", StringComparison.OrdinalIgnoreCase))
+                return new SupplierLoginResult { IsSuccess = false, Message = "账号未启用或已被禁用" };
+            if (!string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase))
+                return new SupplierLoginResult { IsSuccess = false, Message = "账号未启用" };
+
+            if (supplier.ExpiryDate.HasValue && supplier.ExpiryDate.Value.Date < DateTime.Now.Date)
                 return new SupplierLoginResult { IsSuccess = false, Message = "资质已过期" };
 
             return new SupplierLoginResult

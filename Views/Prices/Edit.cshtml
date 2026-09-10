@@ -119,39 +119,6 @@
         }
         triggerType.addEventListener('change', updateVisibility);
         updateVisibility();
-<<<<<<< Updated upstream
-=======
-
-        // 生效时段：预设下拉 + 自定义时段输入，统一写回 TimeWindow 隐藏域
-        const timeWindowPreset = document.getElementById('timeWindowPreset');
-        const timeWindowValue = document.getElementById('timeWindowValue');
-        const timeWindowCustom = document.getElementById('timeWindowCustom');
-
-        const presetFor = (value) => {
-            const v = (value || '').trim().toUpperCase();
-            if (!v || v === 'ALL_DAY' || v === 'ALLDAY') return 'ALL_DAY';
-            if (v === 'AFTER_18_00') return 'AFTER_18_00';
-            if (v === 'NIGHT_22_TO_02') return 'NIGHT_22_TO_02';
-            if (v === 'WEEKEND_ONLY') return 'WEEKEND_ONLY';
-            if (v === 'SUMMER_SEASON') return 'SUMMER_SEASON';
-            return '__CUSTOM__';
-        };
-
-        function syncTimeWindow() {
-            if (timeWindowPreset.value === '__CUSTOM__') {
-                timeWindowCustom.style.display = '';
-                timeWindowValue.value = timeWindowCustom.value;
-            } else {
-                timeWindowCustom.style.display = 'none';
-                timeWindowValue.value = timeWindowPreset.value;
-            }
-        }
-
-        timeWindowPreset.value = presetFor(timeWindowValue.value);
-        timeWindowCustom.value = timeWindowValue.value;
-        syncTimeWindow();
-        timeWindowPreset.addEventListener('change', syncTimeWindow);
-        timeWindowCustom.addEventListener('input', () => { timeWindowValue.value = timeWindowCustom.value; });
 
         // 商品下拉：把所选货物归属的供应商同步到 SupplierID（平台管理员视图尤为关键）
         const productSelect = document.getElementById('productSelect');
@@ -164,6 +131,5 @@
         }
         productSelect.addEventListener('change', syncSupplierId);
         syncSupplierId();
->>>>>>> Stashed changes
     </script>
 }

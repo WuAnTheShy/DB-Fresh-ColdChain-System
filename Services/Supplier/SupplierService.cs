@@ -49,7 +49,9 @@ public class SupplierService : ISupplierService
                 SupplierName = dto.SupplierName, LicenseNo = dto.LicenseNo,
                 ExpiryDate = dto.ExpiryDate, CreditLevel = dto.CreditLevel,
                 ContactPhone = dto.ContactPhone, LoginAccount = dto.LoginAccount,
-                LoginPassword = string.IsNullOrEmpty(dto.LoginPassword) ? null : HashPassword(dto.LoginPassword)
+                LoginPassword = string.IsNullOrEmpty(dto.LoginPassword) ? null : HashPassword(dto.LoginPassword),
+                // 管理员代建与后台登记均直接生效；自助入驻若走此接口也按已审核处理
+                Status = "Active"
             };
             await _repo.AddAsync(s);
             return ApiResponse<SupplierDto>.Success(MapToDto(s), "供应商创建成功");
@@ -283,7 +285,8 @@ public class SupplierService : ISupplierService
             ExpiryDate = s.ExpiryDate,
             CreditLevel = s.CreditLevel,
             ContactPhone = s.ContactPhone,
-            LoginAccount = s.LoginAccount
+            LoginAccount = s.LoginAccount,
+            Status = s.Status?.Trim() ?? string.Empty
         }).ToList();
 
         return ApiResponse<List<SupplierAccountDto>>.Success(list);
@@ -463,7 +466,8 @@ public class SupplierService : ISupplierService
     public async Task<ApiResponse<List<SupplierDto>>> GetSuppliersByStatusAsync(string status)
     {
         var all = await _repo.GetAllAsync();
-        var list = all.Where(s => s.Status == status).Select(MapToDto).ToList();
+        var list = all.Where(s => string.Equals(s.Status?.Trim(), status, StringComparison.OrdinalIgnoreCase))
+            .Select(MapToDto).ToList();
         return ApiResponse<List<SupplierDto>>.Success(list);
     }
 
@@ -509,7 +513,7 @@ public class SupplierService : ISupplierService
         LicenseNo = s.LicenseNo, ExpiryDate = s.ExpiryDate,
         CreditLevel = s.CreditLevel, ContactPhone = s.ContactPhone,
         LoginAccount = s.LoginAccount,
-        Status = s.Status,
+        Status = s.Status?.Trim() ?? string.Empty,
         ProductCount = s.ProductCount > 0 ? s.ProductCount : (s.Products?.Count ?? 0),
         ProductNames = s.Products?.Select(p => p.ProductName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().ToList() ?? new()
     };

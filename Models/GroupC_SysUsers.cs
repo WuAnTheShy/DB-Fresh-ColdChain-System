@@ -12,6 +12,12 @@ namespace FreshColdChain.Models
         public string Status { get; set; } = "Enabled";              // 账号状态: Enabled / Disabled / Locked
         public DateTime? LastLoginTime { get; set; }                 // 最近登录时间
         public DateTime CreateTime { get; set; }                     // 创建时间
+
+        public bool IsEnabledAccount =>
+            string.Equals(Status?.Trim(), "Enabled", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(Status?.Trim(), "Enable", StringComparison.OrdinalIgnoreCase);
+        public bool IsPendingAccount =>
+            string.Equals(Status?.Trim(), "Pending", StringComparison.OrdinalIgnoreCase);
     }
 }
 

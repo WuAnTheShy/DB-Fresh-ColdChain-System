@@ -1,5 +1,6 @@
 @{
     ViewData["Title"] = "账号新增";
+    var adminKinds = ViewBag.AdminKinds as (string Code, string Name)[] ?? Array.Empty<(string, string)>();
 }
 <partial name="_Alerts" />
 
@@ -15,6 +16,9 @@
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabCreateSupplier" type="button" role="tab">新增供应商</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabCreateAdmin" type="button" role="tab">新增管理员</button>
             </li>
         </ul>
         <div class="tab-content p-0">
@@ -92,6 +96,44 @@
                             </div>
                         </div>
                         <button type="submit" class="btn btn-primary">创建供应商</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 新增管理员 -->
+            <div class="tab-pane fade" id="tabCreateAdmin" role="tabpanel">
+                <div class="p-3" style="max-width: 640px;">
+                    <form asp-action="AddAdmin" method="post">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-3">
+                            <label class="form-label">真实姓名 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="RealName" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">管理员种类 <span class="text-danger">*</span></label>
+                            <select class="form-select" name="AdminKind" required>
+                                <option value="">请选择管理员种类</option>
+                                @foreach (var kind in adminKinds)
+                                {
+                                    <option value="@kind.Code">@kind.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">登录账号 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="LoginAccount" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">登录密码 <span class="text-danger">*</span></label>
+                                <input type="password" class="form-control" name="LoginPassword" required />
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label">联系电话</label>
+                            <input type="text" class="form-control" name="Phone" />
+                        </div>
+                        <button type="submit" class="btn btn-primary">创建管理员</button>
                     </form>
                 </div>
             </div>

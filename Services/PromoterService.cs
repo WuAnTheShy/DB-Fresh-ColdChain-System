@@ -226,12 +226,14 @@ namespace FreshColdChain.Services
             if (promoter.LoginPassword != hashedInput)
                 return new GroupC_PromoterLoginResult { IsSuccess = false, Message = "密码错误" };
 
-            if (promoter.Status == "Pending")
+            if (GroupC_CrmPromoter.IsPendingStatus(promoter.Status))
                 return new GroupC_PromoterLoginResult { IsSuccess = false, Message = "账号尚未审核，请耐心等待" };
             if (promoter.Status == "Frozen")
                 return new GroupC_PromoterLoginResult { IsSuccess = false, Message = "账号已被禁用" };
-            if (promoter.Status == "Disable")
+            if (promoter.Status is "Disable" or "Disabled")
                 return new GroupC_PromoterLoginResult { IsSuccess = false, Message = "账号未审核通过" };
+            if (!GroupC_CrmPromoter.IsEnabledStatus(promoter.Status))
+                return new GroupC_PromoterLoginResult { IsSuccess = false, Message = "账号未启用" };
 
             return new GroupC_PromoterLoginResult
             {
@@ -266,7 +268,7 @@ namespace FreshColdChain.Services
 
                 var promoter = new GroupC_CrmPromoter
                 {
-                    PromoterId = Guid.NewGuid().ToString("N"),
+                    PromoterId = "PRO_" + Guid.NewGuid().ToString("N"),
                     PromoterName = addInfo.PromoterName,
                     LoginAccount = addInfo.LoginAccount,
                     LoginPassword = hashedPassword,
@@ -276,7 +278,8 @@ namespace FreshColdChain.Services
                     PendingBalance = 0,
                     CurrentBalance = 0,
                     InviteCode = GenerateInviteCode(),
-                    Status = "Active",
+                    // 与自助注册审核通过后的状态一致；"Active" 会被账号管理页当成待审核，且审核列表只查 Pending
+                    Status = "Enable",
                     RegisterTime = DateTime.Now,
                 };
 
