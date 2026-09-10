@@ -102,17 +102,12 @@ public sealed class GroupCPromoterCatalogService(
             promoterId,
             cancellationToken);
         var promoterEnabled = promoter != null && IsEnabled(promoter.Status);
-        var supplierIds = promoterEnabled
-            ? (await promoterService.GetActiveSupplierIdsAsync(promoterId))
-                .ToHashSet(StringComparer.Ordinal)
-            : new HashSet<string>(StringComparer.Ordinal);
         var entries = promoterEnabled
             ? await promoterService.GetPromoterFeaturedProductsAsync(promoterId)
             : [];
-        var entryMap = entries.ToDictionary(
-            entry => $"{entry.ProductID}\u001f{entry.SupplierID}",
-            entry => entry,
-            StringComparer.Ordinal);
+        var entryMap = entries
+            .GroupBy(entry => $"{entry.ProductID}\u001f{entry.SupplierID}", StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
         var result = new List<GroupCPromoterProductValidation>(products.Count);
         foreach (var product in products)
@@ -129,9 +124,9 @@ public sealed class GroupCPromoterCatalogService(
             {
                 ProductId = product.ProductId,
                 SupplierId = product.SupplierId,
-                IsAllowed = promoterEnabled &&
-                    supplierIds.Contains(product.SupplierId) &&
-                    hasEntry,
+                // 授权以「已入团且在售」为准；不再额外要求 CRM_PSRELATION，
+                // 因为团长上架货盘时往往只写了 CRM_PRODUCT_ENTRIES。
+                IsAllowed = promoterEnabled && hasEntry,
                 SalePrice = hasEntry ? entry!.Price : null,
                 Description = description,
                 ImageUrls = hasEntry ? entry!.Images : []

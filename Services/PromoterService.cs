@@ -533,7 +533,14 @@ namespace FreshColdChain.Services
         //============================团长-供应商合作服务===================================
         public async Task<List<string>> GetActiveSupplierIdsAsync(string promoterId)
         {
-            return await _ipsRepository.GetActiveSupplierIdsByPromoterAsync(promoterId, _uow.Transaction);
+            var fromRelation = await _ipsRepository.GetActiveSupplierIdsByPromoterAsync(promoterId, _uow.Transaction);
+            var fromEntries = await _iproductRepository.GetActiveEntriesByPromoterAsync(promoterId, _uow.Transaction);
+            // 入团货盘才是消费者可见的供货关系；CRM_PSRELATION 可能漏写，不能单独作为授权依据
+            return fromRelation
+                .Concat(fromEntries.Select(entry => entry.SupplierId))
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         public async Task<Dictionary<string, bool>> ValidateSuppliersAsync(string promoterId, List<string> supplierIds)
@@ -713,6 +720,8 @@ namespace FreshColdChain.Services
                 // supplyPrice/defaultPrice 作为动态报价快照随入团写入 CRM_PRODUCT_ENTRIES
                 var result = await _iproductRepository.AddOrUpdateEntryAsync(
                     promoterId, productId, supplierId, price, supplyPrice, defaultPrice, description, "Active", _uow.Transaction);
+                // 入团即表示与该供应商合作；下单校验会读 CRM_PSRELATION，必须同步写入
+                await _ipsRepository.AddOrUpdateRelationAsync(promoterId, supplierId, "Active", _uow.Transaction);
                 await _uow.CommitAsync();
                 return result;
             }
